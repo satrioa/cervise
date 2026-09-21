@@ -1,0 +1,17 @@
+{
+  "name": "Cervise — Servis Gadget Multibranch",
+  "short_name": "Cervise",
+  "description": "Manajemen servis gadget ringan untuk Frontliner & Teknisi",
+  "start_url": "/app",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#0a0a0a",
+  "icons": [
+    {
+      "src": "/favicon.ico",
+      "sizes": "48x48",
+      "type": "image/x-icon"
+    }
+  ],
+  "lang": "id"
+}
