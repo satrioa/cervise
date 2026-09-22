@@ -29,7 +29,7 @@ export function Table({
         {...props}
       />
     ),
-    className: "relative w-full overflow-x-auto",
+    className: "relative w-full overflow-x-auto scrollbar-none",
     "data-slot": "table-container",
     "data-variant": variant,
   };

@@ -18,14 +18,20 @@ import {
   ArrowLeftRight,
   FileText,
   UserCheck,
+  ShieldIcon,
+  ScrollTextIcon,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { CerviseCommandPalette } from "@/components/layout/command-palette";
+import { BranchProvider, useBranch, BRANCHES } from "@/lib/branch-context";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { cn } from "@/lib/utils";
+import { CheckIcon } from "lucide-react";
 
 export type NavItem = {
   label: string;
@@ -72,31 +78,76 @@ export const NAV_GROUPS: NavGroup[] = [
       { label: "Performa Karyawan", href: "/app/laporan/performa", icon: UserCheck },
     ],
   },
+  {
+    label: "Layanan",
+    items: [{ label: "Audit Log", href: "/app/audit-log", icon: ShieldIcon }],
+  },
 ];
 
 // flat for mobile bottom nav
 export const FLAT_NAV = NAV_GROUPS.flatMap((g) => g.items);
 
-function SidebarContent({ onNavigate, onSearchClick }: { onNavigate?: () => void; onSearchClick?: () => void }) {
-  const pathname = usePathname();
+function BranchSwitcher() {
+  const { branch, setBranch, branches } = useBranch();
+  const [open, setOpen] = useState(false);
   return (
-    <>
-      {/* Branch Switcher */}
-      <button
-        type="button"
-        className="flex w-full items-center justify-between gap-2 border-b border-border/60 px-3.5 py-3 text-left transition-colors hover:bg-foreground/[0.03]"
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger
+        render={
+          <button
+            type="button"
+            className="flex w-full items-center justify-between gap-2 border-b border-border/60 px-3.5 py-3 text-left transition-colors hover:bg-foreground/[0.03]"
+          />
+        }
       >
-        <div className="flex items-center gap-2.5">
-          <div className="flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <div className="flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground shrink-0">
             <Store className="size-4" />
           </div>
-          <div className="min-w-0">
-            <div className="truncate font-semibold text-sm">Cervise Pusat</div>
-            <div className="truncate font-mono text-[10px] text-muted-foreground uppercase tracking-widest">Pro · 3 cabang</div>
+          <div className="min-w-0 text-left">
+            <div className="truncate font-semibold text-sm">{branch.label}</div>
+            <div className="truncate font-mono text-[10px] text-muted-foreground uppercase tracking-widest">{branch.meta}</div>
           </div>
         </div>
-        <ChevronDown className="size-3.5 opacity-60" />
-      </button>
+        <ChevronDown className="size-3.5 opacity-60 shrink-0" />
+      </PopoverTrigger>
+      <PopoverContent align="start" side="bottom" className="w-[248px] p-1">
+        <div className="px-2 py-1.5 font-mono text-[10px] text-muted-foreground uppercase tracking-widest">Pilih cabang</div>
+        {branches.map((b) => {
+          const active = branch.id === b.id;
+          return (
+            <button
+              key={b.id}
+              type="button"
+              onClick={() => {
+                setBranch(b);
+                setOpen(false);
+              }}
+              className={cn(
+                "flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left transition-colors",
+                active ? "bg-foreground/[0.06] text-foreground" : "hover:bg-foreground/[0.04] text-muted-foreground hover:text-foreground"
+              )}
+            >
+              <Store className="size-4 opacity-70 shrink-0" />
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-sm font-medium">{b.label}</div>
+                <div className="truncate text-[11px] text-muted-foreground">{b.meta}</div>
+              </div>
+              {active && <CheckIcon className="size-4 text-primary shrink-0" />}
+            </button>
+          );
+        })}
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+function SidebarContent({ onNavigate, onSearchClick }: { onNavigate?: () => void; onSearchClick?: () => void }) {
+  const pathname = usePathname();
+  const { branch } = useBranch();
+  return (
+    <>
+      <BranchSwitcher />
 
       <div className="px-3 pt-3">
         <button
@@ -110,7 +161,7 @@ function SidebarContent({ onNavigate, onSearchClick }: { onNavigate?: () => void
         </button>
       </div>
 
-      <nav className="mt-3 flex-1 overflow-y-auto px-2 pb-4">
+      <nav className="mt-3 flex-1 overflow-y-auto scrollbar-none px-2 pb-4">
         {NAV_GROUPS.map((group) => (
           <div key={group.label ?? "dashboard"} className="mt-3 first:mt-1">
             {group.label && <SectionLabel>{group.label}</SectionLabel>}
@@ -159,7 +210,7 @@ function SidebarContent({ onNavigate, onSearchClick }: { onNavigate?: () => void
           <div className="truncate text-sm font-medium">Master Admin</div>
           <div className="flex items-center gap-1.5 truncate text-xs text-muted-foreground">
             <span className="size-1.5 rounded-full bg-emerald-500" />
-            Cervise Pusat
+            <span className="truncate">{branch.label}</span>
           </div>
         </div>
         <Link href="/login" className="rounded-md p-1.5 text-muted-foreground hover:bg-foreground/[0.04]">
@@ -181,10 +232,22 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
   );
 }
 
-export function AppShell({ children }: { children: React.ReactNode }) {
+function AppShellInner({ children }: { children: React.ReactNode }) {
   const [open, setOpen] = useState(false);
   const [cmdOpen, setCmdOpen] = useState(false);
   const pathname = usePathname();
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [showTopFade, setShowTopFade] = useState(false);
+  const [showBottomFade, setShowBottomFade] = useState(false);
+
+  const updateFade = useCallback(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const { scrollTop, scrollHeight, clientHeight } = el;
+    const canScroll = scrollHeight > clientHeight + 4;
+    setShowTopFade(canScroll && scrollTop > 6);
+    setShowBottomFade(canScroll && scrollTop + clientHeight < scrollHeight - 6);
+  }, []);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -197,43 +260,86 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    updateFade();
+    const ro = new ResizeObserver(updateFade);
+    ro.observe(el);
+    const content = el.querySelector("[data-main-content]") as Element | null;
+    if (content) ro.observe(content);
+    // MutationObserver fallback for content that changes without resize event
+    const mo = new MutationObserver(updateFade);
+    mo.observe(el, { childList: true, subtree: true });
+    window.addEventListener("resize", updateFade);
+    const id = requestAnimationFrame(updateFade);
+    const tid = setTimeout(updateFade, 150);
+    return () => {
+      ro.disconnect();
+      mo.disconnect();
+      window.removeEventListener("resize", updateFade);
+      cancelAnimationFrame(id);
+      clearTimeout(tid);
+    };
+  }, [updateFade, pathname]);
+
   return (
-    <div className="grid min-h-svh grid-cols-1 bg-background text-foreground lg:grid-cols-[260px_1fr]">
-      <aside className="hidden h-svh flex-col border-r border-border/60 bg-foreground/[0.02] lg:flex sticky top-0">
+    <div className="flex h-svh w-full overflow-hidden bg-background text-foreground lg:grid lg:grid-cols-[260px_1fr]">
+      <aside className="hidden h-svh shrink-0 flex-col border-r border-border/60 bg-foreground/[0.02] lg:flex sticky top-0 overflow-hidden">
         <SidebarContent onSearchClick={() => setCmdOpen(true)} />
       </aside>
 
-      <div className="lg:hidden sticky top-0 z-40 flex items-center justify-between border-b border-border/60 bg-background px-3 py-2">
-        <Sheet open={open} onOpenChange={setOpen}>
-          <SheetTrigger render={<Button variant="ghost" size="icon" className="size-8" />}>
-            <LayoutDashboard className="size-5" />
-          </SheetTrigger>
-          <SheetContent side="left" className="w-[280px] p-0 flex flex-col">
-            <SheetHeader className="sr-only">
-              <SheetTitle>Menu Cervise</SheetTitle>
-            </SheetHeader>
-            <SidebarContent
-              onNavigate={() => setOpen(false)}
-              onSearchClick={() => {
-                setOpen(false);
-                setTimeout(() => setCmdOpen(true), 200);
-              }}
-            />
-          </SheetContent>
-        </Sheet>
-        <div className="flex items-center gap-2 font-semibold text-sm">
-          <span className="flex size-7 items-center justify-center rounded-md bg-primary text-primary-foreground">C</span>
-          Cervise
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden lg:col-start-2">
+        <div className="lg:hidden sticky top-0 z-40 flex shrink-0 items-center justify-between border-b border-border/60 bg-background px-3 py-2">
+          <Sheet open={open} onOpenChange={setOpen}>
+            <SheetTrigger render={<Button variant="ghost" size="icon" className="size-8" />}>
+              <LayoutDashboard className="size-5" />
+            </SheetTrigger>
+            <SheetContent side="left" className="w-[280px] p-0 flex flex-col">
+              <SheetHeader className="sr-only">
+                <SheetTitle>Menu Cervise</SheetTitle>
+              </SheetHeader>
+              <SidebarContent
+                onNavigate={() => setOpen(false)}
+                onSearchClick={() => {
+                  setOpen(false);
+                  setTimeout(() => setCmdOpen(true), 200);
+                }}
+              />
+            </SheetContent>
+          </Sheet>
+          <div className="flex items-center gap-2 font-semibold text-sm">
+            <span className="flex size-7 items-center justify-center rounded-md bg-primary text-primary-foreground">C</span>
+            Cervise
+          </div>
+          <div className="size-8" />
         </div>
-        <div className="size-8" />
-      </div>
 
-      <CerviseCommandPalette open={cmdOpen} onOpenChange={setCmdOpen} />
+        <CerviseCommandPalette open={cmdOpen} onOpenChange={setCmdOpen} />
 
-      <main className="flex min-h-0 flex-col">
-        <div className="flex-1">{children}</div>
+        <div
+          ref={scrollRef}
+          onScroll={updateFade}
+          className="relative flex-1 overflow-y-auto overflow-x-hidden scrollbar-none scroll-smooth"
+        >
+          {/* progressive blur — top */}
+          <div
+            aria-hidden
+            className="pointer-events-none sticky top-0 z-10 -mb-8 h-8 bg-gradient-to-b from-background via-background/60 to-transparent backdrop-blur-[6px] [mask-image:linear-gradient(to_bottom,black_0%,black_35%,transparent_100%)] transition-opacity duration-300"
+            style={{ opacity: showTopFade ? 1 : 0 }}
+          />
+          <div data-main-content className="min-h-full">
+            {children}
+          </div>
+          {/* progressive blur — bottom */}
+          <div
+            aria-hidden
+            className="pointer-events-none sticky bottom-0 z-10 -mt-8 h-8 bg-gradient-to-t from-background via-background/60 to-transparent backdrop-blur-[6px] [mask-image:linear-gradient(to_top,black_0%,black_35%,transparent_100%)] transition-opacity duration-300"
+            style={{ opacity: showBottomFade ? 1 : 0 }}
+          />
+        </div>
 
-        <nav className="sticky bottom-0 z-30 flex items-center justify-around border-t border-border/60 bg-background px-1 py-1 lg:hidden safe-area-pb">
+        <nav className="shrink-0 sticky bottom-0 z-30 flex items-center justify-around border-t border-border/60 bg-background px-1 py-1 lg:hidden safe-area-pb">
           {FLAT_NAV.slice(0, 4).map((item) => {
             const active = pathname === item.href || (item.href !== "/app" && pathname.startsWith(item.href));
             return (
@@ -264,7 +370,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </SheetContent>
           </Sheet>
         </nav>
-      </main>
+      </div>
     </div>
+  );
+}
+
+export function AppShell({ children }: { children: React.ReactNode }) {
+  return (
+    <BranchProvider>
+      <AppShellInner>{children}</AppShellInner>
+    </BranchProvider>
   );
 }

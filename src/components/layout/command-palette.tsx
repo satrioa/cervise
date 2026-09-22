@@ -17,17 +17,18 @@ import {
   ArrowLeftRight,
   FileText,
   UserCheck,
+  ShieldIcon,
 } from "lucide-react";
 import {
-  CommandDialog,
   Command,
-  CommandInput,
-  CommandList,
+  CommandDialog,
+  CommandDialogPopup,
   CommandEmpty,
   CommandGroup,
   CommandGroupLabel,
+  CommandInput,
   CommandItem,
-  CommandDialogPopup,
+  CommandList,
   CommandSeparator,
   CommandShortcut,
 } from "@/components/ui/command";
@@ -67,7 +68,7 @@ export function CerviseCommandPalette({ open, onOpenChange }: Props) {
 
               <CommandGroup>
                 <CommandGroupLabel>Navigasi</CommandGroupLabel>
-                <CommandItem onClick={() => navigate("/app")}>
+                <CommandItem value="dashboard" onClick={() => navigate("/app")}>
                   <LayoutDashboard className="size-4" /> Dashboard
                   <CommandShortcut>⌘D</CommandShortcut>
                 </CommandItem>
@@ -75,50 +76,57 @@ export function CerviseCommandPalette({ open, onOpenChange }: Props) {
 
               <CommandGroup>
                 <CommandGroupLabel>Operasional</CommandGroupLabel>
-                <CommandItem onClick={() => navigate("/app/servis")}>
+                <CommandItem value="servis" onClick={() => navigate("/app/servis")}>
                   <Wrench className="size-4" /> Servis
                 </CommandItem>
-                <CommandItem onClick={() => navigate("/app/inventory")}>
+                <CommandItem value="inventory" onClick={() => navigate("/app/inventory")}>
                   <Package className="size-4" /> Inventory
                 </CommandItem>
               </CommandGroup>
 
               <CommandGroup>
                 <CommandGroupLabel>Manajemen</CommandGroupLabel>
-                <CommandItem onClick={() => navigate("/app/customer")}>
+                <CommandItem value="customer" onClick={() => navigate("/app/customer")}>
                   <Users className="size-4" /> Customer
                 </CommandItem>
-                <CommandItem onClick={() => navigate("/app/karyawan")}>
+                <CommandItem value="karyawan" onClick={() => navigate("/app/karyawan")}>
                   <UserCog className="size-4" /> Karyawan
                 </CommandItem>
-                <CommandItem onClick={() => navigate("/app/cabang")}>
+                <CommandItem value="cabang" onClick={() => navigate("/app/cabang")}>
                   <Building2 className="size-4" /> Cabang
                 </CommandItem>
               </CommandGroup>
 
               <CommandGroup>
                 <CommandGroupLabel>Keuangan</CommandGroupLabel>
-                <CommandItem onClick={() => navigate("/app/keuangan/transaksi")}>
+                <CommandItem value="transaksi" onClick={() => navigate("/app/keuangan/transaksi")}>
                   <Receipt className="size-4" /> Transaksi
                 </CommandItem>
-                <CommandItem onClick={() => navigate("/app/keuangan/arus-kas")}>
+                <CommandItem value="arus-kas" onClick={() => navigate("/app/keuangan/arus-kas")}>
                   <ArrowLeftRight className="size-4" /> Arus Kas
                 </CommandItem>
-                <CommandItem onClick={() => navigate("/app/keuangan/invoice")}>
+                <CommandItem value="invoice" onClick={() => navigate("/app/keuangan/invoice")}>
                   <FileText className="size-4" /> Invoice
                 </CommandItem>
               </CommandGroup>
 
               <CommandGroup>
                 <CommandGroupLabel>Laporan</CommandGroupLabel>
-                <CommandItem onClick={() => navigate("/app/laporan/servis")}>
+                <CommandItem value="laporan-servis" onClick={() => navigate("/app/laporan/servis")}>
                   <Wrench className="size-4" /> Laporan Servis
                 </CommandItem>
-                <CommandItem onClick={() => navigate("/app/laporan/keuangan")}>
+                <CommandItem value="laporan-keuangan" onClick={() => navigate("/app/laporan/keuangan")}>
                   <Wallet className="size-4" /> Laporan Keuangan
                 </CommandItem>
-                <CommandItem onClick={() => navigate("/app/laporan/performa")}>
+                <CommandItem value="performa" onClick={() => navigate("/app/laporan/performa")}>
                   <UserCheck className="size-4" /> Performa Karyawan
+                </CommandItem>
+              </CommandGroup>
+
+              <CommandGroup>
+                <CommandGroupLabel>Layanan</CommandGroupLabel>
+                <CommandItem value="audit-log" onClick={() => navigate("/app/audit-log")}>
+                  <ShieldIcon className="size-4" /> Audit Log
                 </CommandItem>
               </CommandGroup>
 
@@ -126,7 +134,7 @@ export function CerviseCommandPalette({ open, onOpenChange }: Props) {
 
               <CommandGroup>
                 <CommandGroupLabel>Aksi</CommandGroupLabel>
-                <CommandItem onClick={handleNewServis}>
+                <CommandItem value="tambah-servis" onClick={handleNewServis}>
                   <Plus className="size-4" /> Tambah Servis Baru
                   <CommandShortcut>⌘N</CommandShortcut>
                 </CommandItem>
@@ -136,7 +144,7 @@ export function CerviseCommandPalette({ open, onOpenChange }: Props) {
 
               <CommandGroup>
                 <CommandGroupLabel>Sistem</CommandGroupLabel>
-                <CommandItem onClick={() => navigate("/login")}>
+                <CommandItem value="keluar" onClick={() => navigate("/login")}>
                   <LogOut className="size-4" /> Keluar
                 </CommandItem>
               </CommandGroup>
