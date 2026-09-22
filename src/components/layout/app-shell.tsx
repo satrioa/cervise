@@ -2,7 +2,7 @@
 
 import {
   BarChart3,
-  ChevronDown,
+  ChevronsUpDown,
   LayoutDashboard,
   Search,
   Settings,
@@ -20,6 +20,8 @@ import {
   UserCheck,
   ShieldIcon,
   ScrollTextIcon,
+  PlusIcon,
+  HomeIcon,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -51,7 +53,7 @@ export const NAV_GROUPS: NavGroup[] = [
     label: "Operasional",
     items: [
       { label: "Servis", href: "/app/servis", icon: Wrench, badge: 12 },
-      { label: "Inventory", href: "/app/inventory", icon: Package },
+      { label: "Sparepart", href: "/app/sparepart", icon: Package },
     ],
   },
   {
@@ -87,6 +89,24 @@ export const NAV_GROUPS: NavGroup[] = [
 // flat for mobile bottom nav
 export const FLAT_NAV = NAV_GROUPS.flatMap((g) => g.items);
 
+const BRANCH_TONES = [
+  "from-emerald-500/20 to-teal-500/10",
+  "from-slate-500/20 to-slate-500/5",
+  "from-violet-500/20 to-fuchsia-500/10",
+  "from-amber-500/20 to-orange-500/10",
+  "from-sky-500/20 to-sky-500/5",
+];
+
+function branchTone(branchId: string) {
+  let hash = 0;
+  for (let i = 0; i < branchId.length; i++) hash = (hash * 31 + branchId.charCodeAt(i)) >>> 0;
+  return BRANCH_TONES[hash % BRANCH_TONES.length];
+}
+
+function branchLetter(label: string) {
+  return (label.trim()[0] ?? "?").toUpperCase();
+}
+
 function BranchSwitcher() {
   const { branch, setBranch, branches } = useBranch();
   const [open, setOpen] = useState(false);
@@ -101,15 +121,15 @@ function BranchSwitcher() {
         }
       >
         <div className="flex items-center gap-2.5 min-w-0">
-          <div className="flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground shrink-0">
-            <Store className="size-4" />
+          <div className={`flex size-8 shrink-0 items-center justify-center rounded-lg border bg-gradient-to-br font-heading font-semibold text-xs ${branchTone(branch.id)}`}>
+            {branchLetter(branch.label)}
           </div>
           <div className="min-w-0 text-left">
             <div className="truncate font-semibold text-sm">{branch.label}</div>
             <div className="truncate font-mono text-[10px] text-muted-foreground uppercase tracking-widest">{branch.meta}</div>
           </div>
         </div>
-        <ChevronDown className="size-3.5 opacity-60 shrink-0" />
+        <ChevronsUpDown className="size-3.5 opacity-60 shrink-0" />
       </PopoverTrigger>
       <PopoverContent align="start" side="bottom" className="w-[248px] p-1">
         <div className="px-2 py-1.5 font-mono text-[10px] text-muted-foreground uppercase tracking-widest">Pilih cabang</div>
@@ -128,7 +148,9 @@ function BranchSwitcher() {
                 active ? "bg-foreground/[0.06] text-foreground" : "hover:bg-foreground/[0.04] text-muted-foreground hover:text-foreground"
               )}
             >
-              <Store className="size-4 opacity-70 shrink-0" />
+              <div className={`flex size-7 shrink-0 items-center justify-center rounded-lg border bg-gradient-to-br font-heading font-semibold text-[11px] ${branchTone(b.id)}`}>
+                {branchLetter(b.label)}
+              </div>
               <div className="min-w-0 flex-1">
                 <div className="truncate text-sm font-medium">{b.label}</div>
                 <div className="truncate text-[11px] text-muted-foreground">{b.meta}</div>
@@ -229,6 +251,92 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
     <div className="mb-1 flex items-center justify-between px-2">
       <span className="font-mono text-[9px] text-muted-foreground/70 uppercase tracking-[0.25em]">{children}</span>
     </div>
+  );
+}
+
+type BottomTab = { key: string; label: string; href?: string; icon: React.ComponentType<{ className?: string; strokeWidth?: number }>; isCenter?: boolean; badge?: number };
+
+const BOTTOM_TABS: BottomTab[] = [
+  { key: "dashboard", label: "Beranda", href: "/app", icon: HomeIcon },
+  { key: "servis", label: "Servis", href: "/app/servis", icon: Wrench },
+  { key: "create", label: "Tambah", href: "/app/servis/baru", icon: PlusIcon, isCenter: true },
+  { key: "sparepart", label: "Sparepart", href: "/app/sparepart", icon: Package },
+  { key: "lainnya", label: "Lainnya", icon: Settings },
+];
+
+function CerviseBottomNav({ pathname }: { pathname: string }) {
+  const [sheetOpen, setSheetOpen] = useState(false);
+  return (
+    <>
+      <nav className="h-[72px] border-t border-border/60 bg-background flex items-stretch justify-around relative shrink-0 sticky bottom-0 z-30 lg:hidden safe-area-pb">
+        {BOTTOM_TABS.map((tab) => {
+          const isActive = tab.href ? pathname === tab.href || (tab.href !== "/app" && pathname.startsWith(tab.href)) : false;
+          const isCenter = !!tab.isCenter;
+          if (tab.key === "lainnya") {
+            return (
+              <button
+                key={tab.key}
+                type="button"
+                onClick={() => setSheetOpen(true)}
+                aria-label={tab.label}
+                className="relative flex flex-col items-center justify-center gap-0.5 flex-1 py-2 cursor-pointer transition-colors text-muted-foreground"
+              >
+                <tab.icon className="size-5" strokeWidth={2} />
+                <span className="text-[10px]">{tab.label}</span>
+              </button>
+            );
+          }
+          if (isCenter) {
+            return (
+              <Link
+                key={tab.key}
+                href={tab.href!}
+                aria-label={tab.label}
+                className="flex flex-col items-center justify-center gap-0.5 flex-1 py-2 cursor-pointer"
+              >
+                <span className="flex size-12 items-center justify-center rounded-full bg-foreground text-background -translate-y-3 shadow-md">
+                  <PlusIcon className="size-5" />
+                </span>
+                <span className={`text-[10px] -mt-2 ${isActive ? "text-foreground" : "text-muted-foreground"}`}>{tab.label}</span>
+              </Link>
+            );
+          }
+          const Icon = tab.icon;
+          return (
+            <Link
+              key={tab.key}
+              href={tab.href!}
+              aria-label={tab.label}
+              aria-current={isActive ? "page" : undefined}
+              className={`relative flex flex-col items-center justify-center gap-0.5 flex-1 py-2 cursor-pointer transition-colors ${isActive ? "text-foreground" : "text-muted-foreground"}`}
+            >
+              {isActive ? <span className="absolute top-0 left-1/2 -translate-x-1/2 h-0.5 w-6 rounded-full bg-foreground" /> : null}
+              <span className="relative">
+                <Icon className="size-5" strokeWidth={isActive ? 2.4 : 2} />
+                {tab.badge ? (
+                  <span className="absolute -top-1.5 -right-2 min-w-[16px] h-4 px-1 rounded-full bg-foreground text-background text-[9px] font-medium flex items-center justify-center">
+                    {tab.badge}
+                  </span>
+                ) : null}
+              </span>
+              <span className="text-[10px]">{tab.label}</span>
+            </Link>
+          );
+        })}
+      </nav>
+      <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
+        <SheetContent side="bottom" className="h-auto">
+          <div className="grid grid-cols-3 gap-2 pt-2 pb-6">
+            {FLAT_NAV.map((item) => (
+              <Link key={item.href} href={item.href} onClick={() => setSheetOpen(false)} className="flex flex-col items-center gap-2 rounded-lg border p-3 text-xs">
+                <item.icon className="size-5" />
+                {item.label}
+              </Link>
+            ))}
+          </div>
+        </SheetContent>
+      </Sheet>
+    </>
   );
 }
 
@@ -339,37 +447,7 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
           />
         </div>
 
-        <nav className="shrink-0 sticky bottom-0 z-30 flex items-center justify-around border-t border-border/60 bg-background px-1 py-1 lg:hidden safe-area-pb">
-          {FLAT_NAV.slice(0, 4).map((item) => {
-            const active = pathname === item.href || (item.href !== "/app" && pathname.startsWith(item.href));
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={`flex flex-col items-center gap-1 rounded-md px-3 py-1.5 text-[10px] ${active ? "text-foreground" : "text-muted-foreground"}`}
-              >
-                <item.icon className={`size-5 ${active ? "opacity-100" : "opacity-60"}`} />
-                {item.label}
-              </Link>
-            );
-          })}
-          <Sheet>
-            <SheetTrigger render={<button className="flex flex-col items-center gap-1 rounded-md px-3 py-1.5 text-[10px] text-muted-foreground" />}>
-              <Settings className="size-5 opacity-60" />
-              Lainnya
-            </SheetTrigger>
-            <SheetContent side="bottom" className="h-auto">
-              <div className="grid grid-cols-3 gap-2 pt-2 pb-6">
-                {FLAT_NAV.map((item) => (
-                  <Link key={item.href} href={item.href} className="flex flex-col items-center gap-2 rounded-lg border p-3 text-xs">
-                    <item.icon className="size-5" />
-                    {item.label}
-                  </Link>
-                ))}
-              </div>
-            </SheetContent>
-          </Sheet>
-        </nav>
+        <CerviseBottomNav pathname={pathname} />
       </div>
     </div>
   );

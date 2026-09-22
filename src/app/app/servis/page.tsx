@@ -39,9 +39,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import Link from "next/link";
 import { getServisDetail, type ServisDetail } from "@/app/app/servis/actions";
+import { updateServisStatus, getServisSpareparts } from "@/app/app/servis/sparepart-actions";
 import { useBranch } from "@/lib/branch-context";
 import { toPrintData, renderJetHtml, renderDotMatrixHtml, renderThermalHtml } from "@/components/print-templates";
 import { cn } from "@/lib/utils";
+import { SparepartPickDialog, CancelSparepartDialog } from "@/components/servis/sparepart-dialogs";
 
 type Stage = "Masuk" | "Diagnosa" | "Menunggu Konfirmasi" | "Menunggu Sparepart" | "Dikerjakan" | "Selesai" | "Sudah Diambil" | "Batal";
 
@@ -69,6 +71,8 @@ const DOT_COLOR: Record<Stage, string> = {
   Batal: "bg-red-500",
 };
 
+type PaymentStatus = "Lunas" | "DP" | "Belum dibayar";
+
 type ServisItem = {
   id: string;
   device: string;
@@ -78,22 +82,52 @@ type ServisItem = {
   status: Stage;
   complaint: string;
   date: string;
+  payment?: PaymentStatus;
+  paidAmount?: number;
 };
 
+function getPaymentStatus(item: ServisItem): PaymentStatus {
+  if (item.payment) return item.payment;
+  // fallback heuristic for legacy/DUMMY without explicit payment: derive from price/paidAmount
+  const paid = item.paidAmount ?? 0;
+  const total = item.price ?? 0;
+  if (total === 0 && paid === 0) return "Belum dibayar";
+  if (paid >= total && total > 0) return "Lunas";
+  if (paid > 0 && paid < total) return "DP";
+  // if price >0 but no paid info → treat Dikerjakan/Selesai as DP/Lunas hint
+  if (total > 0 && (item.status === "Selesai" || item.status === "Sudah Diambil")) return "Lunas";
+  if (total > 0 && item.status === "Dikerjakan") return "DP";
+  return paid > 0 ? "DP" : "Belum dibayar";
+}
+
+function PaymentBadge({ status }: { status: PaymentStatus }) {
+  const map: Record<PaymentStatus, { variant: "success" | "warning" | "destructive"; label: string }> = {
+    Lunas: { variant: "success", label: "Lunas" },
+    DP: { variant: "warning", label: "DP" },
+    "Belum dibayar": { variant: "destructive", label: "Belum dibayar" },
+  };
+  const cfg = map[status];
+  return (
+    <Badge variant={cfg.variant} size="sm" className="font-medium whitespace-nowrap">
+      {cfg.label}
+    </Badge>
+  );
+}
+
 const DUMMY: ServisItem[] = [
-  { id: "SV-1001", device: "iPhone 14 Pro", complaint: "Mati total tidak bisa nyala", customer: "Rina · 081212345601", price: 0, teknisi: "—", status: "Masuk", date: "2026-09-20" },
-  { id: "SV-1002", device: "Samsung A54", complaint: "LCD pecah bergaris", customer: "Agus · 081313445602", price: 0, teknisi: "Rudi", status: "Diagnosa", date: "2026-09-18" },
-  { id: "SV-1003", device: "Oppo Reno 8", complaint: "Baterai drop cepat", customer: "Dewi · 081212880103", price: 0, teknisi: "Rudi", status: "Menunggu Konfirmasi", date: "2026-09-19" },
-  { id: "SV-1004", device: "iPhone 11", complaint: "Ganti LCD original", customer: "Rina · 081212345601", price: 350000, teknisi: "Rudi", status: "Menunggu Sparepart", date: "2026-09-15" },
-  { id: "SV-1005", device: "Samsung A54", complaint: "Ganti baterai", customer: "Agus · 081313445602", price: 250000, teknisi: "Sari", status: "Dikerjakan", date: "2026-09-16" },
-  { id: "SV-1006", device: "Vivo Y20", complaint: "Bootloop logo", customer: "Bambang · 081299001122", price: 180000, teknisi: "Sari", status: "Dikerjakan", date: "2026-09-17" },
-  { id: "SV-1007", device: "iPhone 11", complaint: "Selesai servis", customer: "Citra · 081245667788", price: 400000, teknisi: "Rudi", status: "Selesai", date: "2026-09-12" },
-  { id: "SV-1008", device: "Xiaomi Redmi", complaint: "Ganti LCD", customer: "Doni · 081388990011", price: 320000, teknisi: "Rudi", status: "Selesai", date: "2026-09-10" },
-  { id: "SV-1009", device: "Vivo Y20", complaint: "Sudah diambil pelanggan", customer: "Rina · 081212345601", price: 300000, teknisi: "Sari", status: "Sudah Diambil", date: "2026-09-08" },
-  { id: "SV-1010", device: "Infinix Hot 12", complaint: "Mati tidak ada respon", customer: "Eko · 081212009900", price: 0, teknisi: "—", status: "Masuk", date: "2026-09-21" },
-  { id: "SV-1011", device: "Realme 11", complaint: "Konektor cas goyang", customer: "Fajar · 081376543210", price: 150000, teknisi: "Rudi", status: "Dikerjakan", date: "2026-09-19" },
-  { id: "SV-1012", device: "Samsung S22", complaint: "Overheat panas", customer: "Gita · 081234567890", price: 0, teknisi: "—", status: "Diagnosa", date: "2026-09-20" },
-  { id: "SV-1013", device: "Oppo A57", complaint: "Batal servis - customer tidak jadi", customer: "Hadi · 081299887766", price: 0, teknisi: "—", status: "Batal", date: "2026-09-19" },
+  { id: "SV-1001", device: "iPhone 14 Pro", complaint: "Mati total tidak bisa nyala", customer: "Rina · 081212345601", price: 0, teknisi: "—", status: "Masuk", date: "2026-09-20", payment: "Belum dibayar" },
+  { id: "SV-1002", device: "Samsung A54", complaint: "LCD pecah bergaris", customer: "Agus · 081313445602", price: 0, teknisi: "Rudi", status: "Diagnosa", date: "2026-09-18", payment: "Belum dibayar" },
+  { id: "SV-1003", device: "Oppo Reno 8", complaint: "Baterai drop cepat", customer: "Dewi · 081212880103", price: 0, teknisi: "Rudi", status: "Menunggu Konfirmasi", date: "2026-09-19", payment: "Belum dibayar" },
+  { id: "SV-1004", device: "iPhone 11", complaint: "Ganti LCD original", customer: "Rina · 081212345601", price: 350000, teknisi: "Rudi", status: "Menunggu Sparepart", date: "2026-09-15", payment: "DP", paidAmount: 100000 },
+  { id: "SV-1005", device: "Samsung A54", complaint: "Ganti baterai", customer: "Agus · 081313445602", price: 250000, teknisi: "Sari", status: "Dikerjakan", date: "2026-09-16", payment: "DP", paidAmount: 100000 },
+  { id: "SV-1006", device: "Vivo Y20", complaint: "Bootloop logo", customer: "Bambang · 081299001122", price: 180000, teknisi: "Sari", status: "Dikerjakan", date: "2026-09-17", payment: "Belum dibayar" },
+  { id: "SV-1007", device: "iPhone 11", complaint: "Selesai servis", customer: "Citra · 081245667788", price: 400000, teknisi: "Rudi", status: "Selesai", date: "2026-09-12", payment: "Lunas", paidAmount: 400000 },
+  { id: "SV-1008", device: "Xiaomi Redmi", complaint: "Ganti LCD", customer: "Doni · 081388990011", price: 320000, teknisi: "Rudi", status: "Selesai", date: "2026-09-10", payment: "Lunas", paidAmount: 320000 },
+  { id: "SV-1009", device: "Vivo Y20", complaint: "Sudah diambil pelanggan", customer: "Rina · 081212345601", price: 300000, teknisi: "Sari", status: "Sudah Diambil", date: "2026-09-08", payment: "Lunas", paidAmount: 300000 },
+  { id: "SV-1010", device: "Infinix Hot 12", complaint: "Mati tidak ada respon", customer: "Eko · 081212009900", price: 0, teknisi: "—", status: "Masuk", date: "2026-09-21", payment: "Belum dibayar" },
+  { id: "SV-1011", device: "Realme 11", complaint: "Konektor cas goyang", customer: "Fajar · 081376543210", price: 150000, teknisi: "Rudi", status: "Dikerjakan", date: "2026-09-19", payment: "DP", paidAmount: 50000 },
+  { id: "SV-1012", device: "Samsung S22", complaint: "Overheat panas", customer: "Gita · 081234567890", price: 0, teknisi: "—", status: "Diagnosa", date: "2026-09-20", payment: "Belum dibayar" },
+  { id: "SV-1013", device: "Oppo A57", complaint: "Batal servis - customer tidak jadi", customer: "Hadi · 081299887766", price: 0, teknisi: "—", status: "Batal", date: "2026-09-19", payment: "Belum dibayar" },
 ];
 
 function dummyToDetail(s: ServisItem): any {
@@ -134,6 +168,7 @@ export default function ServisPage() {
   const [filter, setFilter] = useState<string>("Semua");
   const [search, setSearch] = useState("");
   const [dateRange, setDateRange] = useState<DateRange>({});
+  const [paymentFilter, setPaymentFilter] = useState<string>("Semua");
   const [openServis, setOpenServis] = useState(false);
   const [servisData, setServisData] = useState<ServisItem[]>(DUMMY);
   const [selectedServis, setSelectedServis] = useState<ServisItem | null>(null);
@@ -151,6 +186,11 @@ export default function ServisPage() {
   const [bulkInvoiceOpen, setBulkInvoiceOpen] = useState(false);
   const [bulkPrintOpen, setBulkPrintOpen] = useState(false);
   const [bulkPrintType, setBulkPrintType] = useState<"Dot Matrix" | "Jet" | "Thermal">("Thermal");
+  const [sparepartTarget, setSparepartTarget] = useState<ServisItem | null>(null);
+  const [sparepartOpen, setSparepartOpen] = useState(false);
+  const [cancelTarget, setCancelTarget] = useState<ServisItem | null>(null);
+  const [cancelOpen, setCancelOpen] = useState(false);
+  const [pendingBatal, setPendingBatal] = useState<ServisItem | null>(null);
   const { branch } = useBranch();
 
   const columns = useMemo(() => {
@@ -184,9 +224,13 @@ export default function ServisPage() {
     }
     return true;
   };
-  const matchesSearchAndDate = (item: ServisItem) => matchesSearch(item) && matchesDate(item);
+  const matchesPayment = (item: ServisItem) => {
+    if (paymentFilter === "Semua") return true;
+    return getPaymentStatus(item) === paymentFilter;
+  };
+  const matchesSearchAndDate = (item: ServisItem) => matchesSearch(item) && matchesDate(item) && matchesPayment(item);
 
-  const filteredByAll = useMemo(() => servisData.filter(matchesSearchAndDate), [servisData, search, dateRange]);
+  const filteredByAll = useMemo(() => servisData.filter(matchesSearchAndDate), [servisData, search, dateRange, paymentFilter]);
   const filteredTable = useMemo(() => (filter === "Semua" ? filteredByAll : filteredByAll.filter((d) => d.status === filter)), [filteredByAll, filter]);
 
   const filteredKanbanBase = useMemo(() => {
@@ -206,8 +250,8 @@ export default function ServisPage() {
     return out;
   }, [filteredKanbanBase, filter]);
 
-  const hasActiveFilters = search.trim().length > 0 || !!dateRange.from || !!dateRange.to;
-  const clearFilters = () => { setSearch(""); setDateRange({}); };
+  const hasActiveFilters = search.trim().length > 0 || !!dateRange.from || !!dateRange.to || paymentFilter !== "Semua";
+  const clearFilters = () => { setSearch(""); setDateRange({}); setPaymentFilter("Semua"); };
 
   const dateLabel = (() => {
     if (dateRange.from && dateRange.to) {
@@ -224,7 +268,7 @@ export default function ServisPage() {
   const jellyItems = useMemo(() => [{ value: "Semua", label: "Semua" }, ...STAGES.map((s) => ({ value: s.key, label: s.label, icon: <s.icon className="size-3.5" /> }))], []);
 
   const handleViewDetails = (s: ServisItem) => { setSelectedServis(s); setViewOpen(true); };
-  const handleStatusChange = (s: ServisItem, next: Stage) => {
+  const applyLocalStatus = (s: ServisItem, next: Stage) => {
     setServisData((prev) => prev.map((it) => (it.id === s.id ? { ...it, status: next } : it)));
     setKanbanValue((prev) => {
       const nextVal: Record<string, ServisItem[]> = {};
@@ -243,6 +287,33 @@ export default function ServisPage() {
       }
       return nextVal;
     });
+  };
+  const handleStatusChange = async (s: ServisItem, next: Stage) => {
+    // Dikerjakan -> popover sparepart (boleh kosong, Lewati)
+    if (next === "Dikerjakan") {
+      setSparepartTarget(s);
+      setSparepartOpen(true);
+      return;
+    }
+    // Batal setelah Dikerjakan/Selesai -> tanya kembalikan stok atau tetap terpakai
+    if (next === "Batal" && (s.status === "Dikerjakan" || s.status === "Selesai")) {
+      // cek apakah ada sparepart terpakai via server; jika tidak ada, langsung Batal
+      try {
+        const rows = await getServisSpareparts(s.id);
+        if (rows.length > 0) {
+          setCancelTarget(s);
+          setPendingBatal(s);
+          setCancelOpen(true);
+          return;
+        }
+      } catch {}
+      // no parts -> fall through to direct cancel
+    }
+    // normal path: try server, fallback local
+    try {
+      await updateServisStatus(s.id, next);
+    } catch {}
+    applyLocalStatus(s, next);
   };
   const handleEdit = (s: ServisItem) => { setSelectedServis(s); setEditForm({ device: s.device, customer: s.customer, complaint: s.complaint, price: s.price, teknisi: s.teknisi }); setEditOpen(true); };
   const handleSaveEdit = () => {
@@ -321,13 +392,58 @@ export default function ServisPage() {
 
   // clear selection when filters change
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  const _filterKey = `${filter}-${search}-${dateRange.from?.toISOString()}-${dateRange.to?.toISOString()}`;
+  const _filterKey = `${filter}-${search}-${dateRange.from?.toISOString()}-${dateRange.to?.toISOString()}-${paymentFilter}`;
   // useEffect to clear on filter change
   // we need to import useEffect, but already used; add effect below
 
-  const handleBulkStatus = (next: Stage) => {
+  const handleBulkStatus = async (next: Stage) => {
     if (!canBulkStatus) return;
+    // Intercept bulk ke Dikerjakan: hanya Lewati tanpa sparepart (tidak bisa pilih per-servis)
+    if (next === "Dikerjakan") {
+      const ids = new Set(selectedIds);
+      for (const id of ids) {
+        try { await updateServisStatus(id, next); } catch {}
+      }
+      setServisData((prev) => prev.map((it) => (ids.has(it.id) ? { ...it, status: next } : it)));
+      setKanbanValue((prev) => {
+        const nextVal: Record<string, ServisItem[]> = {};
+        STAGES.forEach((st) => (nextVal[st.key] = []));
+        for (const key of Object.keys(prev)) {
+          for (const it of prev[key]) {
+            if (ids.has(it.id)) {
+              if (it.status !== next) nextVal[next].push({ ...it, status: next });
+              else nextVal[key].push(it);
+            } else nextVal[key].push(it);
+          }
+        }
+        return nextVal;
+      });
+      setSelectedIds(new Set());
+      setBulkStatusOpen(false);
+      return;
+    }
+    // Bulk Batal setelah Dikerjakan/Selesai -> simplify: keep_consumed (tidak kembalikan) agar tidak dialog per-item
+    if (next === "Batal") {
+      const hasInRepair = selectedData.some((s) => s.status === "Dikerjakan" || s.status === "Selesai");
+      if (hasInRepair) {
+        // cek ada sparepart? jika ada, perlu konfirmasi per servis -> batalkan bulk, suruh satu-per-satu
+        let hasParts = false;
+        for (const s of selectedData) {
+          try {
+            const rows = await getServisSpareparts(s.id);
+            if (rows.length > 0) { hasParts = true; break; }
+          } catch {}
+        }
+        if (hasParts) {
+          alert("Bulk Batal dibatalkan: ada servis yang sudah pakai sparepart. Batalkan satu per satu agar bisa pilih Kembalikan/Tetap terpakai.");
+          return;
+        }
+      }
+    }
     const ids = new Set(selectedIds);
+    for (const id of ids) {
+      try { await updateServisStatus(id, next); } catch {}
+    }
     setServisData((prev) => prev.map((it) => (ids.has(it.id) ? { ...it, status: next } : it)));
     setKanbanValue((prev) => {
       const nextVal: Record<string, ServisItem[]> = {};
@@ -425,7 +541,7 @@ export default function ServisPage() {
 
   useEffect(() => {
     setSelectedIds(new Set());
-  }, [filter, search, dateRange]);
+  }, [filter, search, dateRange, paymentFilter]);
 
   useEffect(() => {
     const shouldFetch = (viewOpen || editOpen) && selectedServis;
@@ -480,6 +596,17 @@ export default function ServisPage() {
                   <div className="flex items-center justify-between border-t p-2"><span className="text-xs text-muted-foreground px-2">{dateRange.from || dateRange.to ? `${filteredByAll.length} hasil` : "Pilih rentang tanggal"}</span><Button variant="ghost" size="xs" onClick={() => setDateRange({})}>Reset</Button></div>
                 </PopoverContent>
               </Popover>
+              <Select value={paymentFilter} onValueChange={(v) => setPaymentFilter(v ?? "Semua")}>
+                <SelectTrigger size="sm" className="w-full sm:w-[160px] bg-background">
+                  <SelectValue placeholder="Pembayaran" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Semua">Semua pembayaran</SelectItem>
+                  <SelectItem value="Lunas">Lunas</SelectItem>
+                  <SelectItem value="DP">DP</SelectItem>
+                  <SelectItem value="Belum dibayar">Belum dibayar</SelectItem>
+                </SelectContent>
+              </Select>
               <div className="flex items-center gap-2 sm:ml-1 w-full sm:w-auto">
                 <Tabs value={view} onValueChange={(v) => setView(v as "table" | "kanban")} className="flex-1 sm:flex-none">
                   <TabsList className="w-full sm:w-auto"><TabsTrigger value="table" aria-label="Table view" className="flex-1 sm:flex-none px-2.5"><TableIcon className="size-4" /></TabsTrigger><TabsTrigger value="kanban" aria-label="Kanban view" className="flex-1 sm:flex-none px-2.5"><LayoutGridIcon className="size-4" /></TabsTrigger></TabsList>
@@ -488,14 +615,14 @@ export default function ServisPage() {
               </div>
             </div>
           </div>
-          {hasActiveFilters && (<div className="flex flex-wrap items-center gap-2 text-xs"><span className="text-muted-foreground">{filteredByAll.length} servis{search && <> untuk &ldquo;{search}&rdquo;</>}{(dateRange.from || dateRange.to) && <> · {dateLabel}</>}</span><button type="button" onClick={clearFilters} className="inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs hover:bg-muted transition-colors"><XIcon className="size-3" /> Hapus filter</button></div>)}
+          {hasActiveFilters && (<div className="flex flex-wrap items-center gap-2 text-xs"><span className="text-muted-foreground">{filteredByAll.length} servis{search && <> untuk &ldquo;{search}&rdquo;</>}{(dateRange.from || dateRange.to) && <> · {dateLabel}</>}{paymentFilter !== "Semua" && <> · {paymentFilter}</>}</span><button type="button" onClick={clearFilters} className="inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs hover:bg-muted transition-colors"><XIcon className="size-3" /> Hapus filter</button></div>)}
         </div>
       </div>
 
       <main className={view === "kanban" ? "w-full max-w-none px-4 py-4" : "mx-auto max-w-6xl px-4 sm:px-6 lg:px-10 py-6 lg:py-8"}>
         {view === "table" && (
           <div className="relative -mx-1">
-            <div className="overflow-x-auto scrollbar-none pb-3 px-1 [mask-image:linear-gradient(to_right,transparent,black_12px,black_calc(100%-12px),transparent)]">
+            <div className="overflow-x-auto scrollbar-none pb-3 px-1 mx-auto w-fit max-w-full [mask-image:linear-gradient(to_right,transparent,black_12px,black_calc(100%-12px),transparent)]">
               <JellyRadio items={jellyItems} defaultValue="Semua" onChange={(v: string) => setFilter(v)} chipColor="#e4e4e7" activeColor="#18181b" textColor="#18181b" activeTextColor="#f5f5f5" size="md" gap={8} radius={18} />
             </div>
           </div>
@@ -512,7 +639,7 @@ export default function ServisPage() {
                     onCheckedChange={(v) => toggleAll(!!v)}
                   />
                 </TableHead>
-                <TableHead>Servis</TableHead><TableHead>Device</TableHead><TableHead>Status</TableHead><TableHead>Teknisi</TableHead><TableHead className="text-right">Harga</TableHead></TableRow></TableHeader>
+                <TableHead>Servis</TableHead><TableHead>Device</TableHead><TableHead>Status</TableHead><TableHead>Teknisi</TableHead><TableHead>Pembayaran</TableHead><TableHead className="text-right">Harga</TableHead></TableRow></TableHeader>
             <TableBody>
               {filteredTable.map((r) => (
                 <ServisContextMenu key={r.id} servis={r} onViewDetails={handleViewDetails} onStatusChange={handleStatusChange} onEdit={handleEdit} onPrint={handlePrint} onInvoice={handleInvoice} onDelete={handleDelete}>
@@ -529,15 +656,66 @@ export default function ServisPage() {
                     <TableCell className="font-medium max-w-[220px] truncate">{r.device}</TableCell>
                     <TableCell><StageTrack stage={r.status} /></TableCell>
                     <TableCell className="font-mono text-xs text-muted-foreground">{r.teknisi}</TableCell>
+                    <TableCell><PaymentBadge status={getPaymentStatus(r)} /></TableCell>
                     <TableCell className="text-right font-mono tabular-nums">Rp {r.price.toLocaleString("id-ID")}</TableCell>
                   </TableRow>
                 </ServisContextMenu>
               ))}
-              {filteredTable.length === 0 && (<TableRow><TableCell colSpan={6} className="text-center text-sm text-muted-foreground py-8">Tidak ada data</TableCell></TableRow>)}
+              {filteredTable.length === 0 && (<TableRow><TableCell colSpan={7} className="text-center text-sm text-muted-foreground py-8">Tidak ada data</TableCell></TableRow>)}
             </TableBody>
           </Table>
         ) : (
-          <Kanban value={displayedKanban} onValueChange={setKanbanValue} getItemValue={(item) => item.id} className="mt-4">
+          <Kanban
+            value={displayedKanban}
+            onValueChange={(next) => {
+              // intercept drag to Dikerjakan / Batal
+              const prev = displayedKanban;
+              let moved: { item: ServisItem; from: Stage; to: Stage } | null = null;
+              for (const st of STAGES) {
+                const prevIds = new Set((prev[st.key] ?? []).map((x) => x.id));
+                const nextIds = new Set((next[st.key] ?? []).map((x) => x.id));
+                for (const id of nextIds) {
+                  if (!prevIds.has(id)) {
+                    // find from
+                    for (const s2 of STAGES) {
+                      if ((prev[s2.key] ?? []).some((x) => x.id === id)) {
+                        const it = (next[st.key] ?? []).find((x) => x.id === id) ?? (prev[s2.key] ?? []).find((x) => x.id === id);
+                        if (it) moved = { item: it as ServisItem, from: s2.key as Stage, to: st.key as Stage };
+                        break;
+                      }
+                    }
+                  }
+                }
+              }
+              if (moved && moved.to === "Dikerjakan") {
+                setSparepartTarget(moved.item);
+                setSparepartOpen(true);
+                return;
+              }
+              if (moved && moved.to === "Batal" && (moved.from === "Dikerjakan" || moved.from === "Selesai")) {
+                getServisSpareparts(moved.item.id).then((rows) => {
+                  if (rows.length > 0) {
+                    setCancelTarget(moved.item);
+                    setPendingBatal(moved.item);
+                    setCancelOpen(true);
+                  } else {
+                    updateServisStatus(moved.item.id, "Batal").catch(()=>{});
+                    applyLocalStatus(moved.item, "Batal");
+                    setKanbanValue(next);
+                  }
+                });
+                return;
+              }
+              // normal move
+              if (moved) {
+                updateServisStatus(moved.item.id, moved.to).catch(()=>{});
+                applyLocalStatus(moved.item, moved.to);
+              }
+              setKanbanValue(next);
+            }}
+            getItemValue={(item) => item.id}
+            className="mt-4"
+          >
             <KanbanBoard className="flex gap-2">
               {STAGES.map((stage) => (
                 <KanbanColumn key={stage.key} value={stage.key} className="rounded-xl border bg-muted/20 p-2 flex-1 min-w-0">
@@ -551,7 +729,7 @@ export default function ServisPage() {
                           <KanbanItem value={item.id} disabled={disabled}>
                             <KanbanItemHandle>
                               <Card className={cn("shadow-xs", disabled ? "opacity-40 grayscale" : "cursor-grab active:cursor-grabbing")}>
-                                <CardContent className="p-3 space-y-1.5"><div className="font-mono text-xs font-medium">{item.id}</div><div className="text-sm font-medium leading-tight line-clamp-1">{item.device}</div><div className="text-xs text-muted-foreground line-clamp-1">{item.complaint}</div><div className="text-xs text-muted-foreground">{item.customer}</div><div className="flex items-center justify-between gap-2 pt-0.5"><span className="text-[11px] text-muted-foreground">{format(new Date(item.date), "d MMM yyyy", { locale: localeId })}</span><Badge variant="outline" className="text-[10px] shrink-0">{item.teknisi}</Badge></div></CardContent>
+                                <CardContent className="p-3 space-y-1.5"><div className="font-mono text-xs font-medium">{item.id}</div><div className="text-sm font-medium leading-tight line-clamp-1">{item.device}</div><div className="text-xs text-muted-foreground line-clamp-1">{item.complaint}</div><div className="text-xs text-muted-foreground">{item.customer}</div><div className="flex items-center justify-between gap-2 pt-0.5"><span className="text-[11px] text-muted-foreground">{format(new Date(item.date), "d MMM yyyy", { locale: localeId })}</span><div className="flex items-center gap-1 shrink-0"><PaymentBadge status={getPaymentStatus(item)} /><Badge variant="outline" className="text-[10px] shrink-0">{item.teknisi}</Badge></div></div></CardContent>
                               </Card>
                             </KanbanItemHandle>
                           </KanbanItem>
@@ -845,6 +1023,30 @@ export default function ServisPage() {
           </DialogPrimitive.Popup>
         </DialogPrimitive.Portal>
       </DialogPrimitive.Root>
+
+      {/* Sparepart popover saat Dikerjakan */}
+      <SparepartPickDialog
+        open={sparepartOpen}
+        onOpenChange={setSparepartOpen}
+        servis={sparepartTarget}
+        mode="transition"
+        onSuccess={() => {
+          if (sparepartTarget) applyLocalStatus(sparepartTarget, "Dikerjakan");
+        }}
+      />
+      {/* Batal setelah Dikerjakan -> Kembalikan ke stok atau tetap terpakai */}
+      <CancelSparepartDialog
+        open={cancelOpen}
+        onOpenChange={(v) => {
+          setCancelOpen(v);
+          if (!v) setPendingBatal(null);
+        }}
+        servis={cancelTarget}
+        onSuccess={() => {
+          if (pendingBatal) applyLocalStatus(pendingBatal, "Batal");
+          setPendingBatal(null);
+        }}
+      />
     </div>
   );
 }

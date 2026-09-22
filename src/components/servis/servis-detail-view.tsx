@@ -40,6 +40,9 @@ import { getPembayaranHistory, getServisLogs } from "@/app/app/servis/actions";
 import { ServisBayarForm } from "./servis-bayar-drawer";
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
 import { XIcon } from "lucide-react";
+import { getServisSpareparts } from "@/app/app/servis/sparepart-actions";
+import { SparepartPickDialog } from "./sparepart-dialogs";
+import { canAddSparepart } from "@/lib/servis-status-map";
 
 function PatternPreview({ value }: { value: string }) {
   const path = value ? value.split(",").map(Number).filter((n) => n >= 0 && n < 9) : [];
@@ -221,9 +224,22 @@ export function ServisDetailView({ data, dummy }: Props) {
   const [logsLoading, setLogsLoading] = useState(false);
   const [openBayar, setOpenBayar] = useState(false);
   const [tab, setTab] = useState("informasi");
+  const [spareparts, setSpareparts] = useState<any[]>([]);
+  const [spLoading, setSpLoading] = useState(false);
+  const [openAddPart, setOpenAddPart] = useState(false);
   const totalPaid = history.length ? history.reduce((a, b) => a + Number(b.amount), 0) : Number(d.price ?? 0);
   const estimasiVal = d.price_estimasi ?? null;
   const sisa = estimasiVal != null ? Math.max(0, estimasiVal - totalPaid) : null;
+  const canAdd = canAddSparepart(status as any);
+
+  const refreshSpareparts = () => {
+    if (!d?.id || d.id === "—") return;
+    setSpLoading(true);
+    getServisSpareparts(d.id)
+      .then((r) => setSpareparts(r as any[]))
+      .catch(() => setSpareparts([]))
+      .finally(() => setSpLoading(false));
+  };
 
   useEffect(() => {
     if (!d?.id || d.id === "—") return;
@@ -237,6 +253,7 @@ export function ServisDetailView({ data, dummy }: Props) {
       .then((l) => setLogs(l as any[]))
       .catch(() => setLogs([]))
       .finally(() => setLogsLoading(false));
+    refreshSpareparts();
   }, [d?.id]);
 
   const timelineEvents = useMemo(() => mapLogsToEvents(logs, history, d), [logs, history, d]);
@@ -275,6 +292,7 @@ export function ServisDetailView({ data, dummy }: Props) {
         <div className="shrink-0 sticky top-0 z-20 -mx-4 sm:-mx-6 border-b bg-background/95 px-4 sm:px-6 py-2 backdrop-blur supports-[backdrop-filter]:backdrop-blur-md">
           <TabsList className="w-full">
             <TabsTrigger value="informasi" className="flex-1 gap-1.5"><SmartphoneIcon className="size-4" /> Informasi Servis</TabsTrigger>
+            <TabsTrigger value="sparepart" className="flex-1 gap-1.5"><PackageIcon className="size-4" /> Sparepart {spareparts.length > 0 && <Badge variant="secondary" className="ml-1 text-[10px]">{spareparts.length}</Badge>}</TabsTrigger>
             <TabsTrigger value="timeline" className="flex-1 gap-1.5"><ClockIcon className="size-4" /> Timeline</TabsTrigger>
             <TabsTrigger value="pembayaran" className="flex-1 gap-1.5"><WalletIcon className="size-4" /> Pembayaran</TabsTrigger>
           </TabsList>
@@ -408,6 +426,48 @@ export function ServisDetailView({ data, dummy }: Props) {
           </ScrollArea>
         </TabsContent>
 
+        <TabsContent value="sparepart" className="flex-1 min-h-0 overflow-hidden mt-4 data-[state=active]:flex data-[state=active]:flex-col">
+          <ScrollArea scrollFade className="flex-1 min-h-0">
+            <div className="pr-3">
+              <Card>
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <div>
+                      <CardTitle className="text-base flex items-center gap-2"><PackageIcon className="size-4" /> Sparepart Terpakai</CardTitle>
+                      <CardDescription>Pemakaian mengurangi stok inventory langsung. Tambah hanya saat Dikerjakan.</CardDescription>
+                    </div>
+                    {canAdd ? <Button size="sm" onClick={() => setOpenAddPart(true)}>+ Tambah Sparepart</Button> : <Badge variant="outline" className="text-xs">{status === "Selesai" || status === "Sudah Diambil" ? "Tidak bisa tambah setelah Selesai" : status === "Batal" ? "Servis Batal" : "Hanya saat Dikerjakan"}</Badge>}
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  {spLoading ? (
+                    <div className="py-6 text-center text-sm text-muted-foreground">Memuat sparepart...</div>
+                  ) : spareparts.length === 0 ? (
+                    <div className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">Belum ada sparepart dipakai. {canAdd ? "Klik + Tambah Sparepart atau ubah status ke Dikerjakan untuk memilih." : "Sparepart dipilih saat status Dikerjakan."}</div>
+                  ) : (
+                    <div className="overflow-hidden rounded-lg border">
+                      <div className="hidden sm:grid grid-cols-[1fr_90px_80px_90px_110px] gap-2 bg-muted/50 px-3 py-2 font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
+                        <span>Sparepart</span><span>SKU</span><span className="text-center">Qty</span><span className="text-right">Harga</span><span className="text-center">Status</span>
+                      </div>
+                      <div className="divide-y">
+                        {spareparts.map((r: any) => (
+                          <div key={r.id} className="grid grid-cols-1 sm:grid-cols-[1fr_90px_80px_90px_110px] gap-1 sm:gap-2 px-3 py-2.5 text-sm items-center">
+                            <span className="font-medium truncate">{r.name ?? r.description}</span>
+                            <span className="font-mono text-xs text-muted-foreground">{r.sku ?? "—"}</span>
+                            <span className="text-center font-mono">×{r.qty}</span>
+                            <span className="text-right font-mono text-xs">Rp {(Number(r.unit_price_cents ?? 0) / 100).toLocaleString("id-ID")}</span>
+                            <span className="flex justify-center">{r.is_returned ? <Badge variant="warning">Dikembalikan</Badge> : status === "Batal" ? <Badge variant="secondary">Terpakai</Badge> : <Badge variant="success">Terpakai</Badge>}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          </ScrollArea>
+        </TabsContent>
+
         <TabsContent value="timeline" className="flex-1 min-h-0 overflow-hidden mt-4 data-[state=active]:flex data-[state=active]:flex-col">
           <ScrollArea scrollFade className="flex-1 min-h-0">
             <div className="pr-3">
@@ -508,9 +568,9 @@ export function ServisDetailView({ data, dummy }: Props) {
 
       <DialogPrimitive.Root open={openBayar} onOpenChange={setOpenBayar}>
         <DialogPrimitive.Portal>
-          <DialogPrimitive.Backdrop className="fixed inset-0 z-50 bg-black/30 backdrop-blur-md" />
-          <DialogPrimitive.Popup className="fixed left-1/2 top-1/2 z-50 w-[95vw] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-xl border bg-background p-6 shadow-lg max-h-[90vh] overflow-y-auto">
-            <DialogPrimitive.Title className="font-semibold">Catat Pembayaran</DialogPrimitive.Title>
+          <DialogPrimitive.Backdrop className="fixed inset-0 z-50 bg-black/60 backdrop-blur-md" />
+          <DialogPrimitive.Popup className="dark scheme-dark fixed left-1/2 top-1/2 z-50 w-[95vw] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-xl border border-white/10 bg-background p-6 text-foreground shadow-2xl max-h-[90vh] overflow-y-auto">
+            <DialogPrimitive.Title className="font-semibold text-white">Catat Pembayaran</DialogPrimitive.Title>
             <DialogPrimitive.Description className="text-sm text-muted-foreground">Admin/kasir saja. Bisa DP atau pelunasan. Metode dari pengaturan nanti (sekarang 5 aktif).</DialogPrimitive.Description>
             <div className="mt-4">
               <ServisBayarForm servisId={id} estimasi={estimasiVal} totalPaid={totalPaid} onSuccess={(total) => { setOpenBayar(false); setHistoryLoading(true); getPembayaranHistory(id).then((h) => setHistory(h as any[])).finally(() => setHistoryLoading(false)); }} onClose={() => setOpenBayar(false)} />
@@ -519,6 +579,8 @@ export function ServisDetailView({ data, dummy }: Props) {
           </DialogPrimitive.Popup>
         </DialogPrimitive.Portal>
       </DialogPrimitive.Root>
+
+      <SparepartPickDialog open={openAddPart} onOpenChange={setOpenAddPart} servis={{ id, device }} mode="add" onSuccess={refreshSpareparts} />
     </div>
   );
 }

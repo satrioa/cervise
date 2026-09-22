@@ -59,14 +59,14 @@ export function ServisBayarForm({ servisId, estimasi, totalPaid = 0, onSuccess, 
       <div className="grid gap-1.5">
         <Label>Nominal *</Label>
         <Input type="number" min={1} placeholder="Jumlah bayar, cth 150000" value={amount} onChange={(e) => { const v = e.target.value; if (v === "") setAmount(""); else setAmount(Math.max(0, Number(v))); }} />
-        {amount !== "" && sisa !== null && Number(amount) > sisa && <p className="text-[11px] text-amber-600">Melebihi sisa estimasi, tapi tetap bisa disimpan (mungkin ada tambahan part).</p>}
+        {amount !== "" && sisa !== null && Number(amount) > sisa && <p className="text-[11px] text-amber-600 dark:text-amber-400">Melebihi sisa estimasi, tapi tetap bisa disimpan (mungkin ada tambahan part).</p>}
       </div>
       <div className="grid gap-1.5">
         <Label>Metode *</Label>
         <Select value={metode} onValueChange={(v) => setMetode(v as any)}>
-          <SelectTrigger><SelectValue /></SelectTrigger>
-          <SelectPopup>
-            {METODE.map((m) => <SelectItem key={m} value={m}>{m}</SelectItem>)}
+          <SelectTrigger className="dark:text-white data-placeholder:text-white/70"><SelectValue className="dark:text-white" /></SelectTrigger>
+          <SelectPopup containerClassName="dark scheme-dark bg-popover text-popover-foreground">
+            {METODE.map((m) => <SelectItem key={m} value={m} className="text-popover-foreground dark:text-white data-highlighted:text-white data-highlighted:bg-white/10">{m}</SelectItem>)}
           </SelectPopup>
         </Select>
         <p className="text-[11px] text-muted-foreground">Aktif: Tunai, Debit, Transfer, QRIS, E-Wallet (pengaturan nanti untuk on/off).</p>

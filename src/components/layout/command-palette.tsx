@@ -79,8 +79,8 @@ export function CerviseCommandPalette({ open, onOpenChange }: Props) {
                 <CommandItem value="servis" onClick={() => navigate("/app/servis")}>
                   <Wrench className="size-4" /> Servis
                 </CommandItem>
-                <CommandItem value="inventory" onClick={() => navigate("/app/inventory")}>
-                  <Package className="size-4" /> Inventory
+                <CommandItem value="sparepart inventory" onClick={() => navigate("/app/sparepart")}>
+                  <Package className="size-4" /> Sparepart
                 </CommandItem>
               </CommandGroup>
 

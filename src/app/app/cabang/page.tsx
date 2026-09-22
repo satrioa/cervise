@@ -1,54 +1,49 @@
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { getCabangList } from "./actions";
+import { CabangClient } from "./cabang-client";
+import { CabangHeaderActions } from "@/components/cabang/cabang-header-actions";
 
-export default function CabangPage() {
+export default async function CabangPage() {
+  let branches: Awaited<ReturnType<typeof getCabangList>> = [];
+  let loadError: string | null = null;
+  try {
+    branches = await getCabangList();
+  } catch (e: any) {
+    loadError = e?.message ?? "Gagal memuat cabang";
+    branches = [];
+  }
+
+  // Wire up: show real data; fallback demo only when unauthenticated/empty and no error
+  const isDemo = branches.length === 0 && !loadError;
+  const display = isDemo
+    ? [
+        { id: "mock-1", name: "Cervise Pusat", city: "Jl. Merdeka No.1", phone: "081211111111", is_active: true, created_at: new Date().toISOString(), teknisiCount: 3 },
+        { id: "mock-2", name: "Cervise Cabang 2", city: "Jl. Pahlawan No.5", phone: "081222222222", is_active: true, created_at: new Date(Date.now() - 86400000 * 2).toISOString(), teknisiCount: 2 },
+      ]
+    : branches;
+
+  const limit = 3;
+  const total = display.length;
+  const aktif = display.filter((b) => b.is_active).length;
+  const nonaktif = total - aktif;
+
   return (
-    <div className="min-h-svh bg-background text-foreground">
-      <div className="border-b border-border/60 px-10 py-6">
-        <div className="mx-auto flex max-w-6xl items-end justify-between">
+    <div className="min-h-svh bg-background px-6 py-12">
+      <div className="mx-auto max-w-2xl">
+        <header className="mb-6 flex items-start justify-between gap-4">
           <div>
-            <div className="font-mono text-[10px] text-muted-foreground uppercase tracking-[0.3em]">Manajemen · Cabang</div>
-            <h1 className="mt-1 font-heading text-2xl">Cabang</h1>
+            <h1 className="font-heading text-xl">Cabang</h1>
+            <p className="mt-1 font-mono text-xs text-muted-foreground">
+              {total}/{limit} Cabang <span className="mx-1 opacity-40">●</span> {aktif} Aktif <span className="mx-1 opacity-40">●</span> {nonaktif} Nonaktif
+              {isDemo && <span className="ml-2 rounded bg-amber-500/15 px-1.5 py-0.5 text-[10px] text-amber-700 dark:text-amber-400">Demo</span>}
+            </p>
+            {loadError && <p className="mt-1 text-xs text-destructive">{loadError} — {isDemo ? "menampilkan data demo" : "coba refresh"}</p>}
+            {!loadError && display.length === 0 && <p className="mt-1 text-xs text-muted-foreground">Belum ada cabang. Buat cabang pertama di bawah.</p>}
           </div>
-          <Button size="sm">Tambah Cabang</Button>
-        </div>
+          <CabangHeaderActions />
+        </header>
+
+        <CabangClient branches={display} isDemo={isDemo} />
       </div>
-      <main className="mx-auto max-w-6xl px-10 py-8">
-        <div className="grid gap-6 lg:grid-cols-3">
-          <Card className="lg:col-span-1">
-            <CardHeader>
-              <CardTitle className="text-base">Form Cabang</CardTitle>
-              <CardDescription>Nama, alamat opsional, telepon. Paket ikut global.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="space-y-1.5"><Label>Nama Cabang</Label><Input placeholder="Cervise Cabang 3" /></div>
-              <div className="space-y-1.5"><Label>Alamat (opsional)</Label><Input placeholder="Jl. ..." /></div>
-              <div className="space-y-1.5"><Label>Telepon</Label><Input placeholder="0812xxxx" /></div>
-              <Button className="w-full mt-2">Simpan Cabang</Button>
-            </CardContent>
-          </Card>
-          <Card className="lg:col-span-2">
-            <CardHeader>
-              <CardTitle className="text-base">Daftar Cabang</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow><TableHead>Nama</TableHead><TableHead>Alamat</TableHead><TableHead>Telepon</TableHead><TableHead>Paket</TableHead></TableRow>
-                </TableHeader>
-                <TableBody>
-                  <TableRow><TableCell>Cervise Pusat</TableCell><TableCell>Jl. Merdeka No.1</TableCell><TableCell>081211111111</TableCell><TableCell><Badge>Pro</Badge></TableCell></TableRow>
-                  <TableRow><TableCell>Cervise Cabang 2</TableCell><TableCell>Jl. Pahlawan No.5</TableCell><TableCell>081222222222</TableCell><TableCell><Badge variant="secondary">Basic</Badge></TableCell></TableRow>
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
-        </div>
-      </main>
     </div>
   );
 }
