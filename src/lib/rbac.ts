@@ -11,7 +11,8 @@ export const ROLE_LABEL: Record<Role, string> = {
 export const MENU_ACCESS: Record<string, Role[]> = {
   dashboard: ["super_owner", "master_admin", "admin", "frontliner", "teknisi"],
   servis: ["super_owner", "master_admin", "admin", "frontliner", "teknisi"],
-  inventory: ["super_owner", "master_admin", "admin"], // Hanya Admin per request
+  sparepart: ["super_owner", "master_admin", "admin"], // Hanya Admin per request
+  inventory: ["super_owner", "master_admin", "admin"], // alias lama — hapus setelah migrasi route selesai
   customer: ["super_owner", "master_admin", "admin", "frontliner"],
   karyawan: ["super_owner", "master_admin", "admin"],
   cabang: ["super_owner", "master_admin", "admin"],

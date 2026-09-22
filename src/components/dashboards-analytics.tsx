@@ -22,13 +22,13 @@ const TOP_PROBLEMS = [
   { problem: "Bootloop / hang logo", count: 132, change: "-3%", icon: "🔄" },
 ];
 
-// Top cabang — menggantikan Top countries
+// Performa cabang — menggantikan Top countries (pendapatan, bukan persentase)
 const TOP_CABANG = [
-  { name: "Cervise Pusat", meta: "Pusat · 3 teknisi", share: 42, icon: "🏬" },
-  { name: "Cervise Cabang 2", meta: "Tangerang · 2 teknisi", share: 28, icon: "🏪" },
-  { name: "Cervise Cabang 3", meta: "Bekasi · 2 teknisi", share: 18, icon: "🏢" },
-  { name: "Cervise Express", meta: "Depok · 1 teknisi", share: 7, icon: "🏠" },
-  { name: "Mitra Reseller", meta: "Partner · dropship", share: 5, icon: "🤝" },
+  { name: "Cervise Pusat", meta: "Pusat · 3 teknisi", pendapatan: 24800000, icon: "🏬" },
+  { name: "Cervise Cabang 2", meta: "Tangerang · 2 teknisi", pendapatan: 16200000, icon: "🏪" },
+  { name: "Cervise Cabang 3", meta: "Bekasi · 2 teknisi", pendapatan: 9800000, icon: "🏢" },
+  { name: "Cervise Express", meta: "Depok · 1 teknisi", pendapatan: 4300000, icon: "🏠" },
+  { name: "Mitra Reseller", meta: "Partner · dropship", pendapatan: 3100000, icon: "🤝" },
 ];
 
 type Period = "hari ini" | "7d" | "30d" | "90d";
@@ -243,26 +243,29 @@ function AnalyticsContent({ period = "30d" }: { period?: Period | string }) {
         </BreakdownCard>
       </div>
 
-      <BreakdownCard title="Top cabang" className="mt-3">
+      <BreakdownCard title="Performa cabang" className="mt-3">
         <ul className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-5">
-          {TOP_CABANG.map((c) => (
-            <li
-              key={c.name}
-              className="flex items-center gap-2.5 rounded-md border border-border/40 bg-background/40 px-3 py-2.5 text-sm"
-            >
-              <span className="text-base">{c.icon}</span>
-              <div className="min-w-0 flex-1">
-                <div className="truncate text-xs font-medium">{c.name}</div>
-                <div className="truncate font-mono text-[10px] text-muted-foreground/70 uppercase tracking-[0.2em]">{c.meta}</div>
-                <div className="mt-1 flex items-center gap-1.5">
-                  <div className="h-1 flex-1 overflow-hidden rounded-full bg-foreground/10">
-                    <div className="h-full bg-foreground/70" style={{ width: `${c.share}%` }} />
+          {(() => {
+            const max = Math.max(...TOP_CABANG.map((c) => c.pendapatan));
+            return TOP_CABANG.map((c) => (
+              <li
+                key={c.name}
+                className="flex items-center gap-2.5 rounded-md border border-border/40 bg-background/40 px-3 py-2.5 text-sm"
+              >
+                <span className="text-base">{c.icon}</span>
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-xs font-medium">{c.name}</div>
+                  <div className="truncate font-mono text-[10px] text-muted-foreground/70 uppercase tracking-[0.2em]">{c.meta}</div>
+                  <div className="mt-1 flex items-center gap-1.5">
+                    <div className="h-1 flex-1 overflow-hidden rounded-full bg-foreground/10">
+                      <div className="h-full bg-foreground/70" style={{ width: `${Math.round((c.pendapatan / max) * 100)}%` }} />
+                    </div>
+                    <span className="font-mono text-[10px] font-medium tabular-nums">Rp {c.pendapatan.toLocaleString("id-ID")}</span>
                   </div>
-                  <span className="font-mono text-[10px] text-muted-foreground">{c.share}%</span>
                 </div>
-              </div>
-            </li>
-          ))}
+              </li>
+            ));
+          })()}
         </ul>
       </BreakdownCard>
     </>
@@ -282,7 +285,7 @@ function BreakdownCard({
     <section className={`rounded-xl border border-border/60 bg-background/40 p-5 ${className ?? ""}`}>
       <div className="flex items-center justify-between">
         <div className="font-mono text-[10px] text-muted-foreground uppercase tracking-[0.25em] flex items-center gap-1.5">
-          {title === "Top cabang" && <StoreIcon className="size-3" />}
+          {(title === "Top cabang" || title === "Performa cabang") && <StoreIcon className="size-3" />}
           {title === "Top masalah servis" && <WrenchIcon className="size-3" />}
           {title === "Top teknisi" && <UsersIcon className="size-3" />}
           {title}
