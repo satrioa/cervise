@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { formatCurrencyPlain, formatNumberPlain } from "@/lib/format";
 import { useRouter } from "next/navigation";
-import { SearchIcon, History, LayoutGrid, List } from "lucide-react";
+import { SearchIcon, History, LayoutGrid, List, PackageIcon, ScanLineIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -21,6 +21,7 @@ import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import JellyRadio from "@/components/ui/jelly-radio";
+import { Card, CardPanel, CardFrame, CardFrameHeader, CardFrameTitle, CardFrameDescription, CardFrameAction } from "@/components/ui/card";
 
 const KATEGORI_ITEMS = [
   { value: "semua", label: "Semua" },
@@ -134,91 +135,119 @@ export function PenjualanPOSClient({ initialRows }: { initialRows: any[] }) {
         </div>
       </div>
 
-      <div className="mx-auto grid max-w-[1600px] gap-6 px-4 lg:px-6 py-6 lg:grid-cols-[1fr_380px] xl:grid-cols-[1fr_420px]">
-        <div className="min-w-0 flex flex-col gap-4">
-          <div className="rounded-xl border bg-card p-3 shadow-xs/5 flex flex-col gap-3">
-            <InputGroup className="w-full">
-              <InputGroupAddon><SearchIcon className="size-4 text-muted-foreground" /></InputGroupAddon>
-              <InputGroupInput placeholder="Scan barcode / SKU / nama + Enter" value={q} onChange={(e) => setQ(e.target.value)} nativeInput onKeyDown={(e) => { if (e.key === "Enter") { const term = q.trim(); if (term) { const hit = filteredProducts.find((p) => p.sku.toLowerCase() === term.toLowerCase() || (p.barcode && p.barcode.toLowerCase() === term.toLowerCase())); if (hit && (window as any).__penjualanAddToCart) (window as any).__penjualanAddToCart(hit); } } }} />
-              <InputGroupAddon align="inline-end"><span className="font-mono text-[10px] text-muted-foreground">Enter</span></InputGroupAddon>
-            </InputGroup>
+      <div className="mx-auto grid max-w-[1600px] gap-4 px-4 lg:px-6 py-3 lg:grid-cols-[1fr_360px] xl:grid-cols-[1fr_380px] lg:items-stretch items-start overflow-hidden">
+        <CardFrame className="min-w-0 flex flex-col h-[calc(100dvh-135px)] max-h-[calc(100dvh-135px)] overflow-hidden">
+          <CardFrameHeader className="py-3 px-4 gap-2">
+            <CardFrameTitle className="text-[15px]">Produk</CardFrameTitle>
+            <CardFrameDescription className="text-xs">{filteredProducts.length} produk · {branch.label}</CardFrameDescription>
+            <CardFrameAction>
+              <Tabs value={view} onValueChange={(v) => setView(v as "grid" | "list")}>
+                <TabsList className="h-7">
+                  <TabsTrigger value="grid" aria-label="Grid view" className="h-6 px-2"><LayoutGrid className="size-3.5" /></TabsTrigger>
+                  <TabsTrigger value="list" aria-label="List view" className="h-6 px-2"><List className="size-3.5" /></TabsTrigger>
+                </TabsList>
+              </Tabs>
+            </CardFrameAction>
+          </CardFrameHeader>
+          <Card className="flex-1 flex flex-col overflow-hidden min-h-0">
+            <CardPanel className="px-3 py-2 border-b flex flex-col gap-1.5">
+              <InputGroup className="w-full">
+                <InputGroupAddon><SearchIcon className="size-3.5 text-muted-foreground" /></InputGroupAddon>
+                <InputGroupInput placeholder="Scan barcode / SKU / nama + Enter" value={q} onChange={(e) => setQ(e.target.value)} nativeInput onKeyDown={(e) => { if (e.key === "Enter") { const term = q.trim(); if (term) { const hit = filteredProducts.find((p) => p.sku.toLowerCase() === term.toLowerCase() || (p.barcode && p.barcode.toLowerCase() === term.toLowerCase())); if (hit && (window as any).__penjualanAddToCart) (window as any).__penjualanAddToCart(hit); } } }} className="text-sm h-8" />
+                <InputGroupAddon align="inline-end" className="gap-1 pr-1">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-sm"
+                    className="size-7 shrink-0"
+                    aria-label="Scan barcode"
+                    onClick={() => {
+                      // focus search for scanner device (hardware scanner types into input)
+                      document.querySelector<HTMLInputElement>('[placeholder="Scan barcode / SKU / nama + Enter"]')?.focus();
+                    }}
+                  >
+                    <ScanLineIcon className="size-4" />
+                  </Button>
+                  <span className="font-mono text-[10px] text-muted-foreground hidden sm:inline">Enter</span>
+                </InputGroupAddon>
+              </InputGroup>
 
-            <div className="flex flex-wrap items-center gap-2 overflow-x-auto scrollbar-none pb-1 [mask-image:linear-gradient(to_right,transparent,black_12px,black_calc(100%-12px),transparent)]">
-              <JellyRadio items={KATEGORI_ITEMS} value={kategori} onChange={(v: string) => setKategori(v)} chipColor="#e4e4e7" activeColor="#18181b" textColor="#18181b" activeTextColor="#f5f5f5" size="sm" gap={4} radius={14} className="flex-1 min-w-[220px]" />
-              <Select value={stockFilter} onValueChange={(v) => setStockFilter((v as string) ?? "semua")}>
-                <SelectTrigger size="sm" className="w-36">
-                  <SelectValue>{STOK_ITEMS.find((x) => x.value === stockFilter)?.label ?? "Semua stok"}</SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  {STOK_ITEMS.map((it) => (
-                    <SelectItem key={it.value} value={it.value}>{it.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Select value={sortHarga} onValueChange={(v) => setSortHarga((v as any) ?? "termurah")}>
-                <SelectTrigger size="sm" className="w-32">
-                  <SelectValue>{HARGA_ITEMS.find((x) => x.value === sortHarga)?.label ?? "Termurah"}</SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  {HARGA_ITEMS.map((it) => (
-                    <SelectItem key={it.value} value={it.value}>{it.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <div className="ms-auto flex items-center gap-2">
-                <Tabs value={view} onValueChange={(v) => setView(v as "grid" | "list")}>
-                  <TabsList>
-                    <TabsTrigger value="grid" aria-label="Grid view"><LayoutGrid className="size-4" /></TabsTrigger>
-                    <TabsTrigger value="list" aria-label="List view"><List className="size-4" /></TabsTrigger>
-                  </TabsList>
-                </Tabs>
+              <div className="flex flex-wrap items-center gap-1.5 overflow-x-auto scrollbar-none">
+                <JellyRadio items={KATEGORI_ITEMS} value={kategori} onChange={(v: string) => setKategori(v)} chipColor="#e4e4e7" activeColor="#18181b" textColor="#18181b" activeTextColor="#f5f5f5" size="sm" gap={3} radius={12} className="flex-1 min-w-[180px]" />
+                <Select value={stockFilter} onValueChange={(v) => setStockFilter((v as string) ?? "semua")}>
+                  <SelectTrigger size="sm" className="w-32 h-7 text-xs">
+                    <SelectValue>{STOK_ITEMS.find((x) => x.value === stockFilter)?.label ?? "Semua stok"}</SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {STOK_ITEMS.map((it) => (
+                      <SelectItem key={it.value} value={it.value}>{it.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Select value={sortHarga} onValueChange={(v) => setSortHarga((v as any) ?? "termurah")}>
+                  <SelectTrigger size="sm" className="w-28 h-7 text-xs">
+                    <SelectValue>{HARGA_ITEMS.find((x) => x.value === sortHarga)?.label ?? "Termurah"}</SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {HARGA_ITEMS.map((it) => (
+                      <SelectItem key={it.value} value={it.value}>{it.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
-            </div>
+            </CardPanel>
+            <CardPanel className="flex-1 overflow-y-auto p-2.5 bg-muted/20 min-h-0">
+              {view === "grid" ? (
+                <PenjualanProductGrid products={filteredProducts} onAdd={(p) => { if ((window as any).__penjualanAddToCart) (window as any).__penjualanAddToCart(p); else toast.info("Klik keranjang kanan"); }} />
+              ) : (
+                <div className="rounded-xl border overflow-hidden bg-card">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Produk</TableHead>
+                        <TableHead>Kategori</TableHead>
+                        <TableHead>Stok</TableHead>
+                        <TableHead className="text-right">Harga Jual</TableHead>
+                        <TableHead className="text-right">Modal</TableHead>
+                        <TableHead className="w-px" />
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredProducts.length === 0 ? (
+                        <TableRow><TableCell colSpan={6} className="py-8 text-center text-sm text-muted-foreground">Tidak ada produk</TableCell></TableRow>
+                      ) : (
+                        filteredProducts.map((p) => (
+                          <TableRow key={p.id} className={p.stock_qty === 0 ? "opacity-60" : ""}>
+                            <TableCell>
+                              <div className="flex items-center gap-3">
+                                <div className="flex size-10 shrink-0 items-center justify-center rounded-lg border bg-muted/30">
+                                  <PackageIcon className="size-4 text-muted-foreground/50" />
+                                </div>
+                                <div className="min-w-0">
+                                  <div className="font-medium text-sm truncate">{p.name}</div>
+                                  <div className="font-mono text-xs text-muted-foreground truncate">{p.sku} {p.barcode ? `· ${p.barcode}` : ""} {p.is_serialized && <Badge variant="outline" size="sm">IMEI</Badge>}</div>
+                                </div>
+                              </div>
+                            </TableCell>
+                            <TableCell><Badge variant="secondary" size="sm">{p.category}</Badge></TableCell>
+                            <TableCell>
+                              <Badge variant="outline" size="sm" className={p.stock_qty === 0 ? "border-destructive/30 text-destructive" : p.stock_qty < 10 ? "border-amber-500/30 text-amber-700" : "border-emerald-500/30 text-emerald-700"}>{p.stock_qty} {p.stock_qty === 0 ? "Habis" : p.stock_qty < 10 ? "Menipis" : "Tersedia"}</Badge>
+                            </TableCell>
+                            <TableCell className="text-right font-mono text-sm tabular-nums">Rp {p.price.toLocaleString("id-ID")}</TableCell>
+                            <TableCell className="text-right font-mono text-xs text-muted-foreground">Rp {p.cost.toLocaleString("id-ID")}</TableCell>
+                            <TableCell><Button size="filter" variant="outline" disabled={p.stock_qty === 0} onClick={() => { if ((window as any).__penjualanAddToCart) (window as any).__penjualanAddToCart(p); }}>Tambah</Button></TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </CardPanel>
+          </Card>
+        </CardFrame>
 
-            <div className="border-t -mx-3 my-1" aria-hidden />
-            {view === "grid" ? (
-              <PenjualanProductGrid products={filteredProducts} onAdd={(p) => { if ((window as any).__penjualanAddToCart) (window as any).__penjualanAddToCart(p); else toast.info("Klik keranjang kanan"); }} />
-            ) : (
-              <div className="rounded-xl border overflow-hidden">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Produk</TableHead>
-                      <TableHead>Kategori</TableHead>
-                      <TableHead>Stok</TableHead>
-                      <TableHead className="text-right">Harga Jual</TableHead>
-                      <TableHead className="text-right">Modal</TableHead>
-                      <TableHead className="w-px" />
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredProducts.length === 0 ? (
-                      <TableRow><TableCell colSpan={6} className="py-8 text-center text-sm text-muted-foreground">Tidak ada produk</TableCell></TableRow>
-                    ) : (
-                      filteredProducts.map((p) => (
-                        <TableRow key={p.id} className={p.stock_qty === 0 ? "opacity-60" : ""}>
-                          <TableCell>
-                            <div className="font-medium text-sm">{p.name}</div>
-                            <div className="font-mono text-xs text-muted-foreground">{p.sku} {p.barcode ? `· ${p.barcode}` : ""} {p.is_serialized && <Badge variant="outline" size="sm">IMEI</Badge>}</div>
-                          </TableCell>
-                          <TableCell><Badge variant="secondary" size="sm">{p.category}</Badge></TableCell>
-                          <TableCell>
-                            <Badge variant="outline" size="sm" className={p.stock_qty === 0 ? "border-destructive/30 text-destructive" : p.stock_qty < 10 ? "border-amber-500/30 text-amber-700" : "border-emerald-500/30 text-emerald-700"}>{p.stock_qty} {p.stock_qty === 0 ? "Habis" : p.stock_qty < 10 ? "Menipis" : "Tersedia"}</Badge>
-                          </TableCell>
-                          <TableCell className="text-right font-mono text-sm tabular-nums">Rp {p.price.toLocaleString("id-ID")}</TableCell>
-                          <TableCell className="text-right font-mono text-xs text-muted-foreground">Rp {p.cost.toLocaleString("id-ID")}</TableCell>
-                          <TableCell><Button size="filter" variant="outline" disabled={p.stock_qty === 0} onClick={() => { if ((window as any).__penjualanAddToCart) (window as any).__penjualanAddToCart(p); }}>Tambah</Button></TableCell>
-                        </TableRow>
-                      ))
-                    )}
-                  </TableBody>
-                </Table>
-              </div>
-            )}
-          </div>
-        </div>
-
-        <div className="lg:sticky lg:top-6 lg:self-start">
+        <div className="lg:sticky lg:top-6 flex flex-col lg:self-stretch min-h-0">
           <PenjualanCartPanel branchLabel={branch.label} onSuccess={() => router.refresh()} customerId={customerId} customerPhone={customerPhone} customerPhoneSetter={setCustomerPhone} customerIdSetter={setCustomerId} />
           <div className="lg:hidden fixed bottom-[72px] left-1/2 z-30 -translate-x-1/2 w-[95vw] max-w-sm rounded-2xl border bg-background/95 backdrop-blur-xl p-3 shadow-2xl flex justify-between items-center lg:hidden">
             <span className="font-mono text-xs">Keranjang</span>

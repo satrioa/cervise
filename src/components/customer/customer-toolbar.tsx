@@ -122,7 +122,7 @@ export function CustomerToolbar({ query: initialQuery, status: initialStatus, so
   };
 
   return (
-    <div className="flex flex-col gap-3 rounded-xl border bg-card p-3 shadow-xs/5">
+    <div className="flex flex-col gap-2 rounded-xl border bg-card px-3 py-2.5 shadow-xs/5">
       <div className="flex flex-wrap items-center gap-2">
         <InputGroup className="w-64">
           <InputGroupAddon>
@@ -186,10 +186,10 @@ export function CustomerToolbar({ query: initialQuery, status: initialStatus, so
         </div>
       </div>
 
-      <Separator />
+      <Separator className="my-0" />
 
-      <div className="flex items-center gap-2">
-        <span className="ms-auto inline-flex items-center gap-1.5 text-muted-foreground text-xs">
+      <div className="flex items-center gap-1.5 py-0.5">
+        <span className="ms-auto inline-flex items-center gap-1.5 text-muted-foreground text-xs leading-none">
           <span className={"size-1.5 rounded-full " + (shown === 0 ? "bg-destructive" : "bg-emerald-500")} />
           Menampilkan {shown} dari {total} customer
           {activeCount > 0 ? (
