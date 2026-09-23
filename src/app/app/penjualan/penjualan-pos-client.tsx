@@ -1,0 +1,254 @@
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import { formatCurrencyPlain, formatNumberPlain } from "@/lib/format";
+import { useRouter } from "next/navigation";
+import { SearchIcon, History, LayoutGrid, List } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Label } from "@/components/ui/label";
+import { useBranch } from "@/lib/branch-context";
+import { searchProductsForSale, getSaleDetail, returnSaleItems, type ProductRow } from "./actions";
+import { PenjualanProductGrid } from "@/components/penjualan/penjualan-product-grid";
+import { PenjualanTable } from "@/components/penjualan/penjualan-table";
+import { PenjualanCartPanel } from "@/components/penjualan/penjualan-cart-panel";
+import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
+import { Input } from "@/components/ui/input";
+import { toast } from "sonner";
+import JellyRadio from "@/components/ui/jelly-radio";
+
+const KATEGORI_ITEMS = [
+  { value: "semua", label: "Semua" },
+  { value: "Gadget", label: "Gadget" },
+  { value: "Aksesori", label: "Aksesori" },
+  { value: "Lainnya", label: "Lainnya" },
+];
+const STOK_ITEMS = [
+  { value: "semua", label: "Semua stok" },
+  { value: "habis", label: "Habis" },
+  { value: "menipis", label: "Menipis" },
+  { value: "tersedia", label: "Tersedia" },
+];
+const HARGA_ITEMS = [
+  { value: "termurah", label: "Termurah" },
+  { value: "termahal", label: "Termahal" },
+];
+
+const DUMMY_PRODUCTS: ProductRow[] = [
+  { id: "dummy-1", branch_id: "dummy", sku: "GD-IP15P-001", barcode: "8991234560011", name: "iPhone 15 Pro 256GB Second", category: "Gadget", stock_qty: 3, cost: 15500000, price: 17900000, is_serialized: true, is_active: true },
+  { id: "dummy-2", branch_id: "dummy", sku: "GD-SAMA54-002", barcode: "8991234560028", name: "Samsung Galaxy A54 8/256", category: "Gadget", stock_qty: 7, cost: 3800000, price: 4599000, is_serialized: false, is_active: true },
+  { id: "dummy-3", branch_id: "dummy", sku: "AK-ANK65-003", barcode: "8991234560035", name: "Anker Charger 65W PD", category: "Aksesori", stock_qty: 0, cost: 280000, price: 429000, is_serialized: false, is_active: true },
+  { id: "dummy-4", branch_id: "dummy", sku: "AK-CASE14-004", barcode: "8991234560042", name: "Case iPhone 14 Pro Premium", category: "Aksesori", stock_qty: 12, cost: 125000, price: 249000, is_serialized: false, is_active: true },
+  { id: "dummy-5", branch_id: "dummy", sku: "AK-FD64-005", barcode: "8991234560059", name: "Flashdisk Sandisk 64GB Ultra", category: "Aksesori", stock_qty: 4, cost: 85000, price: 149000, is_serialized: false, is_active: true },
+];
+
+export function PenjualanPOSClient({ initialRows }: { initialRows: any[] }) {
+  const router = useRouter();
+  const { branch } = useBranch();
+  const [view, setView] = useState<"grid" | "list">("grid");
+  const [q, setQ] = useState("");
+  const [kategori, setKategori] = useState("semua");
+  const [stockFilter, setStockFilter] = useState<string>("semua");
+  const [sortHarga, setSortHarga] = useState<"termurah" | "termahal">("termurah");
+  const [products, setProducts] = useState<ProductRow[]>([]);
+  const [customerPhone, setCustomerPhone] = useState("");
+  const [customerId, setCustomerId] = useState<string | null>(null);
+  const [riwayatOpen, setRiwayatOpen] = useState(false);
+  const [detailOpen, setDetailOpen] = useState(false);
+  const [detail, setDetail] = useState<any>(null);
+  const [returOpen, setReturOpen] = useState(false);
+  const [returSale, setReturSale] = useState<any>(null);
+  const [returItems, setReturItems] = useState<any[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const rows = await searchProductsForSale("");
+        if (!cancelled) {
+          if (rows.length === 0) setProducts(DUMMY_PRODUCTS);
+          else setProducts(rows);
+        }
+      } catch { if (!cancelled) setProducts(DUMMY_PRODUCTS); }
+    })();
+    return () => { cancelled = true; };
+  }, [branch.id]);
+
+  const filteredProducts = useMemo(() => {
+    let out = products.filter((p) => {
+      if (q.trim()) {
+        const hay = `${p.sku} ${p.name} ${p.barcode ?? ""}`.toLowerCase();
+        if (!hay.includes(q.trim().toLowerCase())) return false;
+      }
+      if (kategori !== "semua" && p.category !== kategori) return false;
+      if (stockFilter === "habis" && p.stock_qty !== 0) return false;
+      if (stockFilter === "menipis" && !(p.stock_qty > 0 && p.stock_qty < 10)) return false;
+      if (stockFilter === "tersedia" && p.stock_qty < 10) return false;
+      return true;
+    });
+    out = [...out].sort((a, b) => sortHarga === "termurah" ? a.price - b.price : b.price - a.price);
+    return out;
+  }, [products, q, kategori, stockFilter, sortHarga]);
+
+  const handleDetail = async (id: string) => {
+    try { const d = await getSaleDetail(id); setDetail(d); setDetailOpen(true); } catch (e: any) { toast.error(e.message); }
+  };
+  const handlePrint = async (id: string) => {
+    try {
+      const d = await getSaleDetail(id);
+      const itemsHtml = d.items.map((it: any, i: number) => `<tr><td>${i + 1}</td><td>${it.sku}</td><td>${it.name}</td><td>${it.qty}</td><td>${formatCurrencyPlain(Number(it.unit_price))}</td><td>${formatCurrencyPlain(Number(it.line_total))}</td></tr>`).join("");
+      const html = `<!doctype html><html><head><meta charset="utf-8"><title>${d.sale.sale_number}</title><style>body{font-family:system-ui;padding:32px}table{width:100%;border-collapse:collapse}th{background:#111827;color:#fff;padding:8px}td{padding:8px;border-bottom:1px solid #eee} .mono{font-family:monospace}</style></head><body><h1>Cervise — Nota ${d.sale.sale_number}</h1><p>${d.sale.kas_date} · ${branch.label} · ${d.customer?.name ?? ""}</p><table><thead><tr><th>No</th><th>SKU</th><th>Nama</th><th>Qty</th><th>Harga</th><th>Subtotal</th></tr></thead><tbody>${itemsHtml}</tbody></table><p class="mono">Total ${formatCurrencyPlain(Number(d.sale.total))}</p><script>window.print()</script></body></html>`;
+      const w = window.open("", "_blank"); if (!w) return; w.document.write(html); w.document.close();
+    } catch (e: any) { toast.error(e.message); }
+  };
+  const handleReturOpen = async (id: string) => {
+    try { const d = await getSaleDetail(id); if (d.sale.status === "retur") { toast.info("Sudah retur"); return; } setReturSale(d.sale); setReturItems(d.items.map((it: any) => ({ ...it, returQty: 0 }))); setReturOpen(true); } catch (e: any) { toast.error(e.message); }
+  };
+  const handleRetur = async () => {
+    const rets = returItems.filter((it) => it.returQty > 0).map((it) => ({ item_id: it.id, qty: it.returQty }));
+    if (!rets.length) { toast.error("Pilih qty retur"); return; }
+    try { await returnSaleItems(returSale.id, rets); toast.success("Retur berhasil"); setReturOpen(false); router.refresh(); } catch (e: any) { toast.error(e.message); }
+  };
+
+  return (
+    <>
+      <div className="mx-auto max-w-[1600px] px-4 lg:px-6 pt-6 pb-3">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <div className="font-mono text-[10px] text-muted-foreground uppercase tracking-[0.3em]">Operasional · Penjualan — POS</div>
+            <h1 className="mt-1 font-heading text-2xl">Penjualan Gadget & Aksesori</h1>
+          </div>
+          <Popover open={riwayatOpen} onOpenChange={setRiwayatOpen}>
+            <PopoverTrigger render={<Button variant="outline" size="filter"><History data-icon="inline-start" /> Riwayat Penjualan</Button>} />
+            <PopoverContent align="end" className="w-[560px] max-w-[95vw] p-0">
+              <div className="max-h-[60vh] overflow-auto p-2">
+                <PenjualanTable rows={initialRows} onDetail={(id) => { setRiwayatOpen(false); handleDetail(id); }} onPrint={(id) => { setRiwayatOpen(false); handlePrint(id); }} onRetur={(id) => { setRiwayatOpen(false); handleReturOpen(id); }} />
+              </div>
+            </PopoverContent>
+          </Popover>
+        </div>
+      </div>
+
+      <div className="mx-auto grid max-w-[1600px] gap-6 px-4 lg:px-6 py-6 lg:grid-cols-[1fr_380px] xl:grid-cols-[1fr_420px]">
+        <div className="min-w-0 flex flex-col gap-4">
+          <div className="rounded-xl border bg-card p-3 shadow-xs/5 flex flex-col gap-3">
+            <InputGroup className="w-full">
+              <InputGroupAddon><SearchIcon className="size-4 text-muted-foreground" /></InputGroupAddon>
+              <InputGroupInput placeholder="Scan barcode / SKU / nama + Enter" value={q} onChange={(e) => setQ(e.target.value)} nativeInput onKeyDown={(e) => { if (e.key === "Enter") { const term = q.trim(); if (term) { const hit = filteredProducts.find((p) => p.sku.toLowerCase() === term.toLowerCase() || (p.barcode && p.barcode.toLowerCase() === term.toLowerCase())); if (hit && (window as any).__penjualanAddToCart) (window as any).__penjualanAddToCart(hit); } } }} />
+              <InputGroupAddon align="inline-end"><span className="font-mono text-[10px] text-muted-foreground">Enter</span></InputGroupAddon>
+            </InputGroup>
+
+            <div className="flex flex-wrap items-center gap-2 overflow-x-auto scrollbar-none pb-1 [mask-image:linear-gradient(to_right,transparent,black_12px,black_calc(100%-12px),transparent)]">
+              <JellyRadio items={KATEGORI_ITEMS} value={kategori} onChange={(v: string) => setKategori(v)} chipColor="#e4e4e7" activeColor="#18181b" textColor="#18181b" activeTextColor="#f5f5f5" size="sm" gap={4} radius={14} className="flex-1 min-w-[220px]" />
+              <Select value={stockFilter} onValueChange={(v) => setStockFilter((v as string) ?? "semua")}>
+                <SelectTrigger size="sm" className="w-36">
+                  <SelectValue>{STOK_ITEMS.find((x) => x.value === stockFilter)?.label ?? "Semua stok"}</SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {STOK_ITEMS.map((it) => (
+                    <SelectItem key={it.value} value={it.value}>{it.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select value={sortHarga} onValueChange={(v) => setSortHarga((v as any) ?? "termurah")}>
+                <SelectTrigger size="sm" className="w-32">
+                  <SelectValue>{HARGA_ITEMS.find((x) => x.value === sortHarga)?.label ?? "Termurah"}</SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {HARGA_ITEMS.map((it) => (
+                    <SelectItem key={it.value} value={it.value}>{it.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <div className="ms-auto flex items-center gap-2">
+                <Tabs value={view} onValueChange={(v) => setView(v as "grid" | "list")}>
+                  <TabsList>
+                    <TabsTrigger value="grid" aria-label="Grid view"><LayoutGrid className="size-4" /></TabsTrigger>
+                    <TabsTrigger value="list" aria-label="List view"><List className="size-4" /></TabsTrigger>
+                  </TabsList>
+                </Tabs>
+              </div>
+            </div>
+
+            <div className="border-t -mx-3 my-1" aria-hidden />
+            {view === "grid" ? (
+              <PenjualanProductGrid products={filteredProducts} onAdd={(p) => { if ((window as any).__penjualanAddToCart) (window as any).__penjualanAddToCart(p); else toast.info("Klik keranjang kanan"); }} />
+            ) : (
+              <div className="rounded-xl border overflow-hidden">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Produk</TableHead>
+                      <TableHead>Kategori</TableHead>
+                      <TableHead>Stok</TableHead>
+                      <TableHead className="text-right">Harga Jual</TableHead>
+                      <TableHead className="text-right">Modal</TableHead>
+                      <TableHead className="w-px" />
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredProducts.length === 0 ? (
+                      <TableRow><TableCell colSpan={6} className="py-8 text-center text-sm text-muted-foreground">Tidak ada produk</TableCell></TableRow>
+                    ) : (
+                      filteredProducts.map((p) => (
+                        <TableRow key={p.id} className={p.stock_qty === 0 ? "opacity-60" : ""}>
+                          <TableCell>
+                            <div className="font-medium text-sm">{p.name}</div>
+                            <div className="font-mono text-xs text-muted-foreground">{p.sku} {p.barcode ? `· ${p.barcode}` : ""} {p.is_serialized && <Badge variant="outline" size="sm">IMEI</Badge>}</div>
+                          </TableCell>
+                          <TableCell><Badge variant="secondary" size="sm">{p.category}</Badge></TableCell>
+                          <TableCell>
+                            <Badge variant="outline" size="sm" className={p.stock_qty === 0 ? "border-destructive/30 text-destructive" : p.stock_qty < 10 ? "border-amber-500/30 text-amber-700" : "border-emerald-500/30 text-emerald-700"}>{p.stock_qty} {p.stock_qty === 0 ? "Habis" : p.stock_qty < 10 ? "Menipis" : "Tersedia"}</Badge>
+                          </TableCell>
+                          <TableCell className="text-right font-mono text-sm tabular-nums">Rp {p.price.toLocaleString("id-ID")}</TableCell>
+                          <TableCell className="text-right font-mono text-xs text-muted-foreground">Rp {p.cost.toLocaleString("id-ID")}</TableCell>
+                          <TableCell><Button size="filter" variant="outline" disabled={p.stock_qty === 0} onClick={() => { if ((window as any).__penjualanAddToCart) (window as any).__penjualanAddToCart(p); }}>Tambah</Button></TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="lg:sticky lg:top-6 lg:self-start">
+          <PenjualanCartPanel branchLabel={branch.label} onSuccess={() => router.refresh()} customerId={customerId} customerPhone={customerPhone} customerPhoneSetter={setCustomerPhone} customerIdSetter={setCustomerId} />
+          <div className="lg:hidden fixed bottom-[72px] left-1/2 z-30 -translate-x-1/2 w-[95vw] max-w-sm rounded-2xl border bg-background/95 backdrop-blur-xl p-3 shadow-2xl flex justify-between items-center lg:hidden">
+            <span className="font-mono text-xs">Keranjang</span>
+            <Button size="sm" onClick={() => document.querySelector<HTMLElement>("[data-cart-panel]")?.scrollIntoView({ behavior: "smooth" })}>Lihat Keranjang</Button>
+          </div>
+        </div>
+      </div>
+
+      <DialogPrimitive.Root open={detailOpen} onOpenChange={setDetailOpen}>
+        <DialogPrimitive.Portal>
+          <DialogPrimitive.Backdrop className="fixed inset-0 z-50 bg-black/20 backdrop-blur-sm" />
+          <DialogPrimitive.Popup className="fixed left-1/2 top-1/2 z-50 w-[95vw] max-w-lg -translate-x-1/2 -translate-y-1/2 rounded-xl border bg-background p-6 shadow-lg max-h-[85vh] overflow-auto">
+            <DialogPrimitive.Title className="font-semibold">Nota {detail?.sale?.sale_number}</DialogPrimitive.Title>
+            <DialogPrimitive.Description className="text-sm text-muted-foreground">{detail?.customer?.name} · {detail?.sale?.kas_date}</DialogPrimitive.Description>
+            {detail && detail.items.map((it: any) => (<div key={it.id} className="flex justify-between border-b py-2 text-sm"><span>{it.name} ×{it.qty}</span><span className="font-mono">{formatCurrencyPlain(Number(it.line_total))}</span></div>))}
+            <DialogPrimitive.Close className="absolute right-3 top-3 rounded-md p-1 text-muted-foreground hover:bg-muted">×</DialogPrimitive.Close>
+          </DialogPrimitive.Popup>
+        </DialogPrimitive.Portal>
+      </DialogPrimitive.Root>
+
+      <DialogPrimitive.Root open={returOpen} onOpenChange={setReturOpen}>
+        <DialogPrimitive.Portal>
+          <DialogPrimitive.Backdrop className="fixed inset-0 z-50 bg-black/20 backdrop-blur-sm" />
+          <DialogPrimitive.Popup className="fixed left-1/2 top-1/2 z-50 w-[95vw] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-xl border bg-background p-6 shadow-lg">
+            <DialogPrimitive.Title className="font-semibold">Retur Parsial — {returSale?.sale_number}</DialogPrimitive.Title>
+            <div className="mt-4 space-y-2 max-h-64 overflow-auto">{returItems.map((it) => (<div key={it.id} className="flex items-center gap-2 border rounded-lg p-2"><div className="flex-1"><div className="font-medium text-sm">{it.name}</div><div className="font-mono text-xs">{it.sku} · qty {it.qty}</div></div><Input type="number" min={0} max={it.qty - it.qty_returned} value={it.returQty} onChange={(e) => setReturItems((prev) => prev.map((x) => x.id === it.id ? { ...x, returQty: Number(e.target.value) } : x))} className="h-7 w-16" /></div>))}</div>
+            <div className="mt-4 flex justify-end gap-2"><Button variant="outline" onClick={() => setReturOpen(false)}>Batal</Button><Button onClick={async () => { const rets = returItems.filter((it) => it.returQty > 0).map((it) => ({ item_id: it.id, qty: it.returQty })); if (!rets.length) return; await returnSaleItems(returSale.id, rets); toast.success("Retur berhasil"); setReturOpen(false); router.refresh(); }}>Proses Retur</Button></div>
+          </DialogPrimitive.Popup>
+        </DialogPrimitive.Portal>
+      </DialogPrimitive.Root>
+    </>
+  );
+}

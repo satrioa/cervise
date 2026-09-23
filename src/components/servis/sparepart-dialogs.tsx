@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { formatCurrencyPlain, formatNumberPlain } from "@/lib/format";
 import { SearchIcon, MinusIcon, PlusIcon, PackageIcon, AlertTriangleIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -160,7 +161,7 @@ export function SparepartPickDialog({
                       >
                         <div className="min-w-0">
                           <div className="text-sm font-medium truncate">{r.name}</div>
-                          <div className="font-mono text-xs text-muted-foreground">{r.sku} · Rp {(r.price_cents / 100).toLocaleString("id-ID")}</div>
+                          <div className="font-mono text-xs text-muted-foreground">{r.sku} · {formatCurrencyPlain((r.price_cents / 100))}</div>
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
                           <Badge variant={out ? "destructive" : r.qty < 5 ? "warning" : "secondary"}>{out ? "Habis" : `Stok ${r.qty}`}</Badge>

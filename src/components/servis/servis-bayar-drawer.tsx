@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { formatCurrencyPlain, formatNumberPlain } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -50,9 +51,9 @@ export function ServisBayarForm({ servisId, estimasi, totalPaid = 0, onSuccess, 
     <form onSubmit={handleSubmit} className="space-y-4">
       {estimasi != null && (
         <div className="flex flex-wrap gap-2 text-xs">
-          <Badge variant="outline">Estimasi Rp {estimasi.toLocaleString("id-ID")}</Badge>
-          <Badge variant="secondary">Terbayar Rp {totalPaid.toLocaleString("id-ID")}</Badge>
-          {sisa !== null && <Badge variant={sisa === 0 ? "default" : "outline"}>Sisa Rp {sisa.toLocaleString("id-ID")}</Badge>}
+          <Badge variant="outline">Estimasi {formatCurrencyPlain(estimasi)}</Badge>
+          <Badge variant="secondary">Terbayar {formatCurrencyPlain(totalPaid)}</Badge>
+          {sisa !== null && <Badge variant={sisa === 0 ? "default" : "outline"}>Sisa {formatCurrencyPlain(sisa)}</Badge>}
         </div>
       )}
       {error && <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">{error}</div>}
@@ -65,7 +66,7 @@ export function ServisBayarForm({ servisId, estimasi, totalPaid = 0, onSuccess, 
         <Label>Metode *</Label>
         <Select value={metode} onValueChange={(v) => setMetode(v as any)}>
           <SelectTrigger className="dark:text-white data-placeholder:text-white/70"><SelectValue className="dark:text-white" /></SelectTrigger>
-          <SelectPopup containerClassName="dark scheme-dark bg-popover text-popover-foreground">
+          <SelectPopup className="dark scheme-dark bg-popover text-popover-foreground">
             {METODE.map((m) => <SelectItem key={m} value={m} className="text-popover-foreground dark:text-white data-highlighted:text-white data-highlighted:bg-white/10">{m}</SelectItem>)}
           </SelectPopup>
         </Select>

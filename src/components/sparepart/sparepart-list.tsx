@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { formatCurrencyPlain, formatNumberPlain } from "@/lib/format";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
@@ -116,7 +117,7 @@ export function SparepartList({
                   <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted"><div className={"h-full " + stockTone(p).barCls} style={{ width: `${Math.min(100, Math.round((p.stock / p.capacity) * 100))}%` }} /></div>
                   <span className="font-mono text-xs tabular-nums">{p.stock}<span className="text-muted-foreground/60">/{p.capacity}</span></span>
                 </div>
-                <div className="mt-2 text-right font-mono text-sm tabular-nums">Rp {p.price.toLocaleString("id-ID")}</div>
+                <div className="mt-2 text-right font-mono text-sm tabular-nums">{formatCurrencyPlain(p.price)}</div>
               </div>
             </InventoryContextMenu>
           ))}
@@ -173,7 +174,7 @@ export function SparepartList({
                         <Badge variant="outline" size="sm" className={"ml-1 " + tone.cls}>{tone.label}</Badge>
                       </div>
                     </TableCell>
-                    <TableCell className="pe-4 text-right font-mono tabular-nums">Rp {p.price.toLocaleString("id-ID")}</TableCell>
+                    <TableCell className="pe-4 text-right font-mono tabular-nums">{formatCurrencyPlain(p.price)}</TableCell>
                   </TableRow>
                 </InventoryContextMenu>
               );

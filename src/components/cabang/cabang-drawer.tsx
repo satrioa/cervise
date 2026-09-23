@@ -8,9 +8,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
-import { getCabangMembers, updateCabang } from "@/app/app/cabang/actions";
+import { getCabangMembers, toggleCabangIntensif, updateCabang, updateCabangIntensif } from "@/app/app/cabang/actions";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { Switch } from "@/components/ui/switch";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 type BranchItem = {
   id: string;
@@ -18,6 +20,10 @@ type BranchItem = {
   city: string;
   phone: string;
   is_active: boolean;
+  is_intensif_enabled?: boolean;
+  intensif_mode?: "percent" | "fixed";
+  intensif_value?: number;
+  intensif_target_count?: number | null;
   created_at: string;
   teknisiCount: number;
 };
@@ -57,6 +63,12 @@ export function CabangDrawer({ branch, open, onOpenChange }: { branch: BranchIte
   const [telepon, setTelepon] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [intensifEnabled, setIntensifEnabled] = useState(true);
+  const [intensifMode, setIntensifMode] = useState<"percent" | "fixed">("percent");
+  const [intensifValue, setIntensifValue] = useState<string>("5");
+  const [intensifTarget, setIntensifTarget] = useState<string>("");
+  const [savingIntensif, setSavingIntensif] = useState(false);
+  const [errorIntensif, setErrorIntensif] = useState<string | null>(null);
 
   useEffect(() => {
     if (!open || !branch) return;
@@ -65,6 +77,11 @@ export function CabangDrawer({ branch, open, onOpenChange }: { branch: BranchIte
     setTelepon(branch.phone);
     setError(null);
     setEditOpen(false);
+    setIntensifEnabled(branch.is_intensif_enabled ?? true);
+    setIntensifMode(branch.intensif_mode ?? "percent");
+    setIntensifValue(String(branch.intensif_value ?? 5));
+    setIntensifTarget(branch.intensif_target_count ? String(branch.intensif_target_count) : "");
+    setErrorIntensif(null);
     setLoading(true);
     // Wired: real fetch for real ids, mock fallback only for demo ids
     if (branch.id.startsWith("mock-")) {
@@ -104,6 +121,52 @@ export function CabangDrawer({ branch, open, onOpenChange }: { branch: BranchIte
       toast.error(e?.message ?? "Gagal menyimpan");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleIntensifToggle = async (next: boolean) => {
+    if (!branch || branch.id.startsWith("mock-")) {
+      toast.error("Cabang demo tidak bisa diubah.");
+      return;
+    }
+    setSavingIntensif(true);
+    setErrorIntensif(null);
+    const prev = intensifEnabled;
+    setIntensifEnabled(next);
+    try {
+      await toggleCabangIntensif(branch.id, next);
+      toast.success(next ? "Insentif diaktifkan" : "Insentif dinonaktifkan");
+      router.refresh();
+    } catch (e: any) {
+      setIntensifEnabled(prev);
+      setErrorIntensif(e?.message ?? "Gagal menyimpan");
+      toast.error(e?.message ?? "Gagal menyimpan");
+    } finally {
+      setSavingIntensif(false);
+    }
+  };
+
+  const handleSaveIntensif = async () => {
+    if (!branch || branch.id.startsWith("mock-")) {
+      setErrorIntensif("Cabang demo tidak bisa disimpan.");
+      return;
+    }
+    const val = Number(intensifValue);
+    if (isNaN(val) || val < 0) { setErrorIntensif("Nilai harus angka ≥ 0"); return; }
+    if (intensifMode === "percent" && val > 100) { setErrorIntensif("Persentase maksimal 100%"); return; }
+    const target = intensifTarget.trim() === "" ? null : Number(intensifTarget);
+    if (target !== null && (isNaN(target) || target <= 0)) { setErrorIntensif("Target harus > 0"); return; }
+    setSavingIntensif(true);
+    setErrorIntensif(null);
+    try {
+      await updateCabangIntensif(branch.id, { mode: intensifMode, value: val, targetCount: target });
+      toast.success("Insentif cabang diperbarui");
+      router.refresh();
+    } catch (e: any) {
+      setErrorIntensif(e?.message ?? "Gagal menyimpan");
+      toast.error(e?.message ?? "Gagal menyimpan");
+    } finally {
+      setSavingIntensif(false);
     }
   };
 
@@ -182,6 +245,48 @@ export function CabangDrawer({ branch, open, onOpenChange }: { branch: BranchIte
                 </div>
               </div>
             )}
+          </div>
+
+          {/* Intensif per cabang — Q1 % or fixed, Q3 per cabang, Q4 Selesai+Sudah Diambil */}
+          <div className="rounded-xl border bg-card p-4 shadow-xs/5">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <div className="font-heading text-sm font-semibold">Insentif Teknisi</div>
+                <p className="text-xs text-muted-foreground">Per cabang · hitung dari servis Selesai + Sudah Diambil</p>
+              </div>
+              <Switch checked={intensifEnabled} disabled={savingIntensif || !branch.is_active} onCheckedChange={handleIntensifToggle} />
+            </div>
+            {!branch.is_active && <p className="mt-2 text-xs text-amber-600">Aktifkan cabang dulu untuk mengatur insentif.</p>}
+            {intensifEnabled && branch.is_active && (
+              <div className="mt-4 space-y-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label className="font-mono text-[10px] uppercase tracking-[0.2em]">Mode</Label>
+                    <Select value={intensifMode} onValueChange={(v) => setIntensifMode(v as "percent" | "fixed")}>
+                      <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="percent">Persentase (%)</SelectItem>
+                        <SelectItem value="fixed">Nominal tetap (Rp)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="font-mono text-[10px] uppercase tracking-[0.2em]">{intensifMode === "percent" ? "Persentase %" : "Nominal Rp"}</Label>
+                    <Input type="number" min={0} max={intensifMode === "percent" ? 100 : undefined} value={intensifValue} onChange={(e) => setIntensifValue(e.target.value)} placeholder={intensifMode === "percent" ? "5" : "50000"} />
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="font-mono text-[10px] uppercase tracking-[0.2em]">Target servis / periode (opsional)</Label>
+                  <Input type="number" min={1} value={intensifTarget} onChange={(e) => setIntensifTarget(e.target.value)} placeholder="mis. 20" />
+                  <p className="text-[11px] text-muted-foreground">Dipakai di Performa Teknisi untuk progress bar. Kosongkan jika tidak pakai target.</p>
+                </div>
+                {errorIntensif && <div className="rounded-md border border-destructive/30 bg-destructive/10 px-2 py-1.5 text-xs text-destructive">{errorIntensif}</div>}
+                <div className="flex justify-end">
+                  <Button size="sm" onClick={handleSaveIntensif} disabled={savingIntensif}>{savingIntensif ? "Menyimpan..." : "Simpan insentif"}</Button>
+                </div>
+              </div>
+            )}
+            {!intensifEnabled && branch.is_active && <p className="mt-3 text-xs text-muted-foreground">Insentif nonaktif — teknisi di cabang ini tidak mendapat insentif.</p>}
           </div>
 
           {/* Members compact-card list */}

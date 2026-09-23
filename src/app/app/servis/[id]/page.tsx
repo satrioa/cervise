@@ -4,6 +4,16 @@ import { Button } from "@/components/ui/button";
 import { ServisDetailView } from "@/components/servis/servis-detail-view";
 import { getServisDetail } from "@/app/app/servis/actions";
 import { ChevronLeftIcon } from "lucide-react";
+import { format } from "date-fns";
+
+function formatInvoiceNo(createdAt: string | null, id: string) {
+  try {
+    const d = createdAt ? new Date(createdAt) : new Date();
+    return `INV-${format(d, "ddMMyyyyHHmmss")}`;
+  } catch {
+    return `INV-${id.slice(0, 8).toUpperCase()}`;
+  }
+}
 
 export default async function ServisDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -14,6 +24,7 @@ export default async function ServisDetailPage({ params }: { params: Promise<{ i
     notFound();
   }
   if (!data) notFound();
+  const invoiceNo = formatInvoiceNo(data.created_at as any, data.id);
 
   return (
     <div className="bg-background text-foreground min-h-svh">
@@ -26,7 +37,7 @@ export default async function ServisDetailPage({ params }: { params: Promise<{ i
           </Link>
           <div>
             <div className="font-mono text-[10px] text-muted-foreground uppercase tracking-[0.3em]">Servis · Detail</div>
-            <h1 className="font-heading text-xl">Detail {data.id}</h1>
+            <h1 className="font-heading text-xl">Detail {invoiceNo}</h1>
           </div>
           <div className="ml-auto flex gap-2">
             <Link href="/app/servis">

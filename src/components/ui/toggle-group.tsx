@@ -1,59 +1,103 @@
 "use client";
 
-import { createContext, useContext } from "react";
+import type { Toggle as TogglePrimitive } from "@base-ui/react/toggle";
+import { ToggleGroup as ToggleGroupPrimitive } from "@base-ui/react/toggle-group";
+import type { VariantProps } from "class-variance-authority";
+import * as React from "react";
 import { cn } from "@/lib/utils";
+import { Separator } from "@/components/ui/separator";
+import {
+  Toggle as ToggleComponent,
+  type toggleVariants,
+} from "@/components/ui/toggle";
 
-interface ToggleGroupContextValue {
-  value: string[];
-  onValueChange: (value: string[]) => void;
-}
-
-const ToggleGroupContext = createContext<ToggleGroupContextValue>({
-  value: [],
-  onValueChange: () => {},
+export const ToggleGroupContext: React.Context<
+  VariantProps<typeof toggleVariants>
+> = React.createContext<VariantProps<typeof toggleVariants>>({
+  size: "default",
+  variant: "default",
 });
 
-interface ToggleGroupProps extends React.ComponentProps<"div"> {
-  value: string[];
-  onValueChange: (value: string[]) => void;
-}
-
-export function ToggleGroup({ value, onValueChange, className, ...props }: ToggleGroupProps) {
+export function ToggleGroup({
+  className,
+  variant = "default",
+  size = "default",
+  orientation = "horizontal",
+  children,
+  ...props
+}: ToggleGroupPrimitive.Props &
+  VariantProps<typeof toggleVariants>): React.ReactElement {
   return (
-    <ToggleGroupContext.Provider value={{ value, onValueChange }}>
-      <div
-        role="group"
-        data-slot="toggle-group"
-        className={cn("inline-flex items-center gap-px rounded-lg border bg-background p-[3px] shadow-xs/5", className)}
-        {...props}
-      />
-    </ToggleGroupContext.Provider>
+    <ToggleGroupPrimitive
+      className={cn(
+        "flex w-fit *:focus-visible:z-10 dark:*:[[data-slot=separator]:has(+[data-slot=toggle]:hover)]:before:bg-input/64 dark:*:[[data-slot=separator]:has(+[data-slot=toggle][data-pressed])]:before:bg-input dark:*:[[data-slot=toggle]:hover+[data-slot=separator]]:before:bg-input/64 dark:*:[[data-slot=toggle][data-pressed]+[data-slot=separator]]:before:bg-input",
+        orientation === "horizontal"
+          ? "*:pointer-coarse:after:min-w-auto"
+          : "*:pointer-coarse:after:min-h-auto",
+        variant === "default"
+          ? "gap-0.5"
+          : orientation === "horizontal"
+            ? "*:not-first:rounded-s-none *:not-last:rounded-e-none *:not-first:border-s-0 *:not-last:border-e-0 *:not-first:not-data-[slot=separator]:before:-start-[0.5px] *:not-last:not-data-[slot=separator]:before:-end-[0.5px] *:not-first:before:rounded-s-none *:not-last:before:rounded-e-none"
+            : "flex-col *:not-first:rounded-t-none *:not-last:rounded-b-none *:not-first:border-t-0 *:not-last:border-b-0 *:not-first:not-data-[slot=separator]:before:-top-[0.5px] *:not-last:not-data-[slot=separator]:before:-bottom-[0.5px] *:not-first:before:rounded-t-none *:not-last:before:rounded-b-none *:data-[slot=toggle]:not-last:before:hidden dark:*:last:before:hidden dark:*:first:before:block",
+        className,
+      )}
+      data-size={size}
+      data-slot="toggle-group"
+      data-variant={variant}
+      orientation={orientation}
+      {...props}
+    >
+      <ToggleGroupContext.Provider value={{ size, variant }}>
+        {children}
+      </ToggleGroupContext.Provider>
+    </ToggleGroupPrimitive>
   );
 }
 
-interface ToggleGroupItemProps extends React.ComponentProps<"button"> {
-  value: string;
-  size?: "sm" | "default";
-}
+export function ToggleGroupItem({
+  className,
+  children,
+  variant,
+  size,
+  ...props
+}: TogglePrimitive.Props &
+  VariantProps<typeof toggleVariants>): React.ReactElement {
+  const context = React.useContext(ToggleGroupContext);
 
-export function ToggleGroupItem({ value, size = "default", className, children, ...props }: ToggleGroupItemProps) {
-  const { value: groupValue, onValueChange } = useContext(ToggleGroupContext);
-  const pressed = groupValue.includes(value);
+  const resolvedVariant = context.variant || variant;
+  const resolvedSize = context.size || size;
+
   return (
-    <button
-      type="button"
-      data-slot="toggle-group-item"
-      aria-pressed={pressed}
-      data-pressed={pressed ? "" : undefined}
-      onClick={() => onValueChange([value])}
-      className={cn(
-        "inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-md font-medium whitespace-nowrap text-muted-foreground outline-none transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 disabled:pointer-events-none disabled:opacity-64 data-pressed:bg-muted data-pressed:text-foreground data-pressed:shadow-xs [&_svg:not([class*='size-'])]:size-4 [&_svg]:pointer-events-none [&_svg]:shrink-0",
-        size === "sm" ? "h-7 min-w-7 px-1.5 text-sm" : "h-8 min-w-8 px-2 text-sm",
-        className
-      )}
+    <ToggleComponent
+      className={className}
+      data-size={resolvedSize}
+      data-variant={resolvedVariant}
+      size={resolvedSize}
+      variant={resolvedVariant}
       {...props}
     >
       {children}
-    </button>
+    </ToggleComponent>
   );
 }
+
+export function ToggleGroupSeparator({
+  className,
+  orientation = "vertical",
+  ...props
+}: {
+  className?: string;
+} & React.ComponentProps<typeof Separator>): React.ReactElement {
+  return (
+    <Separator
+      className={cn(
+        "pointer-events-none relative bg-input before:absolute before:inset-0 dark:before:bg-input/32",
+        className,
+      )}
+      orientation={orientation}
+      {...props}
+    />
+  );
+}
+
+export { ToggleGroupPrimitive };

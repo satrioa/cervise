@@ -181,7 +181,7 @@ export function KaryawanToolbar({
         </Select>
 
         <div className="ms-auto flex items-center gap-2">
-          <Button size="sm" variant="outline" onClick={() => setExportOpen(true)}>
+          <Button size="filter" variant="outline" onClick={() => setExportOpen(true)}>
             Export
           </Button>
           <GenericExportDialog

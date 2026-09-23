@@ -1,96 +1,115 @@
 "use client";
 
-import { mergeProps } from "@base-ui/react/merge-props";
-import { useRender } from "@base-ui/react/use-render";
-import { cva, type VariantProps } from "class-variance-authority";
-import type * as React from "react";
+import { Slot } from "@radix-ui/react-slot";
 import { cn } from "@/lib/utils";
-import { Spinner } from "@/components/ui/spinner";
+import SmoothButton, { smoothButtonVariants } from "@/components/smoothui/smooth-button";
+import type { VariantProps } from "class-variance-authority";
+import type * as React from "react";
 
-export const buttonVariants = cva(
-  "relative inline-flex shrink-0 cursor-pointer items-center justify-center gap-2 whitespace-nowrap rounded-lg border font-medium text-base outline-none transition-shadow before:pointer-events-none before:absolute before:inset-0 before:rounded-[calc(var(--radius-lg)-1px)] pointer-coarse:after:absolute pointer-coarse:after:size-full pointer-coarse:after:min-h-11 pointer-coarse:after:min-w-11 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-64 data-loading:select-none data-loading:text-transparent sm:text-sm [&_svg:not([class*='opacity-'])]:opacity-80 [&_svg:not([class*='size-'])]:size-4.5 sm:[&_svg:not([class*='size-'])]:size-4 [&_svg]:pointer-events-none [&_svg]:-mx-0.5 [&_svg]:shrink-0",
-  {
-    defaultVariants: {
-      size: "default",
-      variant: "default",
-    },
-    variants: {
-      size: {
-        default: "h-9 px-[calc(--spacing(3)-1px)] sm:h-8",
-        icon: "size-9 sm:size-8",
-        "icon-lg": "size-10 sm:size-9",
-        "icon-sm": "size-8 sm:size-7",
-        "icon-xl":
-          "size-11 sm:size-10 [&_svg:not([class*='size-'])]:size-5 sm:[&_svg:not([class*='size-'])]:size-4.5",
-        "icon-xs":
-          "size-7 rounded-md before:rounded-[calc(var(--radius-md)-1px)] sm:size-6 not-in-data-[slot=input-group]:[&_svg:not([class*='size-'])]:size-4 sm:not-in-data-[slot=input-group]:[&_svg:not([class*='size-'])]:size-3.5",
-        lg: "h-10 px-[calc(--spacing(3.5)-1px)] sm:h-9",
-        sm: "h-8 gap-1.5 px-[calc(--spacing(2.5)-1px)] sm:h-7",
-        xl: "h-11 px-[calc(--spacing(4)-1px)] text-lg sm:h-10 sm:text-base [&_svg:not([class*='size-'])]:size-5 sm:[&_svg:not([class*='size-'])]:size-4.5",
-        xs: "h-7 gap-1 rounded-md px-[calc(--spacing(2)-1px)] text-sm before:rounded-[calc(var(--radius-md)-1px)] sm:h-6 sm:text-xs [&_svg:not([class*='size-'])]:size-4 sm:[&_svg:not([class*='size-'])]:size-3.5",
-      },
-      variant: {
-        default:
-          "not-disabled:inset-shadow-[0_1px_--theme(--color-white/16%)] border-primary bg-primary text-primary-foreground shadow-primary/24 shadow-xs hover:bg-primary/90 data-pressed:bg-primary/90 *:data-[slot=button-loading-indicator]:text-primary-foreground [:active,[data-pressed]]:inset-shadow-[0_1px_--theme(--color-black/8%)] [:disabled,:active,[data-pressed]]:shadow-none",
-        destructive:
-          "not-disabled:inset-shadow-[0_1px_--theme(--color-white/16%)] border-destructive bg-destructive text-white shadow-destructive/24 shadow-xs hover:bg-destructive/90 data-pressed:bg-destructive/90 *:data-[slot=button-loading-indicator]:text-white [:active,[data-pressed]]:inset-shadow-[0_1px_--theme(--color-black/8%)] [:disabled,:active,[data-pressed]]:shadow-none",
-        "destructive-outline":
-          "border-input bg-popover not-dark:bg-clip-padding text-destructive-foreground shadow-xs/5 not-disabled:not-active:not-data-pressed:before:shadow-[0_1px_--theme(--color-black/4%)] hover:border-destructive/32 hover:bg-destructive/4 data-pressed:border-destructive/32 data-pressed:bg-destructive/4 *:data-[slot=button-loading-indicator]:text-foreground dark:bg-input/32 dark:not-disabled:before:shadow-[0_-1px_--theme(--color-white/2%)] dark:not-disabled:not-active:not-data-pressed:before:shadow-[0_-1px_--theme(--color-white/6%)] [:disabled,:active,[data-pressed]]:shadow-none",
-        ghost:
-          "border-transparent text-foreground hover:bg-accent data-pressed:bg-accent *:data-[slot=button-loading-indicator]:text-foreground",
-        link: "border-transparent text-foreground underline-offset-4 hover:underline data-pressed:underline *:data-[slot=button-loading-indicator]:text-foreground",
-        outline:
-          "border-input bg-popover not-dark:bg-clip-padding text-foreground shadow-xs/5 not-disabled:not-active:not-data-pressed:before:shadow-[0_1px_--theme(--color-black/4%)] hover:bg-accent/50 data-pressed:bg-accent/50 *:data-[slot=button-loading-indicator]:text-foreground dark:bg-input/32 dark:data-pressed:bg-input/64 dark:hover:bg-input/64 dark:not-disabled:before:shadow-[0_-1px_--theme(--color-white/2%)] dark:not-disabled:not-active:not-data-pressed:before:shadow-[0_-1px_--theme(--color-white/6%)] [:disabled,:active,[data-pressed]]:shadow-none",
-        secondary:
-          "border-transparent bg-secondary text-secondary-foreground hover:bg-secondary/90 data-pressed:bg-secondary/90 *:data-[slot=button-loading-indicator]:text-secondary-foreground [:active,[data-pressed]]:bg-secondary/80",
-      },
-    },
-  },
-);
+// Re-export variants for compatibility — globally SmoothUI (with legacy mapping, primary → candy blue)
+export const buttonVariants: typeof smoothButtonVariants = ((props: any) => {
+  if (!props) return (smoothButtonVariants as any)({ variant: "candy", color: "blue", ...props });
+  const mapped = props.variant ? (variantMap as any)[props.variant] : undefined;
+  let v = mapped?.variant ?? props.variant;
+  let c = props.color ?? (mapped as any)?.color ?? props.color;
+  if (!v) { v = "candy"; c = c ?? "blue"; }
+  else if (v === "default" && !c) { v = "candy"; c = "blue"; }
+  const s = props.size ? ((sizeMap as any)[props.size] ?? props.size) : props.size;
+  return (smoothButtonVariants as any)({ ...props, variant: v, color: c, size: s });
+}) as any;
 
-export interface ButtonProps extends useRender.ComponentProps<"button"> {
-  variant?: VariantProps<typeof buttonVariants>["variant"];
-  size?: VariantProps<typeof buttonVariants>["size"];
+type LegacySize = "default" | "xs" | "sm" | "lg" | "xl" | "icon" | "icon-sm" | "icon-lg" | "icon-xl" | "icon-xs" | "filter" | "icon-filter";
+type LegacyVariant = "default" | "destructive" | "destructive-outline" | "ghost" | "link" | "outline" | "secondary";
+
+const sizeMap: Record<string, VariantProps<typeof smoothButtonVariants>["size"]> = {
+  default: "sm",
+  xs: "xs",
+  sm: "sm",
+  lg: "lg",
+  xl: "lg",
+  icon: "icon-sm",
+  "icon-sm": "icon-sm",
+  "icon-lg": "icon-lg",
+  "icon-xl": "icon-lg",
+  "icon-xs": "icon-sm",
+  filter: "filter",
+  "icon-filter": "icon-filter",
+};
+
+const variantMap: Record<string, { variant: VariantProps<typeof smoothButtonVariants>["variant"]; color?: VariantProps<typeof smoothButtonVariants>["color"] }> = {
+  default: { variant: "candy", color: "blue" },
+  destructive: { variant: "destructive" },
+  "destructive-outline": { variant: "outline", color: "destructive" },
+  ghost: { variant: "ghost" },
+  link: { variant: "link" },
+  outline: { variant: "outline" },
+  secondary: { variant: "secondary" },
+};
+
+export interface ButtonProps extends Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, "prefix" | "color"> {
+  variant?: any;
+  size?: any;
+  color?: any;
+  shape?: any;
   loading?: boolean;
+  prefix?: React.ReactNode;
+  suffix?: React.ReactNode;
+  forcePress?: boolean;
+  asChild?: boolean;
+  render?: React.ReactElement;
 }
 
 export function Button({
   className,
   variant,
   size,
+  color,
+  shape,
+  loading = false,
+  prefix,
+  suffix,
+  forcePress,
+  asChild,
   render,
   children,
-  loading = false,
-  disabled: disabledProp,
+  disabled,
   ...props
 }: ButtonProps): React.ReactElement {
-  const isDisabled: boolean = Boolean(loading || disabledProp);
-  const typeValue: React.ButtonHTMLAttributes<HTMLButtonElement>["type"] =
-    render ? undefined : "button";
+  const mapped = variant ? (variantMap as any)[variant as string] : undefined;
+  let resolvedVariant = (mapped?.variant as any) ?? (variant as any);
+  let resolvedColor = (color as any) ?? (mapped as any)?.color;
+  if (!resolvedVariant) { resolvedVariant = "candy"; resolvedColor = resolvedColor ?? "blue"; }
+  else if (resolvedVariant === "default" && !resolvedColor) { resolvedVariant = "candy"; resolvedColor = "blue"; }
+  const rawSize = size as string | undefined;
+  const resolvedSize = (rawSize ? ((sizeMap as any)[rawSize] as any) : undefined) ?? (size as any) ?? "sm";
 
-  const defaultProps = {
-    children: (
-      <>
-        {children}
-        {loading && (
-          <Spinner
-            className="pointer-events-none absolute"
-            data-slot="button-loading-indicator"
-          />
-        )}
-      </>
-    ),
-    className: cn(buttonVariants({ className, size, variant })),
-    "aria-disabled": loading || undefined,
-    "data-loading": loading ? "" : undefined,
-    "data-slot": "button",
-    disabled: isDisabled,
-    type: typeValue,
-  };
+  // base-ui render prop (Slot-like) — support both APIs
+  if (render) {
+    // render is a ReactElement to use as Slot
+    const renderClass = cn(smoothButtonVariants({ variant: resolvedVariant, size: resolvedSize, color: resolvedColor, shape, className }));
+    return (
+      <Slot className={renderClass} {...(props as any)}>
+        {render}
+      </Slot>
+    );
+  }
 
-  return useRender({
-    defaultTagName: "button",
-    props: mergeProps<"button">(defaultProps, props),
-    render,
-  });
+  return (
+    <SmoothButton
+      className={className}
+      variant={resolvedVariant}
+      size={resolvedSize}
+      color={resolvedColor}
+      shape={shape}
+      loading={loading}
+      prefix={prefix}
+      suffix={suffix}
+      forcePress={forcePress}
+      asChild={asChild}
+      disabled={disabled}
+      {...props}
+    >
+      {children}
+    </SmoothButton>
+  );
 }

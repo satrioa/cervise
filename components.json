@@ -25,6 +25,7 @@
     "@coss": "https://coss.com/ui/r/{name}.json",
     "@reui": "https://reui.io/r/{style}/{name}.json",
     "@intentui": "https://intentui.com/r/{name}",
-    "@pdfcn": "https://pdfcn.dev/r/{name}.json"
+    "@pdfcn": "https://pdfcn.dev/r/{name}.json",
+    "@smoothui": "https://smoothui.dev/r/{name}.json"
   }
 }

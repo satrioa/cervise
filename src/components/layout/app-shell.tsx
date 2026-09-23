@@ -21,6 +21,7 @@ import {
   ScrollTextIcon,
   PlusIcon,
   HomeIcon,
+  ShoppingCart,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -30,9 +31,11 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { CerviseCommandPalette } from "@/components/layout/command-palette";
 import { BranchProvider, useBranch, BRANCHES } from "@/lib/branch-context";
+import { LocaleProvider } from "@/lib/localization-context";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { CheckIcon } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 export type NavItem = {
   label: string;
@@ -52,6 +55,7 @@ export const NAV_GROUPS: NavGroup[] = [
     label: "Operasional",
     items: [
       { label: "Servis", href: "/app/servis", icon: Wrench, badge: 12 },
+      { label: "Penjualan", href: "/app/penjualan", icon: ShoppingCart },
       { label: "Sparepart", href: "/app/sparepart", icon: Package },
     ],
   },
@@ -75,7 +79,8 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { label: "Servis", href: "/app/laporan/servis", icon: Wrench },
       { label: "Keuangan", href: "/app/laporan/keuangan", icon: Wallet },
-      { label: "Performa Karyawan", href: "/app/laporan/performa", icon: UserCheck },
+      { label: "Performa Teknisi", href: "/app/laporan/performa", icon: UserCheck },
+      { label: "Penjualan", href: "/app/laporan/penjualan", icon: ShoppingCart },
     ],
   },
   {
@@ -83,12 +88,49 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { label: "Audit Log", href: "/app/audit-log", icon: ShieldIcon },
       { label: "Garansi", href: "/app/garansi", icon: ScrollTextIcon },
+      { label: "Pengaturan Sistem", href: "/app/pengaturan", icon: Settings },
     ],
   },
 ];
 
 // flat for mobile bottom nav
 export const FLAT_NAV = NAV_GROUPS.flatMap((g) => g.items);
+
+function groupTranslationKey(label?: string): string | null {
+  switch (label) {
+    case "Operasional":
+      return "groups.operational";
+    case "Manajemen":
+      return "groups.management";
+    case "Keuangan":
+      return "groups.finance";
+    case "Laporan":
+      return "groups.reports";
+    case "Layanan":
+      return "groups.services";
+    default:
+      return null;
+  }
+}
+function navItemKey(item: NavItem): string {
+  if (item.href === "/app") return "items.dashboard";
+  if (item.href === "/app/servis") return "items.service";
+  if (item.href === "/app/penjualan") return "items.sales";
+  if (item.href === "/app/sparepart") return "items.sparepart";
+  if (item.href === "/app/customer") return "items.customer";
+  if (item.href === "/app/karyawan") return "items.employee";
+  if (item.href === "/app/cabang") return "items.branch";
+  if (item.href === "/app/keuangan/transaksi") return "items.transaction";
+  if (item.href === "/app/keuangan/arus-kas") return "items.cashflow";
+  if (item.href === "/app/laporan/servis") return "items.reportService";
+  if (item.href === "/app/laporan/keuangan") return "items.reportFinance";
+  if (item.href === "/app/laporan/performa") return "items.reportPerformance";
+  if (item.href === "/app/laporan/penjualan") return "items.reportSales";
+  if (item.href === "/app/audit-log") return "items.auditLog";
+  if (item.href === "/app/garansi") return "items.warranty";
+  if (item.href === "/app/pengaturan") return "items.settings";
+  return item.label;
+}
 
 const BRANCH_TONES = [
   "from-emerald-500/20 to-teal-500/10",
@@ -110,6 +152,7 @@ function branchLetter(label: string) {
 
 function BranchSwitcher() {
   const { branch, setBranch, branches } = useBranch();
+  const t = useTranslations("nav");
   const [open, setOpen] = useState(false);
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -133,7 +176,7 @@ function BranchSwitcher() {
         <ChevronsUpDown className="size-3.5 opacity-60 shrink-0" />
       </PopoverTrigger>
       <PopoverContent align="start" side="bottom" className="w-[248px] p-1">
-        <div className="px-2 py-1.5 font-mono text-[10px] text-muted-foreground uppercase tracking-widest">Pilih cabang</div>
+        <div className="px-2 py-1.5 font-mono text-[10px] text-muted-foreground uppercase tracking-widest">{t("branch.choose")}</div>
         {branches.map((b) => {
           const active = branch.id === b.id;
           return (
@@ -168,6 +211,7 @@ function BranchSwitcher() {
 function SidebarContent({ onNavigate, onSearchClick }: { onNavigate?: () => void; onSearchClick?: () => void }) {
   const pathname = usePathname();
   const { branch } = useBranch();
+  const t = useTranslations("nav");
   return (
     <>
       <BranchSwitcher />
@@ -179,19 +223,23 @@ function SidebarContent({ onNavigate, onSearchClick }: { onNavigate?: () => void
           className="flex w-full items-center gap-2 rounded-md border border-border/60 bg-background/60 px-2.5 py-1.5 text-left transition-colors hover:bg-foreground/[0.04]"
         >
           <Search className="size-3.5 opacity-50" />
-          <span className="flex-1 truncate text-muted-foreground text-xs">Cari servis, customer...</span>
+          <span className="flex-1 truncate text-muted-foreground text-xs">{t("search.placeholder")}</span>
           <kbd className="rounded border border-border/60 bg-background/80 px-1 font-mono text-[9px] text-muted-foreground">⌘K</kbd>
         </button>
       </div>
 
-      <nav className="mt-3 flex-1 overflow-y-auto scrollbar-none px-2 pb-4">
+      <nav className="mt-3 flex-1 overflow-y-auto scrollbar-none px-2 pb-2">
         {NAV_GROUPS.map((group) => (
           <div key={group.label ?? "dashboard"} className="mt-3 first:mt-1">
-            {group.label && <SectionLabel>{group.label}</SectionLabel>}
+            {group.label && (() => {
+              const k = groupTranslationKey(group.label);
+              return <SectionLabel>{k ? t(k) : group.label}</SectionLabel>;
+            })()}
             <ul className="flex flex-col gap-0.5">
               {group.items.map((item) => {
                 const active = pathname === item.href || (item.href !== "/app" && pathname.startsWith(item.href));
-                // highlight group parent for keuangan/laporan subpaths via startsWith works
+                const key = navItemKey(item);
+                const label = key.startsWith("items.") ? t(key) : item.label;
                 return (
                   <li key={item.href}>
                     <Link
@@ -203,7 +251,7 @@ function SidebarContent({ onNavigate, onSearchClick }: { onNavigate?: () => void
                     >
                       <span className="flex items-center gap-2.5">
                         <item.icon className="size-4 opacity-70" />
-                        {item.label}
+                        {label}
                       </span>
                       {item.badge ? (
                         <Badge variant="secondary" className="rounded-full px-1.5 py-0 text-[10px]">
@@ -217,15 +265,41 @@ function SidebarContent({ onNavigate, onSearchClick }: { onNavigate?: () => void
             </ul>
           </div>
         ))}
+      </nav>
 
-        <div className="mt-6 rounded-lg border border-amber-200 bg-amber-50 p-3 dark:border-amber-900 dark:bg-amber-950/30">
-          <div className="text-xs font-medium">Trial Pro 12 hari lagi</div>
-          <p className="mt-1 text-xs text-muted-foreground">Upgrade untuk buka 3 cabang & 15 user.</p>
-          <Button size="sm" className="mt-2 w-full h-7 text-xs">
-            Lihat Paket
+      {/* Trial card — fixed di bottom body container, dark, progress shimmer hijau di atas button */}
+      <div className="shrink-0 border-t border-border/60 p-3">
+        <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-3 text-zinc-100 shadow-sm">
+          <div className="text-xs font-semibold tracking-tight">{t("trial.title", { days: 12 })}</div>
+          <p className="mt-1 text-xs leading-relaxed text-zinc-400">{t("trial.subtitle", { branches: 3, users: 15 })}</p>
+          {/* Status progress — elapsed 14% = 2/14 terpakai, sisa 12/14 (contoh 10 hari: 1/10=10% sisa 9) — shimmer hijau, dynamic nanti dari org trial */}
+          <div className="mt-3 space-y-1.5">
+            <div className="flex justify-between font-mono text-[10px] uppercase tracking-widest text-zinc-400">
+              <span>{t("trial.remaining", { days: 12 })}</span>
+              <span>14%</span>
+            </div>
+            <div className="h-1.5 w-full overflow-hidden rounded-full bg-zinc-800">
+              <div className="relative h-full overflow-hidden rounded-full bg-emerald-500" style={{ width: "14%" }}>
+                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/35 to-transparent" style={{ animation: "shimmer 1.6s linear infinite" }} />
+              </div>
+            </div>
+          </div>
+          <Button
+            variant="candy"
+            size="sm"
+            className="mt-3 w-full h-7 text-xs font-medium"
+            style={
+              {
+                "--btn": "oklch(0.99 0.015 85)",
+                "--btn-hover": "oklch(0.96 0.02 85)",
+                "--btn-fg": "oklch(0.22 0 0)",
+              } as React.CSSProperties
+            }
+          >
+            {t("trial.viewPackage")}
           </Button>
         </div>
-      </nav>
+      </div>
 
       <div className="flex items-center gap-2 border-t border-border/60 px-3 py-2.5">
         <div className="flex size-8 items-center justify-center rounded-full bg-foreground text-xs font-medium text-background">MA</div>
@@ -239,9 +313,13 @@ function SidebarContent({ onNavigate, onSearchClick }: { onNavigate?: () => void
         <Link href="/login" className="rounded-md p-1.5 text-muted-foreground hover:bg-foreground/[0.04]">
           <LogOut className="size-4" />
         </Link>
-        <button className="rounded-md p-1.5 text-muted-foreground hover:bg-foreground/[0.04]">
+        <Link
+          href="/app/pengaturan/profil"
+          aria-label="Pengaturan profil"
+          className={`rounded-md p-1.5 ${pathname.startsWith("/app/pengaturan") ? "bg-foreground/[0.06] text-foreground" : "text-muted-foreground hover:bg-foreground/[0.04]"}`}
+        >
           <Settings className="size-4" />
-        </button>
+        </Link>
       </div>
     </>
   );
@@ -265,25 +343,43 @@ const BOTTOM_TABS: BottomTab[] = [
   { key: "lainnya", label: "Lainnya", icon: Settings },
 ];
 
+function bottomTabKey(key: string): string {
+  switch (key) {
+    case "dashboard":
+      return "bottomTabs.home";
+    case "servis":
+      return "bottomTabs.service";
+    case "create":
+      return "bottomTabs.add";
+    case "sparepart":
+      return "bottomTabs.sparepart";
+    case "lainnya":
+      return "bottomTabs.more";
+    default:
+      return key;
+  }
+}
 function CerviseBottomNav({ pathname }: { pathname: string }) {
   const [sheetOpen, setSheetOpen] = useState(false);
+  const t = useTranslations("nav");
   return (
     <>
       <nav className="h-[72px] border-t border-border/60 bg-background flex items-stretch justify-around relative shrink-0 sticky bottom-0 z-30 lg:hidden safe-area-pb">
         {BOTTOM_TABS.map((tab) => {
           const isActive = tab.href ? pathname === tab.href || (tab.href !== "/app" && pathname.startsWith(tab.href)) : false;
           const isCenter = !!tab.isCenter;
+          const label = t(bottomTabKey(tab.key));
           if (tab.key === "lainnya") {
             return (
               <button
                 key={tab.key}
                 type="button"
                 onClick={() => setSheetOpen(true)}
-                aria-label={tab.label}
+                aria-label={label}
                 className="relative flex flex-col items-center justify-center gap-0.5 flex-1 py-2 cursor-pointer transition-colors text-muted-foreground"
               >
                 <tab.icon className="size-5" strokeWidth={2} />
-                <span className="text-[10px]">{tab.label}</span>
+                <span className="text-[10px]">{label}</span>
               </button>
             );
           }
@@ -292,13 +388,13 @@ function CerviseBottomNav({ pathname }: { pathname: string }) {
               <Link
                 key={tab.key}
                 href={tab.href!}
-                aria-label={tab.label}
+                aria-label={label}
                 className="flex flex-col items-center justify-center gap-0.5 flex-1 py-2 cursor-pointer"
               >
                 <span className="flex size-12 items-center justify-center rounded-full bg-foreground text-background -translate-y-3 shadow-md">
                   <PlusIcon className="size-5" />
                 </span>
-                <span className={`text-[10px] -mt-2 ${isActive ? "text-foreground" : "text-muted-foreground"}`}>{tab.label}</span>
+                <span className={`text-[10px] -mt-2 ${isActive ? "text-foreground" : "text-muted-foreground"}`}>{label}</span>
               </Link>
             );
           }
@@ -307,7 +403,7 @@ function CerviseBottomNav({ pathname }: { pathname: string }) {
             <Link
               key={tab.key}
               href={tab.href!}
-              aria-label={tab.label}
+              aria-label={label}
               aria-current={isActive ? "page" : undefined}
               className={`relative flex flex-col items-center justify-center gap-0.5 flex-1 py-2 cursor-pointer transition-colors ${isActive ? "text-foreground" : "text-muted-foreground"}`}
             >
@@ -320,7 +416,7 @@ function CerviseBottomNav({ pathname }: { pathname: string }) {
                   </span>
                 ) : null}
               </span>
-              <span className="text-[10px]">{tab.label}</span>
+              <span className="text-[10px]">{label}</span>
             </Link>
           );
         })}
@@ -328,12 +424,16 @@ function CerviseBottomNav({ pathname }: { pathname: string }) {
       <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
         <SheetContent side="bottom" className="h-auto">
           <div className="grid grid-cols-3 gap-2 pt-2 pb-6">
-            {FLAT_NAV.map((item) => (
-              <Link key={item.href} href={item.href} onClick={() => setSheetOpen(false)} className="flex flex-col items-center gap-2 rounded-lg border p-3 text-xs">
-                <item.icon className="size-5" />
-                {item.label}
-              </Link>
-            ))}
+            {FLAT_NAV.map((item) => {
+              const k = navItemKey(item);
+              const lab = k.startsWith("items.") ? t(k) : item.label;
+              return (
+                <Link key={item.href} href={item.href} onClick={() => setSheetOpen(false)} className="flex flex-col items-center gap-2 rounded-lg border p-3 text-xs">
+                  <item.icon className="size-5" />
+                  {lab}
+                </Link>
+              );
+            })}
           </div>
         </SheetContent>
       </Sheet>
@@ -456,8 +556,10 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   return (
-    <BranchProvider>
-      <AppShellInner>{children}</AppShellInner>
-    </BranchProvider>
+    <LocaleProvider>
+      <BranchProvider>
+        <AppShellInner>{children}</AppShellInner>
+      </BranchProvider>
+    </LocaleProvider>
   );
 }

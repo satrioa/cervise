@@ -1,0 +1,64 @@
+{
+  "common": {
+    "actions": {
+      "save": "Simpan",
+      "saving": "Menyimpan...",
+      "cancel": "Batal",
+      "delete": "Hapus",
+      "edit": "Ubah",
+      "add": "Tambah",
+      "create": "Buat",
+      "search": "Cari",
+      "download": "Download",
+      "export": "Export"
+    },
+    "empty": {
+      "noData": "Tidak ada data",
+      "noDataFilter": "Tidak ada data untuk filter ini",
+      "noService": "Tidak ada servis",
+      "noTransaction": "Tidak ada transaksi"
+    }
+  },
+  "nav": {
+    "groups": {
+      "operational": "Operasional",
+      "management": "Manajemen",
+      "finance": "Keuangan",
+      "reports": "Laporan",
+      "services": "Layanan"
+    },
+    "items": {
+      "dashboard": "Dashboard",
+      "service": "Servis",
+      "sales": "Penjualan",
+      "sparepart": "Sparepart",
+      "customer": "Customer",
+      "employee": "Karyawan",
+      "branch": "Cabang",
+      "transaction": "Transaksi",
+      "cashflow": "Arus Kas",
+      "reportService": "Servis",
+      "reportFinance": "Keuangan",
+      "reportPerformance": "Performa Teknisi",
+      "reportSales": "Penjualan",
+      "auditLog": "Audit Log",
+      "warranty": "Garansi",
+      "settings": "Pengaturan Sistem"
+    },
+    "search": { "placeholder": "Cari servis, customer..." },
+    "branch": { "choose": "Pilih cabang" },
+    "bottomTabs": { "home": "Beranda", "service": "Servis", "add": "Tambah", "sparepart": "Sparepart", "more": "Lainnya" },
+    "trial": {
+      "title": "Trial Pro {days} hari lagi",
+      "subtitle": "Upgrade untuk buka {branches} cabang & {users} user",
+      "remaining": "{days} hari tersisa",
+      "viewPackage": "Lihat Paket"
+    }
+  },
+  "settings": {
+    "localization": {
+      "title": "Lokalisasi",
+      "subtitle": "Pilih bagaimana tanggal, waktu, angka, dan mata uang ditampilkan."
+    }
+  }
+}

@@ -17,6 +17,8 @@ import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 import { isToday, isYesterday, format } from "date-fns";
 import { id as localeId } from "date-fns/locale";
+import { useLocale } from "@/lib/localization-context";
+import { useTranslations } from "next-intl";
 
 type Tx = {
   id: string;
@@ -28,10 +30,6 @@ type Tx = {
   branch_id: string | null;
 };
 
-function formatRp(n: number) {
-  return `Rp ${n.toLocaleString("id-ID")}`;
-}
-
 function labelFor(iso: string) {
   const d = new Date(iso);
   if (isToday(d)) return "Hari ini";
@@ -40,6 +38,9 @@ function labelFor(iso: string) {
 }
 
 export default function ArusKasPage() {
+  const { formatCurrency } = useLocale();
+  const tCommon = useTranslations("common");
+  const formatRp = (n: number) => formatCurrency(Number(n));
   const [q, setQ] = useState("");
   const [branchFilter, setBranchFilter] = useState<string>("all");
   const [typeFilter, setTypeFilter] = useState<string>("all");
@@ -193,19 +194,19 @@ export default function ArusKasPage() {
         <div className="grid gap-3 lg:grid-cols-3 mb-6">
           <div className="rounded-xl border bg-card p-5 shadow-xs/5">
             <div className="font-mono text-[10px] text-muted-foreground uppercase tracking-[0.25em]">Kas Masuk (filtered)</div>
-            <div className="mt-1 font-heading text-xl">Rp {totalMasuk.toLocaleString("id-ID")}</div>
+            <div className="mt-1 font-heading text-xl">{formatRp(totalMasuk)}</div>
             <div className="mt-1 inline-flex items-center gap-1 text-xs text-emerald-600">
               <ArrowUpRightIcon className="size-3" /> {groups.length} hari
             </div>
           </div>
           <div className="rounded-xl border bg-card p-5 shadow-xs/5">
             <div className="font-mono text-[10px] text-muted-foreground uppercase tracking-[0.25em]">Kas Keluar (filtered)</div>
-            <div className="mt-1 font-heading text-xl">Rp {totalKeluar.toLocaleString("id-ID")}</div>
+            <div className="mt-1 font-heading text-xl">{formatRp(totalKeluar)}</div>
             <div className="mt-1 text-xs text-rose-600">Sparepart & operasional</div>
           </div>
           <div className="rounded-xl border bg-card p-5 shadow-xs/5">
             <div className="font-mono text-[10px] text-muted-foreground uppercase tracking-[0.25em]">Net Arus Kas</div>
-            <div className="mt-1 font-heading text-xl">Rp {totalNet.toLocaleString("id-ID")}</div>
+            <div className="mt-1 font-heading text-xl">{formatRp(totalNet)}</div>
             <div className="mt-2">
               <Badge variant={totalNet >= 0 ? "success" : "destructive"}>{totalNet >= 0 ? "Surplus" : "Defisit"}</Badge>
             </div>
@@ -282,7 +283,7 @@ export default function ArusKasPage() {
               {paginatedGroups.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={5} className="py-10 text-center text-sm text-muted-foreground">
-                    Tidak ada data untuk filter ini
+                    {tCommon("empty.noDataFilter")}
                   </TableCell>
                 </TableRow>
               ) : (

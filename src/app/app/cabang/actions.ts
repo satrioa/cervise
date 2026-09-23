@@ -18,7 +18,7 @@ async function getOrg() {
 
 export async function getCabangList() {
   const { supabase, orgId } = await getOrg();
-  const { data: branches, error } = await supabase.from("branches").select("id,name,city,phone,is_active,created_at").eq("organization_id", orgId).order("created_at");
+  const { data: branches, error } = await supabase.from("branches").select("id,name,city,phone,is_active,is_intensif_enabled,intensif_mode,intensif_value,intensif_target_count,created_at").eq("organization_id", orgId).order("created_at");
   if (error) throw new Error(error.message);
   const ids = (branches ?? []).map((b: any) => b.id);
   let counts = new Map<string, number>();
@@ -35,6 +35,10 @@ export async function getCabangList() {
     city: (b.city as string | null) ?? "",
     phone: (b.phone as string | null) ?? "",
     is_active: !!b.is_active,
+    is_intensif_enabled: b.is_intensif_enabled ?? true,
+    intensif_mode: (b.intensif_mode as "percent" | "fixed") ?? "percent",
+    intensif_value: b.intensif_value ?? 5,
+    intensif_target_count: b.intensif_target_count ?? null,
     created_at: b.created_at as string,
     teknisiCount: counts.get(b.id as string) ?? 0,
   }));
@@ -60,6 +64,32 @@ export async function createCabang(form: { name: string; alamat: string; telepon
 export async function toggleCabangActive(id: string, enabled: boolean) {
   const { supabase, orgId } = await getOrg();
   const { error } = await supabase.from("branches").update({ is_active: enabled }).eq("id", id).eq("organization_id", orgId);
+  if (error) throw new Error(error.message);
+  revalidatePath("/app/cabang");
+  return { ok: true };
+}
+
+export async function toggleCabangIntensif(id: string, enabled: boolean) {
+  const { supabase, orgId } = await getOrg();
+  const { error } = await supabase.from("branches").update({ is_intensif_enabled: enabled }).eq("id", id).eq("organization_id", orgId);
+  if (error) throw new Error(error.message);
+  revalidatePath("/app/cabang");
+  return { ok: true };
+}
+
+export async function updateCabangIntensif(
+  id: string,
+  data: { mode: "percent" | "fixed"; value: number; targetCount: number | null }
+) {
+  const { supabase, orgId } = await getOrg();
+  if (!["percent", "fixed"].includes(data.mode)) throw new Error("Mode invalid");
+  if (data.value === null || isNaN(data.value) || data.value < 0) throw new Error("Nilai intensif harus >=0");
+  if (data.targetCount !== null && (isNaN(data.targetCount) || data.targetCount <= 0)) throw new Error("Target harus >0");
+  const { error } = await supabase
+    .from("branches")
+    .update({ intensif_mode: data.mode, intensif_value: data.value, intensif_target_count: data.targetCount })
+    .eq("id", id)
+    .eq("organization_id", orgId);
   if (error) throw new Error(error.message);
   revalidatePath("/app/cabang");
   return { ok: true };

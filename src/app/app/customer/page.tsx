@@ -1,4 +1,5 @@
 import { PhoneIcon } from "lucide-react";
+import { formatCurrencyPlain, formatNumberPlain } from "@/lib/format";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { CustomerToolbar, CUSTOMER_DEFAULTS } from "@/components/customer/customer-toolbar";
@@ -135,7 +136,7 @@ export default async function CustomerPage({ searchParams }: { searchParams: Pro
                         {c.totalServis} servis
                       </Badge>
                     </TableCell>
-                    <TableCell className="font-mono text-xs tabular-nums">Rp {c.totalSpent.toLocaleString("id-ID")}</TableCell>
+                    <TableCell className="font-mono text-xs tabular-nums">{formatCurrencyPlain(c.totalSpent)}</TableCell>
                     <TableCell>
                       <div className="flex flex-col gap-0.5">
                         <span className="flex items-center gap-1.5 font-mono text-xs">

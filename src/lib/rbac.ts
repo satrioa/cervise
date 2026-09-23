@@ -13,6 +13,7 @@ export const MENU_ACCESS: Record<string, Role[]> = {
   servis: ["super_owner", "master_admin", "admin", "frontliner", "teknisi"],
   sparepart: ["super_owner", "master_admin", "admin"], // Hanya Admin per request
   inventory: ["super_owner", "master_admin", "admin"], // alias lama — hapus setelah migrasi route selesai
+  penjualan: ["super_owner", "master_admin", "admin", "frontliner"],
   customer: ["super_owner", "master_admin", "admin", "frontliner"],
   karyawan: ["super_owner", "master_admin", "admin"],
   cabang: ["super_owner", "master_admin", "admin"],
@@ -21,6 +22,15 @@ export const MENU_ACCESS: Record<string, Role[]> = {
   laporan_servis: ["super_owner", "master_admin", "admin"],
   laporan_keuangan: ["super_owner", "master_admin", "admin"],
   laporan_performa: ["super_owner", "master_admin", "admin"],
+  laporan_performa_teknisi: ["super_owner", "master_admin", "admin"],
+  laporan_penjualan: ["super_owner", "master_admin", "admin"],
+  pengaturan: ["super_owner", "master_admin", "admin"],
+  pengaturan_general: ["super_owner", "master_admin", "admin"],
+  pengaturan_kategori: ["super_owner", "master_admin", "admin"],
+  pengaturan_tampilan: ["super_owner", "master_admin", "admin", "frontliner", "teknisi"],
+  pengaturan_lokalisasi: ["super_owner", "master_admin", "admin", "frontliner", "teknisi"],
+  pengaturan_subscription: ["super_owner", "master_admin", "admin"],
+  pengaturan_usage: ["super_owner", "master_admin", "admin"],
 };
 
 export function canAccess(role: Role, menu: string) {

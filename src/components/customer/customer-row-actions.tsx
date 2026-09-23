@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { formatCurrencyPlain, formatNumberPlain } from "@/lib/format";
 import { EllipsisIcon, PencilIcon, EyeIcon, TrashIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Menu, MenuItem, MenuPopup, MenuSeparator, MenuTrigger } from "@/components/ui/menu";
@@ -82,7 +83,7 @@ export function CustomerRowActions({ customer }: { customer: Customer }) {
           <DialogPrimitive.Popup className="fixed left-1/2 top-1/2 z-50 w-full max-w-md -translate-x-1/2 -translate-y-1/2 rounded-xl border bg-background p-6 shadow-2xl">
             <DialogPrimitive.Title className="font-heading text-sm">Hapus customer?</DialogPrimitive.Title>
             <DialogPrimitive.Description className="text-xs text-muted-foreground mt-1">
-              {customer.name} · {customer.phoneDisplay} — {customer.totalServis} servis, Rp {customer.totalSpent.toLocaleString("id-ID")} spent. {customer.totalServis > 0 ? "Punya servis → diblok." : ""}
+              {customer.name} · {customer.phoneDisplay} — {customer.totalServis} servis, {formatCurrencyPlain(customer.totalSpent)} spent. {customer.totalServis > 0 ? "Punya servis → diblok." : ""}
             </DialogPrimitive.Description>
             {error && <div className="mt-3 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">{error}</div>}
             <div className="mt-6 flex justify-end gap-2">
@@ -101,7 +102,7 @@ export function CustomerRowActions({ customer }: { customer: Customer }) {
           <DialogPrimitive.Popup className="fixed left-1/2 top-1/2 z-50 w-full max-w-lg -translate-x-1/2 -translate-y-1/2 rounded-xl border bg-background shadow-2xl max-h-[80vh] flex flex-col overflow-hidden">
             <div className="border-b px-5 py-4">
               <DialogPrimitive.Title className="font-heading text-sm">Servis — {customer.name}</DialogPrimitive.Title>
-              <DialogPrimitive.Description className="text-xs text-muted-foreground">{customer.phoneDisplay} · {customer.totalServis} servis · Total Rp {customer.totalSpent.toLocaleString("id-ID")}</DialogPrimitive.Description>
+              <DialogPrimitive.Description className="text-xs text-muted-foreground">{customer.phoneDisplay} · {customer.totalServis} servis · Total {formatCurrencyPlain(customer.totalSpent)}</DialogPrimitive.Description>
             </div>
             <div className="flex-1 overflow-y-auto p-4">
               {loadingServis ? (
@@ -117,7 +118,7 @@ export function CustomerRowActions({ customer }: { customer: Customer }) {
                         <div className="truncate text-sm">{s.problem}</div>
                         <div className="text-xs text-muted-foreground">{s.created_at}</div>
                       </div>
-                      <Badge variant="secondary" size="sm" className="font-mono tabular-nums shrink-0">Rp {(s.subtotal_cents / 100).toLocaleString("id-ID")}</Badge>
+                      <Badge variant="secondary" size="sm" className="font-mono tabular-nums shrink-0">{formatCurrencyPlain((s.subtotal_cents / 100))}</Badge>
                     </div>
                   ))}
                 </div>

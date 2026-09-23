@@ -171,7 +171,7 @@ export function CustomerToolbar({ query: initialQuery, status: initialStatus, so
         </Select>
 
         <div className="ms-auto flex items-center gap-2">
-          <Button size="sm" variant="outline" onClick={() => setExportOpen(true)}>
+          <Button size="filter" variant="outline" onClick={() => setExportOpen(true)}>
             Export
           </Button>
           <GenericExportDialog
