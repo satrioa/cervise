@@ -8,7 +8,7 @@ import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/in
 import { cn } from "@/lib/utils";
 import { Select, SelectItem, SelectPopup, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
-import { ExportCustomerCsv, type ExportCustomerRow } from "./export-customer-csv";
+import { GenericExportDialog, type ExportField } from "@/components/generic-export-dialog";
 
 export const CUSTOMER_DEFAULTS = {
   query: "",
@@ -34,13 +34,24 @@ const SORT_OPTIONS = [
   { label: "Total Servis terbanyak", value: "servis-desc" },
 ];
 
+const CUSTOMER_EXPORT_FIELDS: ExportField[] = [
+  { id: "name", label: "Nama", default: true },
+  { id: "phone", label: "HP", default: true },
+  { id: "totalServis", label: "Total Servis", default: true },
+  { id: "totalSpent", label: "Total Spent", default: true },
+  { id: "lastServis", label: "Last Servis", default: true },
+  { id: "lastStatus", label: "Last Status", default: false },
+  { id: "lastDate", label: "Last Date", default: false },
+  { id: "createdAt", label: "Created At", default: false },
+];
+
 interface Props {
   query: string;
   status: string;
   sort: string;
   shown: number;
   total: number;
-  exportRows: ExportCustomerRow[];
+  exportRows: Record<string, any>[];
 }
 
 export function CustomerToolbar({ query: initialQuery, status: initialStatus, sort: initialSort, shown, total, exportRows }: Props) {
@@ -48,6 +59,7 @@ export function CustomerToolbar({ query: initialQuery, status: initialStatus, so
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const searchRef = useRef<HTMLInputElement>(null);
+  const [exportOpen, setExportOpen] = useState(false);
 
   const [query, setQuery] = useState(initialQuery);
   const [prevQuery, setPrevQuery] = useState(initialQuery);
@@ -159,7 +171,18 @@ export function CustomerToolbar({ query: initialQuery, status: initialStatus, so
         </Select>
 
         <div className="ms-auto flex items-center gap-2">
-          <ExportCustomerCsv rows={exportRows} />
+          <Button size="sm" variant="outline" onClick={() => setExportOpen(true)}>
+            Export
+          </Button>
+          <GenericExportDialog
+            open={exportOpen}
+            onOpenChange={setExportOpen}
+            title="Export Customer"
+            description="Unduh data customer terfilter."
+            fields={CUSTOMER_EXPORT_FIELDS}
+            rows={exportRows}
+            fileNamePrefix="customer"
+          />
         </div>
       </div>
 

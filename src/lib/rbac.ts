@@ -18,7 +18,6 @@ export const MENU_ACCESS: Record<string, Role[]> = {
   cabang: ["super_owner", "master_admin", "admin"],
   keuangan_transaksi: ["super_owner", "master_admin", "admin"],
   keuangan_arus_kas: ["super_owner", "master_admin", "admin"],
-  keuangan_invoice: ["super_owner", "master_admin", "admin"],
   laporan_servis: ["super_owner", "master_admin", "admin"],
   laporan_keuangan: ["super_owner", "master_admin", "admin"],
   laporan_performa: ["super_owner", "master_admin", "admin"],

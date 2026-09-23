@@ -16,7 +16,6 @@ import {
   Building2,
   Receipt,
   ArrowLeftRight,
-  FileText,
   UserCheck,
   ShieldIcon,
   ScrollTextIcon,
@@ -69,7 +68,6 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { label: "Transaksi", href: "/app/keuangan/transaksi", icon: Receipt },
       { label: "Arus Kas", href: "/app/keuangan/arus-kas", icon: ArrowLeftRight },
-      { label: "Invoice", href: "/app/keuangan/invoice", icon: FileText },
     ],
   },
   {
@@ -82,7 +80,10 @@ export const NAV_GROUPS: NavGroup[] = [
   },
   {
     label: "Layanan",
-    items: [{ label: "Audit Log", href: "/app/audit-log", icon: ShieldIcon }],
+    items: [
+      { label: "Audit Log", href: "/app/audit-log", icon: ShieldIcon },
+      { label: "Garansi", href: "/app/garansi", icon: ScrollTextIcon },
+    ],
   },
 ];
 

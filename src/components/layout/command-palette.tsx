@@ -15,9 +15,9 @@ import {
   Building2,
   Receipt,
   ArrowLeftRight,
-  FileText,
   UserCheck,
   ShieldIcon,
+  ScrollTextIcon,
 } from "lucide-react";
 import {
   Command,
@@ -105,9 +105,6 @@ export function CerviseCommandPalette({ open, onOpenChange }: Props) {
                 <CommandItem value="arus-kas" onClick={() => navigate("/app/keuangan/arus-kas")}>
                   <ArrowLeftRight className="size-4" /> Arus Kas
                 </CommandItem>
-                <CommandItem value="invoice" onClick={() => navigate("/app/keuangan/invoice")}>
-                  <FileText className="size-4" /> Invoice
-                </CommandItem>
               </CommandGroup>
 
               <CommandGroup>
@@ -127,6 +124,9 @@ export function CerviseCommandPalette({ open, onOpenChange }: Props) {
                 <CommandGroupLabel>Layanan</CommandGroupLabel>
                 <CommandItem value="audit-log" onClick={() => navigate("/app/audit-log")}>
                   <ShieldIcon className="size-4" /> Audit Log
+                </CommandItem>
+                <CommandItem value="garansi" onClick={() => navigate("/app/garansi")}>
+                  <ScrollTextIcon className="size-4" /> Garansi
                 </CommandItem>
               </CommandGroup>
 

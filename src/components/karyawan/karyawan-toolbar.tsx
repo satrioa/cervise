@@ -8,7 +8,7 @@ import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/in
 import { cn } from "@/lib/utils";
 import { Select, SelectItem, SelectPopup, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
-import { ExportKaryawanCsv, type ExportKaryawanRow } from "./export-karyawan-csv";
+import { GenericExportDialog, type ExportField } from "@/components/generic-export-dialog";
 
 export const KARYAWAN_DEFAULTS = {
   query: "",
@@ -31,6 +31,15 @@ const STATUS_OPTIONS = [
   { label: "Nonaktif", value: "nonaktif" },
 ];
 
+const KARYAWAN_EXPORT_FIELDS: ExportField[] = [
+  { id: "name", label: "Nama", default: true },
+  { id: "email", label: "Email", default: true },
+  { id: "cabang", label: "Cabang", default: true },
+  { id: "role", label: "Role", default: true },
+  { id: "statusAktif", label: "Status", default: false },
+  { id: "terakhirAktif", label: "Terakhir Aktif", default: false },
+];
+
 interface Props {
   query: string;
   cabang: string;
@@ -39,7 +48,7 @@ interface Props {
   cabangs: string[];
   shown: number;
   total: number;
-  exportRows: ExportKaryawanRow[];
+  exportRows: Record<string, any>[];
 }
 
 export function KaryawanToolbar({
@@ -56,6 +65,7 @@ export function KaryawanToolbar({
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const searchRef = useRef<HTMLInputElement>(null);
+  const [exportOpen, setExportOpen] = useState(false);
 
   const [query, setQuery] = useState(initialQuery);
   const [prevQuery, setPrevQuery] = useState(initialQuery);
@@ -171,7 +181,18 @@ export function KaryawanToolbar({
         </Select>
 
         <div className="ms-auto flex items-center gap-2">
-          <ExportKaryawanCsv rows={exportRows} />
+          <Button size="sm" variant="outline" onClick={() => setExportOpen(true)}>
+            Export
+          </Button>
+          <GenericExportDialog
+            open={exportOpen}
+            onOpenChange={setExportOpen}
+            title="Export Karyawan"
+            description="Unduh data karyawan terfilter."
+            fields={KARYAWAN_EXPORT_FIELDS}
+            rows={exportRows}
+            fileNamePrefix="karyawan"
+          />
         </div>
       </div>
 

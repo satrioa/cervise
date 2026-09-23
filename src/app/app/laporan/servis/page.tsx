@@ -1,9 +1,10 @@
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
+import { Button } from "@/components/ui/button";
+import { LaporanServisExport } from "@/components/laporan-servis-export";
 
 export default function LaporanServisPage() {
   return (
@@ -24,7 +25,9 @@ export default function LaporanServisPage() {
             <div className="space-y-1.5"><Label>Tanggal Akhir</Label><Popover><PopoverTrigger render={<Button variant="outline" className="w-full justify-start" />}>21/09/2026</PopoverTrigger><PopoverContent className="w-auto p-0"><Calendar mode="single" selected={new Date()} /></PopoverContent></Popover></div>
             <div className="space-y-1.5"><Label>Cabang</Label><Select><SelectTrigger><SelectValue placeholder="Semua cabang" /></SelectTrigger><SelectContent><SelectItem value="all">Semua</SelectItem><SelectItem value="pusat">Cervise Pusat</SelectItem><SelectItem value="cabang2">Cervise Cabang 2</SelectItem></SelectContent></Select></div>
             <div className="space-y-1.5"><Label>Teknisi</Label><Select><SelectTrigger><SelectValue placeholder="Semua teknisi" /></SelectTrigger><SelectContent><SelectItem value="all">Semua</SelectItem><SelectItem value="budi">Budi</SelectItem><SelectItem value="sari">Sari</SelectItem></SelectContent></Select></div>
-            <div className="sm:col-span-4 flex gap-2 pt-2"><Button>Export Excel</Button><Button variant="outline">Export PDF</Button></div>
+            <div className="sm:col-span-4 flex gap-2 pt-2">
+              <LaporanServisExport />
+            </div>
           </CardContent>
         </Card>
       </main>

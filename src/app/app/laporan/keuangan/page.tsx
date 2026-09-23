@@ -1,7 +1,8 @@
 import { createClient } from "@/lib/supabase/server";
-import { ArrowDownRightIcon, ArrowUpRightIcon, DownloadIcon } from "lucide-react";
+import { ArrowDownRightIcon, ArrowUpRightIcon } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import { LaporanKeuanganExport } from "@/components/laporan-keuangan-export";
 
 export default async function LaporanKeuanganPage() {
   const supabase = await createClient();
@@ -51,9 +52,16 @@ export default async function LaporanKeuanganPage() {
             <RangeButton label="24d" active />
             <RangeButton label="12d" />
             <RangeButton label="7d" />
-            <Button variant="outline" size="sm" className="gap-1.5">
-              <DownloadIcon className="size-3.5" /> Export
-            </Button>
+            <LaporanKeuanganExport
+              rows={(finance || []).map((f) => ({
+                tanggal: new Date(f.kas_date).toLocaleDateString("id-ID"),
+                deskripsi: f.description || "",
+                cabang: (branches || []).find((b) => b.id === f.branch_id)?.name || "",
+                tipe: f.type,
+                nominal: f.amount,
+                metode: "Tunai",
+              }))}
+            />
           </div>
         </div>
       </div>

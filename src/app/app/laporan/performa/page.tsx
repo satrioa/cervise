@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Menu, MenuItem, MenuPopup, MenuTrigger } from "@/components/ui/menu";
+import { PerformaExport } from "@/components/performa-export";
 
 type TeknisiRow = {
   name: string;
@@ -32,9 +33,14 @@ export default function PerformaPage() {
               {TEKNISI.length} teknisi · metrik: Selesai + Sudah Diambil = selesai · filter tanggal & cabang
             </p>
           </div>
-          <Button size="sm" variant="outline">
-            Export CSV
-          </Button>
+          <PerformaExport
+            rows={TEKNISI.map((t) => ({
+              name: t.name,
+              cabang: t.cabang,
+              selesai: t.selesai,
+              rating: t.rating,
+            }))}
+          />
         </header>
 
         <div className="rounded-xl border bg-card shadow-xs/5">
