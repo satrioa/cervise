@@ -216,7 +216,7 @@ export default function GaransiPage() {
             <Popover>
               <PopoverTrigger
                 render={
-                  <Button variant="outline" size="sm" className={`w-full sm:w-auto justify-start gap-2 font-normal text-sm shrink-0 ${!dateRange.from && !dateRange.to && "text-muted-foreground"}`} />
+                  <Button variant="outline" size="filter" className={`w-full sm:w-auto justify-start gap-2 font-normal text-sm shrink-0 ${!dateRange.from && !dateRange.to && "text-muted-foreground"}`} />
                 }
               >
                 <CalendarIcon className="size-4 opacity-70" />

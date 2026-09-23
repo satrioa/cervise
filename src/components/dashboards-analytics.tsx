@@ -1,4 +1,5 @@
 import { ArrowUpRightIcon, StoreIcon, WrenchIcon, MoreHorizontalIcon, UsersIcon } from "lucide-react";
+import { formatCurrencyPlain, formatNumberPlain } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Line, LineChart } from "recharts";
@@ -137,7 +138,7 @@ function AnalyticsContent({ period = "30d" }: { period?: Period | string }) {
               Analitik servis
             </div>
             <div className="mt-1 flex flex-wrap items-baseline gap-2">
-              <span className="font-heading text-3xl">{totalMasuk.toLocaleString("id-ID")}</span>
+              <span className="font-heading text-3xl">{formatNumberPlain(totalMasuk)}</span>
               <span className="inline-flex items-center gap-0.5 rounded bg-emerald-500/12 px-1.5 py-0.5 font-mono text-[10px] text-emerald-600 dark:text-emerald-400">
                 <ArrowUpRightIcon className="size-3" />
                 {period === "hari ini" ? "live" : "+18%"}
@@ -199,7 +200,7 @@ function AnalyticsContent({ period = "30d" }: { period?: Period | string }) {
                     </div>
                   </div>
                   <span className="font-mono text-xs shrink-0">
-                    <span className="text-foreground">{t.count.toLocaleString("id-ID")}</span>
+                    <span className="text-foreground">{formatNumberPlain(t.count)}</span>
                     <span className="ml-1.5 text-muted-foreground/70">{t.share}%</span>
                   </span>
                 </div>
@@ -226,7 +227,7 @@ function AnalyticsContent({ period = "30d" }: { period?: Period | string }) {
                     <span className="truncate text-[13px]">{p.problem}</span>
                   </span>
                   <span className="flex items-center gap-3 shrink-0">
-                    <span className="font-mono text-xs">{p.count.toLocaleString("id-ID")} kasus</span>
+                    <span className="font-mono text-xs">{formatNumberPlain(p.count)} kasus</span>
                     <span
                       className={`w-12 text-right font-mono text-[10px] ${
                         positive ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"
@@ -247,12 +248,18 @@ function AnalyticsContent({ period = "30d" }: { period?: Period | string }) {
         <ul className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-5">
           {(() => {
             const max = Math.max(...TOP_CABANG.map((c) => c.pendapatan));
-            return TOP_CABANG.map((c) => (
+            return TOP_CABANG.map((c) => {
+              const initials = c.name.split(" ").filter(Boolean).slice(0, 2).map((w: string) => w[0]?.toUpperCase()).join("") || "CB";
+              const toneIdx = c.name.length % 5;
+              const tones = ["bg-violet-500/15 text-violet-600 dark:text-violet-300", "bg-sky-500/15 text-sky-600 dark:text-sky-300", "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400", "bg-amber-500/15 text-amber-600 dark:text-amber-300", "bg-rose-500/15 text-rose-600 dark:text-rose-300"];
+              return (
               <li
                 key={c.name}
                 className="flex items-center gap-2.5 rounded-md border border-border/40 bg-background/40 px-3 py-2.5 text-sm"
               >
-                <span className="text-base">{c.icon}</span>
+                <Avatar className={`size-8 shrink-0 ${tones[toneIdx]}`}>
+                  <AvatarFallback className="bg-transparent text-[10px] font-medium">{initials}</AvatarFallback>
+                </Avatar>
                 <div className="min-w-0 flex-1">
                   <div className="truncate text-xs font-medium">{c.name}</div>
                   <div className="truncate font-mono text-[10px] text-muted-foreground/70 uppercase tracking-[0.2em]">{c.meta}</div>
@@ -260,12 +267,13 @@ function AnalyticsContent({ period = "30d" }: { period?: Period | string }) {
                     <div className="h-1 flex-1 overflow-hidden rounded-full bg-foreground/10">
                       <div className="h-full bg-foreground/70" style={{ width: `${Math.round((c.pendapatan / max) * 100)}%` }} />
                     </div>
-                    <span className="font-mono text-[10px] font-medium tabular-nums">Rp {c.pendapatan.toLocaleString("id-ID")}</span>
+                    <span className="font-mono text-[10px] font-medium tabular-nums">{formatCurrencyPlain(c.pendapatan)}</span>
                   </div>
                 </div>
               </li>
-            ));
-          })()}
+            );
+          });
+        })()}
         </ul>
       </BreakdownCard>
     </>

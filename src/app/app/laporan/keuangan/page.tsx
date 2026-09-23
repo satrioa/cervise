@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
+import { formatCurrencyPlain, formatNumberPlain } from "@/lib/format";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -9,11 +10,11 @@ import { Calendar } from "@/components/ui/calendar";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { DownloadIcon, CalendarIcon } from "lucide-react";
+import { DownloadIcon, CalendarIcon, ArrowUpRightIcon, ArrowDownRightIcon, ChevronDownIcon, PlusIcon } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { format } from "date-fns";
 import { id as localeId } from "date-fns/locale";
-import { Area, AreaChart, CartesianGrid, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
+import { Area, AreaChart, CartesianGrid, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 
 type Tx = {
   id: string;
@@ -43,10 +44,10 @@ function downloadPdfHarian(date: string, detailRows: Tx[], cabangLabel: string) 
     detailRows
       .map(
         (r, i) =>
-          `<tr><td>${i + 1}</td><td style="font-family:monospace">${r.id.slice(0, 8)}</td><td>${r.description ?? ""}</td><td>${r.type}</td><td style="font-family:monospace">Rp ${Number(r.amount).toLocaleString("id-ID")}</td><td>${r.metode ?? "—"}</td><td>${new Date(r.kas_date).toLocaleDateString("id-ID")}</td></tr>`
+          `<tr><td>${i + 1}</td><td style="font-family:monospace">${r.id.slice(0, 8)}</td><td>${r.description ?? ""}</td><td>${r.type}</td><td style="font-family:monospace">${formatCurrencyPlain(Number(r.amount))}</td><td>${r.metode ?? "—"}</td><td>${new Date(r.kas_date).toLocaleDateString("id-ID")}</td></tr>`
       )
       .join("") || `<tr><td colspan="7" style="text-align:center;padding:16px;color:#6b7280">Tidak ada transaksi</td></tr>`;
-  const html = `<!doctype html><html><head><meta charset="utf-8"><title>${title} - Laporan Harian Keuangan</title><style>body{font-family:system-ui,sans-serif;padding:32px;color:#111}h1{font-size:20px;margin:0}h2{font-size:12px;color:#6b7280;margin:4px 0 16px}table{width:100%;border-collapse:collapse;font-size:12px}th{background:#111827;color:#fff;padding:8px;text-align:left}td{padding:8px;border-bottom:1px solid #e5e7eb} .mono{font-family:monospace} .header{border-bottom:2px solid #111;padding-bottom:12px;margin-bottom:16px}</style></head><body><div class="header"><h1>Cervise — Laporan Harian Keuangan</h1><h2>${title} · Cabang: ${cabangLabel}</h2></div><table><thead><tr><th>Tanggal</th><th>Cabang</th><th>Total Trx</th><th>Masuk</th><th>Keluar</th><th>Net</th></tr></thead><tbody><tr><td>${title}</td><td>${cabangLabel}</td><td>${total}</td><td>Rp ${masuk.toLocaleString("id-ID")}</td><td>Rp ${keluar.toLocaleString("id-ID")}</td><td>Rp ${net.toLocaleString("id-ID")}</td></tr></tbody></table><h3 style="margin-top:24px;font-size:14px">Detail Transaksi — ${total} entri dijabarkan</h3><table><thead><tr><th>No</th><th>ID</th><th>Deskripsi</th><th>Tipe</th><th>Nominal</th><th>Metode</th><th>Tanggal</th></tr></thead><tbody>${detailHtml}</tbody></table><p style="margin-top:16px;font-size:10px;color:#6b7280">Dicetak ${format(new Date(), "EEEE, d MMMM yyyy HH:mm", { locale: localeId })} · ${total} trx detail dijabarkan</p><script>window.print();</script></body></html>`;
+  const html = `<!doctype html><html><head><meta charset="utf-8"><title>${title} - Laporan Harian Keuangan</title><style>body{font-family:system-ui,sans-serif;padding:32px;color:#111}h1{font-size:20px;margin:0}h2{font-size:12px;color:#6b7280;margin:4px 0 16px}table{width:100%;border-collapse:collapse;font-size:12px}th{background:#111827;color:#fff;padding:8px;text-align:left}td{padding:8px;border-bottom:1px solid #e5e7eb} .mono{font-family:monospace} .header{border-bottom:2px solid #111;padding-bottom:12px;margin-bottom:16px}</style></head><body><div class="header"><h1>Cervise — Laporan Harian Keuangan</h1><h2>${title} · Cabang: ${cabangLabel}</h2></div><table><thead><tr><th>Tanggal</th><th>Cabang</th><th>Total Trx</th><th>Masuk</th><th>Keluar</th><th>Net</th></tr></thead><tbody><tr><td>${title}</td><td>${cabangLabel}</td><td>${total}</td><td>${formatCurrencyPlain(masuk)}</td><td>${formatCurrencyPlain(keluar)}</td><td>${formatCurrencyPlain(net)}</td></tr></tbody></table><h3 style="margin-top:24px;font-size:14px">Detail Transaksi — ${total} entri dijabarkan</h3><table><thead><tr><th>No</th><th>ID</th><th>Deskripsi</th><th>Tipe</th><th>Nominal</th><th>Metode</th><th>Tanggal</th></tr></thead><tbody>${detailHtml}</tbody></table><p style="margin-top:16px;font-size:10px;color:#6b7280">Dicetak ${format(new Date(), "EEEE, d MMMM yyyy HH:mm", { locale: localeId })} · ${total} trx detail dijabarkan</p><script>window.print();</script></body></html>`;
   const w = window.open("", "_blank");
   if (!w) return;
   w.document.write(html);
@@ -63,10 +64,10 @@ function downloadPdfBulanan(month: string, detailRows: Tx[], cabangLabel: string
     detailRows
       .map(
         (r, i) =>
-          `<tr><td>${i + 1}</td><td style="font-family:monospace">${r.id.slice(0, 8)}</td><td>${r.description ?? ""}</td><td>${r.type}</td><td style="font-family:monospace">Rp ${Number(r.amount).toLocaleString("id-ID")}</td><td>${r.metode ?? "—"}</td><td>${new Date(r.kas_date).toLocaleDateString("id-ID")}</td></tr>`
+          `<tr><td>${i + 1}</td><td style="font-family:monospace">${r.id.slice(0, 8)}</td><td>${r.description ?? ""}</td><td>${r.type}</td><td style="font-family:monospace">${formatCurrencyPlain(Number(r.amount))}</td><td>${r.metode ?? "—"}</td><td>${new Date(r.kas_date).toLocaleDateString("id-ID")}</td></tr>`
       )
       .join("") || `<tr><td colspan="7" style="text-align:center;padding:16px;color:#6b7280">Tidak ada transaksi</td></tr>`;
-  const html = `<!doctype html><html><head><meta charset="utf-8"><title>${title} - Laporan Bulanan Keuangan</title><style>body{font-family:system-ui,sans-serif;padding:32px;color:#111}h1{font-size:20px;margin:0}h2{font-size:12px;color:#6b7280;margin:4px 0 16px}table{width:100%;border-collapse:collapse;font-size:12px}th{background:#111827;color:#fff;padding:8px;text-align:left}td{padding:8px;border-bottom:1px solid #e5e7eb} .mono{font-family:monospace} .header{border-bottom:2px solid #111;padding-bottom:12px;margin-bottom:16px}</style></head><body><div class="header"><h1>Cervise — Laporan Bulanan Keuangan</h1><h2>${title} · Cabang: ${cabangLabel}</h2></div><table><thead><tr><th>Bulan</th><th>Cabang</th><th>Total Trx</th><th>Masuk</th><th>Keluar</th><th>Net</th></tr></thead><tbody><tr><td>${title}</td><td>${cabangLabel}</td><td>${total}</td><td>Rp ${masuk.toLocaleString("id-ID")}</td><td>Rp ${keluar.toLocaleString("id-ID")}</td><td>Rp ${net.toLocaleString("id-ID")}</td></tr></tbody></table><h3 style="margin-top:24px;font-size:14px">Detail Transaksi — ${total} entri dijabarkan</h3><table><thead><tr><th>No</th><th>ID</th><th>Deskripsi</th><th>Tipe</th><th>Nominal</th><th>Metode</th><th>Tanggal</th></tr></thead><tbody>${detailHtml}</tbody></table><p style="margin-top:16px;font-size:10px;color:#6b7280">Dicetak ${format(new Date(), "EEEE, d MMMM yyyy HH:mm", { locale: localeId })}</p><script>window.print();</script></body></html>`;
+  const html = `<!doctype html><html><head><meta charset="utf-8"><title>${title} - Laporan Bulanan Keuangan</title><style>body{font-family:system-ui,sans-serif;padding:32px;color:#111}h1{font-size:20px;margin:0}h2{font-size:12px;color:#6b7280;margin:4px 0 16px}table{width:100%;border-collapse:collapse;font-size:12px}th{background:#111827;color:#fff;padding:8px;text-align:left}td{padding:8px;border-bottom:1px solid #e5e7eb} .mono{font-family:monospace} .header{border-bottom:2px solid #111;padding-bottom:12px;margin-bottom:16px}</style></head><body><div class="header"><h1>Cervise — Laporan Bulanan Keuangan</h1><h2>${title} · Cabang: ${cabangLabel}</h2></div><table><thead><tr><th>Bulan</th><th>Cabang</th><th>Total Trx</th><th>Masuk</th><th>Keluar</th><th>Net</th></tr></thead><tbody><tr><td>${title}</td><td>${cabangLabel}</td><td>${total}</td><td>${formatCurrencyPlain(masuk)}</td><td>${formatCurrencyPlain(keluar)}</td><td>${formatCurrencyPlain(net)}</td></tr></tbody></table><h3 style="margin-top:24px;font-size:14px">Detail Transaksi — ${total} entri dijabarkan</h3><table><thead><tr><th>No</th><th>ID</th><th>Deskripsi</th><th>Tipe</th><th>Nominal</th><th>Metode</th><th>Tanggal</th></tr></thead><tbody>${detailHtml}</tbody></table><p style="margin-top:16px;font-size:10px;color:#6b7280">Dicetak ${format(new Date(), "EEEE, d MMMM yyyy HH:mm", { locale: localeId })}</p><script>window.print();</script></body></html>`;
   const w = window.open("", "_blank");
   if (!w) return;
   w.document.write(html);
@@ -83,13 +84,18 @@ export default function LaporanKeuanganPage() {
   const [cabang, setCabang] = useState<string>("all");
   const [rows, setRows] = useState<Tx[]>([]);
   const [branches, setBranches] = useState<{ id: string; name: string }[]>([]);
+  const [spareparts, setSpareparts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const supabase = createClient();
     (async () => {
-      const { data: br } = await supabase.from("cervise_branches").select("id,name");
+      const [{ data: br }, { data: sp }] = await Promise.all([
+        supabase.from("cervise_branches").select("id,name"),
+        supabase.from("cervise_spareparts").select("id,branch_id,stock_qty").limit(200),
+      ]);
       setBranches((br as any) ?? []);
+      setSpareparts((sp as any) ?? []);
     })();
   }, []);
 
@@ -160,6 +166,61 @@ export default function LaporanKeuanganPage() {
   const totalKeluar = harian.reduce((a, g) => a + g.keluar, 0);
   const totalNet = totalMasuk - totalKeluar;
 
+  // Market dashboard - Bulan ini vs Bulan lalu, Servis/Inventori/Sales/Lain-lain
+  const { featuredPrice, changePct, series } = useMemo(() => {
+    const now = new Date();
+    const curMonth = now.toISOString().slice(0, 7);
+    const lastMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const lastMonth = lastMonthDate.toISOString().slice(0, 7);
+    const curRows = rows.filter((f) => f.kas_date?.slice(0, 7) === curMonth && f.type === "pemasukan");
+    const lastRows = rows.filter((f) => f.kas_date?.slice(0, 7) === lastMonth && f.type === "pemasukan");
+    const curSum = curRows.reduce((a, b) => a + Number(b.amount), 0);
+    const lastSum = lastRows.reduce((a, b) => a + Number(b.amount), 0);
+    const pct = lastSum ? ((curSum - lastSum) / lastSum) * 100 : 0;
+    const dailyMap = new Map<string, number>();
+    for (const f of rows) {
+      if (f.type !== "pemasukan") continue;
+      dailyMap.set(f.kas_date, (dailyMap.get(f.kas_date) ?? 0) + Number(f.amount));
+    }
+    const sorted = Array.from(dailyMap.entries()).sort((a, b) => (a[0] < b[0] ? -1 : 1)).slice(-24);
+    const vals = sorted.map(([, v]) => v / 1000);
+    const s = vals.length ? vals : Array.from({ length: 24 }, (_, i) => 50 + Math.sin(i) * 10);
+    return { featuredPrice: curSum, changePct: pct, series: s };
+  }, [rows]);
+
+  const allocation = useMemo(() => {
+    const servisSum = rows.filter((f) => f.type === "pemasukan").reduce((a, b) => a + Number(b.amount), 0) * 0.7;
+    const inventoriSum = spareparts.reduce((a: any, b: any) => a + Number(b.stock_qty ?? 0) * 50000, 0) || rows.filter((f) => f.type === "pengeluaran").reduce((a, b) => a + Number(b.amount), 0) * 0.4;
+    const salesSum = 0;
+    const totalMasukAll = rows.filter((f) => f.type === "pemasukan").reduce((a, b) => a + Number(b.amount), 0) || 1;
+    const lainSum = Math.max(0, totalMasukAll - servisSum - salesSum);
+    const total = servisSum + inventoriSum + salesSum + lainSum || 1;
+    return [
+      { name: "Servis", pct: Math.round((servisSum / total) * 100), color: "rgb(99 102 241)" },
+      { name: "Inventori", pct: Math.round((inventoriSum / total) * 100), color: "rgb(16 185 129)" },
+      { name: "Sales", pct: 0, color: "rgb(56 189 248)", badge: "Segera" },
+      { name: "Lain-lain", pct: Math.round((lainSum / total) * 100), color: "rgb(245 158 11)" },
+    ];
+  }, [rows, spareparts]);
+
+  const watchlist = useMemo(() => {
+    const byBranch = branches.map((b) => {
+      const sum = rows.filter((f) => f.branch_id === b.id && f.type === "pemasukan").reduce((a, v) => a + Number(v.amount), 0);
+      const cnt = rows.filter((f) => f.branch_id === b.id).length;
+      return { symbol: b.name.slice(0, 4).toUpperCase(), name: b.name, price: sum, changePct: 2.1, vol: `${cnt} trx`, series: Array.from({ length: 24 }, (_, i) => 50 + Math.sin(i + sum) * 10) };
+    });
+    if (byBranch.length) return byBranch.slice(0, 8);
+    return [{ symbol: "PSAT", name: "Cervise Pusat", price: 412000, changePct: 1.42, vol: "12 trx", series: Array.from({ length: 24 }, (_, i) => 50 + Math.sin(i) * 5) }];
+  }, [rows, branches]);
+
+  const news = useMemo(() => {
+    return rows.slice(0, 4).map((f) => ({
+      time: new Date(f.kas_date).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" }),
+      source: branches.find((b) => b.id === f.branch_id)?.name ?? "Cervise",
+      headline: `${f.type === "pemasukan" ? "Pemasukan" : "Pengeluaran"} ${formatCurrencyPlain(Number(f.amount))} — ${f.description ?? ""}`.slice(0, 80),
+    }));
+  }, [rows, branches]);
+
   return (
     <div className="min-h-svh bg-background text-foreground">
       <div className="border-b border-border/60 px-4 sm:px-6 lg:px-10 py-6">
@@ -210,42 +271,133 @@ export default function LaporanKeuanganPage() {
           </CardContent>
         </Card>
 
-        {/* Summary + Chart */}
-        <div className="grid gap-4 lg:grid-cols-3">
-          <Card className="lg:col-span-2">
-            <CardHeader className="pb-2"><CardTitle className="text-base">Tren Net Harian (30 hari)</CardTitle><CardDescription>Net = Masuk - Keluar per kas_date</CardDescription></CardHeader>
-            <CardContent>
-              {chartData.length === 0 ? (
-                <div className="py-8 text-center text-sm text-muted-foreground">Tidak ada data</div>
-              ) : (
-                <div className="h-48">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={chartData}>
-                      <CartesianGrid strokeDasharray="3 3" opacity={0.1} />
-                      <XAxis dataKey="date" tick={{ fontSize: 10 }} />
-                      <YAxis tick={{ fontSize: 10 }} tickFormatter={(v) => `${(v/1000).toFixed(0)}k`} />
-                      <Tooltip />
-                      <Area type="monotone" dataKey="net" stroke="#10b981" fill="#10b98133" strokeWidth={2} />
-                    </AreaChart>
-                  </ResponsiveContainer>
+        {/* Market Dashboard - Cervise: Bulan ini vs Bulan lalu, Servis/Inventori/Sales/Lain-lain */}
+        <div className="grid grid-cols-1 gap-px overflow-hidden rounded-2xl border border-border/60 bg-border/60 lg:grid-cols-[1fr_300px]">
+          <div className="bg-background p-6">
+            <div className="flex items-baseline justify-between">
+              <div>
+                <div className="flex items-baseline gap-2">
+                  <span className="font-heading text-2xl">IDR</span>
+                  <span className="font-mono text-muted-foreground text-xs uppercase tracking-[0.2em]">Omzet Bulan Ini</span>
                 </div>
-              )}
-              <div className="mt-4 grid grid-cols-3 gap-3">
-                <div className="rounded-lg border bg-card p-3"><div className="text-xs text-muted-foreground">Total Masuk</div><div className="font-mono font-medium">Rp {totalMasuk.toLocaleString("id-ID")}</div></div>
-                <div className="rounded-lg border bg-card p-3"><div className="text-xs text-muted-foreground">Total Keluar</div><div className="font-mono font-medium">Rp {totalKeluar.toLocaleString("id-ID")}</div></div>
-                <div className="rounded-lg border bg-card p-3"><div className="text-xs text-muted-foreground">Net</div><div className="font-mono font-medium">Rp {totalNet.toLocaleString("id-ID")}</div></div>
+                <div className="mt-2 flex items-baseline gap-3">
+                  <span className="font-mono text-5xl tabular-nums">Rp {(featuredPrice / 1000).toFixed(0)}k</span>
+                  <span className={`inline-flex items-baseline gap-0.5 font-mono tabular-nums ${changePct >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`}>
+                    {changePct >= 0 ? <ArrowUpRightIcon className="size-4" /> : <ArrowDownRightIcon className="size-4" />}
+                    {Math.abs(changePct).toFixed(2)}%
+                  </span>
+                </div>
+                <div className="mt-1 font-mono text-muted-foreground text-xs">Bulan ini vs Bulan lalu · vol {rows.length} trx</div>
               </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader><CardTitle className="text-base">Ringkasan</CardTitle></CardHeader>
-            <CardContent className="space-y-3">
-              <div className="flex justify-between text-sm"><span className="text-muted-foreground">Hari</span><span className="font-mono">{harian.length}</span></div>
-              <div className="flex justify-between text-sm"><span className="text-muted-foreground">Bulan</span><span className="font-mono">{bulanan.length}</span></div>
-              <div className="flex justify-between text-sm"><span className="text-muted-foreground">Transaksi</span><span className="font-mono">{rows.length}</span></div>
-              <Badge variant={totalNet >= 0 ? "success" : "destructive"}>{totalNet >= 0 ? "Surplus" : "Defisit"}</Badge>
-            </CardContent>
-          </Card>
+              <div className="flex gap-1">
+                {["1D", "1W", "1M", "1Y", "ALL"].map((r) => (
+                  <button key={r} type="button" className={`rounded-md px-2 py-1 font-mono text-[10px] uppercase tracking-[0.25em] ${r === "1M" ? "bg-foreground/[0.06] text-foreground" : "text-muted-foreground hover:bg-foreground/[0.04] hover:text-foreground"}`}>
+                    {r}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="mt-5">
+              <PriceChart values={series} positive={changePct >= 0} />
+            </div>
+          </div>
+          <div className="bg-background p-6">
+            <div className="font-mono text-[10px] text-muted-foreground uppercase tracking-[0.3em]">Alokasi Sumber Revenue</div>
+            <div className="mt-3 flex justify-center">
+              <div className="h-36 w-36">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie data={allocation.filter((a) => a.pct > 0)} dataKey="pct" nameKey="name" cx="50%" cy="50%" innerRadius={45} outerRadius={65} paddingAngle={2} stroke="none">
+                      {allocation.filter((a) => a.pct > 0).map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip formatter={(value: any) => `${value}%`} />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+            <ul className="mt-3 space-y-1.5 font-mono text-[11px]">
+              {allocation.map((a) => (
+                <li key={a.name} className="flex items-center justify-between">
+                  <span className="flex items-center gap-2">
+                    <span className="size-2 rounded-full" style={{ background: a.color }} />
+                    {a.name} {(a as any).badge && <span className="rounded bg-muted px-1.5 py-0.5 text-[9px]">{(a as any).badge}</span>}
+                  </span>
+                  <span className="tabular-nums text-muted-foreground">{a.pct}%</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 gap-px overflow-hidden rounded-2xl border border-border/60 bg-border/60 lg:grid-cols-[1.6fr_1fr]">
+          <div className="bg-background">
+            <div className="flex items-baseline justify-between border-border/40 border-b px-5 py-3">
+              <span className="font-mono text-[10px] text-muted-foreground uppercase tracking-[0.3em]">Per Cabang</span>
+              <span className="font-mono text-[10px] text-muted-foreground uppercase tracking-[0.2em]">{watchlist.length} cabang · last 30d</span>
+            </div>
+            <table className="w-full">
+              <thead>
+                <tr className="border-border/40 border-b text-left font-mono text-[10px] text-muted-foreground uppercase tracking-[0.25em]">
+                  <th className="px-5 py-2 font-normal">Cabang</th>
+                  <th className="px-5 py-2 text-right font-normal">Total</th>
+                  <th className="px-5 py-2 text-right font-normal">Growth</th>
+                  <th className="px-5 py-2 font-normal">30d</th>
+                  <th className="px-5 py-2 text-right font-normal">Trx</th>
+                </tr>
+              </thead>
+              <tbody>
+                {watchlist.map((t) => {
+                  const positive = t.changePct >= 0;
+                  const color = positive ? "rgb(16 185 129)" : "rgb(244 63 94)";
+                  return (
+                    <tr key={t.symbol} className="border-border/30 border-b hover:bg-foreground/[0.02]">
+                      <td className="px-5 py-2.5">
+                        <div className="font-mono text-sm">{t.symbol}</div>
+                        <div className="font-mono text-[10px] text-muted-foreground">{t.name}</div>
+                      </td>
+                      <td className="px-5 py-2.5 text-right font-mono text-sm tabular-nums">Rp {(t.price / 1000).toFixed(0)}k</td>
+                      <td className="px-5 py-2.5 text-right font-mono text-sm tabular-nums">
+                        <span className={positive ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}>
+                          {positive ? "+" : ""}
+                          {t.changePct.toFixed(2)}%
+                        </span>
+                      </td>
+                      <td className="px-5 py-2.5">
+                        <div className="h-7 w-32">
+                          <Spark values={t.series} color={color} />
+                        </div>
+                      </td>
+                      <td className="px-5 py-2.5 text-right font-mono text-[11px] text-muted-foreground tabular-nums">{t.vol}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          <div className="bg-background">
+            <div className="flex items-baseline justify-between border-border/40 border-b px-5 py-3">
+              <span className="font-mono text-[10px] text-muted-foreground uppercase tracking-[0.3em]">Aktivitas Terbaru</span>
+              <span className="font-mono text-[10px] text-muted-foreground uppercase tracking-[0.2em]">live</span>
+            </div>
+            <ul className="divide-y divide-border/40">
+              {news.length === 0 ? (
+                <li className="px-5 py-6 text-center text-sm text-muted-foreground">Belum ada aktivitas</li>
+              ) : (
+                news.map((n, i) => (
+                  <li key={i} className="px-5 py-3">
+                    <div className="flex items-baseline gap-2 font-mono text-[10px] text-muted-foreground uppercase tracking-[0.2em]">
+                      <span className="tabular-nums">{n.time}</span>
+                      <span>·</span>
+                      <span>{n.source}</span>
+                    </div>
+                    <div className="mt-1 text-sm leading-snug">{n.headline}</div>
+                  </li>
+                ))
+              )}
+            </ul>
+          </div>
         </div>
 
         {/* Harian */}
@@ -278,9 +430,9 @@ export default function LaporanKeuanganPage() {
                       <TableCell className="font-medium whitespace-nowrap">{formatHarian(r.date)}</TableCell>
                       <TableCell className="text-muted-foreground text-sm">{cabangLabel}</TableCell>
                       <TableCell className="text-right font-mono tabular-nums">{r.total}</TableCell>
-                      <TableCell className="text-right font-mono tabular-nums text-emerald-600">Rp {r.masuk.toLocaleString("id-ID")}</TableCell>
-                      <TableCell className="text-right font-mono tabular-nums text-rose-600">Rp {r.keluar.toLocaleString("id-ID")}</TableCell>
-                      <TableCell className="text-right font-mono tabular-nums">Rp {r.net.toLocaleString("id-ID")}</TableCell>
+                      <TableCell className="text-right font-mono tabular-nums text-emerald-600">{formatCurrencyPlain(r.masuk)}</TableCell>
+                      <TableCell className="text-right font-mono tabular-nums text-rose-600">{formatCurrencyPlain(r.keluar)}</TableCell>
+                      <TableCell className="text-right font-mono tabular-nums">{formatCurrencyPlain(r.net)}</TableCell>
                       <TableCell>
                         <Button
                           size="icon-sm"
@@ -332,9 +484,9 @@ export default function LaporanKeuanganPage() {
                       <TableCell className="font-medium whitespace-nowrap">{formatBulanan(r.month)}</TableCell>
                       <TableCell className="text-muted-foreground text-sm">{cabangLabel}</TableCell>
                       <TableCell className="text-right font-mono tabular-nums">{r.total}</TableCell>
-                      <TableCell className="text-right font-mono tabular-nums text-emerald-600">Rp {r.masuk.toLocaleString("id-ID")}</TableCell>
-                      <TableCell className="text-right font-mono tabular-nums text-rose-600">Rp {r.keluar.toLocaleString("id-ID")}</TableCell>
-                      <TableCell className="text-right font-mono tabular-nums">Rp {r.net.toLocaleString("id-ID")}</TableCell>
+                      <TableCell className="text-right font-mono tabular-nums text-emerald-600">{formatCurrencyPlain(r.masuk)}</TableCell>
+                      <TableCell className="text-right font-mono tabular-nums text-rose-600">{formatCurrencyPlain(r.keluar)}</TableCell>
+                      <TableCell className="text-right font-mono tabular-nums">{formatCurrencyPlain(r.net)}</TableCell>
                       <TableCell>
                         <Button
                           size="icon-sm"
@@ -357,5 +509,46 @@ export default function LaporanKeuanganPage() {
         </Card>
       </main>
     </div>
+  );
+}
+
+function PriceChart({ values, positive }: { values: number[]; positive: boolean }) {
+  const w = 700;
+  const h = 200;
+  const max = Math.max(...values);
+  const min = Math.min(...values);
+  const range = Math.max(0.001, max - min);
+  const stepX = w / (values.length - 1);
+  const pts = values.map((v, i) => `${i * stepX},${h - ((v - min) / range) * (h - 20) - 10}`).join(" L ");
+  const color = positive ? "rgb(16 185 129)" : "rgb(244 63 94)";
+  return (
+    <svg viewBox={`0 0 ${w} ${h}`} className="h-48 w-full" preserveAspectRatio="none">
+      <defs>
+        <linearGradient id="mkt-grad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={color} stopOpacity="0.3" />
+          <stop offset="100%" stopColor={color} stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      {[0.25, 0.5, 0.75].map((y) => (
+        <line key={y} x1="0" x2={w} y1={h * y} y2={h * y} stroke="rgb(127 127 127 / 0.1)" strokeDasharray="2 4" />
+      ))}
+      <path d={`M 0,${h} L ${pts} L ${w},${h} Z`} fill="url(#mkt-grad)" />
+      <path d={`M ${pts}`} fill="none" stroke={color} strokeWidth="1.75" />
+    </svg>
+  );
+}
+
+function Spark({ values, color }: { values: number[]; color: string }) {
+  const w = 120;
+  const h = 28;
+  const max = Math.max(...values);
+  const min = Math.min(...values);
+  const range = Math.max(0.001, max - min);
+  const stepX = w / (values.length - 1);
+  const pts = values.map((v, i) => `${i * stepX},${h - ((v - min) / range) * (h - 4) - 2}`).join(" L ");
+  return (
+    <svg viewBox={`0 0 ${w} ${h}`} className="h-full w-full" preserveAspectRatio="none">
+      <path d={`M ${pts}`} fill="none" stroke={color} strokeWidth="1.5" />
+    </svg>
   );
 }

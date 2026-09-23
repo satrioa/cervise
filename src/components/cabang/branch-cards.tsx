@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { formatCurrencyPlain, formatNumberPlain } from "@/lib/format";
 import { CheckCircle2Icon, ChevronRightIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -142,7 +143,7 @@ export function BranchCards({ branches, onKelola }: { branches: BranchItem[]; on
                       {b.teknisiCount} teknisi
                     </span>
                     <span className={"rounded border px-1.5 py-0.5 font-mono text-[10px] " + (b.is_intensif_enabled ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-700 dark:text-emerald-300" : "bg-muted text-muted-foreground")}>
-                      {b.is_intensif_enabled ? (b.intensif_mode === "percent" ? `Insentif ${Number(b.intensif_value).toString()}%` : `Insentif Rp ${Number(b.intensif_value).toLocaleString("id-ID")}`) + (b.intensif_target_count ? ` · target ${b.intensif_target_count}` : "") : "Insentif off"}
+                      {b.is_intensif_enabled ? (b.intensif_mode === "percent" ? `Insentif ${Number(b.intensif_value).toString()}%` : `Insentif ${formatCurrencyPlain(Number(b.intensif_value))}`) + (b.intensif_target_count ? ` · target ${b.intensif_target_count}` : "") : "Insentif off"}
                     </span>
                   </div>
                   <div className="mt-2 inline-flex items-center gap-1 font-mono text-[11px] text-muted-foreground">

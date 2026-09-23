@@ -1,0 +1,64 @@
+{
+  "common": {
+    "actions": {
+      "save": "Save",
+      "saving": "Saving...",
+      "cancel": "Cancel",
+      "delete": "Delete",
+      "edit": "Edit",
+      "add": "Add",
+      "create": "Create",
+      "search": "Search",
+      "download": "Download",
+      "export": "Export"
+    },
+    "empty": {
+      "noData": "No data",
+      "noDataFilter": "No data for this filter",
+      "noService": "No services",
+      "noTransaction": "No transactions"
+    }
+  },
+  "nav": {
+    "groups": {
+      "operational": "Operational",
+      "management": "Management",
+      "finance": "Finance",
+      "reports": "Reports",
+      "services": "Services"
+    },
+    "items": {
+      "dashboard": "Dashboard",
+      "service": "Service",
+      "sales": "Sales",
+      "sparepart": "Spareparts",
+      "customer": "Customers",
+      "employee": "Employees",
+      "branch": "Branches",
+      "transaction": "Transactions",
+      "cashflow": "Cashflow",
+      "reportService": "Service",
+      "reportFinance": "Finance",
+      "reportPerformance": "Technician Performance",
+      "reportSales": "Sales",
+      "auditLog": "Audit Log",
+      "warranty": "Warranty",
+      "settings": "Settings"
+    },
+    "search": { "placeholder": "Search service, customer..." },
+    "branch": { "choose": "Choose branch" },
+    "bottomTabs": { "home": "Home", "service": "Service", "add": "Add", "sparepart": "Spareparts", "more": "More" },
+    "trial": {
+      "title": "Trial Pro {days} days left",
+      "subtitle": "Upgrade to open {branches} branches & {users} users",
+      "remaining": "{days} days left",
+      "viewPackage": "View Packages"
+    }
+  },
+  "settings": {
+    "localization": {
+      "title": "Localization",
+      "subtitle": "Choose how dates, times, numbers and currencies are displayed."
+    }
+  }
+}

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
+import { formatCurrencyPlain, formatNumberPlain } from "@/lib/format";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
@@ -162,7 +163,7 @@ function mapLogsToEvents(logs: any[], history: any[], detail: any): TimelineEven
     } else if (log.action === "edit_field") {
       Icon = PencilIcon; severity = "info"; action = "edit field"; target = log.to_value?.slice(0, 80); diff = log.payload ? { before: JSON.stringify(log.payload).slice(0, 120), after: log.to_value ?? "" } : undefined;
     } else if (log.action === "pembayaran") {
-      Icon = WalletIcon; severity = "info"; action = "pembayaran"; target = log.payload ? `Rp ${Number(log.payload.amount ?? log.to_value).toLocaleString("id-ID")} ${log.payload.metode ?? ""}` : log.to_value;
+      Icon = WalletIcon; severity = "info"; action = "pembayaran"; target = log.payload ? `${formatCurrencyPlain(Number(log.payload.amount ?? log.to_value))} ${log.payload.metode ?? ""}` : log.to_value;
     } else if (log.action === "kondisi_check") {
       Icon = ClipboardCheckIcon; severity = "info"; action = "check kondisi";
     }
@@ -175,7 +176,7 @@ function mapLogsToEvents(logs: any[], history: any[], detail: any): TimelineEven
         actor: "Kasir",
         initials: "KS",
         action: "pembayaran",
-        target: `Rp ${Number(h.amount).toLocaleString("id-ID")} ${h.metode ?? ""}`,
+        target: `${formatCurrencyPlain(Number(h.amount))} ${h.metode ?? ""}`,
         Icon: WalletIcon,
         severity: "info",
         time: h.kas_date ? format(new Date(h.kas_date), "d MMM yyyy") : formatDistanceToNow(new Date(h.created_at), { addSuffix: true, locale: localeId }),
@@ -290,7 +291,7 @@ export function ServisDetailView({ data, dummy }: Props) {
               </CardDescription>
             </div>
             <div className="hidden sm:flex flex-col items-end gap-2 shrink-0">
-              <div className="font-mono text-lg font-semibold">Rp {Number(price).toLocaleString("id-ID")}</div>
+              <div className="font-mono text-lg font-semibold">{formatCurrencyPlain(Number(price))}</div>
               <Badge variant="secondary" className="font-mono text-xs">
                 <HashIcon className="size-3" />
                 {garansiValue && garansiUnit ? `${garansiValue} ${garansiUnit}` : "Garansi custom"}
@@ -467,7 +468,7 @@ export function ServisDetailView({ data, dummy }: Props) {
                             <span className="font-medium truncate">{r.name ?? r.description}</span>
                             <span className="font-mono text-xs text-muted-foreground">{r.sku ?? "—"}</span>
                             <span className="text-center font-mono">×{r.qty}</span>
-                            <span className="text-right font-mono text-xs">Rp {(Number(r.unit_price_cents ?? 0) / 100).toLocaleString("id-ID")}</span>
+                            <span className="text-right font-mono text-xs">{formatCurrencyPlain((Number(r.unit_price_cents ?? 0) / 100))}</span>
                             <span className="flex justify-center">{r.is_returned ? <Badge variant="warning">Dikembalikan</Badge> : status === "Batal" ? <Badge variant="secondary">Terpakai</Badge> : <Badge variant="success">Terpakai</Badge>}</span>
                           </div>
                         ))}
@@ -545,10 +546,10 @@ export function ServisDetailView({ data, dummy }: Props) {
             </CardHeader>
             <CardContent className="space-y-3">
               <div className="flex flex-wrap gap-2 text-xs">
-                <Badge variant="outline">Estimasi Rp {(estimasiVal ?? 0).toLocaleString("id-ID")}</Badge>
-                <Badge variant="secondary">Terbayar Rp {totalPaid.toLocaleString("id-ID")}</Badge>
-                {sisa !== null && <Badge variant={sisa === 0 ? "default" : "outline"}>Sisa Rp {sisa.toLocaleString("id-ID")}</Badge>}
-                {d.price != null && <Badge variant="outline" className="font-mono">Total di DB Rp {Number(d.price).toLocaleString("id-ID")}</Badge>}
+                <Badge variant="outline">Estimasi {formatCurrencyPlain((estimasiVal ?? 0))}</Badge>
+                <Badge variant="secondary">Terbayar {formatCurrencyPlain(totalPaid)}</Badge>
+                {sisa !== null && <Badge variant={sisa === 0 ? "default" : "outline"}>Sisa {formatCurrencyPlain(sisa)}</Badge>}
+                {d.price != null && <Badge variant="outline" className="font-mono">Total di DB {formatCurrencyPlain(Number(d.price))}</Badge>}
               </div>
               {historyLoading ? (
                 <div className="text-sm text-muted-foreground py-4">Memuat riwayat...</div>
@@ -565,7 +566,7 @@ export function ServisDetailView({ data, dummy }: Props) {
                         <span className="font-mono text-xs">{h.kas_date ? format(new Date(h.kas_date), "d MMM yyyy", { locale: localeId }) : format(new Date(h.created_at), "d MMM yyyy", { locale: localeId })}</span>
                         <Badge variant="outline" className="w-fit text-[11px]">{h.metode ?? "—"}</Badge>
                         <span className="text-muted-foreground break-words text-xs sm:text-sm">{h.keterangan ?? h.description ?? "—"}</span>
-                        <span className="font-mono font-medium text-right">Rp {Number(h.amount).toLocaleString("id-ID")}</span>
+                        <span className="font-mono font-medium text-right">{formatCurrencyPlain(Number(h.amount))}</span>
                       </div>
                     ))}
                   </div>

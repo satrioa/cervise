@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
+import { formatCurrencyPlain, formatNumberPlain } from "@/lib/format";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -11,6 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { DownloadIcon, CalendarIcon, XIcon } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { useTranslations } from "next-intl";
 import { format } from "date-fns";
 import { id as localeId } from "date-fns/locale";
 
@@ -48,10 +50,10 @@ function downloadPdfHarian(date: string, detailRows: ServisRow[], cabangLabel: s
     detailRows
       .map(
         (r, i) =>
-          `<tr><td>${i + 1}</td><td style="font-family:monospace">${r.id.slice(0, 8)}</td><td>${r.device ?? ""}</td><td>${r.status}</td><td style="font-family:monospace">Rp ${Number(r.price ?? 0).toLocaleString("id-ID")}</td><td>${new Date(r.created_at).toLocaleDateString("id-ID")}</td></tr>`
+          `<tr><td>${i + 1}</td><td style="font-family:monospace">${r.id.slice(0, 8)}</td><td>${r.device ?? ""}</td><td>${r.status}</td><td style="font-family:monospace">${formatCurrencyPlain(Number(r.price ?? 0))}</td><td>${new Date(r.created_at).toLocaleDateString("id-ID")}</td></tr>`
       )
       .join("") || `<tr><td colspan="6" style="text-align:center;padding:16px;color:#6b7280">Tidak ada servis</td></tr>`;
-  const html = `<!doctype html><html><head><meta charset="utf-8"><title>${title} - Laporan Harian</title><style>body{font-family:system-ui,sans-serif;padding:32px;color:#111}h1{font-size:20px;margin:0}h2{font-size:12px;color:#6b7280;margin:4px 0 16px}table{width:100%;border-collapse:collapse;font-size:12px}th{background:#111827;color:#fff;padding:8px;text-align:left}td{padding:8px;border-bottom:1px solid #e5e7eb} .mono{font-family:monospace} .header{border-bottom:2px solid #111;padding-bottom:12px;margin-bottom:16px}</style></head><body><div class="header"><h1>Cervise — Laporan Harian</h1><h2>${title} · Cabang: ${cabangLabel} · Teknisi: ${teknisiLabel}</h2></div><table><thead><tr><th>Tanggal</th><th>Cabang</th><th>Teknisi</th><th>Total Servis</th><th>Selesai</th><th>Batal</th><th>Pending</th><th>Net (Rp)</th></tr></thead><tbody><tr><td>${title}</td><td>${cabangLabel}</td><td>${teknisiLabel}</td><td>${total}</td><td>${selesai}</td><td>${batal}</td><td>${pending}</td><td class="mono">Rp ${net.toLocaleString("id-ID")}</td></tr></tbody></table><h3 style="margin-top:24px;font-size:14px">Detail Servis — ${total} entri dijabarkan</h3><table><thead><tr><th>No</th><th>ID Servis</th><th>Device</th><th>Status</th><th>Harga</th><th>Tanggal</th></tr></thead><tbody>${detailHtml}</tbody></table><p style="margin-top:16px;font-size:10px;color:#6b7280">Dicetak ${format(new Date(), "EEEE, d MMMM yyyy HH:mm", { locale: localeId })} · ${total} servis detail dijabarkan</p><script>window.print();</script></body></html>`;
+  const html = `<!doctype html><html><head><meta charset="utf-8"><title>${title} - Laporan Harian</title><style>body{font-family:system-ui,sans-serif;padding:32px;color:#111}h1{font-size:20px;margin:0}h2{font-size:12px;color:#6b7280;margin:4px 0 16px}table{width:100%;border-collapse:collapse;font-size:12px}th{background:#111827;color:#fff;padding:8px;text-align:left}td{padding:8px;border-bottom:1px solid #e5e7eb} .mono{font-family:monospace} .header{border-bottom:2px solid #111;padding-bottom:12px;margin-bottom:16px}</style></head><body><div class="header"><h1>Cervise — Laporan Harian</h1><h2>${title} · Cabang: ${cabangLabel} · Teknisi: ${teknisiLabel}</h2></div><table><thead><tr><th>Tanggal</th><th>Cabang</th><th>Teknisi</th><th>Total Servis</th><th>Selesai</th><th>Batal</th><th>Pending</th><th>Net (Rp)</th></tr></thead><tbody><tr><td>${title}</td><td>${cabangLabel}</td><td>${teknisiLabel}</td><td>${total}</td><td>${selesai}</td><td>${batal}</td><td>${pending}</td><td class="mono">${formatCurrencyPlain(net)}</td></tr></tbody></table><h3 style="margin-top:24px;font-size:14px">Detail Servis — ${total} entri dijabarkan</h3><table><thead><tr><th>No</th><th>ID Servis</th><th>Device</th><th>Status</th><th>Harga</th><th>Tanggal</th></tr></thead><tbody>${detailHtml}</tbody></table><p style="margin-top:16px;font-size:10px;color:#6b7280">Dicetak ${format(new Date(), "EEEE, d MMMM yyyy HH:mm", { locale: localeId })} · ${total} servis detail dijabarkan</p><script>window.print();</script></body></html>`;
   const w = window.open("", "_blank");
   if (!w) return;
   w.document.write(html);
@@ -69,10 +71,10 @@ function downloadPdfBulanan(month: string, detailRows: ServisRow[], cabangLabel:
     detailRows
       .map(
         (r, i) =>
-          `<tr><td>${i + 1}</td><td style="font-family:monospace">${r.id.slice(0, 8)}</td><td>${r.device ?? ""}</td><td>${r.status}</td><td style="font-family:monospace">Rp ${Number(r.price ?? 0).toLocaleString("id-ID")}</td><td>${new Date(r.created_at).toLocaleDateString("id-ID")}</td></tr>`
+          `<tr><td>${i + 1}</td><td style="font-family:monospace">${r.id.slice(0, 8)}</td><td>${r.device ?? ""}</td><td>${r.status}</td><td style="font-family:monospace">${formatCurrencyPlain(Number(r.price ?? 0))}</td><td>${new Date(r.created_at).toLocaleDateString("id-ID")}</td></tr>`
       )
       .join("") || `<tr><td colspan="6" style="text-align:center;padding:16px;color:#6b7280">Tidak ada servis</td></tr>`;
-  const html = `<!doctype html><html><head><meta charset="utf-8"><title>${title} - Laporan Bulanan</title><style>body{font-family:system-ui,sans-serif;padding:32px;color:#111}h1{font-size:20px;margin:0}h2{font-size:12px;color:#6b7280;margin:4px 0 16px}table{width:100%;border-collapse:collapse;font-size:12px}th{background:#111827;color:#fff;padding:8px;text-align:left}td{padding:8px;border-bottom:1px solid #e5e7eb} .mono{font-family:monospace} .header{border-bottom:2px solid #111;padding-bottom:12px;margin-bottom:16px}</style></head><body><div class="header"><h1>Cervise — Laporan Bulanan</h1><h2>${title} · Cabang: ${cabangLabel} · Teknisi: ${teknisiLabel}</h2></div><table><thead><tr><th>Tanggal</th><th>Cabang</th><th>Teknisi</th><th>Total Servis</th><th>Selesai</th><th>Batal</th><th>Pending</th><th>Net (Rp)</th></tr></thead><tbody><tr><td>${title}</td><td>${cabangLabel}</td><td>${teknisiLabel}</td><td>${total}</td><td>${selesai}</td><td>${batal}</td><td>${pending}</td><td class="mono">Rp ${net.toLocaleString("id-ID")}</td></tr></tbody></table><h3 style="margin-top:24px;font-size:14px">Detail Servis — ${total} entri dijabarkan</h3><table><thead><tr><th>No</th><th>ID Servis</th><th>Device</th><th>Status</th><th>Harga</th><th>Tanggal</th></tr></thead><tbody>${detailHtml}</tbody></table><p style="margin-top:16px;font-size:10px;color:#6b7280">Dicetak ${format(new Date(), "EEEE, d MMMM yyyy HH:mm", { locale: localeId })} · ${total} servis detail dijabarkan</p><script>window.print();</script></body></html>`;
+  const html = `<!doctype html><html><head><meta charset="utf-8"><title>${title} - Laporan Bulanan</title><style>body{font-family:system-ui,sans-serif;padding:32px;color:#111}h1{font-size:20px;margin:0}h2{font-size:12px;color:#6b7280;margin:4px 0 16px}table{width:100%;border-collapse:collapse;font-size:12px}th{background:#111827;color:#fff;padding:8px;text-align:left}td{padding:8px;border-bottom:1px solid #e5e7eb} .mono{font-family:monospace} .header{border-bottom:2px solid #111;padding-bottom:12px;margin-bottom:16px}</style></head><body><div class="header"><h1>Cervise — Laporan Bulanan</h1><h2>${title} · Cabang: ${cabangLabel} · Teknisi: ${teknisiLabel}</h2></div><table><thead><tr><th>Tanggal</th><th>Cabang</th><th>Teknisi</th><th>Total Servis</th><th>Selesai</th><th>Batal</th><th>Pending</th><th>Net (Rp)</th></tr></thead><tbody><tr><td>${title}</td><td>${cabangLabel}</td><td>${teknisiLabel}</td><td>${total}</td><td>${selesai}</td><td>${batal}</td><td>${pending}</td><td class="mono">${formatCurrencyPlain(net)}</td></tr></tbody></table><h3 style="margin-top:24px;font-size:14px">Detail Servis — ${total} entri dijabarkan</h3><table><thead><tr><th>No</th><th>ID Servis</th><th>Device</th><th>Status</th><th>Harga</th><th>Tanggal</th></tr></thead><tbody>${detailHtml}</tbody></table><p style="margin-top:16px;font-size:10px;color:#6b7280">Dicetak ${format(new Date(), "EEEE, d MMMM yyyy HH:mm", { locale: localeId })} · ${total} servis detail dijabarkan</p><script>window.print();</script></body></html>`;
   const w = window.open("", "_blank");
   if (!w) return;
   w.document.write(html);
@@ -80,6 +82,7 @@ function downloadPdfBulanan(month: string, detailRows: ServisRow[], cabangLabel:
 }
 
 export default function LaporanServisPage() {
+  const tCommon = useTranslations("common");
   const [from, setFrom] = useState<Date | undefined>(() => {
     const d = new Date();
     d.setDate(d.getDate() - 30);
@@ -239,7 +242,7 @@ export default function LaporanServisPage() {
             {loading ? (
               <div className="py-8 text-center text-sm text-muted-foreground">Memuat...</div>
             ) : harian.length === 0 ? (
-              <div className="py-8 text-center text-sm text-muted-foreground">Tidak ada data untuk filter ini</div>
+              <div className="py-8 text-center text-sm text-muted-foreground">{tCommon("empty.noDataFilter")}</div>
             ) : (
               <Table>
                 <TableHeader>
@@ -265,7 +268,7 @@ export default function LaporanServisPage() {
                       <TableCell className="text-right font-mono tabular-nums text-emerald-600">{r.selesai}</TableCell>
                       <TableCell className="text-right font-mono tabular-nums text-rose-600">{r.batal}</TableCell>
                       <TableCell className="text-right font-mono tabular-nums">{r.pending}</TableCell>
-                      <TableCell className="text-right font-mono tabular-nums">Rp {r.net.toLocaleString("id-ID")}</TableCell>
+                      <TableCell className="text-right font-mono tabular-nums">{formatCurrencyPlain(r.net)}</TableCell>
                       <TableCell>
                         <Button
                           size="icon-sm"
@@ -297,7 +300,7 @@ export default function LaporanServisPage() {
             {loading ? (
               <div className="py-8 text-center text-sm text-muted-foreground">Memuat...</div>
             ) : bulanan.length === 0 ? (
-              <div className="py-8 text-center text-sm text-muted-foreground">Tidak ada data</div>
+              <div className="py-8 text-center text-sm text-muted-foreground">{tCommon("empty.noData")}</div>
             ) : (
               <Table>
                 <TableHeader>
@@ -323,7 +326,7 @@ export default function LaporanServisPage() {
                       <TableCell className="text-right font-mono tabular-nums text-emerald-600">{r.selesai}</TableCell>
                       <TableCell className="text-right font-mono tabular-nums text-rose-600">{r.batal}</TableCell>
                       <TableCell className="text-right font-mono tabular-nums">{r.pending}</TableCell>
-                      <TableCell className="text-right font-mono tabular-nums">Rp {r.net.toLocaleString("id-ID")}</TableCell>
+                      <TableCell className="text-right font-mono tabular-nums">{formatCurrencyPlain(r.net)}</TableCell>
                       <TableCell>
                         <Button
                           size="icon-sm"

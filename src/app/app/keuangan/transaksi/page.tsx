@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
+import { formatCurrencyPlain, formatNumberPlain } from "@/lib/format";
 import { ArrowDownLeftIcon, ArrowUpRightIcon, SearchIcon, CalendarIcon, RefreshCcwIcon, XIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -14,6 +15,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { createClient } from "@/lib/supabase/client";
 import { TransaksiExportButton } from "@/components/transaksi-export-button";
 import { cn } from "@/lib/utils";
+import { useTranslations } from "next-intl";
 import { format } from "date-fns";
 import { id as localeId } from "date-fns/locale";
 
@@ -36,6 +38,7 @@ type RawTx = {
 };
 
 export default function TransaksiPage() {
+  const tCommon = useTranslations("common");
   const [q, setQ] = useState("");
   const [branchFilter, setBranchFilter] = useState<string>("all");
   const [typeFilter, setTypeFilter] = useState<string>("all");
@@ -256,13 +259,13 @@ export default function TransaksiPage() {
               ) : txs.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={6} className="py-10 text-center text-sm text-muted-foreground">
-                    Tidak ada data untuk filter ini
+                    {tCommon("empty.noDataFilter")}
                   </TableCell>
                 </TableRow>
               ) : paginated.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={6} className="py-10 text-center text-sm text-muted-foreground">
-                    Tidak ada data untuk halaman ini
+                    {tCommon("empty.noData")}
                   </TableCell>
                 </TableRow>
               ) : (
@@ -291,7 +294,7 @@ export default function TransaksiPage() {
                     </TableCell>
                     <TableCell className="pe-4 text-right">
                       <div className={"font-mono tabular-nums " + (t.direction === "in" ? "text-emerald-600 dark:text-emerald-400" : "text-foreground")}>
-                        {t.direction === "in" ? "+" : "−"}Rp {t.amount.toLocaleString("id-ID")}
+                        {t.direction === "in" ? "+" : "−"}{formatCurrencyPlain(t.amount)}
                       </div>
                     </TableCell>
                   </TableRow>
@@ -345,7 +348,7 @@ function SummaryTile({ label, amount, tone }: { label: string; amount: number; t
   return (
     <div className="rounded-xl border bg-card p-4 shadow-xs/5">
       <div className="font-mono text-[10px] text-muted-foreground uppercase tracking-[0.2em]">{label}</div>
-      <div className={"mt-1.5 font-heading font-semibold text-2xl tabular-nums " + cls}>{sign}Rp {Math.abs(amount).toLocaleString("id-ID")}</div>
+      <div className={"mt-1.5 font-heading font-semibold text-2xl tabular-nums " + cls}>{sign}{formatCurrencyPlain(Math.abs(amount))}</div>
     </div>
   );
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
+import { formatCurrencyPlain, formatNumberPlain } from "@/lib/format";
 import {
   CheckIcon,
   CircleDotIcon,
@@ -362,7 +363,7 @@ export default function ServisPage() {
       alert("Nomor HP tidak valid");
       return;
     }
-    const msg = `Halo, invoice servis *${s.id}* Cervise\nDevice: ${s.device}\nNominal: Rp ${s.price.toLocaleString("id-ID")}\nStatus: ${s.status}\nTeknisi: ${s.teknisi}\nTerima kasih — Garansi 3 bulan`;
+    const msg = `Halo, invoice servis *${s.id}* Cervise\nDevice: ${s.device}\nNominal: ${formatCurrencyPlain(s.price)}\nStatus: ${s.status}\nTeknisi: ${s.teknisi}\nTerima kasih — Garansi 3 bulan`;
     window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`, "_blank");
   };
 
@@ -533,7 +534,7 @@ export default function ServisPage() {
       groups.get(phone)!.push(s);
     }
     for (const [phone, items] of groups) {
-      const msg = `Halo, invoice servis Cervise:\n` + items.map((s) => `• ${s.id} ${s.device} Rp ${s.price.toLocaleString("id-ID")} (${s.status})`).join("\n") + `\nTerima kasih — Garansi 3 bulan`;
+      const msg = `Halo, invoice servis Cervise:\n` + items.map((s) => `• ${s.id} ${s.device} ${formatCurrencyPlain(s.price)} (${s.status})`).join("\n") + `\nTerima kasih — Garansi 3 bulan`;
       window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`, "_blank");
     }
     setBulkInvoiceOpen(false);
@@ -587,7 +588,7 @@ export default function ServisPage() {
                 </InputGroup>
               </div>
               <Popover>
-                <PopoverTrigger render={<Button variant="outline" size="sm" className={cn("w-full sm:w-auto justify-start gap-2 font-normal text-sm shrink-0", !dateRange.from && !dateRange.to && "text-muted-foreground")} />}>
+                <PopoverTrigger render={<Button variant="outline" size="filter" className={cn("w-full sm:w-auto justify-start gap-2 font-normal text-sm shrink-0", !dateRange.from && !dateRange.to && "text-muted-foreground")} />}>
                   <CalendarIcon className="size-4 opacity-70" /><span className="truncate">{dateLabel}</span>
                   {(dateRange.from || dateRange.to) && (<span role="button" tabIndex={0} onClick={(e) => { e.stopPropagation(); setDateRange({}); }} className="ml-1 rounded p-0.5 hover:bg-foreground/10 -mr-1" aria-label="Hapus rentang tanggal"><XIcon className="size-3.5" /></span>)}
                 </PopoverTrigger>
@@ -611,7 +612,7 @@ export default function ServisPage() {
                 <Tabs value={view} onValueChange={(v) => setView(v as "table" | "kanban")} className="flex-1 sm:flex-none">
                   <TabsList className="w-full sm:w-auto"><TabsTrigger value="table" aria-label="Table view" className="flex-1 sm:flex-none px-2.5"><TableIcon className="size-4" /></TabsTrigger><TabsTrigger value="kanban" aria-label="Kanban view" className="flex-1 sm:flex-none px-2.5"><LayoutGridIcon className="size-4" /></TabsTrigger></TabsList>
                 </Tabs>
-                <Button size="sm" className="shrink-0" onClick={() => setOpenServis(true)}>Tambah Servis</Button>
+                <Button size="filter" className="shrink-0" onClick={() => setOpenServis(true)}>Tambah Servis</Button>
               </div>
             </div>
           </div>
@@ -657,7 +658,7 @@ export default function ServisPage() {
                     <TableCell><StageTrack stage={r.status} /></TableCell>
                     <TableCell className="font-mono text-xs text-muted-foreground">{r.teknisi}</TableCell>
                     <TableCell><PaymentBadge status={getPaymentStatus(r)} /></TableCell>
-                    <TableCell className="text-right font-mono tabular-nums">Rp {r.price.toLocaleString("id-ID")}</TableCell>
+                    <TableCell className="text-right font-mono tabular-nums">{formatCurrencyPlain(r.price)}</TableCell>
                   </TableRow>
                 </ServisContextMenu>
               ))}
@@ -959,7 +960,7 @@ export default function ServisPage() {
                 <div key={s.id} className="flex justify-between">
                   <span className="font-mono">{s.id}</span>
                   <span>
-                    {s.device} — Rp {s.price.toLocaleString("id-ID")} {s.price === 0 && <span className="text-amber-600">(harga 0 dilewati)</span>}
+                    {s.device} — {formatCurrencyPlain(s.price)} {s.price === 0 && <span className="text-amber-600">(harga 0 dilewati)</span>}
                   </span>
                 </div>
               ))}

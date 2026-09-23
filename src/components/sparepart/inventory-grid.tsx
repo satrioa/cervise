@@ -1,4 +1,5 @@
 import { Badge } from "@/components/ui/badge";
+import { formatCurrencyPlain, formatNumberPlain } from "@/lib/format";
 import { stockTone, type SparepartRow } from "./stock-tone";
 import { InventoryContextMenu } from "./inventory-context-menu";
 
@@ -41,7 +42,7 @@ export function InventoryGrid({ rows }: { rows: SparepartRow[] }) {
               </span>
             </div>
             <div className="mt-2 text-right font-mono text-sm tabular-nums">
-              Rp {p.price.toLocaleString("id-ID")}
+              {formatCurrencyPlain(p.price)}
             </div>
           </div>
           </InventoryContextMenu>

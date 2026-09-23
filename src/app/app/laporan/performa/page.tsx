@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { formatCurrencyPlain, formatNumberPlain } from "@/lib/format";
 import { EllipsisIcon, SearchIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -73,7 +74,7 @@ export default function PerformaPage() {
               cabang: t.cabang,
               selesai: t.selesai,
               rating: t.rating,
-              intensif: t.intensifEnabled ? (t.intensifMode === "percent" ? `${t.intensifValue}%` : `Rp ${t.intensifValue.toLocaleString("id-ID")}`) : "Off",
+              intensif: t.intensifEnabled ? (t.intensifMode === "percent" ? `${t.intensifValue}%` : `${formatCurrencyPlain(t.intensifValue)}`) : "Off",
               totalInsentif: calcInsentif(t),
             }))}
            />
@@ -161,9 +162,9 @@ export default function PerformaPage() {
                     ) : (
                       <div className="space-y-1">
                         <Badge variant="outline" size="sm" className="font-mono text-[10px] tabular-nums">
-                          {t.intensifMode === "percent" ? `${t.intensifValue}%` : `Rp ${t.intensifValue.toLocaleString("id-ID")}`} / servis
+                          {t.intensifMode === "percent" ? `${t.intensifValue}%` : `${formatCurrencyPlain(t.intensifValue)}`} / servis
                         </Badge>
-                        <div className="font-mono text-xs tabular-nums">Rp {total.toLocaleString("id-ID")}</div>
+                        <div className="font-mono text-xs tabular-nums">{formatCurrencyPlain(total)}</div>
                       </div>
                     )}
                   </TableCell>

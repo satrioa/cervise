@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { formatCurrencyPlain, formatNumberPlain } from "@/lib/format";
 import {
   ArrowDownRightIcon,
   ArrowUpRightIcon,
@@ -142,7 +143,7 @@ const RANGE_CAPTION: Record<RangeKey, string> = {
   custom: "Periode kustom",
 };
 
-const rp = (n: number) => `Rp ${n.toLocaleString("id-ID")}`;
+const rp = (n: number) => `${formatCurrencyPlain(n)}`;
 
 function formatJt(v: number) {
   if (v >= 100) return `Rp ${v.toFixed(0)} jt`;
@@ -305,7 +306,7 @@ export function SparepartRevenue({
                 <Delta value={growth} />
               </div>
               <div className="mt-1 font-mono text-[11px] text-muted-foreground">
-                {formatJt(totalJt)} total periode · {periodUnits.toLocaleString("id-ID")} unit terjual
+                {formatJt(totalJt)} total periode · {formatNumberPlain(periodUnits)} unit terjual
               </div>
             </div>
           </div>
@@ -362,7 +363,7 @@ export function SparepartRevenue({
                     <span className="font-mono text-[11px] tabular-nums">
                       Rp {c.revenueJt.toFixed(1).replace(".", ",")} jt ·{" "}
                       <span className="text-muted-foreground">
-                        {c.sold.toLocaleString("id-ID")} terjual
+                        {formatNumberPlain(c.sold)} terjual
                       </span>
                     </span>
                   </div>
