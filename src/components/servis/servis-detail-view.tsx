@@ -109,6 +109,15 @@ function initials(name?: string | null) {
   return name.trim().split(/\s+/).slice(0, 2).map((w) => w[0]?.toUpperCase()).join("") || "?";
 }
 
+function formatInvoiceNo(createdAt: string | null, id: string) {
+  try {
+    const d = createdAt ? new Date(createdAt) : new Date();
+    return `INV-${format(d, "ddMMyyyyHHmmss")}`;
+  } catch {
+    return `INV-${id.slice(0, 8).toUpperCase()}`;
+  }
+}
+
 type TimelineSeverity = "info" | "warn" | "danger";
 interface TimelineEvent {
   actor: string;
@@ -198,6 +207,7 @@ export function ServisDetailView({ data, dummy }: Props) {
   const status = d.status ?? "Masuk";
   const price = d.price ?? 0;
   const createdAt = d.created_at ?? d.date ?? null;
+  const invoiceNo = formatInvoiceNo(createdAt, id);
   const merk = d.merk ?? d.device?.split(" ")[0] ?? "—";
   const tipe = d.tipe ?? d.device?.split(" ").slice(1).join(" ") ?? "—";
   const imei1 = d.imei1 ?? "—";
@@ -264,17 +274,19 @@ export function ServisDetailView({ data, dummy }: Props) {
         <CardHeader className="pb-3">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
-              <div className="flex items-center gap-2">
-                <span className="font-mono text-xs rounded bg-muted px-2 py-1">{id}</span>
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="inline-flex items-center gap-1.5 font-mono text-xs rounded bg-muted px-2 py-1">
+                  <CalendarIcon className="size-3" />
+                  {createdAt ? format(new Date(createdAt), "d MMM yyyy", { locale: localeId }) : "—"}
+                </span>
+                <span className="font-mono text-xs rounded bg-muted px-2 py-1 border border-primary/20">Nomor Invoice: {invoiceNo}</span>
                 <Badge variant={status === "Sudah Diambil" ? "default" : status === "Selesai" ? "secondary" : "outline"} className="capitalize">
                   {status}
                 </Badge>
               </div>
               <CardTitle className="mt-2 text-xl leading-tight truncate">{device}</CardTitle>
               <CardDescription className="flex items-center gap-1.5 mt-1">
-                <CalendarIcon className="size-3.5" />
-                {createdAt ? format(new Date(createdAt), "d MMM yyyy · HH:mm", { locale: localeId }) : "—"}
-                {garansiUntil && <span className="ml-2 inline-flex items-center gap-1"><ShieldCheckIcon className="size-3.5" /> Garansi s/d {format(new Date(garansiUntil), "d MMM yyyy", { locale: localeId })}</span>}
+                {garansiUntil ? <span className="inline-flex items-center gap-1"><ShieldCheckIcon className="size-3.5" /> Garansi s/d {format(new Date(garansiUntil), "d MMM yyyy", { locale: localeId })}</span> : <span className="text-xs text-muted-foreground">ID Servis: <span className="font-mono">{id}</span> · Jam {createdAt ? format(new Date(createdAt), "HH:mm", { locale: localeId }) : "—"}</span>}
               </CardDescription>
             </div>
             <div className="hidden sm:flex flex-col items-end gap-2 shrink-0">

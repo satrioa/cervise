@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
-import { toggleCabangActive } from "@/app/app/cabang/actions";
+import { toggleCabangActive, toggleCabangIntensif } from "@/app/app/cabang/actions";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
@@ -17,6 +17,10 @@ type BranchItem = {
   city: string;
   phone: string;
   is_active: boolean;
+  is_intensif_enabled: boolean;
+  intensif_mode: "percent" | "fixed";
+  intensif_value: number;
+  intensif_target_count: number | null;
   created_at: string;
   teknisiCount: number;
 };
@@ -54,11 +58,9 @@ export function BranchCards({ branches, onKelola }: { branches: BranchItem[]; on
 
   const handleToggle = (branch: BranchItem, next: boolean) => {
     if (!next) {
-      // need confirmation when disabling
       setConfirm(branch);
       return;
     }
-    // enabling directly
     doToggle(branch, true);
   };
 
@@ -81,6 +83,26 @@ export function BranchCards({ branches, onKelola }: { branches: BranchItem[]; on
     } finally {
       setSaving(false);
       setConfirm(null);
+    }
+  };
+
+  const handleIntensifToggle = async (branch: BranchItem, next: boolean) => {
+    if (branch.id.startsWith("mock-")) {
+      toast.error("Cabang demo tidak bisa diubah. Buat cabang baru dulu.");
+      return;
+    }
+    const prev = items;
+    setItems((cur) => cur.map((b) => (b.id === branch.id ? { ...b, is_intensif_enabled: next } : b)));
+    setSaving(true);
+    try {
+      await toggleCabangIntensif(branch.id, next);
+      toast.success(next ? `Insentif "${branch.name}" diaktifkan` : `Insentif "${branch.name}" dinonaktifkan`);
+      router.refresh();
+    } catch (e: any) {
+      setItems(prev);
+      toast.error(e?.message ?? "Gagal mengubah intensif");
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -119,6 +141,9 @@ export function BranchCards({ branches, onKelola }: { branches: BranchItem[]; on
                     <span className="rounded border bg-background px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
                       {b.teknisiCount} teknisi
                     </span>
+                    <span className={"rounded border px-1.5 py-0.5 font-mono text-[10px] " + (b.is_intensif_enabled ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-700 dark:text-emerald-300" : "bg-muted text-muted-foreground")}>
+                      {b.is_intensif_enabled ? (b.intensif_mode === "percent" ? `Insentif ${Number(b.intensif_value).toString()}%` : `Insentif Rp ${Number(b.intensif_value).toLocaleString("id-ID")}`) + (b.intensif_target_count ? ` · target ${b.intensif_target_count}` : "") : "Insentif off"}
+                    </span>
                   </div>
                   <div className="mt-2 inline-flex items-center gap-1 font-mono text-[11px] text-muted-foreground">
                     {status === "ok" ? <CheckCircle2Icon className="size-3 text-emerald-600" /> : null}
@@ -126,7 +151,14 @@ export function BranchCards({ branches, onKelola }: { branches: BranchItem[]; on
                   </div>
                 </div>
                 <div className="flex flex-col items-end gap-2">
-                  <Switch checked={enabled} disabled={saving} onCheckedChange={(v) => handleToggle(b, Boolean(v))} />
+                  <div className="flex flex-col items-end gap-1">
+                    <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Aktif</span>
+                    <Switch checked={enabled} disabled={saving} onCheckedChange={(v) => handleToggle(b, Boolean(v))} />
+                  </div>
+                  <div className="flex flex-col items-end gap-1">
+                    <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Insentif</span>
+                    <Switch checked={!!b.is_intensif_enabled} disabled={saving || !enabled} onCheckedChange={(v) => handleIntensifToggle(b, Boolean(v))} />
+                  </div>
                   <Button variant="ghost" size="xs" className="text-muted-foreground" onClick={() => onKelola?.(b)}>
                     Kelola
                     <ChevronRightIcon />

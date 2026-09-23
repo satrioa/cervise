@@ -21,6 +21,7 @@ export const MENU_ACCESS: Record<string, Role[]> = {
   laporan_servis: ["super_owner", "master_admin", "admin"],
   laporan_keuangan: ["super_owner", "master_admin", "admin"],
   laporan_performa: ["super_owner", "master_admin", "admin"],
+  laporan_performa_teknisi: ["super_owner", "master_admin", "admin"],
 };
 
 export function canAccess(role: Role, menu: string) {

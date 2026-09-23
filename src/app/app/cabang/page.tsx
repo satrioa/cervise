@@ -16,8 +16,8 @@ export default async function CabangPage() {
   const isDemo = branches.length === 0 && !loadError;
   const display = isDemo
     ? [
-        { id: "mock-1", name: "Cervise Pusat", city: "Jl. Merdeka No.1", phone: "081211111111", is_active: true, created_at: new Date().toISOString(), teknisiCount: 3 },
-        { id: "mock-2", name: "Cervise Cabang 2", city: "Jl. Pahlawan No.5", phone: "081222222222", is_active: true, created_at: new Date(Date.now() - 86400000 * 2).toISOString(), teknisiCount: 2 },
+        { id: "mock-1", name: "Cervise Pusat", city: "Jl. Merdeka No.1", phone: "081211111111", is_active: true, is_intensif_enabled: true, intensif_mode: "percent" as const, intensif_value: 5, intensif_target_count: 15, created_at: new Date().toISOString(), teknisiCount: 3 },
+        { id: "mock-2", name: "Cervise Cabang 2", city: "Jl. Pahlawan No.5", phone: "081222222222", is_active: true, is_intensif_enabled: true, intensif_mode: "fixed" as const, intensif_value: 50000, intensif_target_count: 10, created_at: new Date(Date.now() - 86400000 * 2).toISOString(), teknisiCount: 2 },
       ]
     : branches;
 

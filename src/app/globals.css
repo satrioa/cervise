@@ -171,4 +171,8 @@
     mask-image: linear-gradient(to right, transparent, black 16px, black calc(100% - 16px), transparent);
     -webkit-mask-image: linear-gradient(to right, transparent, black 16px, black calc(100% - 16px), transparent);
   }
+  @keyframes shimmer {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(200%); }
+  }
 }

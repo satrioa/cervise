@@ -14,11 +14,15 @@ type BranchItem = {
   is_active: boolean;
   created_at: string;
   teknisiCount: number;
+  is_intensif_enabled?: boolean;
+  intensif_mode?: string;
+  intensif_value?: number;
+  intensif_target_count?: number;
 };
 
-export function CabangClient({ branches, isDemo }: { branches: BranchItem[]; isDemo?: boolean }) {
+export function CabangClient({ branches, isDemo }: { branches: any[]; isDemo?: boolean }) {
   const [open, setOpen] = useState(false);
-  const [selected, setSelected] = useState<BranchItem | null>(null);
+  const [selected, setSelected] = useState<any | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const router = useRouter();
 

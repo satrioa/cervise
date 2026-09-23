@@ -75,7 +75,7 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { label: "Servis", href: "/app/laporan/servis", icon: Wrench },
       { label: "Keuangan", href: "/app/laporan/keuangan", icon: Wallet },
-      { label: "Performa Karyawan", href: "/app/laporan/performa", icon: UserCheck },
+      { label: "Performa Teknisi", href: "/app/laporan/performa", icon: UserCheck },
     ],
   },
   {
@@ -184,14 +184,13 @@ function SidebarContent({ onNavigate, onSearchClick }: { onNavigate?: () => void
         </button>
       </div>
 
-      <nav className="mt-3 flex-1 overflow-y-auto scrollbar-none px-2 pb-4">
+      <nav className="mt-3 flex-1 overflow-y-auto scrollbar-none px-2 pb-2">
         {NAV_GROUPS.map((group) => (
           <div key={group.label ?? "dashboard"} className="mt-3 first:mt-1">
             {group.label && <SectionLabel>{group.label}</SectionLabel>}
             <ul className="flex flex-col gap-0.5">
               {group.items.map((item) => {
                 const active = pathname === item.href || (item.href !== "/app" && pathname.startsWith(item.href));
-                // highlight group parent for keuangan/laporan subpaths via startsWith works
                 return (
                   <li key={item.href}>
                     <Link
@@ -217,15 +216,30 @@ function SidebarContent({ onNavigate, onSearchClick }: { onNavigate?: () => void
             </ul>
           </div>
         ))}
+      </nav>
 
-        <div className="mt-6 rounded-lg border border-amber-200 bg-amber-50 p-3 dark:border-amber-900 dark:bg-amber-950/30">
-          <div className="text-xs font-medium">Trial Pro 12 hari lagi</div>
-          <p className="mt-1 text-xs text-muted-foreground">Upgrade untuk buka 3 cabang & 15 user.</p>
-          <Button size="sm" className="mt-2 w-full h-7 text-xs">
+      {/* Trial card — fixed di bottom body container, dark, progress shimmer hijau di atas button */}
+      <div className="shrink-0 border-t border-border/60 p-3">
+        <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-3 text-zinc-100 shadow-sm">
+          <div className="text-xs font-semibold tracking-tight">Trial Pro 12 hari lagi</div>
+          <p className="mt-1 text-xs leading-relaxed text-zinc-400">Upgrade untuk buka 3 cabang &amp; 15 user.</p>
+          {/* Status progress — remaining 85% = 12/14, shimmer animated, hijau — dynamic later from org trial */}
+          <div className="mt-3 space-y-1.5">
+            <div className="flex justify-between font-mono text-[10px] uppercase tracking-widest text-zinc-400">
+              <span>12 hari tersisa</span>
+              <span>85%</span>
+            </div>
+            <div className="h-1.5 w-full overflow-hidden rounded-full bg-zinc-800">
+              <div className="relative h-full overflow-hidden rounded-full bg-emerald-500" style={{ width: "85%" }}>
+                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/35 to-transparent" style={{ animation: "shimmer 1.6s linear infinite" }} />
+              </div>
+            </div>
+          </div>
+          <Button size="sm" className="mt-3 w-full h-7 bg-white text-xs font-medium text-zinc-900 hover:bg-zinc-100">
             Lihat Paket
           </Button>
         </div>
-      </nav>
+      </div>
 
       <div className="flex items-center gap-2 border-t border-border/60 px-3 py-2.5">
         <div className="flex size-8 items-center justify-center rounded-full bg-foreground text-xs font-medium text-background">MA</div>

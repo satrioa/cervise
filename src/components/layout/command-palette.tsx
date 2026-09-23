@@ -116,7 +116,7 @@ export function CerviseCommandPalette({ open, onOpenChange }: Props) {
                   <Wallet className="size-4" /> Laporan Keuangan
                 </CommandItem>
                 <CommandItem value="performa" onClick={() => navigate("/app/laporan/performa")}>
-                  <UserCheck className="size-4" /> Performa Karyawan
+                  <UserCheck className="size-4" /> Performa Teknisi
                 </CommandItem>
               </CommandGroup>
 
