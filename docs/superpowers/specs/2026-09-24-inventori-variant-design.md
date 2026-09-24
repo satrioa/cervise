@@ -1,19 +1,25 @@
 # Inventori Product Variant Design — Baru (Warna+Storage) & Bekas (IMEI)
 
 **Date:** 2026-09-24  
-**Status:** Draft → Approved (user approve 2026-09-24)  
+**Status:** Draft → Approved (user approve 2026-09-24) → **Revised Approved 2026-09-24 (revisi user)**  
 **Scope:** Single spec for Inventori CRUD + Product list grouped variant (Baru vs Bekas per IMEI), POS integration.  
-**Decisions:** Opsi A — single table `cervise_products` + `variant_type` (user chose A).
+**Decisions:** Opsi A — single table `cervise_products` + `variant_type` (user chose A). **Revised principles:** 1) keep one `cervise_products` (no new tables), 2) `parent_key` auto from `name` (slug), 3) Bekas: switch garansi + durasi hari, kondisi notes only.
 
-## 1. Overview
+## 1. Objective (Revised Spec)
 
-Inventori saat ini (`cervise_products`, `stock_qty` agregat, `is_serialized`) dan Sparepart (`inventory_items`) terpisah. Penjualan POS sudah handle `is_serialized` wajib IMEI 15 digit qty 1, tapi belum bedakan **Baru** (varian warna+storage, stok agregat) vs **Bekas** (varian per IMEI, tiap unit BH%/kondisi/garansi beda).
+Implement a lightweight gadget-product inventory using existing `cervise_products` with two behaviors:
 
-Goal: Tetap **1 Product list** (group by `parent_key` = slug `name`), di dalamnya 2 grup variant:
-- **Baru:** `warna + storage` → stok agregat, tanpa IMEI.
-- **Bekas:** `IMEI + storage + warna + BH% + kondisi + garansi` → stok 0/1 per IMEI, harga per unit bisa beda.
+- **BARU:** aggregate stock, variant = `name + storage + color`, no IMEI, qty>1, cost/price per variant.
+- **BEKAS:** per unit IMEI unique/branch, `storage + color + BH% + condition notes + cost/price/warranty`, stock 0/1, qty=1, price per unit differs.
 
-Tetap pakai `cervise_products` existing, tambah kolom nullable, validasi di app layer. POS kurangi stok sesuai tipe varian.
+UI tetap **1 Product list grouped by `parent_key`** (auto slug from `name`, e.g. `iphone-14-pro`).
+
+**Revised Principles (user 2026-09-24):**
+1. **Keep one `cervise_products` table** — no `product_groups`/`inventory_units` new tables (future migration possible).
+2. **Product grouping is not identity** — `parent_key` only grouping key, auto from name.
+3. Garansi Bekas = **switch + durasi hari** (if ON → `garansi_days` wajib), Kondisi = **notes only** (no grade enum), parent_key **auto from name**.
+
+Inventori saat ini (`cervise_products`, `stock_qty` agregat, `is_serialized`) dan Sparepart (`inventory_items`) terpisah. POS sudah handle `is_serialized` wajib IMEI 15 digit qty 1, tapi belum bedakan Baru vs Bekas. Tetap pakai `cervise_products` + kolom nullable, validasi app layer.
 
 ## 2. Data Model
 
