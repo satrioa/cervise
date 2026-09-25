@@ -91,7 +91,6 @@ export default async function SparepartPage({ searchParams }: { searchParams: Pr
   return (
     <div className="min-h-svh bg-background text-foreground">
       <PageHeader
-        eyebrow="Operasional · Sparepart"
         title="Sparepart"
         titleClassName="font-heading text-2xl"
         actions={

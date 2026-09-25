@@ -92,7 +92,6 @@ export function SettingsAppearanceShowcasePage() {
   return (
     <div className="min-h-svh bg-background text-foreground">
       <PageHeader
-        eyebrow="Settings · Appearance"
         title="Make it yours"
         titleClassName="font-heading text-2xl"
         description="Tweak everything from the comfort of one screen. Changes preview live on the right — they don't touch the rest of the app."

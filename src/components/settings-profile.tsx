@@ -104,7 +104,6 @@ export function SettingsProfileCervise({
   return (
     <div className="min-h-svh bg-background text-foreground">
       <PageHeader
-        eyebrow="Pengaturan · Profil"
         title="Profil Anda"
         titleClassName="font-heading text-2xl"
         description="Kelola identitas akun Cervise. Perubahan cabang hanya untuk Master Admin."

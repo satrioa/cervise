@@ -53,7 +53,6 @@ export default function UsagePage() {
   return (
     <div className="min-h-svh bg-background">
       <PageHeader
-        eyebrow="Billing · Usage"
         title="Usage"
         titleClassName="font-heading text-2xl"
         description="Count servis — bukan amount. Kuota trial 100, basic 500, pro unlimited."

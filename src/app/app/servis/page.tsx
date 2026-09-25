@@ -574,7 +574,6 @@ export default function ServisPage() {
   return (
     <div className="bg-background text-foreground">
       <PageHeader
-        eyebrow="Servis · Workflow 7 status"
         title="Servis"
         titleClassName="font-heading text-2xl"
         actions={

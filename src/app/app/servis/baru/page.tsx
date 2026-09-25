@@ -8,7 +8,6 @@ export default function BaruServisPage() {
   return (
     <div className="bg-background text-foreground min-h-svh">
       <PageHeader
-        eyebrow="Servis · Baru"
         title="Tambah Servis"
         innerClassName="max-w-3xl"
         actions={

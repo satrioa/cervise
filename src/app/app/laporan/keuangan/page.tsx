@@ -224,7 +224,6 @@ export default function LaporanKeuanganPage() {
   return (
     <div className="min-h-svh bg-background text-foreground">
       <PageHeader
-        eyebrow="Laporan · Keuangan"
         title="Laporan Keuangan"
         titleClassName="font-heading text-2xl"
         description={`Harian & Bulanan · ${cabangLabel} · ${from ? format(from, "d MMM", { locale: localeId }) : ""} — ${to ? format(to, "d MMM yyyy", { locale: localeId }) : ""}`}

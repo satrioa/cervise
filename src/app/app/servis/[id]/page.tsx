@@ -30,7 +30,6 @@ export default async function ServisDetailPage({ params }: { params: Promise<{ i
   return (
     <div className="bg-background text-foreground min-h-svh">
       <PageHeader
-        eyebrow="Servis · Detail"
         title={`Detail ${invoiceNo}`}
         innerClassName="max-w-4xl"
         actions={

@@ -175,7 +175,6 @@ export default function LaporanServisPage() {
   return (
     <div className="min-h-svh bg-background text-foreground">
       <PageHeader
-        eyebrow="Laporan · Servis"
         title="Laporan Servis"
         titleClassName="font-heading text-2xl"
         description={`Harian & Bulanan · kas_date (tanggal servis masuk) · ${cabangLabel} · ${teknisiLabel}`}

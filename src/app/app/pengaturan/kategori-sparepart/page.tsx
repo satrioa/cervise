@@ -110,7 +110,6 @@ export default function KategoriSparepartPage() {
   return (
     <div className="min-h-svh bg-background">
       <PageHeader
-        eyebrow="Configuration · Kategori Sparepart"
         title="Kategori Sparepart"
         titleClassName="font-heading text-2xl"
         description="CRUD kategori per cabang. Dipakai di filter Inventori & form Sparepart."

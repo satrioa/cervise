@@ -178,7 +178,6 @@ export default function GaransiPage() {
   return (
     <div className="bg-background text-foreground">
       <PageHeader
-        eyebrow="Layanan · Garansi"
         title="Cek Garansi"
         titleClassName="font-heading text-2xl"
         description={`${stats.total} garansi · ${stats.aktif} aktif · ${stats.segera} segera habis · ${stats.expired} expired · cabang ${branch.label}`}

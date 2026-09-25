@@ -79,7 +79,6 @@ export default function GeneralPage() {
   return (
     <div className="min-h-svh bg-background">
       <PageHeader
-        eyebrow="Configuration · General"
         title="General"
         titleClassName="font-heading text-2xl"
         description="Nama Brand, Logo, dan akses Master Admin per cabang."

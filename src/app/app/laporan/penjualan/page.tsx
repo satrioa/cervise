@@ -73,7 +73,6 @@ export default function LaporanPenjualanPage() {
   return (
     <div className="min-h-svh bg-background text-foreground">
       <PageHeader
-        eyebrow="Laporan · Penjualan"
         title="Laporan Penjualan"
         titleClassName="font-heading text-2xl"
         description="Harian & Bulanan · terpisah dari Servis · stok per cabang"

@@ -153,7 +153,6 @@ export default function DashboardPage() {
   return (
     <div className="bg-background text-foreground">
       <PageHeader
-        eyebrow="Cervise · Dashboard live"
         title="Overview"
         titleClassName="font-heading text-2xl"
         actions={

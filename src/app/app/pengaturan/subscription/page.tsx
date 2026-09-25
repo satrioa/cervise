@@ -5,7 +5,6 @@ export default function SubscriptionPage() {
   return (
     <div className="min-h-svh bg-background">
       <PageHeader
-        eyebrow="Billing · Subscription"
         title="Subscription"
         titleClassName="font-heading text-2xl"
         description="Harga dalam Rp — mengikuti pengaturan Lokalisasi (IDR). Untuk USD, ubah Currency di Lokalisasi."

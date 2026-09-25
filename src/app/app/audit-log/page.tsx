@@ -9,7 +9,6 @@ export default function AuditLogPage() {
   return (
     <div className="bg-background text-foreground">
       <PageHeader
-        eyebrow="Layanan · Audit"
         title={
           <span className="inline-flex items-center gap-2">
             Audit Log

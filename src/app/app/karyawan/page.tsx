@@ -53,9 +53,9 @@ export default async function KaryawanPage({ searchParams }: { searchParams: Pro
   return (
     <div className="min-h-svh bg-background text-foreground">
       <PageHeader
-        eyebrow={`Karyawan · ${rows.length} orang · ${branches.length || cabangs.length} cabang`}
         title="Data Karyawan"
         titleClassName="font-heading text-2xl"
+        description={`${rows.length} orang · ${branches.length || cabangs.length} cabang`}
         actions={<KaryawanHeaderActions branches={branches} />}
         toolbar={
           <KaryawanToolbar

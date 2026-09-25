@@ -30,7 +30,6 @@ export default async function InventoriPage() {
   return (
     <div className="min-h-svh bg-background text-foreground">
       <PageHeader
-        eyebrow="Inventori · Produk Gadget"
         title="Inventori"
         titleClassName="font-heading text-2xl"
         description={`${groups.length} produk induk · ${products.length} varian (Baru ${products.filter((p) => (p as any).variant_type === "BARU").length} · Bekas ${products.filter((p) => (p as any).variant_type === "BEKAS").length})`}

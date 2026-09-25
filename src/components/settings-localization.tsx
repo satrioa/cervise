@@ -111,7 +111,6 @@ export function SettingsLocalizationShowcasePage() {
   return (
     <div className="min-h-svh bg-background text-foreground">
       <PageHeader
-        eyebrow="Account · Localization"
         title="Localization"
         titleClassName="font-heading text-2xl"
         description="Pick how dates, times, numbers, and currencies are shown to you across the app. Perubahan tersimpan ke akun dan berlaku global."

@@ -220,10 +220,7 @@ function BranchSwitcher({ canSwitch }: { canSwitch: boolean }) {
         <div className={`flex size-8 shrink-0 items-center justify-center rounded-lg border bg-gradient-to-br font-heading font-semibold text-xs ${branchTone(branch.id)}`}>
           {branchLetter(branch.label)}
         </div>
-        <div className="min-w-0 text-left">
-          <div className="truncate font-semibold text-sm">{branch.label}</div>
-          <div className="truncate font-mono text-[10px] uppercase tracking-widest text-muted-foreground">Assigned branch</div>
-        </div>
+        <div className="min-w-0 flex-1 truncate font-semibold text-sm">{branch.label}</div>
       </div>
     );
   }
@@ -241,15 +238,12 @@ function BranchSwitcher({ canSwitch }: { canSwitch: boolean }) {
           <div className={`flex size-8 shrink-0 items-center justify-center rounded-lg border bg-gradient-to-br font-heading font-semibold text-xs ${branchTone(branch.id)}`}>
             {branchLetter(branch.label)}
           </div>
-          <div className="min-w-0 text-left">
-            <div className="truncate font-semibold text-sm">{branch.label}</div>
-            <div className="truncate font-mono text-[10px] text-muted-foreground uppercase tracking-widest">{branch.meta} · Branch</div>
-          </div>
+          <div className="min-w-0 flex-1 truncate font-semibold text-sm text-left">{branch.label}</div>
         </div>
         <ChevronsUpDown className="size-3.5 opacity-60 shrink-0" />
       </PopoverTrigger>
       <PopoverContent align="start" side="bottom" className="w-[248px] p-1">
-        <div className="px-2 py-1.5 font-mono text-[10px] text-muted-foreground uppercase tracking-widest">{t("branch.choose")} · Project</div>
+        <div className="px-2 py-1.5 font-mono text-[10px] text-muted-foreground uppercase tracking-widest">{t("branch.choose")}</div>
         {branches.map((b) => {
           const active = branch.id === b.id;
           return (
@@ -268,10 +262,7 @@ function BranchSwitcher({ canSwitch }: { canSwitch: boolean }) {
               <div className={`flex size-7 shrink-0 items-center justify-center rounded-lg border bg-gradient-to-br font-heading font-semibold text-[11px] ${branchTone(b.id)}`}>
                 {branchLetter(b.label)}
               </div>
-              <div className="min-w-0 flex-1">
-                <div className="truncate text-sm font-medium">{b.label}</div>
-                <div className="truncate text-[11px] text-muted-foreground">{b.meta}</div>
-              </div>
+              <div className="min-w-0 flex-1 truncate text-sm font-medium">{b.label}</div>
               {active && <CheckIcon className="size-4 text-primary shrink-0" />}
             </button>
           );
