@@ -90,7 +90,7 @@ export function MultipleAccounts({
       <div className="relative">
       <button
         type="button"
-        className="group flex w-full items-center gap-3 rounded-xl border border-transparent bg-muted/50 px-2 py-1.5 text-left text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+        className="group flex w-full items-center gap-3 rounded-xl border border-transparent bg-white px-2 py-1.5 text-left text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background dark:bg-muted/50"
         aria-haspopup="listbox"
         aria-controls={listboxId}
         aria-expanded={isOpen}

@@ -170,14 +170,14 @@ function TenantSwitcher({ canSwitchTenant: canSwitchTenantValue }: { canSwitchTe
   const { tenants, activeOrgId, setActiveOrg, loading } = useTenant();
   if (loading) {
     return (
-      <div className="px-3.5 py-3 text-xs text-muted-foreground">
+      <div className="w-full px-3.5 py-3 text-xs text-muted-foreground">
         Memuat tenant...
       </div>
     );
   }
   if (!tenants.length) {
     return (
-      <div className="px-3.5 py-3">
+      <div className="w-full px-3.5 py-3">
         <div className="text-sm font-medium">Belum ada Tenant</div>
         <div className="text-xs text-muted-foreground">Buat tenant di /owner</div>
       </div>
@@ -186,7 +186,7 @@ function TenantSwitcher({ canSwitchTenant: canSwitchTenantValue }: { canSwitchTe
   const activeTenant = tenants.find((tenant) => tenant.id === activeOrgId) ?? tenants[0];
   if (!canSwitchTenantValue) {
     return (
-      <div className="px-3.5 py-2">
+      <div className="w-full px-3.5 py-2">
         <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Tenant assigned</div>
         <div className="mt-1 truncate font-semibold">{activeTenant?.name ?? "Tenant"}</div>
       </div>
@@ -290,7 +290,7 @@ function SidebarContent({ onNavigate, onSearchClick, role }: { onNavigate?: () =
   const canSwitchBranchValue = canSwitchBranch(role);
   return (
     <>
-      <div className="shrink-0 border-b border-border/60 bg-white px-2 py-2 dark:bg-card">
+      <div className="flex h-16 shrink-0 items-center border-b border-border/60 bg-white px-2 dark:bg-card">
         <TenantSwitcher canSwitchTenant={canSwitchTenantValue} />
       </div>
 
@@ -597,7 +597,7 @@ function AppShellInner({ children, actor }: { children: React.ReactNode; actor: 
       </aside>
 
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden lg:col-start-2">
-        <div className="lg:hidden sticky top-0 z-40 flex shrink-0 items-center justify-between border-b border-border/60 bg-background px-3 py-2">
+        <div className="lg:hidden sticky top-0 z-40 flex h-16 shrink-0 items-center justify-between border-b border-border/60 bg-background px-3">
           <Sheet open={open} onOpenChange={setOpen}>
             <SheetTrigger render={<Button variant="ghost" size="icon" className="size-8" />}>
               <LayoutDashboard className="size-5" />
