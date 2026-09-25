@@ -8,6 +8,7 @@ import { createClient } from "@/lib/supabase/client";
 import { format } from "date-fns";
 import { id as localeId } from "date-fns/locale";
 import { BarChart3Icon, PackageIcon, WalletIcon } from "lucide-react";
+import { PageHeader } from "@/components/layout/page-header";
 
 export default function UsagePage() {
   const [rows, setRows] = useState<any[]>([]);
@@ -50,13 +51,16 @@ export default function UsagePage() {
   }, [rows]);
 
   return (
-    <div className="mx-auto max-w-4xl px-6 py-8 space-y-6">
-      <div>
-        <div className="font-mono text-[10px] text-muted-foreground uppercase tracking-[0.3em]">Billing · Usage</div>
-        <h1 className="mt-1 font-heading text-2xl">Usage</h1>
-        <p className="mt-1 text-sm text-muted-foreground">Count servis — bukan amount. Kuota trial 100, basic 500, pro unlimited.</p>
-      </div>
+    <div className="min-h-svh bg-background">
+      <PageHeader
+        eyebrow="Billing · Usage"
+        title="Usage"
+        titleClassName="font-heading text-2xl"
+        description="Count servis — bukan amount. Kuota trial 100, basic 500, pro unlimited."
+        innerClassName="max-w-4xl"
+      />
 
+      <div className="mx-auto max-w-4xl px-6 py-8 space-y-6">
       <div className="grid gap-3 sm:grid-cols-3">
         <Card>
           <CardHeader className="pb-2"><CardTitle className="text-sm flex items-center gap-2"><BarChart3Icon className="size-4" /> Hari ini</CardTitle></CardHeader>
@@ -119,6 +123,7 @@ export default function UsagePage() {
           </div>
         </CardContent>
       </Card>
+      </div>
     </div>
   );
 }

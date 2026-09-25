@@ -1,16 +1,16 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { formatCurrencyPlain, formatNumberPlain } from "@/lib/format";
+import { formatCurrencyPlain } from "@/lib/format";
 import { EllipsisIcon, SearchIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Menu, MenuItem, MenuPopup, MenuTrigger } from "@/components/ui/menu";
 import { PerformaExport } from "@/components/performa-export";
+import { PageHeader } from "@/components/layout/page-header";
 
 type TeknisiRow = {
   name: string;
@@ -59,39 +59,31 @@ export default function PerformaPage() {
 
   const showProgress = filtered.some((t) => t.intensifEnabled && t.intensifTarget != null);
   return (
-    <div className="min-h-svh bg-background px-6 py-12">
-      <div className="mx-auto max-w-5xl">
-        <header className="mb-6 flex items-end justify-between gap-4">
-          <div>
-            <h1 className="font-heading text-xl">Performa Teknisi</h1>
-            <p className="text-muted-foreground text-sm">
-              {filtered.length}/{TEKNISI.length} teknisi · metrik: Selesai + Sudah Diambil = selesai · insentif per cabang (persentase/nominal) · target opsional
-            </p>
-          </div>
-           <PerformaExport
+    <div className="min-h-svh bg-background">
+      <PageHeader
+        title="Performa Teknisi"
+        description={`${filtered.length}/${TEKNISI.length} teknisi · metrik: Selesai + Sudah Diambil = selesai · insentif per cabang (persentase/nominal) · target opsional`}
+        innerClassName="max-w-5xl"
+        toolbarClassName="max-w-5xl"
+        actions={
+          <PerformaExport
             rows={filtered.map((t) => ({
               name: t.name,
               cabang: t.cabang,
               selesai: t.selesai,
               rating: t.rating,
-              intensif: t.intensifEnabled ? (t.intensifMode === "percent" ? `${t.intensifValue}%` : `${formatCurrencyPlain(t.intensifValue)}`) : "Off",
+              insentif: t.intensifEnabled ? (t.intensifMode === "percent" ? `${t.intensifValue}%` : `${formatCurrencyPlain(t.intensifValue)}`) : "Off",
               totalInsentif: calcInsentif(t),
             }))}
-           />
-        </header>
-
-        {/* Toolbar filter */}
-        <div className="mb-4 rounded-xl border bg-card p-3 shadow-xs/5">
-          <div className="grid gap-3 sm:grid-cols-3">
-            <div className="space-y-1.5">
-              <Label className="font-mono text-[10px] uppercase tracking-[0.2em]">Cari teknisi</Label>
+          />
+        }
+        toolbar={
+          <>
+            <div className="grid gap-2 sm:grid-cols-3">
               <div className="relative">
                 <SearchIcon className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
                 <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Nama teknisi…" className="ps-8" />
               </div>
-            </div>
-            <div className="space-y-1.5">
-              <Label className="font-mono text-[10px] uppercase tracking-[0.2em]">Cabang</Label>
               <Select value={cabangFilter} onValueChange={(v) => setCabangFilter((v as string) ?? "all")}>
                 <SelectTrigger><SelectValue placeholder="Semua cabang" /></SelectTrigger>
                 <SelectContent>
@@ -101,9 +93,6 @@ export default function PerformaPage() {
                   ))}
                 </SelectContent>
               </Select>
-            </div>
-            <div className="space-y-1.5">
-              <Label className="font-mono text-[10px] uppercase tracking-[0.2em]">Insentif</Label>
               <Select value={intensifFilter} onValueChange={(v) => setIntensifFilter((v as string) ?? "all")}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -113,17 +102,20 @@ export default function PerformaPage() {
                 </SelectContent>
               </Select>
             </div>
-          </div>
-          {(q || cabangFilter !== "all" || intensifFilter !== "all") && (
-            <div className="mt-3 flex items-center gap-2">
-              <span className="font-mono text-xs text-muted-foreground">{filtered.length} hasil</span>
-              <Button variant="ghost" size="xs" onClick={() => { setQ(""); setCabangFilter("all"); setIntensifFilter("all"); }}>
-                Reset filter
-              </Button>
-            </div>
-          )}
-        </div>
+            {(q || cabangFilter !== "all" || intensifFilter !== "all") && (
+              <div className="mt-2 flex items-center gap-2">
+                <span className="font-mono text-xs text-muted-foreground">{filtered.length} hasil</span>
+                <Button variant="ghost" size="xs" onClick={() => { setQ(""); setCabangFilter("all"); setIntensifFilter("all"); }}>
+                  Reset filter
+                </Button>
+              </div>
+            )}
+          </>
+        }
+      />
 
+      <div className="px-6 py-8">
+        <div className="mx-auto max-w-5xl">
         <div className="rounded-xl border bg-card shadow-xs/5 overflow-hidden">
           <Table>
             <TableHeader>
@@ -201,6 +193,7 @@ export default function PerformaPage() {
               })}
             </TableBody>
           </Table>
+        </div>
         </div>
       </div>
     </div>

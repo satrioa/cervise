@@ -8,6 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
 import { Menu, MenuItem, MenuPopup, MenuTrigger } from "@/components/ui/menu";
 import { ArusKasExport } from "@/components/arus-kas-export";
+import { PageHeader } from "@/components/layout/page-header";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { Select, SelectItem, SelectPopup, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -171,13 +172,13 @@ export default function ArusKasPage() {
   };
 
   return (
-    <div className="min-h-svh bg-background px-4 sm:px-6 lg:px-10 py-8">
-      <div className="mx-auto max-w-5xl">
-        <header className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <h1 className="font-heading text-xl">Arus Kas</h1>
-            <p className="text-muted-foreground text-sm">Grouped by hari · collapsed semua · multi open</p>
-          </div>
+    <div className="min-h-svh bg-background">
+      <PageHeader
+        title="Arus Kas"
+        description="Grouped by hari · collapsed semua · multi open"
+        innerClassName="max-w-5xl"
+        toolbarClassName="max-w-5xl"
+        actions={
           <ArusKasExport
             rows={groups.flatMap((g) =>
               g.txs.map((t) => ({
@@ -189,33 +190,9 @@ export default function ArusKasPage() {
               }))
             )}
           />
-        </header>
-
-        <div className="grid gap-3 lg:grid-cols-3 mb-6">
-          <div className="rounded-xl border bg-card p-5 shadow-xs/5">
-            <div className="font-mono text-[10px] text-muted-foreground uppercase tracking-[0.25em]">Kas Masuk (filtered)</div>
-            <div className="mt-1 font-heading text-xl">{formatRp(totalMasuk)}</div>
-            <div className="mt-1 inline-flex items-center gap-1 text-xs text-emerald-600">
-              <ArrowUpRightIcon className="size-3" /> {groups.length} hari
-            </div>
-          </div>
-          <div className="rounded-xl border bg-card p-5 shadow-xs/5">
-            <div className="font-mono text-[10px] text-muted-foreground uppercase tracking-[0.25em]">Kas Keluar (filtered)</div>
-            <div className="mt-1 font-heading text-xl">{formatRp(totalKeluar)}</div>
-            <div className="mt-1 text-xs text-rose-600">Sparepart & operasional</div>
-          </div>
-          <div className="rounded-xl border bg-card p-5 shadow-xs/5">
-            <div className="font-mono text-[10px] text-muted-foreground uppercase tracking-[0.25em]">Net Arus Kas</div>
-            <div className="mt-1 font-heading text-xl">{formatRp(totalNet)}</div>
-            <div className="mt-2">
-              <Badge variant={totalNet >= 0 ? "success" : "destructive"}>{totalNet >= 0 ? "Surplus" : "Defisit"}</Badge>
-            </div>
-          </div>
-        </div>
-
-        <div className="rounded-xl border bg-card shadow-xs/5">
-          {/* Toolbar: search + filters */}
-          <div className="flex flex-col gap-2 border-b p-3 sm:flex-row sm:flex-wrap sm:items-center">
+        }
+        toolbar={
+          <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
             <div className="relative w-full sm:w-64">
               <InputGroup className="h-8">
                 <InputGroupAddon align="inline-start">
@@ -268,7 +245,34 @@ export default function ArusKasPage() {
             </Popover>
             <span className="ms-auto hidden text-[11px] text-muted-foreground sm:block">{filtered.length} transaksi · {groups.length} hari</span>
           </div>
+        }
+      />
 
+      <div className="px-4 sm:px-6 lg:px-10 py-8">
+        <div className="mx-auto max-w-5xl">
+        <div className="grid gap-3 lg:grid-cols-3 mb-6">
+          <div className="rounded-xl border bg-card p-5 shadow-xs/5">
+            <div className="font-mono text-[10px] text-muted-foreground uppercase tracking-[0.25em]">Kas Masuk (filtered)</div>
+            <div className="mt-1 font-heading text-xl">{formatRp(totalMasuk)}</div>
+            <div className="mt-1 inline-flex items-center gap-1 text-xs text-emerald-600">
+              <ArrowUpRightIcon className="size-3" /> {groups.length} hari
+            </div>
+          </div>
+          <div className="rounded-xl border bg-card p-5 shadow-xs/5">
+            <div className="font-mono text-[10px] text-muted-foreground uppercase tracking-[0.25em]">Kas Keluar (filtered)</div>
+            <div className="mt-1 font-heading text-xl">{formatRp(totalKeluar)}</div>
+            <div className="mt-1 text-xs text-rose-600">Sparepart & operasional</div>
+          </div>
+          <div className="rounded-xl border bg-card p-5 shadow-xs/5">
+            <div className="font-mono text-[10px] text-muted-foreground uppercase tracking-[0.25em]">Net Arus Kas</div>
+            <div className="mt-1 font-heading text-xl">{formatRp(totalNet)}</div>
+            <div className="mt-2">
+              <Badge variant={totalNet >= 0 ? "success" : "destructive"}>{totalNet >= 0 ? "Surplus" : "Defisit"}</Badge>
+            </div>
+          </div>
+        </div>
+
+        <div className="rounded-xl border bg-card shadow-xs/5">
           <Table>
             <TableHeader>
               <TableRow>
@@ -419,6 +423,7 @@ export default function ArusKasPage() {
               </PaginationContent>
             </Pagination>
           </div>
+        </div>
         </div>
       </div>
     </div>

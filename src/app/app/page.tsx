@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { CerviseAnalyticsSection } from "@/components/dashboards-analytics";
+import { PageHeader } from "@/components/layout/page-header";
 import { useBranch } from "@/lib/branch-context";
 import { createClient } from "@/lib/supabase/client";
 
@@ -151,21 +152,18 @@ export default function DashboardPage() {
 
   return (
     <div className="bg-background text-foreground">
-      <div className="border-b border-border/60 px-4 sm:px-6 lg:px-10 py-6">
-        <div className="mx-auto flex max-w-6xl flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-          <div className="shrink-0">
-            <div className="font-mono text-[10px] text-muted-foreground uppercase tracking-[0.3em]">Cervise · Dashboard live</div>
-            <h1 className="mt-1 font-heading text-2xl">Overview</h1>
-          </div>
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 lg:justify-end w-full lg:w-auto">
-            <PeriodFilter period={period} setPeriod={setPeriod} branchLabel={branch.label} />
-            <Button size="sm" type="button" className="shrink-0">
-              <PlusIcon />
-              Servis Baru
-            </Button>
-          </div>
-        </div>
-      </div>
+      <PageHeader
+        eyebrow="Cervise · Dashboard live"
+        title="Overview"
+        titleClassName="font-heading text-2xl"
+        actions={
+          <Button size="sm" type="button" className="shrink-0">
+            <PlusIcon />
+            Servis Baru
+          </Button>
+        }
+        toolbar={<PeriodFilter period={period} setPeriod={setPeriod} branchLabel={branch.label} />}
+      />
 
       <main className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-10 py-8">
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">

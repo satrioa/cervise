@@ -1,9 +1,8 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { formatCurrencyPlain, formatNumberPlain } from "@/lib/format";
+import { formatCurrencyPlain } from "@/lib/format";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
@@ -15,6 +14,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useTranslations } from "next-intl";
 import { format } from "date-fns";
 import { id as localeId } from "date-fns/locale";
+import { PageHeader } from "@/components/layout/page-header";
 
 type ServisRow = {
   id: string;
@@ -101,7 +101,7 @@ export default function LaporanServisPage() {
     (async () => {
       const [{ data: br }, { data: tk }] = await Promise.all([
         supabase.from("cervise_branches").select("id,name"),
-        supabase.from("cervise_profiles").select("id,full_name").eq("role", "teknisi"),
+        supabase.from("profiles").select("id,full_name").eq("role", "teknisi"),
       ]);
       setBranches((br as any) ?? []);
       setTeknisis((tk as any) ?? []);
@@ -174,63 +174,46 @@ export default function LaporanServisPage() {
 
   return (
     <div className="min-h-svh bg-background text-foreground">
-      <div className="border-b border-border/60 px-4 sm:px-6 lg:px-10 py-6">
-        <div className="mx-auto flex max-w-6xl items-end justify-between gap-4">
-          <div>
-            <div className="font-mono text-[10px] text-muted-foreground uppercase tracking-[0.3em]">Laporan · Servis</div>
-            <h1 className="mt-1 font-heading text-2xl">Laporan Servis</h1>
-            <p className="text-sm text-muted-foreground">Harian & Bulanan · kas_date (tanggal servis masuk) · {cabangLabel} · {teknisiLabel}</p>
+      <PageHeader
+        eyebrow="Laporan · Servis"
+        title="Laporan Servis"
+        titleClassName="font-heading text-2xl"
+        description={`Harian & Bulanan · kas_date (tanggal servis masuk) · ${cabangLabel} · ${teknisiLabel}`}
+        toolbar={
+          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+            <Popover>
+              <PopoverTrigger render={<Button variant="outline" className="w-full justify-start font-normal" />}>
+                <CalendarIcon className="size-4 opacity-60" />
+                {from ? format(from, "d MMM yyyy", { locale: localeId }) : "Tanggal awal"}
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={from} onSelect={setFrom} /></PopoverContent>
+            </Popover>
+            <Popover>
+              <PopoverTrigger render={<Button variant="outline" className="w-full justify-start font-normal" />}>
+                <CalendarIcon className="size-4 opacity-60" />
+                {to ? format(to, "d MMM yyyy", { locale: localeId }) : "Tanggal akhir"}
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={to} onSelect={setTo} /></PopoverContent>
+            </Popover>
+            <Select value={cabang} onValueChange={(v) => setCabang((v as string) ?? "all")}>
+              <SelectTrigger><SelectValue placeholder="Semua cabang" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Semua cabang</SelectItem>
+                {branches.map((b) => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <Select value={teknisi} onValueChange={(v) => setTeknisi((v as string) ?? "all")}>
+              <SelectTrigger><SelectValue placeholder="Semua teknisi" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Semua teknisi</SelectItem>
+                {teknisis.map((t) => <SelectItem key={t.id} value={t.id}>{t.full_name ?? t.id.slice(0, 6)}</SelectItem>)}
+              </SelectContent>
+            </Select>
           </div>
-        </div>
-      </div>
+        }
+      />
 
       <main className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-10 py-8 space-y-8">
-        {/* Filters */}
-        <Card>
-          <CardHeader><CardTitle className="text-base">Filter Laporan</CardTitle><CardDescription>Tanggal Awal/Akhir, Cabang, Teknisi — mempengaruhi Harian & Bulanan</CardDescription></CardHeader>
-          <CardContent className="grid gap-4 sm:grid-cols-4">
-            <div className="space-y-1.5">
-              <Label>Tanggal Awal</Label>
-              <Popover>
-                <PopoverTrigger render={<Button variant="outline" className="w-full justify-start font-normal" />}>
-                  <CalendarIcon className="size-4 opacity-60" />
-                  {from ? format(from, "d MMM yyyy", { locale: localeId }) : "Pilih tanggal"}
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={from} onSelect={setFrom} /></PopoverContent>
-              </Popover>
-            </div>
-            <div className="space-y-1.5">
-              <Label>Tanggal Akhir</Label>
-              <Popover>
-                <PopoverTrigger render={<Button variant="outline" className="w-full justify-start font-normal" />}>
-                  <CalendarIcon className="size-4 opacity-60" />
-                  {to ? format(to, "d MMM yyyy", { locale: localeId }) : "Pilih tanggal"}
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={to} onSelect={setTo} /></PopoverContent>
-              </Popover>
-            </div>
-            <div className="space-y-1.5">
-              <Label>Cabang</Label>
-              <Select value={cabang} onValueChange={(v) => setCabang((v as string) ?? "all")}>
-                <SelectTrigger><SelectValue placeholder="Semua cabang" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Semua cabang</SelectItem>
-                  {branches.map((b) => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1.5">
-              <Label>Teknisi</Label>
-              <Select value={teknisi} onValueChange={(v) => setTeknisi((v as string) ?? "all")}>
-                <SelectTrigger><SelectValue placeholder="Semua teknisi" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Semua teknisi</SelectItem>
-                  {teknisis.map((t) => <SelectItem key={t.id} value={t.id}>{t.full_name ?? t.id.slice(0, 6)}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-          </CardContent>
-        </Card>
 
         {/* Harian */}
         <Card>

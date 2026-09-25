@@ -1,7 +1,7 @@
-import { ShoppingBagIcon, PlusIcon } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { searchProductsForSale } from "@/app/app/penjualan/actions";
 import { InventoriClient } from "./inventori-client";
+import { InventoriHeaderActions } from "@/components/inventori/inventori-header-actions";
+import { PageHeader } from "@/components/layout/page-header";
 
 export default async function InventoriPage() {
   let products: Awaited<ReturnType<typeof searchProductsForSale>> = [];
@@ -29,17 +29,13 @@ export default async function InventoriPage() {
 
   return (
     <div className="min-h-svh bg-background text-foreground">
-      <div className="border-b border-border/60 px-6 py-6">
-        <div className="mx-auto flex max-w-6xl items-end justify-between gap-4">
-          <div>
-            <div className="font-mono text-[10px] text-muted-foreground uppercase tracking-[0.3em]">Inventori · Produk Gadget</div>
-            <h1 className="mt-1 flex items-center gap-2 font-heading text-2xl">
-              <ShoppingBagIcon className="size-5 text-muted-foreground" /> Inventori
-            </h1>
-            <p className="mt-1 text-sm text-muted-foreground">{groups.length} produk induk · {products.length} varian (Baru {products.filter((p) => (p as any).variant_type === "BARU").length} · Bekas {products.filter((p) => (p as any).variant_type === "BEKAS").length})</p>
-          </div>
-        </div>
-      </div>
+      <PageHeader
+        eyebrow="Inventori · Produk Gadget"
+        title="Inventori"
+        titleClassName="font-heading text-2xl"
+        description={`${groups.length} produk induk · ${products.length} varian (Baru ${products.filter((p) => (p as any).variant_type === "BARU").length} · Bekas ${products.filter((p) => (p as any).variant_type === "BEKAS").length})`}
+        actions={<InventoriHeaderActions />}
+      />
       <main className="mx-auto max-w-6xl px-6 py-6">
         <InventoriClient groups={groups} />
       </main>

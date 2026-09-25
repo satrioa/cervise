@@ -28,6 +28,7 @@ import { Select, SelectItem, SelectPopup, SelectTrigger, SelectValue } from "@/c
 import { Separator } from "@/components/ui/separator";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Button } from "@/components/ui/button";
+import { PageHeader } from "@/components/layout/page-header";
 import { toast } from "sonner";
 import {
   useLocale,
@@ -109,12 +110,14 @@ export function SettingsLocalizationShowcasePage() {
 
   return (
     <div className="min-h-svh bg-background text-foreground">
-      <div className="mx-auto max-w-5xl px-6 py-12 sm:px-10 sm:py-14 pb-32">
-        <div className="font-mono text-[10px] text-muted-foreground uppercase tracking-[0.3em]">Account · Localization</div>
-        <h1 className="mt-1 font-heading text-3xl">Localization</h1>
-        <p className="mt-1.5 max-w-xl text-muted-foreground text-sm">
-          Pick how dates, times, numbers, and currencies are shown to you across the app. Perubahan tersimpan ke akun dan berlaku global.
-        </p>
+      <PageHeader
+        eyebrow="Account · Localization"
+        title="Localization"
+        titleClassName="font-heading text-2xl"
+        description="Pick how dates, times, numbers, and currencies are shown to you across the app. Perubahan tersimpan ke akun dan berlaku global."
+        innerClassName="max-w-5xl"
+      />
+      <div className="mx-auto max-w-5xl px-6 py-8 sm:px-10 pb-32">
 
         <div className="mt-10 grid grid-cols-1 gap-10 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
           <div className="flex flex-col">

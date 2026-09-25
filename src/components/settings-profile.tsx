@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
+import { PageHeader } from "@/components/layout/page-header";
 
 type BranchOpt = { id: string; name: string };
 
@@ -102,10 +103,14 @@ export function SettingsProfileCervise({
 
   return (
     <div className="min-h-svh bg-background text-foreground">
-      <div className="mx-auto max-w-3xl px-8 py-12 pb-32">
-        <div className="font-mono text-[10px] text-muted-foreground uppercase tracking-[0.3em]">Pengaturan · Profil</div>
-        <h1 className="mt-1 font-heading text-3xl">Profil Anda</h1>
-        <p className="mt-1.5 text-muted-foreground text-sm">Kelola identitas akun Cervise. Perubahan cabang hanya untuk Master Admin.</p>
+      <PageHeader
+        eyebrow="Pengaturan · Profil"
+        title="Profil Anda"
+        titleClassName="font-heading text-2xl"
+        description="Kelola identitas akun Cervise. Perubahan cabang hanya untuk Master Admin."
+        innerClassName="max-w-3xl"
+      />
+      <div className="mx-auto max-w-3xl px-8 py-8 pb-32">
 
         <Section title="Foto">
           <div className="flex items-center gap-5">

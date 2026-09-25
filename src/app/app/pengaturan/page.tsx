@@ -12,6 +12,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useBranch } from "@/lib/branch-context";
 import { toast } from "sonner";
 import { UploadIcon, TrashIcon, BuildingIcon, UsersIcon, MailIcon, ShieldIcon } from "lucide-react";
+import { PageHeader } from "@/components/layout/page-header";
 
 export default function GeneralPage() {
   const { branch } = useBranch();
@@ -29,9 +30,9 @@ export default function GeneralPage() {
   useEffect(() => {
     const supabase = createClient();
     (async () => {
-      const { data } = await supabase.from("cervise_profiles").select("id,full_name,email,role").eq("branch_id", branch.id).eq("role", "master_admin");
+      const { data } = await supabase.from("profiles").select("id,full_name,email,role").eq("branch_id", branch.id).eq("role", "master_admin");
       if (!data || data.length === 0) {
-        const { data: all } = await supabase.from("cervise_profiles").select("id,full_name,email,role").eq("role", "master_admin").limit(10);
+        const { data: all } = await supabase.from("profiles").select("id,full_name,email,role").eq("role", "master_admin").limit(10);
         setUsers((all as any) ?? []);
       } else {
         setUsers((data as any) ?? []);
@@ -76,13 +77,16 @@ export default function GeneralPage() {
   const logoSrc = logoUrl || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(brandName)}`;
 
   return (
-    <div className="mx-auto max-w-4xl px-6 py-8 space-y-8">
-      <div>
-        <div className="font-mono text-[10px] text-muted-foreground uppercase tracking-[0.3em]">Configuration · General</div>
-        <h1 className="mt-1 font-heading text-2xl">General</h1>
-        <p className="mt-1 text-sm text-muted-foreground">Nama Brand, Logo, dan akses Master Admin per cabang.</p>
-      </div>
+    <div className="min-h-svh bg-background">
+      <PageHeader
+        eyebrow="Configuration · General"
+        title="General"
+        titleClassName="font-heading text-2xl"
+        description="Nama Brand, Logo, dan akses Master Admin per cabang."
+        innerClassName="max-w-4xl"
+      />
 
+      <div className="mx-auto max-w-4xl px-6 py-8 space-y-8">
       <Card>
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2"><BuildingIcon className="size-4" /> Nama Brand & Logo</CardTitle>
@@ -158,6 +162,7 @@ export default function GeneralPage() {
           <p className="text-xs text-muted-foreground flex items-center gap-1"><UsersIcon className="size-3" /> Invite akan kirim email verifikasi. Role default master_admin.</p>
         </CardContent>
       </Card>
+      </div>
     </div>
   );
 }

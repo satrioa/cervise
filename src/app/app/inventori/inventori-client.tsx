@@ -1,12 +1,8 @@
 "use client";
 
-import { useState } from "react";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
-import { ProductVariantDialog } from "@/components/inventori/product-variant-dialog";
 import { formatCurrencyPlain } from "@/lib/format";
-import { useRouter } from "next/navigation";
 import { PackageIcon, SmartphoneIcon } from "lucide-react";
 
 type ProductRow = {
@@ -37,17 +33,8 @@ type Group = {
 };
 
 export function InventoriClient({ groups }: { groups: Group[] }) {
-  const router = useRouter();
-  const [open, setOpen] = useState(false);
-
   return (
     <>
-      <div className="mb-4 flex justify-end">
-        <Button onClick={() => setOpen(true)}>
-          <PackageIcon className="size-4" /> Tambah Produk / Varian
-        </Button>
-      </div>
-
       {groups.length === 0 ? (
         <div className="rounded-xl border border-dashed bg-card/40 p-12 text-center">
           <div className="mx-auto flex size-12 items-center justify-center rounded-full bg-muted">
@@ -121,8 +108,6 @@ export function InventoriClient({ groups }: { groups: Group[] }) {
           ))}
         </div>
       )}
-
-      <ProductVariantDialog open={open} onOpenChange={setOpen} onSuccess={() => router.refresh()} />
     </>
   );
 }

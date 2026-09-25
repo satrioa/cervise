@@ -1,10 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { formatCurrencyPlain, formatNumberPlain } from "@/lib/format";
+import { formatCurrencyPlain } from "@/lib/format";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { Button } from "@/components/ui/button";
@@ -13,6 +11,7 @@ import { CalendarIcon, DownloadIcon } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { format } from "date-fns";
 import { id as localeId } from "date-fns/locale";
+import { PageHeader } from "@/components/layout/page-header";
 
 type SaleRow = { id: string; kas_date: string; total: number; paid: number; payment_method: string | null; branch_id: string | null };
 
@@ -73,23 +72,19 @@ export default function LaporanPenjualanPage() {
 
   return (
     <div className="min-h-svh bg-background text-foreground">
-      <div className="border-b border-border/60 px-4 sm:px-6 lg:px-10 py-6">
-        <div className="mx-auto flex max-w-6xl items-end justify-between gap-4">
-          <div>
-            <div className="font-mono text-[10px] text-muted-foreground uppercase tracking-[0.3em]">Laporan · Penjualan</div>
-            <h1 className="mt-1 font-heading text-2xl">Laporan Penjualan</h1>
-            <p className="text-sm text-muted-foreground">Harian & Bulanan · terpisah dari Servis · stok per cabang</p>
+      <PageHeader
+        eyebrow="Laporan · Penjualan"
+        title="Laporan Penjualan"
+        titleClassName="font-heading text-2xl"
+        description="Harian & Bulanan · terpisah dari Servis · stok per cabang"
+        toolbar={
+          <div className="grid gap-2 sm:grid-cols-2">
+            <Popover><PopoverTrigger render={<Button variant="outline" className="w-full justify-start font-normal" />}><CalendarIcon className="size-4 opacity-60" />{from ? format(from, "d MMM yyyy", { locale: localeId }) : "Tanggal awal"}</PopoverTrigger><PopoverContent className="w-auto p-0"><Calendar mode="single" selected={from} onSelect={setFrom} /></PopoverContent></Popover>
+            <Popover><PopoverTrigger render={<Button variant="outline" className="w-full justify-start font-normal" />}><CalendarIcon className="size-4 opacity-60" />{to ? format(to, "d MMM yyyy", { locale: localeId }) : "Tanggal akhir"}</PopoverTrigger><PopoverContent className="w-auto p-0"><Calendar mode="single" selected={to} onSelect={setTo} /></PopoverContent></Popover>
           </div>
-        </div>
-      </div>
+        }
+      />
       <main className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-10 py-8 space-y-8">
-        <Card>
-          <CardHeader><CardTitle className="text-base">Filter Laporan</CardTitle><CardDescription>Tanggal Awal/Akhir mempengaruhi Harian & Bulanan</CardDescription></CardHeader>
-          <CardContent className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-1.5"><Label>Tanggal Awal</Label><Popover><PopoverTrigger render={<Button variant="outline" className="w-full justify-start font-normal" />}><CalendarIcon className="size-4 opacity-60" />{from ? format(from, "d MMM yyyy", { locale: localeId }) : "Pilih tanggal"}</PopoverTrigger><PopoverContent className="w-auto p-0"><Calendar mode="single" selected={from} onSelect={setFrom} /></PopoverContent></Popover></div>
-            <div className="space-y-1.5"><Label>Tanggal Akhir</Label><Popover><PopoverTrigger render={<Button variant="outline" className="w-full justify-start font-normal" />}><CalendarIcon className="size-4 opacity-60" />{to ? format(to, "d MMM yyyy", { locale: localeId }) : "Pilih tanggal"}</PopoverTrigger><PopoverContent className="w-auto p-0"><Calendar mode="single" selected={to} onSelect={setTo} /></PopoverContent></Popover></div>
-          </CardContent>
-        </Card>
 
         <Card>
           <CardHeader><CardTitle className="text-base">Laporan Harian</CardTitle><CardDescription>Per hari (kas_date)</CardDescription></CardHeader>

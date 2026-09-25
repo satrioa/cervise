@@ -18,6 +18,7 @@ import { GaransiField } from "@/components/servis/garansi-field";
 import { useBranch } from "@/lib/branch-context";
 import { cn } from "@/lib/utils";
 import { getServisDetail } from "@/app/app/servis/actions";
+import { PageHeader } from "@/components/layout/page-header";
 
 type GaransiRow = {
   id: string;
@@ -176,15 +177,12 @@ export default function GaransiPage() {
 
   return (
     <div className="bg-background text-foreground">
-      <div className="border-b border-border/60 px-4 sm:px-6 lg:px-10 py-6">
-        <div className="mx-auto flex max-w-6xl flex-col gap-4">
-          <div className="flex flex-col gap-2">
-            <div className="font-mono text-[10px] text-muted-foreground uppercase tracking-[0.3em]">Layanan · Garansi</div>
-            <h1 className="font-heading text-2xl">Cek Garansi</h1>
-            <p className="text-sm text-muted-foreground">
-              {stats.total} garansi · {stats.aktif} aktif · {stats.segera} segera habis · {stats.expired} expired · cabang {branch.label}
-            </p>
-          </div>
+      <PageHeader
+        eyebrow="Layanan · Garansi"
+        title="Cek Garansi"
+        titleClassName="font-heading text-2xl"
+        description={`${stats.total} garansi · ${stats.aktif} aktif · ${stats.segera} segera habis · ${stats.expired} expired · cabang ${branch.label}`}
+        toolbar={
           <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
             <div className="relative w-full sm:w-[300px]">
               <InputGroup className="h-8">
@@ -241,8 +239,8 @@ export default function GaransiPage() {
               </PopoverContent>
             </Popover>
           </div>
-        </div>
-      </div>
+        }
+      />
 
       <main className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-10 py-6 lg:py-8">
         <div className="rounded-xl border bg-card shadow-xs/5 overflow-hidden">

@@ -1,9 +1,8 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { formatCurrencyPlain, formatNumberPlain } from "@/lib/format";
+import { formatCurrencyPlain } from "@/lib/format";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
@@ -15,6 +14,7 @@ import { createClient } from "@/lib/supabase/client";
 import { format } from "date-fns";
 import { id as localeId } from "date-fns/locale";
 import { Area, AreaChart, CartesianGrid, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
+import { PageHeader } from "@/components/layout/page-header";
 
 type Tx = {
   id: string;
@@ -223,53 +223,39 @@ export default function LaporanKeuanganPage() {
 
   return (
     <div className="min-h-svh bg-background text-foreground">
-      <div className="border-b border-border/60 px-4 sm:px-6 lg:px-10 py-6">
-        <div className="mx-auto flex max-w-6xl items-end justify-between gap-4">
-          <div>
-            <div className="font-mono text-[10px] text-muted-foreground uppercase tracking-[0.3em]">Laporan · Keuangan</div>
-            <h1 className="mt-1 font-heading text-2xl">Laporan Keuangan</h1>
-            <p className="text-sm text-muted-foreground">Harian & Bulanan · {cabangLabel} · {from ? format(from, "d MMM", { locale: localeId }) : ""} — {to ? format(to, "d MMM yyyy", { locale: localeId }) : ""}</p>
+      <PageHeader
+        eyebrow="Laporan · Keuangan"
+        title="Laporan Keuangan"
+        titleClassName="font-heading text-2xl"
+        description={`Harian & Bulanan · ${cabangLabel} · ${from ? format(from, "d MMM", { locale: localeId }) : ""} — ${to ? format(to, "d MMM yyyy", { locale: localeId }) : ""}`}
+        toolbar={
+          <div className="grid gap-2 sm:grid-cols-3">
+            <Popover>
+              <PopoverTrigger render={<Button variant="outline" className="w-full justify-start font-normal" />}>
+                <CalendarIcon className="size-4 opacity-60" />
+                {from ? format(from, "d MMM yyyy", { locale: localeId }) : "Tanggal awal"}
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={from} onSelect={setFrom} /></PopoverContent>
+            </Popover>
+            <Popover>
+              <PopoverTrigger render={<Button variant="outline" className="w-full justify-start font-normal" />}>
+                <CalendarIcon className="size-4 opacity-60" />
+                {to ? format(to, "d MMM yyyy", { locale: localeId }) : "Tanggal akhir"}
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={to} onSelect={setTo} /></PopoverContent>
+            </Popover>
+            <Select value={cabang} onValueChange={(v) => setCabang((v as string) ?? "all")}>
+              <SelectTrigger><SelectValue placeholder="Semua cabang" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Semua cabang</SelectItem>
+                {branches.map((b) => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
           </div>
-        </div>
-      </div>
+        }
+      />
 
       <main className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-10 py-8 space-y-8">
-        {/* Filters */}
-        <Card>
-          <CardHeader><CardTitle className="text-base">Filter Laporan</CardTitle><CardDescription>Tanggal Awal/Akhir, Cabang — mempengaruhi Harian & Bulanan & Grafik</CardDescription></CardHeader>
-          <CardContent className="grid gap-4 sm:grid-cols-3">
-            <div className="space-y-1.5">
-              <Label>Tanggal Awal</Label>
-              <Popover>
-                <PopoverTrigger render={<Button variant="outline" className="w-full justify-start font-normal" />}>
-                  <CalendarIcon className="size-4 opacity-60" />
-                  {from ? format(from, "d MMM yyyy", { locale: localeId }) : "Pilih tanggal"}
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={from} onSelect={setFrom} /></PopoverContent>
-              </Popover>
-            </div>
-            <div className="space-y-1.5">
-              <Label>Tanggal Akhir</Label>
-              <Popover>
-                <PopoverTrigger render={<Button variant="outline" className="w-full justify-start font-normal" />}>
-                  <CalendarIcon className="size-4 opacity-60" />
-                  {to ? format(to, "d MMM yyyy", { locale: localeId }) : "Pilih tanggal"}
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={to} onSelect={setTo} /></PopoverContent>
-              </Popover>
-            </div>
-            <div className="space-y-1.5">
-              <Label>Cabang</Label>
-              <Select value={cabang} onValueChange={(v) => setCabang((v as string) ?? "all")}>
-                <SelectTrigger><SelectValue placeholder="Semua cabang" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Semua cabang</SelectItem>
-                  {branches.map((b) => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-          </CardContent>
-        </Card>
 
         {/* Market Dashboard - Cervise: Bulan ini vs Bulan lalu, Servis/Inventori/Sales/Lain-lain */}
         <div className="grid grid-cols-1 gap-px overflow-hidden rounded-2xl border border-border/60 bg-border/60 lg:grid-cols-[1fr_300px]">

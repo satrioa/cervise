@@ -1,6 +1,7 @@
 import { getCabangList } from "./actions";
 import { CabangClient } from "./cabang-client";
 import { CabangHeaderActions } from "@/components/cabang/cabang-header-actions";
+import { PageHeader } from "@/components/layout/page-header";
 
 export default async function CabangPage() {
   let branches: Awaited<ReturnType<typeof getCabangList>> = [];
@@ -27,22 +28,20 @@ export default async function CabangPage() {
   const nonaktif = total - aktif;
 
   return (
-    <div className="min-h-svh bg-background px-6 py-12">
-      <div className="mx-auto max-w-2xl">
-        <header className="mb-6 flex items-start justify-between gap-4">
-          <div>
-            <h1 className="font-heading text-xl">Cabang</h1>
-            <p className="mt-1 font-mono text-xs text-muted-foreground">
-              {total}/{limit} Cabang <span className="mx-1 opacity-40">●</span> {aktif} Aktif <span className="mx-1 opacity-40">●</span> {nonaktif} Nonaktif
-              {isDemo && <span className="ml-2 rounded bg-amber-500/15 px-1.5 py-0.5 text-[10px] text-amber-700 dark:text-amber-400">Demo</span>}
-            </p>
-            {loadError && <p className="mt-1 text-xs text-destructive">{loadError} — {isDemo ? "menampilkan data demo" : "coba refresh"}</p>}
-            {!loadError && display.length === 0 && <p className="mt-1 text-xs text-muted-foreground">Belum ada cabang. Buat cabang pertama di bawah.</p>}
-          </div>
-          <CabangHeaderActions />
-        </header>
+    <div className="min-h-svh bg-background">
+      <PageHeader
+        title="Cabang"
+        description={`${total}/${limit} Cabang ● ${aktif} Aktif ● ${nonaktif} Nonaktif${isDemo ? " · Demo" : ""}`}
+        innerClassName="max-w-2xl"
+        actions={<CabangHeaderActions />}
+      />
 
-        <CabangClient branches={display} isDemo={isDemo} />
+      <div className="px-6 py-8">
+        <div className="mx-auto max-w-2xl">
+          {loadError && <p className="mb-3 text-xs text-destructive">{loadError} — {isDemo ? "menampilkan data demo" : "coba refresh"}</p>}
+          {!loadError && display.length === 0 && <p className="mb-3 text-xs text-muted-foreground">Belum ada cabang. Buat cabang pertama di bawah.</p>}
+          <CabangClient branches={display} isDemo={isDemo} />
+        </div>
       </div>
     </div>
   );

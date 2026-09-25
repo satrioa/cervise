@@ -1,9 +1,8 @@
 "use client";
 
-"use client";
-
 import { useState } from "react";
 import { CheckIcon, MonitorIcon, MoonIcon, SunIcon } from "lucide-react";
+import { PageHeader } from "@/components/layout/page-header";
 
 type Mode = "light" | "dark" | "system";
 type Density = "comfortable" | "cozy" | "compact";
@@ -92,15 +91,13 @@ export function SettingsAppearanceShowcasePage() {
 
   return (
     <div className="min-h-svh bg-background text-foreground">
-      <div className="mx-auto max-w-6xl px-8 py-12">
-        <div className="font-mono text-[10px] text-muted-foreground uppercase tracking-[0.3em]">
-          Settings · Appearance
-        </div>
-        <h1 className="mt-1 font-heading text-3xl">Make it yours</h1>
-        <p className="mt-1.5 text-muted-foreground text-sm">
-          Tweak everything from the comfort of one screen. Changes preview live
-          on the right — they don't touch the rest of the app.
-        </p>
+      <PageHeader
+        eyebrow="Settings · Appearance"
+        title="Make it yours"
+        titleClassName="font-heading text-2xl"
+        description="Tweak everything from the comfort of one screen. Changes preview live on the right — they don't touch the rest of the app."
+      />
+      <div className="mx-auto max-w-6xl px-8 py-8">
 
         <div className="mt-10 grid grid-cols-1 gap-10 lg:grid-cols-[minmax(0,1fr)_360px]">
           <div>

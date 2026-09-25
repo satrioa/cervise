@@ -1,10 +1,11 @@
-import { ClipboardCheckIcon, ShoppingBagIcon } from "lucide-react";
+import { ClipboardCheckIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SparepartRevenue } from "@/components/sparepart/sparepart-revenue";
 import { InventoryToolbar, INVENTORY_DEFAULTS, type InventoryView } from "@/components/sparepart/inventory-toolbar";
 import { SparepartHeaderActions } from "@/components/sparepart/sparepart-header-actions";
 import { SparepartList } from "@/components/sparepart/sparepart-list";
 import { stockTone, type SparepartRow } from "@/components/sparepart/stock-tone";
+import { PageHeader } from "@/components/layout/page-header";
 import { getSpareparts } from "./actions";
 
 function visualForCategory(cat: string): { thumb: string; bg: string } {
@@ -89,27 +90,20 @@ export default async function SparepartPage({ searchParams }: { searchParams: Pr
 
   return (
     <div className="min-h-svh bg-background text-foreground">
-      <div className="border-b border-border/60 px-10 py-6">
-        <div className="mx-auto flex max-w-6xl items-end justify-between">
-          <div>
-            <div className="font-mono text-[10px] text-muted-foreground uppercase tracking-[0.3em]">Operasional · Sparepart</div>
-            <h1 className="mt-1 flex items-center gap-2 font-heading text-2xl">
-              <ShoppingBagIcon className="size-5 text-muted-foreground" /> Sparepart
-            </h1>
-          </div>
-          <div className="flex items-center gap-2">
+      <PageHeader
+        eyebrow="Operasional · Sparepart"
+        title="Sparepart"
+        titleClassName="font-heading text-2xl"
+        actions={
+          <>
             <Button size="sm" variant="outline" disabled title="Segera hadir — stok opname per cabang + selisih & berita acara">
               <ClipboardCheckIcon /> Stok Opname
               <span className="ml-1 rounded bg-muted px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-muted-foreground">Segera hadir</span>
             </Button>
             <SparepartHeaderActions categories={categories} />
-          </div>
-        </div>
-      </div>
-
-      <main className="mx-auto max-w-6xl px-10 py-8">
-        <SparepartRevenue />
-        <div className="mt-6 mb-3">
+          </>
+        }
+        toolbar={
           <InventoryToolbar
             query={q?.trim() ?? ""}
             category={category}
@@ -121,8 +115,14 @@ export default async function SparepartPage({ searchParams }: { searchParams: Pr
             total={PRODUCTS.length}
             exportRows={sorted}
           />
+        }
+      />
+
+      <main className="mx-auto max-w-6xl px-10 py-8">
+        <SparepartRevenue />
+        <div className="mt-6">
+          <SparepartList rows={sorted} categories={categories} view={viewKey} />
         </div>
-        <SparepartList rows={sorted} categories={categories} view={viewKey} />
         <p className="mt-3 text-xs text-muted-foreground">SKU otomatis SP-XXX · stok per cabang · Harga Modal dari cost_cents.</p>
       </main>
     </div>

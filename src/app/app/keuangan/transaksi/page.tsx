@@ -14,6 +14,7 @@ import { Separator } from "@/components/ui/separator";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { createClient } from "@/lib/supabase/client";
 import { TransaksiExportButton } from "@/components/transaksi-export-button";
+import { PageHeader } from "@/components/layout/page-header";
 import { cn } from "@/lib/utils";
 import { useTranslations } from "next-intl";
 import { format } from "date-fns";
@@ -150,31 +151,21 @@ export default function TransaksiPage() {
 
   return (
     <div className="min-h-svh bg-background text-foreground">
-      <div className="border-b border-border/60 px-4 sm:px-6 lg:px-10 py-6">
-        <div className="mx-auto flex max-w-6xl items-end justify-between gap-4">
-          <div>
-            <div className="font-mono text-[10px] text-muted-foreground uppercase tracking-[0.3em]">Keuangan · Transaksi</div>
-            <h1 className="mt-1 font-heading text-2xl">Transaksi</h1>
-            <p className="text-muted-foreground text-sm">Cervise · {branchMap.size || 1} cabang · {filteredRaw.length} transaksi (limit 100, order kas_date)</p>
-          </div>
-          <div className="flex items-center gap-2">
+      <PageHeader
+        eyebrow="Keuangan · Transaksi"
+        title="Transaksi"
+        titleClassName="font-heading text-2xl"
+        description={`Cervise · ${branchMap.size || 1} cabang · ${filteredRaw.length} transaksi (limit 100, order kas_date)`}
+        actions={
+          <>
             <Button size="sm" variant="ghost" onClick={fetchData}>
               <RefreshCcwIcon /> Refresh
             </Button>
             <TransaksiExportButton rows={txs as any} />
-          </div>
-        </div>
-      </div>
-
-      <main className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-10 py-8">
-        <div className="mb-4 grid grid-cols-3 gap-3">
-          <SummaryTile label="Pemasukan" amount={inflow} tone="positive" />
-          <SummaryTile label="Pengeluaran" amount={outflow} tone="negative" />
-          <SummaryTile label="Net" amount={inflow - outflow} tone="neutral" />
-        </div>
-
-        <div className="rounded-xl border bg-card shadow-xs/5">
-          <div className="flex flex-col gap-2 border-b p-3 sm:flex-row sm:flex-wrap sm:items-center">
+          </>
+        }
+        toolbar={
+          <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
             <InputGroup className="w-full sm:w-64">
               <InputGroupAddon>
                 <SearchIcon className="size-4 text-muted-foreground" />
@@ -237,7 +228,17 @@ export default function TransaksiPage() {
             </Popover>
             <span className="ms-auto hidden font-mono text-[11px] text-muted-foreground sm:block">{loading ? "memuat..." : `${txs.length} transaksi`}</span>
           </div>
+        }
+      />
 
+      <main className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-10 py-8">
+        <div className="mb-4 grid grid-cols-3 gap-3">
+          <SummaryTile label="Pemasukan" amount={inflow} tone="positive" />
+          <SummaryTile label="Pengeluaran" amount={outflow} tone="negative" />
+          <SummaryTile label="Net" amount={inflow - outflow} tone="neutral" />
+        </div>
+
+        <div className="rounded-xl border bg-card shadow-xs/5">
           <Table>
             <TableHeader>
               <TableRow>

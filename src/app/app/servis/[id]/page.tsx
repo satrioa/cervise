@@ -5,6 +5,7 @@ import { ServisDetailView } from "@/components/servis/servis-detail-view";
 import { getServisDetail } from "@/app/app/servis/actions";
 import { ChevronLeftIcon } from "lucide-react";
 import { format } from "date-fns";
+import { PageHeader } from "@/components/layout/page-header";
 
 function formatInvoiceNo(createdAt: string | null, id: string) {
   try {
@@ -28,24 +29,23 @@ export default async function ServisDetailPage({ params }: { params: Promise<{ i
 
   return (
     <div className="bg-background text-foreground min-h-svh">
-      <div className="border-b border-border/60 px-4 sm:px-6 lg:px-10 py-4">
-        <div className="mx-auto flex max-w-4xl items-center gap-3">
-          <Link href="/app/servis">
-            <Button variant="ghost" size="icon-sm" aria-label="Kembali">
-              <ChevronLeftIcon className="size-4" />
-            </Button>
-          </Link>
-          <div>
-            <div className="font-mono text-[10px] text-muted-foreground uppercase tracking-[0.3em]">Servis · Detail</div>
-            <h1 className="font-heading text-xl">Detail {invoiceNo}</h1>
-          </div>
-          <div className="ml-auto flex gap-2">
+      <PageHeader
+        eyebrow="Servis · Detail"
+        title={`Detail ${invoiceNo}`}
+        innerClassName="max-w-4xl"
+        actions={
+          <>
+            <Link href="/app/servis">
+              <Button variant="ghost" size="icon-sm" aria-label="Kembali">
+                <ChevronLeftIcon className="size-4" />
+              </Button>
+            </Link>
             <Link href="/app/servis">
               <Button variant="outline" size="sm">Kembali ke list</Button>
             </Link>
-          </div>
-        </div>
-      </div>
+          </>
+        }
+      />
       <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-10 py-6">
         <ServisDetailView data={data} />
       </div>

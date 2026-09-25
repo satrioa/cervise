@@ -2,6 +2,7 @@ import { getKaryawan, getKaryawanBranches } from "./actions";
 import { KaryawanToolbar, KARYAWAN_DEFAULTS } from "@/components/karyawan/karyawan-toolbar";
 import type { ExportKaryawanRow } from "@/components/karyawan/export-karyawan-csv";
 import { KaryawanHeaderActions, KaryawanList } from "@/components/karyawan/karyawan-list";
+import { PageHeader } from "@/components/layout/page-header";
 
 const ROLES: { label: string; value: string }[] = [
   { label: "Master Admin", value: "MASTER_ADMIN" },
@@ -51,18 +52,12 @@ export default async function KaryawanPage({ searchParams }: { searchParams: Pro
 
   return (
     <div className="min-h-svh bg-background text-foreground">
-      <div className="border-b border-border/60 px-10 py-6">
-        <div className="mx-auto flex max-w-6xl items-end justify-between">
-          <div>
-            <div className="font-mono text-[10px] text-muted-foreground uppercase tracking-[0.3em]">Karyawan · {rows.length} orang · {branches.length || cabangs.length} cabang</div>
-            <h1 className="mt-1 font-heading text-2xl">Data Karyawan</h1>
-          </div>
-          <KaryawanHeaderActions branches={branches} />
-        </div>
-      </div>
-
-      <main className="mx-auto max-w-6xl px-10 py-8">
-        <div className="mb-3">
+      <PageHeader
+        eyebrow={`Karyawan · ${rows.length} orang · ${branches.length || cabangs.length} cabang`}
+        title="Data Karyawan"
+        titleClassName="font-heading text-2xl"
+        actions={<KaryawanHeaderActions branches={branches} />}
+        toolbar={
           <KaryawanToolbar
             query={q?.trim() ?? ""}
             cabang={cabangFilter}
@@ -73,7 +68,10 @@ export default async function KaryawanPage({ searchParams }: { searchParams: Pro
             total={rows.length}
             exportRows={exportRows}
           />
-        </div>
+        }
+      />
+
+      <main className="mx-auto max-w-6xl px-10 py-8">
         <KaryawanList rows={filtered} branches={branches} />
         <p className="mt-3 text-xs text-muted-foreground">Email tersimpan di profiles.email · hapus karyawan ikut hapus login auth.</p>
       </main>

@@ -5,6 +5,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { CustomerToolbar, CUSTOMER_DEFAULTS } from "@/components/customer/customer-toolbar";
 import { CustomerCreateButton } from "@/components/customer/customer-create-button";
 import { CustomerRowActions } from "@/components/customer/customer-row-actions";
+import { PageHeader } from "@/components/layout/page-header";
 import { getCustomers, type CustomerListRow } from "./actions";
 
 type FallbackRow = CustomerListRow & { phoneDisplay: string; createdAt: string };
@@ -65,19 +66,14 @@ export default async function CustomerPage({ searchParams }: { searchParams: Pro
   const totalCount = base.length;
 
   return (
-    <div className="min-h-svh bg-background px-6 py-12">
-      <div className="mx-auto max-w-5xl">
-        <header className="mb-6 flex items-end justify-between gap-4">
-          <div>
-            <h1 className="font-heading text-xl">Customer</h1>
-            <p className="text-muted-foreground text-sm">
-              {totalCount} customer · isolasi per cabang — cabang A tidak terlihat di cabang B
-            </p>
-          </div>
-          <CustomerCreateButton />
-        </header>
-
-        <div className="mb-3">
+    <div className="min-h-svh bg-background">
+      <PageHeader
+        title="Customer"
+        description={`${totalCount} customer · isolasi per cabang — cabang A tidak terlihat di cabang B`}
+        innerClassName="max-w-5xl"
+        toolbarClassName="max-w-5xl"
+        actions={<CustomerCreateButton />}
+        toolbar={
           <CustomerToolbar
             query={q?.trim() ?? ""}
             status={statusFilter}
@@ -95,8 +91,11 @@ export default async function CustomerPage({ searchParams }: { searchParams: Pro
               createdAt: c.createdAt,
             }))}
           />
-        </div>
+        }
+      />
 
+      <div className="px-6 py-8">
+        <div className="mx-auto max-w-5xl">
         <div className="rounded-xl border bg-card shadow-xs/5">
           <Table>
             <TableHeader>
@@ -154,6 +153,7 @@ export default async function CustomerPage({ searchParams }: { searchParams: Pro
               )}
             </TableBody>
           </Table>
+        </div>
         </div>
       </div>
     </div>

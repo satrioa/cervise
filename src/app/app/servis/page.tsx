@@ -45,6 +45,7 @@ import { useBranch } from "@/lib/branch-context";
 import { toPrintData, renderJetHtml, renderDotMatrixHtml, renderThermalHtml } from "@/components/print-templates";
 import { cn } from "@/lib/utils";
 import { SparepartPickDialog, CancelSparepartDialog } from "@/components/servis/sparepart-dialogs";
+import { PageHeader } from "@/components/layout/page-header";
 
 type Stage = "Masuk" | "Diagnosa" | "Menunggu Konfirmasi" | "Menunggu Sparepart" | "Dikerjakan" | "Selesai" | "Sudah Diambil" | "Batal";
 
@@ -572,13 +573,15 @@ export default function ServisPage() {
 
   return (
     <div className="bg-background text-foreground">
-      <div className="border-b border-border/60 px-4 sm:px-6 lg:px-10 py-4 lg:py-6">
-        <div className="mx-auto flex max-w-6xl flex-col gap-4">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-            <div className="shrink-0">
-              <div className="font-mono text-[10px] text-muted-foreground uppercase tracking-[0.3em]">Servis · Workflow 7 status</div>
-              <h1 className="mt-1 font-heading text-2xl">Servis</h1>
-            </div>
+      <PageHeader
+        eyebrow="Servis · Workflow 7 status"
+        title="Servis"
+        titleClassName="font-heading text-2xl"
+        actions={
+          <Button size="filter" className="shrink-0" onClick={() => setOpenServis(true)}>Tambah Servis</Button>
+        }
+        toolbar={
+          <>
             <div className="flex w-full flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center lg:justify-end">
               <div className="relative w-full sm:w-[240px] lg:w-[260px]">
                 <InputGroup className="h-8 bg-background">
@@ -612,13 +615,12 @@ export default function ServisPage() {
                 <Tabs value={view} onValueChange={(v) => setView(v as "table" | "kanban")} className="flex-1 sm:flex-none">
                   <TabsList className="w-full sm:w-auto"><TabsTrigger value="table" aria-label="Table view" className="flex-1 sm:flex-none px-2.5"><TableIcon className="size-4" /></TabsTrigger><TabsTrigger value="kanban" aria-label="Kanban view" className="flex-1 sm:flex-none px-2.5"><LayoutGridIcon className="size-4" /></TabsTrigger></TabsList>
                 </Tabs>
-                <Button size="filter" className="shrink-0" onClick={() => setOpenServis(true)}>Tambah Servis</Button>
               </div>
             </div>
-          </div>
-          {hasActiveFilters && (<div className="flex flex-wrap items-center gap-2 text-xs"><span className="text-muted-foreground">{filteredByAll.length} servis{search && <> untuk &ldquo;{search}&rdquo;</>}{(dateRange.from || dateRange.to) && <> · {dateLabel}</>}{paymentFilter !== "Semua" && <> · {paymentFilter}</>}</span><button type="button" onClick={clearFilters} className="inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs hover:bg-muted transition-colors"><XIcon className="size-3" /> Hapus filter</button></div>)}
-        </div>
-      </div>
+            {hasActiveFilters && (<div className="mt-2 flex flex-wrap items-center gap-2 text-xs"><span className="text-muted-foreground">{filteredByAll.length} servis{search && <> untuk &ldquo;{search}&rdquo;</>}{(dateRange.from || dateRange.to) && <> · {dateLabel}</>}{paymentFilter !== "Semua" && <> · {paymentFilter}</>}</span><button type="button" onClick={clearFilters} className="inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs hover:bg-muted transition-colors"><XIcon className="size-3" /> Hapus filter</button></div>)}
+          </>
+        }
+      />
 
       <main className={view === "kanban" ? "w-full max-w-none px-4 py-4" : "mx-auto max-w-6xl px-4 sm:px-6 lg:px-10 py-6 lg:py-8"}>
         {view === "table" && (

@@ -12,6 +12,7 @@ import { useBranch } from "@/lib/branch-context";
 import { toast } from "sonner";
 import { PlusIcon, PencilIcon, TrashIcon, TagIcon, XIcon } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
+import { PageHeader } from "@/components/layout/page-header";
 
 type Kategori = { id: string; branch_id: string; name: string; description?: string | null; created_at: string };
 
@@ -107,25 +108,21 @@ export default function KategoriSparepartPage() {
   };
 
   return (
-    <div className="mx-auto max-w-4xl px-6 py-8 space-y-6">
-      <div>
-        <div className="font-mono text-[10px] text-muted-foreground uppercase tracking-[0.3em]">Configuration · Kategori Sparepart</div>
-        <h1 className="mt-1 font-heading text-2xl">Kategori Sparepart</h1>
-        <p className="mt-1 text-sm text-muted-foreground">CRUD kategori per cabang. Dipakai di filter Inventori & form Sparepart.</p>
-      </div>
-
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between gap-4">
-          <div>
-            <CardTitle className="text-base flex items-center gap-2"><TagIcon className="size-4" /> Daftar Kategori</CardTitle>
-            <CardDescription>{filtered.length} kategori · {branch.label}</CardDescription>
-          </div>
+    <div className="min-h-svh bg-background">
+      <PageHeader
+        eyebrow="Configuration · Kategori Sparepart"
+        title="Kategori Sparepart"
+        titleClassName="font-heading text-2xl"
+        description="CRUD kategori per cabang. Dipakai di filter Inventori & form Sparepart."
+        innerClassName="max-w-4xl"
+        toolbarClassName="max-w-4xl"
+        actions={
           <Button size="sm" onClick={openCreate}>
             <PlusIcon className="size-3.5" /> Tambah Kategori
           </Button>
-        </CardHeader>
-        <CardContent>
-          <div className="mb-3 flex gap-2">
+        }
+        toolbar={
+          <div className="flex gap-2">
             <Input placeholder="Cari kategori..." value={q} onChange={(e) => setQ(e.target.value)} className="max-w-sm" />
             {q && (
               <Button variant="ghost" size="sm" onClick={() => setQ("")}>
@@ -133,6 +130,18 @@ export default function KategoriSparepartPage() {
               </Button>
             )}
           </div>
+        }
+      />
+
+      <div className="mx-auto max-w-4xl px-6 py-8 space-y-6">
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between gap-4">
+          <div>
+            <CardTitle className="text-base flex items-center gap-2"><TagIcon className="size-4" /> Daftar Kategori</CardTitle>
+            <CardDescription>{filtered.length} kategori · {branch.label}</CardDescription>
+          </div>
+        </CardHeader>
+        <CardContent>
           <div className="overflow-hidden rounded-lg border">
             <Table>
               <TableHeader>
@@ -205,6 +214,7 @@ export default function KategoriSparepartPage() {
           </DialogPrimitive.Popup>
         </DialogPrimitive.Portal>
       </DialogPrimitive.Root>
+      </div>
     </div>
   );
 }
