@@ -2,7 +2,7 @@
 
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { Check, ChevronDown, Settings2 } from "lucide-react";
-import { useId, useState, type ReactNode } from "react";
+import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
@@ -66,6 +66,18 @@ export function MultipleAccounts({
   const [isOpen, setIsOpen] = useState(false);
   const listboxId = useId();
   const activeAccount = accounts.find((account) => account.id === value) ?? accounts[0];
+  const sectionRef = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const onPointerDown = (event: PointerEvent) => {
+      if (sectionRef.current && !sectionRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener("pointerdown", onPointerDown);
+    return () => document.removeEventListener("pointerdown", onPointerDown);
+  }, [isOpen]);
 
   if (!activeAccount) return null;
 
@@ -73,6 +85,7 @@ export function MultipleAccounts({
 
   return (
     <motion.section
+      ref={sectionRef}
       initial={shouldReduceMotion ? { opacity: 1, y: 0 } : { opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={shouldReduceMotion ? { duration: 0 } : { duration: 0.35, ease: "easeOut" }}
@@ -82,6 +95,7 @@ export function MultipleAccounts({
         className,
       )}
     >
+      <div className="relative">
       <button
         type="button"
         className="group flex w-full items-center gap-3 rounded-xl border border-transparent bg-muted/50 px-2 py-1.5 text-left text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
@@ -106,12 +120,6 @@ export function MultipleAccounts({
           <ChevronDown className="size-4" />
         </motion.span>
       </button>
-
-      {children ? (
-        <div className="mt-2 border-t border-border/60 pt-2">
-          {children}
-        </div>
-      ) : null}
 
       <AnimatePresence initial={false}>
         {isOpen ? (
@@ -146,9 +154,6 @@ export function MultipleAccounts({
                   <AccountAvatar account={account} compact />
                   <div className="min-w-0 flex-1">
                     <div className="truncate text-sm font-medium">{account.name}</div>
-                    <div className="truncate text-xs text-muted-foreground">
-                      {account.description ?? account.plan ?? "Organization"}
-                    </div>
                   </div>
                   {account.plan ? <span className="text-[10px] font-medium uppercase tracking-wide text-primary">{account.plan}</span> : null}
                   {isActive ? (
@@ -180,6 +185,9 @@ export function MultipleAccounts({
           </motion.div>
         ) : null}
       </AnimatePresence>
+      </div>
+
+      {children ? <div className="mt-2">{children}</div> : null}
 
       <span className="sr-only" role="status" aria-live="polite">{statusMessage}</span>
     </motion.section>
