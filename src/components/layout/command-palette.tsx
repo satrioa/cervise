@@ -86,6 +86,9 @@ export function CerviseCommandPalette({ open, onOpenChange }: Props) {
 
               <CommandGroup>
                 <CommandGroupLabel>Manajemen</CommandGroupLabel>
+                <CommandItem value="inventori" onClick={() => navigate("/app/inventori")}>
+                  <Package className="size-4" /> Inventori
+                </CommandItem>
                 <CommandItem value="customer" onClick={() => navigate("/app/customer")}>
                   <Users className="size-4" /> Customer
                 </CommandItem>

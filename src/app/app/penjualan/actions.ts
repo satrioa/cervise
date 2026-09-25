@@ -4,13 +4,13 @@ import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { randomUUID } from "crypto";
 
+import { getActiveTenant } from "@/lib/supabase/actor";
+
 async function getBranchUser() {
-  const supabase = await createClient();
-  const { data: auth } = await supabase.auth.getUser();
-  if (!auth.user) throw new Error("Unauthorized");
-  const { data: prof } = await supabase.from("cervise_profiles").select("id, branch_id, role").eq("id", auth.user.id).maybeSingle();
-  if (!prof?.branch_id) throw new Error("Branch not set for user");
-  return { supabase, userId: auth.user.id, branchId: prof.branch_id as string, role: (prof.role as string) ?? "teknisi", email: auth.user.email ?? "" };
+  const actor = await getActiveTenant();
+  // getActiveTenant already validates is_active and tenant
+  const supabase = actor.supabase;
+  return { supabase, userId: actor.userId, branchId: actor.branchId!, organizationId: actor.orgId, role: actor.role, email: "" };
 }
 
 function requireSalesAccess(role: string) {
@@ -42,15 +42,37 @@ export type ProductRow = {
   price: number;
   is_serialized: boolean;
   is_active: boolean;
+  variant_type: "BARU" | "BEKAS";
+  storage: string | null;
+  warna: string | null;
+  bh_percent: number | null;
+  kondisi_notes: string | null;
+  garansi_days: number | null;
+  imei: string | null;
+  parent_key: string | null;
 };
 
-export async function searchProductsForSale(q: string): Promise<ProductRow[]> {
+function slugParent(name: string): string {
+  return name.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+}
+
+export async function searchProductsForSale(q: string, opts?: { variant_type?: "BARU" | "BEKAS" | "semua" }): Promise<ProductRow[]> {
   const { supabase, branchId } = await getBranchUser();
-  let query = supabase.from("cervise_products").select("id, branch_id, sku, barcode, name, category, stock_qty, cost, price, is_serialized, is_active").eq("branch_id", branchId).eq("is_active", true).order("name").limit(20);
+  let query = supabase
+    .from("cervise_products")
+    .select("id, branch_id, sku, barcode, name, category, stock_qty, cost, price, is_serialized, is_active, variant_type, storage, warna, bh_percent, kondisi_notes, garansi_days, imei, parent_key")
+    .eq("branch_id", branchId)
+    .eq("is_active", true)
+    .order("parent_key", { ascending: true })
+    .order("variant_type", { ascending: true })
+    .order("name")
+    .limit(40);
   const term = q.trim();
   if (term) {
-    // search sku/barcode/name ilike
-    query = query.or(`sku.ilike.%${term}%,barcode.ilike.%${term}%,name.ilike.%${term}%`);
+    query = query.or(`sku.ilike.%${term}%,barcode.ilike.%${term}%,name.ilike.%${term}%,imei.ilike.%${term}%,storage.ilike.%${term}%,warna.ilike.%${term}%`);
+  }
+  if (opts?.variant_type && opts.variant_type !== "semua") {
+    query = query.eq("variant_type", opts.variant_type);
   }
   const { data, error } = await query;
   if (error) throw new Error(error.message);
@@ -61,28 +83,93 @@ export async function getProductsForBranch(): Promise<ProductRow[]> {
   return searchProductsForSale("");
 }
 
-export async function createProduct(input: { name: string; category: string; stock_qty: number; cost: number; price: number; barcode?: string; is_serialized?: boolean }) {
+export async function createProduct(input: {
+  name: string;
+  category: string;
+  stock_qty?: number;
+  cost: number;
+  price: number;
+  barcode?: string;
+  is_serialized?: boolean;
+  variant_type?: "BARU" | "BEKAS";
+  storage?: string;
+  warna?: string;
+  bh_percent?: number | null;
+  kondisi_notes?: string | null;
+  garansi_days?: number | null;
+  imei?: string | null;
+}) {
   const { supabase, branchId, role } = await getBranchUser();
+  // also need organization_id for new table
+  const { data: orgData } = await supabase.from("employees").select("organization_id").eq("branch_id", branchId).limit(1).maybeSingle();
+  const organization_id = (orgData as any)?.organization_id ?? null;
   requireSalesAccess(role);
   const name = input.name.trim();
   if (!name) throw new Error("Nama produk wajib");
-  if (input.stock_qty < 0 || input.cost < 0 || input.price < 0) throw new Error("Nilai tidak boleh negatif");
   const category = ["Gadget", "Aksesori", "Lainnya"].includes(input.category) ? input.category : "Lainnya";
-  const sku = genSku(category);
-  const { error } = await supabase.from("cervise_products").insert({
+  const variant_type = input.variant_type ?? (input.is_serialized ? "BEKAS" : "BARU");
+  const parent_key = slugParent(name);
+  let sku = genSku(category);
+  let stock_qty = input.stock_qty ?? 0;
+  let is_serialized = !!input.is_serialized;
+  let storage: string | null = input.storage?.trim() || null;
+  let warna: string | null = input.warna?.trim() || null;
+  let bh_percent: number | null = input.bh_percent ?? null;
+  let kondisi_notes: string | null = input.kondisi_notes?.trim() || null;
+  let garansi_days: number | null = input.garansi_days ?? null;
+  let imei: string | null = input.imei?.trim() || null;
+
+  if (variant_type === "BARU") {
+    if (!warna) throw new Error("Warna wajib untuk Baru");
+    if (!storage) throw new Error("Storage wajib untuk Baru");
+    if (stock_qty < 0) throw new Error("Stok tidak boleh negatif");
+    is_serialized = false;
+    imei = null;
+    bh_percent = null;
+    // garansi_days null for Baru (pakai global)
+    sku = `${sku.split("-")[0]}-B-${storage.replace(/\s/g, "")}-${warna.slice(0, 2).toUpperCase()}`;
+  } else {
+    // BEKAS
+    if (!imei || !/^\d{15}$/.test(imei)) throw new Error("IMEI 15 digit wajib untuk Bekas");
+    if (!storage) throw new Error("Storage wajib untuk Bekas");
+    if (!warna) throw new Error("Warna wajib untuk Bekas");
+    if (bh_percent == null || bh_percent < 0 || bh_percent > 100) throw new Error("BH 0-100 wajib untuk Bekas");
+    stock_qty = 1;
+    is_serialized = true;
+    sku = `${sku.split("-")[0]}-BK-${storage.replace(/\s/g, "")}-${imei.slice(-4)}`;
+    // garansi_days already validated if provided
+    if (garansi_days != null && garansi_days <= 0) throw new Error("Garansi harus >0 hari");
+  }
+  if (input.cost < 0 || input.price < 0) throw new Error("Nilai tidak boleh negatif");
+
+  const payload: any = {
     branch_id: branchId,
+    organization_id,
     sku,
     barcode: input.barcode?.trim() || null,
     name,
     category,
-    stock_qty: input.stock_qty,
+    stock_qty,
     cost: input.cost,
     price: input.price,
-    is_serialized: !!input.is_serialized,
+    is_serialized,
     is_active: true,
-  });
-  if (error) throw new Error(error.message);
+    variant_type,
+    storage,
+    warna,
+    bh_percent,
+    kondisi_notes,
+    garansi_days,
+    imei,
+    parent_key,
+  };
+  const { error } = await supabase.from("cervise_products").insert(payload);
+  if (error) {
+    if ((error as any).code === "23505" && String(error.message).includes("imei")) throw new Error("IMEI sudah ada di cabang ini");
+    throw new Error(error.message);
+  }
   revalidatePath("/app/penjualan");
+  revalidatePath("/app/sparepart");
   return { sku };
 }
 
@@ -138,6 +225,8 @@ export async function createSale(input: {
   kas_date: string;
   paid: number;
   notes?: string;
+  promoCode?: string | null;
+  discount_total?: number;
 }) {
   const { supabase, branchId, role, userId } = await getBranchUser();
   requireSalesAccess(role);
@@ -166,7 +255,8 @@ export async function createSale(input: {
     }
     subtotal += it.qty * it.unit_price;
   }
-  const total = subtotal; // diskon per item sudah di unit_price, voucher per nota future (discount_total 0)
+  const discount_total = Math.max(0, Math.min(Number(input.discount_total ?? 0), subtotal));
+  const total = Math.max(0, subtotal - discount_total); // stack: promo di atas diskon per item
   const paid = Math.min(input.paid, total);
   const payment_status = paid >= total ? "lunas" : paid > 0 ? "dp" : "belum_bayar";
   const sale_number = genNota();
@@ -183,14 +273,14 @@ export async function createSale(input: {
     customer_id: input.customerId,
     sale_number,
     subtotal,
-    discount_total: 0,
+    discount_total,
     total,
     paid,
     payment_status,
     payment_method: input.payment_method,
     status: "selesai",
     kas_date: input.kas_date,
-    notes: input.notes?.trim() || null,
+    notes: (input.promoCode ? `[Promo ${input.promoCode}] ` : "") + (input.notes?.trim() || ""),
     created_by: userId,
   } as any).select("id").single();
   if (sErr) throw new Error(sErr.message);

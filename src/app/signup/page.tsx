@@ -12,8 +12,8 @@ import { Input } from "@/components/ui/input";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
-import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
+import { signupAction } from "./actions";
 
 type Strength = "empty" | "weak" | "ok" | "strong";
 function computeStrength(password: string): Strength {
@@ -48,17 +48,12 @@ export default function SignupPage() {
     if (!canSubmit) return;
     setPending(true);
     try {
-      const supabase = createClient();
-      const { error } = await supabase.auth.signUp({
-        email: email.trim(),
-        password,
-        options: { data: { full_name: name.trim() } },
-      });
-      if (error) throw error;
-      toast.success("Akun dibuat — cek email untuk verifikasi");
+      await signupAction({ name: name.trim(), email: email.trim(), password });
+      toast.success("Akun dibuat — langsung Masuk");
       router.push("/login");
-    } catch (err: any) {
-      toast.error(err?.message ?? "Gagal daftar");
+    } catch (err: unknown) {
+      const msg = String((err as Error)?.message ?? "Gagal daftar");
+      toast.error(msg);
     } finally { setPending(false); }
   };
 

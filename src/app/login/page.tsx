@@ -70,9 +70,19 @@ function SignInForm() {
     setPending(true);
     try {
       const supabase = createClient();
-      const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
+      const { data, error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
       if (error) throw error;
       toast.success("Berhasil masuk");
+      // If user has no tenant/branch yet, send to onboarding (dark stepper)
+      const uid = data.user?.id;
+      if (uid) {
+        const { data: emps } = await supabase.from("employees").select("id").eq("profile_id", uid).eq("is_active", true).limit(1);
+        if (!emps || emps.length === 0) {
+          router.push("/onboarding");
+          router.refresh();
+          return;
+        }
+      }
       router.push("/app");
       router.refresh();
     } catch (err: any) {

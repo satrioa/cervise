@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { formatCurrencyPlain, formatNumberPlain } from "@/lib/format";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -14,6 +14,9 @@ import { stockTone, type SparepartRow } from "./stock-tone";
 import { SparepartFormDialog } from "./sparepart-form-dialog";
 import { StockAdjustDialog, TransferDialog } from "./stock-dialogs";
 import { archiveSparepart, deleteSparepart } from "@/app/app/sparepart/actions";
+import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react";
+
+const PAGE_SIZE = 10;
 
 export function SparepartList({
   rows,
@@ -32,6 +35,17 @@ export function SparepartList({
   const [deleteItem, setDeleteItem] = useState<SparepartRow | null>(null);
   const [archiveItem, setArchiveItem] = useState<SparepartRow | null>(null);
   const [busy, setBusy] = useState(false);
+  const [page, setPage] = useState(1);
+  const pageCount = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
+  const pageRows = rows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
+  useEffect(() => {
+    setPage(1);
+  }, [rows, view]);
+
+  useEffect(() => {
+    setPage((current) => Math.min(current, pageCount));
+  }, [pageCount]);
 
   const refresh = () => router.refresh();
 
@@ -145,7 +159,7 @@ export function SparepartList({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {rows.map((p) => {
+            {pageRows.map((p) => {
               const tone = stockTone(p);
               const pct = Math.min(100, Math.round((p.stock / p.capacity) * 100));
               return (
@@ -181,6 +195,20 @@ export function SparepartList({
             })}
           </TableBody>
         </Table>
+      </div>
+      <div className="mt-3 flex flex-col gap-2 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
+        <span>
+          Menampilkan {rows.length === 0 ? 0 : (page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, rows.length)} dari {rows.length} sparepart
+        </span>
+        <div className="flex items-center gap-2 self-end sm:self-auto">
+          <Button variant="outline" size="sm" onClick={() => setPage((current) => Math.max(1, current - 1))} disabled={page === 1}>
+            <ChevronLeftIcon /> Sebelumnya
+          </Button>
+          <span className="min-w-20 text-center font-mono text-xs">{page} / {pageCount}</span>
+          <Button variant="outline" size="sm" onClick={() => setPage((current) => Math.min(pageCount, current + 1))} disabled={page === pageCount}>
+            Berikutnya <ChevronRightIcon />
+          </Button>
+        </div>
       </div>
       <SparepartFormDialog open={editOpen} onOpenChange={setEditOpen} editing={editItem ? { id: editItem.id!, name: editItem.name, category: editItem.category, unit: editItem.unit ?? "pcs", cost_cents: editItem.cost_cents ?? 0, price_cents: editItem.price_cents ?? 0, min_stock: editItem.min_stock ?? 0 } : null} existingCategories={categories} onDone={refresh} />
       <StockAdjustDialog open={!!addStockItem} onOpenChange={(v) => !v && setAddStockItem(null)} item={addStockItem ? { id: addStockItem.id!, name: addStockItem.name, sku: addStockItem.sku } : null} onDone={refresh} />

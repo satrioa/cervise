@@ -40,17 +40,12 @@ export type CreateServisPayload = {
 
 export type UpdateServisPayload = Partial<CreateServisPayload> & { id: string };
 
+import { getActiveTenant } from "@/lib/supabase/actor";
+
 async function getBranchAndUser() {
-  const supabase = await createClient();
-  const { data: auth } = await supabase.auth.getUser();
-  if (!auth.user) throw new Error("Unauthorized");
-  const { data: profile } = await supabase
-    .from("cervise_profiles")
-    .select("id, branch_id, role")
-    .eq("id", auth.user.id)
-    .single();
-  if (!profile?.branch_id) throw new Error("Branch not found for user");
-  return { supabase, userId: auth.user.id, branchId: profile.branch_id as string, role: profile.role };
+  const actor = await getActiveTenant();
+  if (!actor.branchId) throw new Error("Branch not set for tenant");
+  return { supabase: actor.supabase, userId: actor.userId, branchId: actor.branchId, role: actor.role, orgId: actor.orgId };
 }
 
 export async function getTeknisi() {

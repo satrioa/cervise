@@ -6,8 +6,9 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { PenjualanTable } from "@/components/penjualan/penjualan-table";
 import { PenjualanCartDialog } from "@/components/penjualan/penjualan-cart-dialog";
+import { ProductVariantDialog } from "@/components/inventori/product-variant-dialog";
 import { useBranch } from "@/lib/branch-context";
-import { getSaleDetail, returnSaleItems, createProduct } from "./actions";
+import { getSaleDetail, returnSaleItems } from "./actions";
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -24,8 +25,6 @@ export function PenjualanClient({ initialRows }: { initialRows: any[] }) {
   const [returSale, setReturSale] = useState<any>(null);
   const [returItems, setReturItems] = useState<any[]>([]);
   const [prodOpen, setProdOpen] = useState(false);
-  const [prodForm, setProdForm] = useState({ name: "", category: "Gadget", barcode: "", stock_qty: "", cost: "", price: "", is_serialized: false });
-  const [prodSaving, setProdSaving] = useState(false);
 
   const handleDetail = async (id: string) => {
     try { const d = await getSaleDetail(id); setDetail(d); setDetailOpen(true); } catch (e: any) { toast.error(e.message); }
@@ -52,25 +51,6 @@ export function PenjualanClient({ initialRows }: { initialRows: any[] }) {
     const rets = returItems.filter((it) => it.returQty > 0).map((it) => ({ item_id: it.id, qty: it.returQty }));
     if (!rets.length) { toast.error("Pilih qty retur"); return; }
     try { await returnSaleItems(returSale.id, rets); toast.success("Retur berhasil"); setReturOpen(false); router.refresh(); } catch (e: any) { toast.error(e.message); }
-  };
-
-  const handleCreateProduct = async () => {
-    if (!prodForm.name.trim()) { toast.error("Nama wajib"); return; }
-    if (!prodForm.category) { toast.error("Kategori wajib"); return; }
-    setProdSaving(true);
-    try {
-      await createProduct({
-        name: prodForm.name,
-        category: prodForm.category,
-        barcode: prodForm.barcode,
-        stock_qty: Number(prodForm.stock_qty || 0),
-        cost: Number(prodForm.cost || 0),
-        price: Number(prodForm.price || 0),
-        is_serialized: prodForm.is_serialized,
-      });
-      toast.success("Produk ditambahkan — stok per cabang " + branch.label);
-      setProdOpen(false); setProdForm({ name: "", category: "Gadget", barcode: "", stock_qty: "", cost: "", price: "", is_serialized: false }); router.refresh();
-    } catch (e: any) { toast.error(e.message); } finally { setProdSaving(false); }
   };
 
   return (
@@ -128,31 +108,7 @@ export function PenjualanClient({ initialRows }: { initialRows: any[] }) {
         </DialogPrimitive.Portal>
       </DialogPrimitive.Root>
 
-      <DialogPrimitive.Root open={prodOpen} onOpenChange={setProdOpen}>
-        <DialogPrimitive.Portal>
-          <DialogPrimitive.Backdrop className="fixed inset-0 z-50 bg-black/20 backdrop-blur-sm" />
-          <DialogPrimitive.Popup className="fixed left-1/2 top-1/2 z-50 w-[95vw] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-xl border bg-background p-6 shadow-lg">
-            <DialogPrimitive.Title className="font-semibold">Tambah Produk — {branch.label}</DialogPrimitive.Title>
-            <DialogPrimitive.Description className="text-sm text-muted-foreground">Gadget (HP Second perlu IMEI) & Aksesori · harga modal/jual · stok per cabang</DialogPrimitive.Description>
-            <div className="mt-4 grid gap-3">
-              <div className="space-y-1.5"><Label>Nama *</Label><Input value={prodForm.name} onChange={(e) => setProdForm({ ...prodForm, name: e.target.value })} placeholder="iPhone 15 Second, Charger Anker 65W" /></div>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5"><Label>Kategori *</Label><Select value={prodForm.category} onValueChange={(v) => setProdForm({ ...prodForm, category: (v as string) ?? "Gadget" })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="Gadget">Gadget</SelectItem><SelectItem value="Aksesori">Aksesori</SelectItem><SelectItem value="Lainnya">Lainnya</SelectItem></SelectContent></Select></div>
-                <div className="space-y-1.5"><Label>Barcode (opsional)</Label><Input value={prodForm.barcode} onChange={(e) => setProdForm({ ...prodForm, barcode: e.target.value })} placeholder="Scan / ketik SKU" /></div>
-              </div>
-              <div className="grid grid-cols-3 gap-3">
-                <div className="space-y-1.5"><Label>Stok *</Label><Input type="number" min={0} value={prodForm.stock_qty} onChange={(e) => setProdForm({ ...prodForm, stock_qty: e.target.value })} /></div>
-                <div className="space-y-1.5"><Label>Modal *</Label><Input type="number" min={0} value={prodForm.cost} onChange={(e) => setProdForm({ ...prodForm, cost: e.target.value })} placeholder="0" /></div>
-                <div className="space-y-1.5"><Label>Jual *</Label><Input type="number" min={0} value={prodForm.price} onChange={(e) => setProdForm({ ...prodForm, price: e.target.value })} placeholder="0" /></div>
-              </div>
-              <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={prodForm.is_serialized} onChange={(e) => setProdForm({ ...prodForm, is_serialized: e.target.checked })} className="rounded" /> Gadget serialized (wajib IMEI per unit)</label>
-              <div className="rounded border bg-amber-500/10 px-3 py-2 text-xs">Stok per cabang {branch.label} · SKU auto. Aksesori qty bisa &gt;1, Gadget second IMEI 15 digit.</div>
-            </div>
-            <div className="mt-4 flex justify-end gap-2"><Button variant="outline" onClick={() => setProdOpen(false)} disabled={prodSaving}>Batal</Button><Button onClick={handleCreateProduct} disabled={prodSaving} loading={prodSaving}>Simpan Produk</Button></div>
-            <DialogPrimitive.Close className="absolute right-3 top-3 rounded-md p-1 text-muted-foreground hover:bg-muted">×</DialogPrimitive.Close>
-          </DialogPrimitive.Popup>
-        </DialogPrimitive.Portal>
-      </DialogPrimitive.Root>
+      <ProductVariantDialog open={prodOpen} onOpenChange={setProdOpen} onSuccess={() => router.refresh()} />
     </>
   );
 }
