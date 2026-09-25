@@ -38,6 +38,7 @@ import { MultipleAccounts, type AccountOption } from "@/components/uitripled/mul
 import { cn } from "@/lib/utils";
 import { CheckIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
+import { canSwitchBranch, canSwitchTenant } from "@/lib/auth/access";
 
 export type NavItem = {
   label: string;
@@ -154,27 +155,40 @@ function branchLetter(label: string) {
   return (label.trim()[0] ?? "?").toUpperCase();
 }
 
-function TenantSwitcher() {
+function roleLabel(role: string) {
+  const labels: Record<string, string> = {
+    MASTER_ADMIN: "Master Admin",
+    ADMIN: "Admin",
+    FRONTLINER: "Frontliner",
+    TECHNICIAN: "Technician",
+  };
+  return labels[role.toUpperCase()] ?? role;
+}
+
+function TenantSwitcher({ canSwitchTenant: canSwitchTenantValue }: { canSwitchTenant: boolean }) {
   const router = useRouter();
   const { tenants, activeOrgId, setActiveOrg, loading } = useTenant();
   if (loading) {
     return (
-      <div className="flex flex-col gap-2">
-        <div className="rounded-xl border border-border/60 bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
-          Memuat tenant...
-        </div>
-        <BranchSwitcher />
+      <div className="px-3.5 py-3 text-xs text-muted-foreground">
+        Memuat tenant...
       </div>
     );
   }
   if (!tenants.length) {
     return (
-      <div className="flex flex-col gap-2">
-        <div className="rounded-xl border border-border/60 bg-muted/30 px-3 py-2">
-          <div className="text-sm font-medium">Belum ada Tenant</div>
-          <div className="text-xs text-muted-foreground">Buat tenant di /owner</div>
-        </div>
-        <BranchSwitcher />
+      <div className="px-3.5 py-3">
+        <div className="text-sm font-medium">Belum ada Tenant</div>
+        <div className="text-xs text-muted-foreground">Buat tenant di /owner</div>
+      </div>
+    );
+  }
+  const activeTenant = tenants.find((tenant) => tenant.id === activeOrgId) ?? tenants[0];
+  if (!canSwitchTenantValue) {
+    return (
+      <div className="rounded-xl border border-border/60 bg-muted/30 px-3 py-2">
+        <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Tenant assigned</div>
+        <div className="mt-1 truncate font-semibold">{activeTenant?.name ?? "Tenant"}</div>
       </div>
     );
   }
@@ -192,17 +206,27 @@ function TenantSwitcher() {
       onManage={() => router.push("/owner/new")}
       manageLabel="Buat Tenant Baru"
       className="rounded-xl p-2"
-    >
-      <BranchSwitcher />
-    </MultipleAccounts>
+    />
   );
 }
 
-function BranchSwitcher() {
+function BranchSwitcher({ canSwitch }: { canSwitch: boolean }) {
   const { branch, setBranch, branches } = useBranch();
   const t = useTranslations("nav");
   const [open, setOpen] = useState(false);
-  // Project = Branch
+  if (!canSwitch) {
+    return (
+      <div className="flex w-full items-center gap-2 rounded-xl border border-border/60 bg-muted/20 px-2.5 py-2">
+        <div className={`flex size-8 shrink-0 items-center justify-center rounded-lg border bg-gradient-to-br font-heading font-semibold text-xs ${branchTone(branch.id)}`}>
+          {branchLetter(branch.label)}
+        </div>
+        <div className="min-w-0 text-left">
+          <div className="truncate font-semibold text-sm">{branch.label}</div>
+          <div className="truncate font-mono text-[10px] uppercase tracking-widest text-muted-foreground">Assigned branch</div>
+        </div>
+      </div>
+    );
+  }
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger
@@ -257,15 +281,21 @@ function BranchSwitcher() {
   );
 }
 
-function SidebarContent({ onNavigate, onSearchClick }: { onNavigate?: () => void; onSearchClick?: () => void }) {
+function SidebarContent({ onNavigate, onSearchClick, role }: { onNavigate?: () => void; onSearchClick?: () => void; role: string }) {
   const pathname = usePathname();
   const router = useRouter();
   const { branch } = useBranch();
   const t = useTranslations("nav");
+  const canSwitchTenantValue = canSwitchTenant(role);
+  const canSwitchBranchValue = canSwitchBranch(role);
   return (
     <>
-      <div className="border-b border-border/60 px-2 py-2">
-        <TenantSwitcher />
+      <div className="shrink-0 border-b border-border/60 px-2 py-2">
+        <TenantSwitcher canSwitchTenant={canSwitchTenantValue} />
+      </div>
+
+      <div className="px-2 pt-2">
+        <BranchSwitcher canSwitch={canSwitchBranchValue} />
       </div>
 
       <div className="px-3 pt-3">
@@ -356,7 +386,7 @@ function SidebarContent({ onNavigate, onSearchClick }: { onNavigate?: () => void
       <div className="flex items-center gap-2 border-t border-border/60 px-3 py-2.5">
         <div className="flex size-8 items-center justify-center rounded-full bg-foreground text-xs font-medium text-background">MA</div>
         <div className="min-w-0 flex-1">
-          <div className="truncate text-sm font-medium">Master Admin</div>
+            <div className="truncate text-sm font-medium">{roleLabel(role)}</div>
           <div className="flex items-center gap-1.5 truncate text-xs text-muted-foreground">
             <span className="size-1.5 rounded-full bg-emerald-500" />
             <span className="truncate">{branch.label}</span>
@@ -503,7 +533,13 @@ function CerviseBottomNav({ pathname }: { pathname: string }) {
   );
 }
 
-function AppShellInner({ children }: { children: React.ReactNode }) {
+export type AppShellActor = {
+  role: string;
+  orgId: string;
+  branchId: string | null;
+};
+
+function AppShellInner({ children, actor }: { children: React.ReactNode; actor: AppShellActor }) {
   const [open, setOpen] = useState(false);
   const [cmdOpen, setCmdOpen] = useState(false);
   const pathname = usePathname();
@@ -557,7 +593,7 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex h-svh w-full overflow-hidden bg-background text-foreground lg:grid lg:grid-cols-[260px_1fr]">
       <aside className="hidden h-svh shrink-0 flex-col border-r border-border/60 bg-foreground/[0.02] lg:flex sticky top-0 overflow-hidden">
-        <SidebarContent onSearchClick={() => setCmdOpen(true)} />
+        <SidebarContent role={actor.role} onSearchClick={() => setCmdOpen(true)} />
       </aside>
 
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden lg:col-start-2">
@@ -571,6 +607,7 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
                 <SheetTitle>Menu Cervise</SheetTitle>
               </SheetHeader>
               <SidebarContent
+                role={actor.role}
                 onNavigate={() => setOpen(false)}
                 onSearchClick={() => {
                   setOpen(false);
@@ -616,12 +653,12 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
   );
 }
 
-export function AppShell({ children }: { children: React.ReactNode }) {
+export function AppShell({ children, actor }: { children: React.ReactNode; actor: AppShellActor }) {
   return (
     <LocaleProvider>
-      <TenantProvider>
-        <BranchProvider>
-          <AppShellInner>{children}</AppShellInner>
+      <TenantProvider fixedOrganizationId={actor.role.toUpperCase() === "MASTER_ADMIN" ? null : actor.orgId}>
+        <BranchProvider fixedBranchId={actor.role.toUpperCase() === "MASTER_ADMIN" ? null : actor.branchId ?? "unassigned"}>
+          <AppShellInner actor={actor}>{children}</AppShellInner>
         </BranchProvider>
       </TenantProvider>
     </LocaleProvider>
