@@ -4,6 +4,7 @@ import "./globals.css";
 import { Toaster } from "@/components/ui/sonner";
 import { NextIntlClientProvider } from "next-intl";
 import { getLocale, getMessages } from "next-intl/server";
+import { ThemeProvider } from "next-themes";
 
 const geistSans = Geist({
   variable: "--font-sans",
@@ -33,10 +34,13 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
     <html
       lang={locale}
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      suppressHydrationWarning
     >
       <body className="min-h-full flex flex-col">
-        <NextIntlClientProvider messages={messages}>{children}</NextIntlClientProvider>
-        <Toaster richColors position="top-right" />
+        <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false} storageKey="cervise-theme-light" disableTransitionOnChange={false}>
+          <NextIntlClientProvider messages={messages}>{children}</NextIntlClientProvider>
+          <Toaster richColors position="top-right" />
+        </ThemeProvider>
       </body>
     </html>
   );

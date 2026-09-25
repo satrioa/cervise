@@ -9,7 +9,6 @@ import {
 } from "lucide-react";
 import { format } from "date-fns";
 import { id as localeId } from "date-fns/locale";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -24,7 +23,6 @@ export interface SparepartCategoryStat {
 
 export interface TopSparepart {
   name: string;
-  initials: string;
   revenue: number;
   category: string;
   change: number;
@@ -117,12 +115,12 @@ const DEFAULT_BY_CATEGORY: SparepartCategoryStat[] = [
 ];
 
 const DEFAULT_TOP: TopSparepart[] = [
-  { name: "LCD iPhone 11", initials: "LC", revenue: 5400000, category: "LCD", change: 0.06 },
-  { name: "Baterai Samsung A54", initials: "BT", revenue: 3960000, category: "Baterai", change: 0.12 },
-  { name: "LCD Samsung A54", initials: "LS", revenue: 3200000, category: "LCD", change: 0.04 },
-  { name: "Flexi Cable Oppo", initials: "FL", revenue: 1875000, category: "Flex / Kabel", change: 0.21 },
-  { name: "Kaca Kamera Vivo", initials: "KC", revenue: 1615000, category: "Kaca / Lens", change: -0.03 },
-  { name: "Baterai Vivo Y20", initials: "BV", revenue: 1440000, category: "Baterai", change: 0.08 },
+  { name: "LCD iPhone 11", revenue: 5400000, category: "LCD", change: 0.06 },
+  { name: "Baterai Samsung A54", revenue: 3960000, category: "Baterai", change: 0.12 },
+  { name: "LCD Samsung A54", revenue: 3200000, category: "LCD", change: 0.04 },
+  { name: "Flexi Cable Oppo", revenue: 1875000, category: "Flex / Kabel", change: 0.21 },
+  { name: "Kaca Kamera Vivo", revenue: 1615000, category: "Kaca / Lens", change: -0.03 },
+  { name: "Baterai Vivo Y20", revenue: 1440000, category: "Baterai", change: 0.08 },
 ];
 
 type RangeKey = "today" | "7d" | "30d" | "12m" | "custom";
@@ -390,15 +388,7 @@ export function SparepartRevenue({
           </div>
           <ul className="mt-3 divide-y divide-border/40">
             {topItems.map((a) => (
-              <li
-                key={a.name}
-                className="flex items-center gap-3 py-2.5"
-              >
-                <Avatar className="size-7">
-                  <AvatarFallback className="text-[10px]">
-                    {a.initials}
-                  </AvatarFallback>
-                </Avatar>
+              <li key={a.name} className="flex items-center gap-3 py-2.5">
                 <div className="min-w-0 flex-1">
                   <div className="truncate text-sm">{a.name}</div>
                   <div className="font-mono text-[10px] text-muted-foreground uppercase tracking-[0.2em]">

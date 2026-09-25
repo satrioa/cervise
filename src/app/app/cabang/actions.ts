@@ -1,23 +1,10 @@
 "use server";
 
-import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
-
-async function getOrg() {
-  const supabase = await createClient();
-  const { data: auth } = await supabase.auth.getUser();
-  if (!auth.user) throw new Error("Unauthorized");
-  const { data: emp } = await supabase.from("employees").select("organization_id").eq("profile_id", auth.user.id).limit(1).maybeSingle();
-  if (!emp?.organization_id) {
-    const { data: org } = await supabase.from("organizations").select("id").limit(1).maybeSingle();
-    if (!org?.id) throw new Error("Organization not found");
-    return { supabase, orgId: org.id as string, userId: auth.user.id };
-  }
-  return { supabase, orgId: emp.organization_id as string, userId: auth.user.id };
-}
+import { getActiveTenant } from "@/lib/supabase/actor";
 
 export async function getCabangList() {
-  const { supabase, orgId } = await getOrg();
+  const { supabase, orgId } = await getActiveTenant();
   const { data: branches, error } = await supabase.from("branches").select("id,name,city,phone,is_active,is_intensif_enabled,intensif_mode,intensif_value,intensif_target_count,created_at").eq("organization_id", orgId).order("created_at");
   if (error) throw new Error(error.message);
   const ids = (branches ?? []).map((b: any) => b.id);
@@ -45,7 +32,7 @@ export async function getCabangList() {
 }
 
 export async function createCabang(form: { name: string; alamat: string; telepon: string }) {
-  const { supabase, orgId } = await getOrg();
+  const { supabase, orgId } = await getActiveTenant();
   const name = form.name.trim();
   if (!name) throw new Error("Nama cabang wajib");
   if (name.length > 50) throw new Error("Nama maksimal 50 karakter");
@@ -62,7 +49,7 @@ export async function createCabang(form: { name: string; alamat: string; telepon
 }
 
 export async function toggleCabangActive(id: string, enabled: boolean) {
-  const { supabase, orgId } = await getOrg();
+  const { supabase, orgId } = await getActiveTenant();
   const { error } = await supabase.from("branches").update({ is_active: enabled }).eq("id", id).eq("organization_id", orgId);
   if (error) throw new Error(error.message);
   revalidatePath("/app/cabang");
@@ -70,7 +57,7 @@ export async function toggleCabangActive(id: string, enabled: boolean) {
 }
 
 export async function toggleCabangIntensif(id: string, enabled: boolean) {
-  const { supabase, orgId } = await getOrg();
+  const { supabase, orgId } = await getActiveTenant();
   const { error } = await supabase.from("branches").update({ is_intensif_enabled: enabled }).eq("id", id).eq("organization_id", orgId);
   if (error) throw new Error(error.message);
   revalidatePath("/app/cabang");
@@ -81,7 +68,7 @@ export async function updateCabangIntensif(
   id: string,
   data: { mode: "percent" | "fixed"; value: number; targetCount: number | null }
 ) {
-  const { supabase, orgId } = await getOrg();
+  const { supabase, orgId } = await getActiveTenant();
   if (!["percent", "fixed"].includes(data.mode)) throw new Error("Mode invalid");
   if (data.value === null || isNaN(data.value) || data.value < 0) throw new Error("Nilai intensif harus >=0");
   if (data.targetCount !== null && (isNaN(data.targetCount) || data.targetCount <= 0)) throw new Error("Target harus >0");
@@ -96,7 +83,7 @@ export async function updateCabangIntensif(
 }
 
 export async function getCabangMembers(branchId: string) {
-  const { supabase, orgId } = await getOrg();
+  const { supabase, orgId } = await getActiveTenant();
   const { data: emps, error } = await supabase
     .from("employees")
     .select("id, profile_id, role, is_active, created_at")
@@ -138,7 +125,7 @@ export async function getCabangMembers(branchId: string) {
 }
 
 export async function updateCabang(id: string, form: { name: string; alamat: string; telepon: string }) {
-  const { supabase, orgId } = await getOrg();
+  const { supabase, orgId } = await getActiveTenant();
   const name = form.name.trim();
   if (!name) throw new Error("Nama cabang wajib");
   if (name.length > 50) throw new Error("Nama maksimal 50 karakter");

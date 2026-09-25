@@ -1,22 +1,7 @@
 "use server";
 
-import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
-
-async function getOrg() {
-  const supabase = await createClient();
-  const { data: auth } = await supabase.auth.getUser();
-  if (!auth.user) throw new Error("Unauthorized");
-  const { data: emp } = await supabase.from("employees").select("organization_id, branch_id").eq("profile_id", auth.user.id).limit(1).maybeSingle();
-  if (!emp?.organization_id || !emp?.branch_id) {
-    const { data: org } = await supabase.from("organizations").select("id").limit(1).maybeSingle();
-    if (!org?.id) throw new Error("Organization not found");
-    // fallback: pick first branch
-    const { data: br } = await supabase.from("branches").select("id").eq("organization_id", org.id).limit(1).maybeSingle();
-    return { supabase, orgId: org.id as string, branchId: (br?.id as string) ?? (emp?.branch_id as string), userId: auth.user.id };
-  }
-  return { supabase, orgId: emp.organization_id as string, branchId: emp.branch_id as string, userId: auth.user.id };
-}
+import { getActiveTenant } from "@/lib/supabase/actor";
 
 function normalizePhone62(raw: string): string {
   const digits = raw.replace(/\D/g, "");
@@ -31,10 +16,8 @@ function normalizePhone62(raw: string): string {
 }
 
 function formatPhoneDisplay(norm62: string): string {
-  // 628123456789 -> 0812 1234 56789 (group 4-4-rest)
   if (!norm62.startsWith("62")) return norm62;
   const local = "0" + norm62.slice(2);
-  // 0812 1234 5601
   if (local.length <= 10) return local.replace(/(\d{4})(\d{4})(\d+)/, "$1 $2 $3").trim();
   return local.replace(/(\d{4})(\d{4})(\d+)/, "$1 $2 $3").trim();
 }
@@ -42,20 +25,21 @@ function formatPhoneDisplay(norm62: string): string {
 export type CustomerListRow = {
   id: string;
   name: string;
-  phone: string; // normalized 62
+  phone: string;
   phoneDisplay: string;
-  createdAt: string; // formatted
+  createdAt: string;
   createdAtRaw: string;
   totalServis: number;
-  totalSpent: number; // rupiah (from subtotal_cents)
-  lastServis: string; // e.g. SV-001 or —
-  lastStatus: string; // e.g. Dikerjakan or —
-  lastDate: string; // formatted or —
+  totalSpent: number;
+  lastServis: string;
+  lastStatus: string;
+  lastDate: string;
   lastDateRaw: string | null;
 };
 
 export async function getCustomers(): Promise<CustomerListRow[]> {
-  const { supabase, orgId, branchId } = await getOrg();
+  const { supabase, orgId, branchId } = await getActiveTenant();
+  if (!branchId) throw new Error("Branch not set for tenant");
   const { data: customers, error } = await supabase
     .from("customers")
     .select("id, name, phone, created_at")
@@ -67,7 +51,6 @@ export async function getCustomers(): Promise<CustomerListRow[]> {
   if (list.length === 0) return [];
 
   const ids = list.map((c) => c.id);
-  // fetch repair_orders for these customers
   const { data: orders } = await supabase
     .from("repair_orders")
     .select("id, customer_id, status, created_at, subtotal_cents")
@@ -126,13 +109,13 @@ export async function getCustomers(): Promise<CustomerListRow[]> {
 }
 
 export async function createCustomer(form: { name: string; phone: string }) {
-  const { supabase, orgId, branchId } = await getOrg();
+  const { supabase, orgId, branchId } = await getActiveTenant();
+  if (!branchId) throw new Error("Branch not set");
   const name = form.name.trim();
   if (!name) throw new Error("Nama wajib");
   if (name.length < 2) throw new Error("Nama minimal 2 karakter");
   if (name.length > 120) throw new Error("Nama maksimal 120 karakter");
   const norm = normalizePhone62(form.phone);
-  // tolak duplikat HP di cabang sama
   const { data: dup } = await supabase.from("customers").select("id").eq("organization_id", orgId).eq("branch_id", branchId).eq("phone", norm).maybeSingle();
   if (dup?.id) throw new Error("HP sudah terdaftar di cabang ini");
   const { error } = await supabase.from("customers").insert({ organization_id: orgId, branch_id: branchId, name, phone: norm });
@@ -142,13 +125,13 @@ export async function createCustomer(form: { name: string; phone: string }) {
 }
 
 export async function updateCustomer(id: string, form: { name: string; phone: string }) {
-  const { supabase, orgId, branchId } = await getOrg();
+  const { supabase, orgId, branchId } = await getActiveTenant();
+  if (!branchId) throw new Error("Branch not set");
   if (!id) throw new Error("ID wajib");
   const name = form.name.trim();
   if (!name) throw new Error("Nama wajib");
   if (name.length > 120) throw new Error("Nama maksimal 120 karakter");
   const norm = normalizePhone62(form.phone);
-  // tolak duplikat kecuali diri sendiri
   const { data: dup } = await supabase.from("customers").select("id").eq("organization_id", orgId).eq("branch_id", branchId).eq("phone", norm).neq("id", id).maybeSingle();
   if (dup?.id) throw new Error("HP sudah terdaftar di cabang ini");
   const { error } = await supabase.from("customers").update({ name, phone: norm }).eq("id", id).eq("organization_id", orgId).eq("branch_id", branchId);
@@ -158,9 +141,9 @@ export async function updateCustomer(id: string, form: { name: string; phone: st
 }
 
 export async function deleteCustomer(id: string) {
-  const { supabase, orgId, branchId } = await getOrg();
+  const { supabase, orgId, branchId } = await getActiveTenant();
+  if (!branchId) throw new Error("Branch not set");
   if (!id) throw new Error("ID wajib");
-  // blok jika ada servis
   const { count, error: cntErr } = await supabase.from("repair_orders").select("id", { count: "exact", head: true }).eq("organization_id", orgId).eq("customer_id", id);
   if (cntErr) throw new Error(cntErr.message);
   if ((count ?? 0) > 0) throw new Error("Customer punya servis, tidak bisa dihapus");
@@ -179,7 +162,7 @@ export type CustomerServisRow = {
 };
 
 export async function getCustomerServis(customerId: string): Promise<CustomerServisRow[]> {
-  const { supabase, orgId } = await getOrg();
+  const { supabase, orgId } = await getActiveTenant();
   const { data, error } = await supabase
     .from("repair_orders")
     .select("id, problem, status, created_at, subtotal_cents")
@@ -195,4 +178,18 @@ export async function getCustomerServis(customerId: string): Promise<CustomerSer
     created_at: new Date(r.created_at).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" }),
     subtotal_cents: Number(r.subtotal_cents ?? 0),
   }));
+}
+export async function searchCustomersByPhone(q: string) {
+  const { supabase, orgId, branchId } = await getActiveTenant();
+  if (!branchId) throw new Error("Branch not set");
+  const term = q.trim().replace(/\D/g, "");
+  if (term.length < 3) return [];
+  const { data, error } = await supabase.from("customers").select("id, name, phone").eq("organization_id", orgId).eq("branch_id", branchId).ilike("phone", `%${term}%`).limit(5);
+  if (error) throw new Error(error.message);
+  return (data ?? []).map((r: any) => {
+    const norm = String(r.phone ?? "").replace(/\D/g, "");
+    let phoneNorm = norm;
+    if (phoneNorm.startsWith("0")) phoneNorm = "62" + phoneNorm.slice(1);
+    return { id: r.id as string, name: r.name as string, phone: phoneNorm, phoneDisplay: formatPhoneDisplay(phoneNorm) };
+  });
 }

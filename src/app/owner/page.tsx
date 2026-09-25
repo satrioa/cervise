@@ -2,79 +2,60 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
+import Link from "next/link";
+import { getTenants } from "./actions";
+import { CreateTenantDialog } from "@/components/owner/create-tenant-dialog";
 
-export default function OwnerDashboard() {
+export default async function OwnerDashboard() {
+  let tenants: Awaited<ReturnType<typeof getTenants>> = [];
+  try { tenants = await getTenants(); } catch { tenants = []; }
   return (
     <div className="mx-auto max-w-6xl space-y-6 p-4 lg:p-8">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">Cervise Owner — Super Admin</h1>
-          <p className="text-sm text-muted-foreground">Kelola semua tenant, paket & billing manual WA.</p>
+          <h1 className="text-2xl font-bold">Cervise Owner</h1>
+          <p className="text-sm text-muted-foreground">Kelola tenant Anda.</p>
         </div>
-        <Badge className="bg-primary">SaaS Owner</Badge>
-      </div>
-
-      <div className="grid gap-4 sm:grid-cols-4">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardDescription>Total Tenant</CardDescription>
-            <CardTitle>12</CardTitle>
-          </CardHeader>
-          <CardContent className="text-xs text-muted-foreground">9 aktif, 3 trial</CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardDescription>Total Cabang</CardDescription>
-            <CardTitle>18</CardTitle>
-          </CardHeader>
-          <CardContent className="text-xs text-muted-foreground">Across all tenants</CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardDescription>MRR</CardDescription>
-            <CardTitle>Rp 3,1jt</CardTitle>
-          </CardHeader>
-          <CardContent className="text-xs text-emerald-600">Manual transfer WA</CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardDescription>Trial Expiring</CardDescription>
-            <CardTitle>4</CardTitle>
-          </CardHeader>
-          <CardContent className="text-xs text-amber-600">Follow-up WA</CardContent>
-        </Card>
+        <div className="flex items-center gap-2">
+          <Badge className="bg-primary">Manual</Badge>
+          <CreateTenantDialog />
+        </div>
       </div>
 
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Daftar Tenant</CardTitle>
-          <CardDescription>Klik untuk lihat cabang & kelola paket Trial/Basic/Pro</CardDescription>
+          <CardDescription>Daftar tenant yang Anda kelola.</CardDescription>
         </CardHeader>
         <CardContent>
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Toko</TableHead>
+                <TableHead>Tenant</TableHead>
                 <TableHead>Owner (Master-admin)</TableHead>
                 <TableHead>Paket</TableHead>
-                <TableHead>Cabang</TableHead>
+                <TableHead>Trial Ends</TableHead>
+                <TableHead>Cabang (Project)</TableHead>
                 <TableHead>Action</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              <TableRow>
-                <TableCell>Cervise Pusat</TableCell>
-                <TableCell>master@cervise.id</TableCell>
-                <TableCell>
-                  <Badge>Pro</Badge>
-                </TableCell>
-                <TableCell>3</TableCell>
-                <TableCell>
-                  <Button size="sm" variant="outline">
-                    Kelola
-                  </Button>
-                </TableCell>
-              </TableRow>
+              {tenants.length === 0 ? (
+                <TableRow><TableCell colSpan={6} className="py-8 text-center text-sm text-muted-foreground">Belum ada tenant — klik Buat Tenant. Daftar → Tenant → Branch → Employee.</TableCell></TableRow>
+              ) : (
+                tenants.map((t) => (
+                  <TableRow key={t.id}>
+                    <TableCell className="font-medium">{t.name}</TableCell>
+                    <TableCell className="font-mono text-xs">{t.owner}</TableCell>
+                    <TableCell><Badge variant={t.paket === "pro" ? "default" : t.paket === "basic" ? "secondary" : "outline"} className="capitalize">{t.paket}</Badge></TableCell>
+                    <TableCell className="font-mono text-xs">{t.trial_ends_at ? new Date(t.trial_ends_at).toLocaleDateString("id-ID") : "—"}</TableCell>
+                    <TableCell>{t.cabangCount}</TableCell>
+                    <TableCell>
+                      <Button size="sm" variant="outline" asChild><Link href={`/dashboard/tenant/${t.slug}`}>Masuk</Link></Button>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
             </TableBody>
           </Table>
         </CardContent>
