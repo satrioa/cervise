@@ -186,7 +186,7 @@ function TenantSwitcher({ canSwitchTenant: canSwitchTenantValue }: { canSwitchTe
   const activeTenant = tenants.find((tenant) => tenant.id === activeOrgId) ?? tenants[0];
   if (!canSwitchTenantValue) {
     return (
-      <div className="rounded-xl border border-border/60 bg-muted/30 px-3 py-2">
+      <div className="px-3.5 py-2">
         <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Tenant assigned</div>
         <div className="mt-1 truncate font-semibold">{activeTenant?.name ?? "Tenant"}</div>
       </div>
@@ -205,7 +205,7 @@ function TenantSwitcher({ canSwitchTenant: canSwitchTenantValue }: { canSwitchTe
       onValueChange={setActiveOrg}
       onManage={() => router.push("/owner/new")}
       manageLabel="Buat Tenant Baru"
-      className="rounded-xl p-2"
+      bare
     />
   );
 }
@@ -290,7 +290,7 @@ function SidebarContent({ onNavigate, onSearchClick, role }: { onNavigate?: () =
   const canSwitchBranchValue = canSwitchBranch(role);
   return (
     <>
-      <div className="shrink-0 border-b border-border/60 px-2 py-2">
+      <div className="shrink-0 border-b border-border/60 bg-white px-2 py-2 dark:bg-card">
         <TenantSwitcher canSwitchTenant={canSwitchTenantValue} />
       </div>
 

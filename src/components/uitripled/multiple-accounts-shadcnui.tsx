@@ -22,6 +22,7 @@ type MultipleAccountsProps = {
   className?: string;
   manageLabel?: string;
   children?: ReactNode;
+  bare?: boolean;
 };
 
 function initials(name: string) {
@@ -61,6 +62,7 @@ export function MultipleAccounts({
   className,
   manageLabel = "Kelola tenant",
   children,
+  bare = false,
 }: MultipleAccountsProps) {
   const shouldReduceMotion = useReducedMotion();
   const [isOpen, setIsOpen] = useState(false);
@@ -83,18 +85,8 @@ export function MultipleAccounts({
 
   const statusMessage = `${activeAccount.name} dipilih. Paket ${activeAccount.plan ?? "tenant"}.`;
 
-  return (
-    <motion.section
-      ref={sectionRef}
-      initial={shouldReduceMotion ? { opacity: 1, y: 0 } : { opacity: 0, y: 12 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={shouldReduceMotion ? { duration: 0 } : { duration: 0.35, ease: "easeOut" }}
-      className={cn(
-        "relative w-full rounded-2xl border border-border/60 bg-card/80 p-3 backdrop-blur-xl",
-        isOpen ? "z-[60]" : "z-0",
-        className,
-      )}
-    >
+  const content = (
+    <>
       <div className="relative">
       <button
         type="button"
@@ -190,6 +182,30 @@ export function MultipleAccounts({
       {children ? <div className="mt-2">{children}</div> : null}
 
       <span className="sr-only" role="status" aria-live="polite">{statusMessage}</span>
+    </>
+  );
+
+  if (bare) {
+    return (
+      <div ref={(node) => { sectionRef.current = node; }} className={cn("relative w-full", className)}>
+        {content}
+      </div>
+    );
+  }
+
+  return (
+    <motion.section
+      ref={sectionRef}
+      initial={shouldReduceMotion ? { opacity: 1, y: 0 } : { opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={shouldReduceMotion ? { duration: 0 } : { duration: 0.35, ease: "easeOut" }}
+      className={cn(
+        "relative w-full rounded-2xl border border-border/60 bg-card/80 p-3 backdrop-blur-xl",
+        isOpen ? "z-[60]" : "z-0",
+        className,
+      )}
+    >
+      {content}
     </motion.section>
   );
 }
