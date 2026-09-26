@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { createClient } from "@/lib/supabase/client";
+import { getBranchBrand, getMasterAdmins, updateBranchBrand } from "@/app/app/pengaturan/actions";
 import { useBranch } from "@/lib/branch-context";
 import { toast } from "sonner";
 import { UploadIcon, TrashIcon, BuildingIcon, UsersIcon, MailIcon, ShieldIcon } from "lucide-react";
@@ -28,29 +28,29 @@ export default function GeneralPage() {
   }, [branch.label]);
 
   useEffect(() => {
-    const supabase = createClient();
+    let active = true;
     (async () => {
-      const { data } = await supabase.from("profiles").select("id,full_name,email,role").eq("branch_id", branch.id).eq("role", "master_admin");
-      if (!data || data.length === 0) {
-        const { data: all } = await supabase.from("profiles").select("id,full_name,email,role").eq("role", "master_admin").limit(10);
-        setUsers((all as any) ?? []);
-      } else {
-        setUsers((data as any) ?? []);
-      }
-      const { data: br } = await supabase.from("cervise_branches").select("name,logo_url").eq("id", branch.id).maybeSingle();
-      if (br) {
-        setBrandName(br.name ?? branch.label);
-        setLogoUrl((br as any).logo_url ?? null);
+      try {
+        const [brand, admins] = await Promise.all([getBranchBrand(branch.id), getMasterAdmins(branch.id)]);
+        if (!active) return;
+        if (brand) {
+          setBrandName(brand.name ?? branch.label);
+          setLogoUrl(brand.logo_url ?? null);
+        }
+        setUsers((admins ?? []) as any[]);
+      } catch {
+        if (active) setUsers([]);
       }
     })();
+    return () => {
+      active = false;
+    };
   }, [branch.id, branch.label]);
 
   const handleSaveBrand = async () => {
     setLoading(true);
     try {
-      const supabase = createClient();
-      const { error } = await supabase.from("cervise_branches").update({ name: brandName }).eq("id", branch.id);
-      if (error) throw error;
+      await updateBranchBrand({ branchId: branch.id, name: brandName });
       toast.success("Nama brand disimpan");
     } catch (e: any) {
       toast.error(e.message ?? "Gagal simpan");

@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { format } from "date-fns";
 import { id as localeId } from "date-fns/locale";
+import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -39,7 +40,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import Link from "next/link";
-import { getServisDetail, type ServisDetail } from "@/app/app/servis/actions";
+import { getServisDetail, getServisList, getServisDeleteImpact, deleteServis, type ServisDetail } from "@/app/app/servis/actions";
 import { updateServisStatus, getServisSpareparts } from "@/app/app/servis/sparepart-actions";
 import { useBranch } from "@/lib/branch-context";
 import { toPrintData, renderJetHtml, renderDotMatrixHtml, renderThermalHtml } from "@/components/print-templates";
@@ -77,6 +78,7 @@ type PaymentStatus = "Lunas" | "DP" | "Belum dibayar";
 
 type ServisItem = {
   id: string;
+  serviceNumber?: string | null;
   device: string;
   customer: string;
   price: number;
@@ -88,9 +90,13 @@ type ServisItem = {
   paidAmount?: number;
 };
 
+function servisLabel(item: { id: string; serviceNumber?: string | null }) {
+  return item.serviceNumber ?? item.id.slice(0, 8).toUpperCase();
+}
+
 function getPaymentStatus(item: ServisItem): PaymentStatus {
   if (item.payment) return item.payment;
-  // fallback heuristic for legacy/DUMMY without explicit payment: derive from price/paidAmount
+  // fallback when the row has no explicit payment status: derive from price/paidAmount
   const paid = item.paidAmount ?? 0;
   const total = item.price ?? 0;
   if (total === 0 && paid === 0) return "Belum dibayar";
@@ -116,51 +122,11 @@ function PaymentBadge({ status }: { status: PaymentStatus }) {
   );
 }
 
-const DUMMY: ServisItem[] = [
-  { id: "SV-1001", device: "iPhone 14 Pro", complaint: "Mati total tidak bisa nyala", customer: "Rina · 081212345601", price: 0, teknisi: "—", status: "Masuk", date: "2026-09-20", payment: "Belum dibayar" },
-  { id: "SV-1002", device: "Samsung A54", complaint: "LCD pecah bergaris", customer: "Agus · 081313445602", price: 0, teknisi: "Rudi", status: "Diagnosa", date: "2026-09-18", payment: "Belum dibayar" },
-  { id: "SV-1003", device: "Oppo Reno 8", complaint: "Baterai drop cepat", customer: "Dewi · 081212880103", price: 0, teknisi: "Rudi", status: "Menunggu Konfirmasi", date: "2026-09-19", payment: "Belum dibayar" },
-  { id: "SV-1004", device: "iPhone 11", complaint: "Ganti LCD original", customer: "Rina · 081212345601", price: 350000, teknisi: "Rudi", status: "Menunggu Sparepart", date: "2026-09-15", payment: "DP", paidAmount: 100000 },
-  { id: "SV-1005", device: "Samsung A54", complaint: "Ganti baterai", customer: "Agus · 081313445602", price: 250000, teknisi: "Sari", status: "Dikerjakan", date: "2026-09-16", payment: "DP", paidAmount: 100000 },
-  { id: "SV-1006", device: "Vivo Y20", complaint: "Bootloop logo", customer: "Bambang · 081299001122", price: 180000, teknisi: "Sari", status: "Dikerjakan", date: "2026-09-17", payment: "Belum dibayar" },
-  { id: "SV-1007", device: "iPhone 11", complaint: "Selesai servis", customer: "Citra · 081245667788", price: 400000, teknisi: "Rudi", status: "Selesai", date: "2026-09-12", payment: "Lunas", paidAmount: 400000 },
-  { id: "SV-1008", device: "Xiaomi Redmi", complaint: "Ganti LCD", customer: "Doni · 081388990011", price: 320000, teknisi: "Rudi", status: "Selesai", date: "2026-09-10", payment: "Lunas", paidAmount: 320000 },
-  { id: "SV-1009", device: "Vivo Y20", complaint: "Sudah diambil pelanggan", customer: "Rina · 081212345601", price: 300000, teknisi: "Sari", status: "Sudah Diambil", date: "2026-09-08", payment: "Lunas", paidAmount: 300000 },
-  { id: "SV-1010", device: "Infinix Hot 12", complaint: "Mati tidak ada respon", customer: "Eko · 081212009900", price: 0, teknisi: "—", status: "Masuk", date: "2026-09-21", payment: "Belum dibayar" },
-  { id: "SV-1011", device: "Realme 11", complaint: "Konektor cas goyang", customer: "Fajar · 081376543210", price: 150000, teknisi: "Rudi", status: "Dikerjakan", date: "2026-09-19", payment: "DP", paidAmount: 50000 },
-  { id: "SV-1012", device: "Samsung S22", complaint: "Overheat panas", customer: "Gita · 081234567890", price: 0, teknisi: "—", status: "Diagnosa", date: "2026-09-20", payment: "Belum dibayar" },
-  { id: "SV-1013", device: "Oppo A57", complaint: "Batal servis - customer tidak jadi", customer: "Hadi · 081299887766", price: 0, teknisi: "—", status: "Batal", date: "2026-09-19", payment: "Belum dibayar" },
-];
-
-function dummyToDetail(s: ServisItem): any {
-  const [merk, ...tipeParts] = s.device.split(" ");
-  const tipe = tipeParts.join(" ") || s.device;
-  const [custNameRaw, custPhoneRaw] = s.customer.split("·").map((x) => x.trim());
-  const custName = custNameRaw ?? s.customer;
-  const custPhone = custPhoneRaw ?? "";
-  return {
-    id: s.id,
-    merk: merk ?? "",
-    tipe: tipe ?? "",
-    imei1: "000000000000000",
-    imei2: "",
-    kerusakan: [s.complaint],
-    kelengkapan: [],
-    password_type: "PIN" as const,
-    password_value: "1234",
-    cervise_customers: { name: custName, phone: custPhone, address: "" },
-    teknisi_id: s.teknisi === "—" ? "" : s.teknisi,
-    teknisi: s.teknisi === "—" ? null : { full_name: s.teknisi, email: null },
-    creator: null,
-    created_at: s.date,
-    garansi_value: 30,
-    garansi_unit: "hari" as const,
-    price_estimasi: null,
-    device: s.device,
-    status: s.status,
-    price: s.price,
-    kondisi_awal: {},
-  };
+function groupServisByStatus(items: ServisItem[]) {
+  const grouped: Record<string, ServisItem[]> = {};
+  STAGES.forEach((stage) => { grouped[stage.key] = []; });
+  for (const item of items) grouped[item.status]?.push(item);
+  return grouped;
 }
 
 type DateRange = { from?: Date; to?: Date };
@@ -172,18 +138,22 @@ export default function ServisPage() {
   const [dateRange, setDateRange] = useState<DateRange>({});
   const [paymentFilter, setPaymentFilter] = useState<string>("Semua");
   const [openServis, setOpenServis] = useState(false);
-  const [servisData, setServisData] = useState<ServisItem[]>(DUMMY);
+  const [servisData, setServisData] = useState<ServisItem[]>([]);
+  const [servisLoading, setServisLoading] = useState(true);
+  const [servisError, setServisError] = useState<string | null>(null);
   const [selectedServis, setSelectedServis] = useState<ServisItem | null>(null);
   const [viewOpen, setViewOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
-  const [editForm, setEditForm] = useState<Partial<ServisItem>>({});
+  const [deleteImpact, setDeleteImpact] = useState<{ paymentCount: number; paymentTotal: number; tagCount: number } | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const [detailData, setDetailData] = useState<ServisDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkStatusOpen, setBulkStatusOpen] = useState(false);
   const [bulkAssignOpen, setBulkAssignOpen] = useState(false);
-  const [bulkTeknisi, setBulkTeknisi] = useState<string>("Rudi");
+  const [bulkTeknisi, setBulkTeknisi] = useState<string>("");
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const [bulkInvoiceOpen, setBulkInvoiceOpen] = useState(false);
   const [bulkPrintOpen, setBulkPrintOpen] = useState(false);
@@ -194,20 +164,31 @@ export default function ServisPage() {
   const [cancelOpen, setCancelOpen] = useState(false);
   const [pendingBatal, setPendingBatal] = useState<ServisItem | null>(null);
   const { branch } = useBranch();
+  const [kanbanValue, setKanbanValue] = useState<Record<string, ServisItem[]>>({});
 
-  const columns = useMemo(() => {
-    const init: Record<string, ServisItem[]> = {};
-    STAGES.forEach((s) => (init[s.key] = []));
-    DUMMY.forEach((item) => init[item.status].push(item));
-    return init;
-  }, []);
-
-  const [kanbanValue, setKanbanValue] = useState<Record<string, ServisItem[]>>(columns);
+  useEffect(() => {
+    let cancelled = false;
+    setServisLoading(true);
+    setServisError(null);
+    getServisList()
+      .then((rows) => {
+        if (cancelled) return;
+        setServisData(rows);
+        setKanbanValue(groupServisByStatus(rows));
+      })
+      .catch((error) => {
+        if (!cancelled) setServisError(error instanceof Error ? error.message : "Gagal memuat data servis");
+      })
+      .finally(() => {
+        if (!cancelled) setServisLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, [branch.id]);
 
   const matchesSearch = (item: ServisItem) => {
     if (!search.trim()) return true;
     const q = search.trim().toLowerCase();
-    const hay = `${item.id} ${item.customer}`.toLowerCase();
+    const hay = `${item.serviceNumber ?? ""} ${item.id} ${item.customer}`.toLowerCase();
     return hay.includes(q);
   };
   const matchesDate = (item: ServisItem) => {
@@ -308,37 +289,54 @@ export default function ServisPage() {
           setCancelOpen(true);
           return;
         }
-      } catch {}
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : "Gagal memeriksa sparepart");
+        return;
+      }
       // no parts -> fall through to direct cancel
     }
-    // normal path: try server, fallback local
+    // server dulu, baruupdate state lokal
     try {
       await updateServisStatus(s.id, next);
-    } catch {}
-    applyLocalStatus(s, next);
+      applyLocalStatus(s, next);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Gagal mengubah status");
+    }
   };
-  const handleEdit = (s: ServisItem) => { setSelectedServis(s); setEditForm({ device: s.device, customer: s.customer, complaint: s.complaint, price: s.price, teknisi: s.teknisi }); setEditOpen(true); };
-  const handleSaveEdit = () => {
-    if (!selectedServis) return;
-    const updated = { ...selectedServis, ...editForm } as ServisItem;
-    setServisData((prev) => prev.map((it) => (it.id === selectedServis.id ? updated : it)));
-    setKanbanValue((prev) => {
-      const nextVal: Record<string, ServisItem[]> = {};
-      for (const k of Object.keys(prev)) nextVal[k] = prev[k].map((it) => (it.id === selectedServis.id ? updated : it));
-      return nextVal;
-    });
-    setEditOpen(false);
+  const handleEdit = (s: ServisItem) => { setSelectedServis(s); setEditOpen(true); };
+  const handleDelete = (s: ServisItem) => {
+    setSelectedServis(s);
+    setDeleteImpact(null);
+    setDeleteError(null);
+    setDeleteOpen(true);
+    getServisDeleteImpact(s.id)
+      .then(setDeleteImpact)
+      .catch((error) => setDeleteError(error instanceof Error ? error.message : "Gagal memuat data"));
   };
-  const handleDelete = (s: ServisItem) => { setSelectedServis(s); setDeleteOpen(true); };
-  const confirmDelete = () => {
-    if (!selectedServis) return;
-    setServisData((prev) => prev.filter((it) => it.id !== selectedServis.id));
-    setKanbanValue((prev) => {
-      const nextVal: Record<string, ServisItem[]> = {};
-      for (const k of Object.keys(prev)) nextVal[k] = prev[k].filter((it) => it.id !== selectedServis.id);
-      return nextVal;
-    });
-    setDeleteOpen(false);
+  const confirmDelete = async () => {
+    if (!selectedServis || deleteLoading) return;
+    setDeleteLoading(true);
+    setDeleteError(null);
+    try {
+      await deleteServis(selectedServis.id);
+      setServisData((prev) => prev.filter((it) => it.id !== selectedServis.id));
+      setKanbanValue((prev) => {
+        const nextVal: Record<string, ServisItem[]> = {};
+        for (const k of Object.keys(prev)) nextVal[k] = prev[k].filter((it) => it.id !== selectedServis.id);
+        return nextVal;
+      });
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        next.delete(selectedServis.id);
+        return next;
+      });
+      setDeleteOpen(false);
+      setDeleteImpact(null);
+    } catch (error) {
+      setDeleteError(error instanceof Error ? error.message : "Gagal menghapus servis");
+    } finally {
+      setDeleteLoading(false);
+    }
   };
   const handlePrint = async (s: ServisItem, type: "Dot Matrix" | "Jet" | "Thermal") => {
     let detail: any = null;
@@ -364,7 +362,7 @@ export default function ServisPage() {
       alert("Nomor HP tidak valid");
       return;
     }
-    const msg = `Halo, invoice servis *${s.id}* Cervise\nDevice: ${s.device}\nNominal: ${formatCurrencyPlain(s.price)}\nStatus: ${s.status}\nTeknisi: ${s.teknisi}\nTerima kasih — Garansi 3 bulan`;
+    const msg = `Halo, invoice servis *${servisLabel(s)}* Cervise\nDevice: ${s.device}\nNominal: ${formatCurrencyPlain(s.price)}\nStatus: ${s.status}\nTeknisi: ${s.teknisi}\nTerima kasih — Garansi 3 bulan`;
     window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`, "_blank");
   };
 
@@ -403,8 +401,17 @@ export default function ServisPage() {
     // Intercept bulk ke Dikerjakan: hanya Lewati tanpa sparepart (tidak bisa pilih per-servis)
     if (next === "Dikerjakan") {
       const ids = new Set(selectedIds);
+      const failed: string[] = [];
       for (const id of ids) {
-        try { await updateServisStatus(id, next); } catch {}
+        try {
+          await updateServisStatus(id, next);
+        } catch (error) {
+          failed.push(error instanceof Error ? error.message : id);
+        }
+      }
+      if (failed.length === ids.size) {
+        toast.error(failed[0] ?? "Gagal mengubah status");
+        return;
       }
       setServisData((prev) => prev.map((it) => (ids.has(it.id) ? { ...it, status: next } : it)));
       setKanbanValue((prev) => {
@@ -434,19 +441,31 @@ export default function ServisPage() {
           try {
             const rows = await getServisSpareparts(s.id);
             if (rows.length > 0) { hasParts = true; break; }
-          } catch {}
+          } catch (error) {
+            toast.error(error instanceof Error ? error.message : "Gagal memeriksa sparepart");
+            return;
+          }
         }
         if (hasParts) {
-          alert("Bulk Batal dibatalkan: ada servis yang sudah pakai sparepart. Batalkan satu per satu agar bisa pilih Kembalikan/Tetap terpakai.");
+          toast.error("Bulk Batal dibatalkan: ada servis yang sudah pakai sparepart. Batalkan satu per satu agar bisa pilih Kembalikan/Tetap terpakai.");
           return;
         }
       }
     }
     const ids = new Set(selectedIds);
+    const failedIds: string[] = [];
     for (const id of ids) {
-      try { await updateServisStatus(id, next); } catch {}
+      try {
+        await updateServisStatus(id, next);
+      } catch {
+        failedIds.push(id);
+      }
     }
-    setServisData((prev) => prev.map((it) => (ids.has(it.id) ? { ...it, status: next } : it)));
+    if (failedIds.length === ids.size) {
+      toast.error("Gagal mengubah status pada semua servis terpilih");
+      return;
+    }
+    setServisData((prev) => prev.map((it) => (ids.has(it.id) && !failedIds.includes(it.id) ? { ...it, status: next } : it)));
     setKanbanValue((prev) => {
       const nextVal: Record<string, ServisItem[]> = {};
       STAGES.forEach((st) => (nextVal[st.key] = []));
@@ -535,7 +554,7 @@ export default function ServisPage() {
       groups.get(phone)!.push(s);
     }
     for (const [phone, items] of groups) {
-      const msg = `Halo, invoice servis Cervise:\n` + items.map((s) => `• ${s.id} ${s.device} ${formatCurrencyPlain(s.price)} (${s.status})`).join("\n") + `\nTerima kasih — Garansi 3 bulan`;
+      const msg = `Halo, invoice servis Cervise:\n` + items.map((s) => `• ${servisLabel(s)} ${s.device} ${formatCurrencyPlain(s.price)} (${s.status})`).join("\n") + `\nTerima kasih — Garansi 3 bulan`;
       window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`, "_blank");
     }
     setBulkInvoiceOpen(false);
@@ -623,6 +642,20 @@ export default function ServisPage() {
       />
 
       <main className={view === "kanban" ? "w-full max-w-none px-4 py-4" : "mx-auto max-w-6xl px-4 sm:px-6 lg:px-10 py-6 lg:py-8"}>
+        {servisError ? (
+          <div role="alert" className="mb-4 rounded-xl border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+            {servisError}
+          </div>
+        ) : null}
+        {servisLoading && servisData.length === 0 ? (
+          <div className="py-16 text-center text-sm text-muted-foreground">Memuat data servis…</div>
+        ) : null}
+        {!servisLoading && !servisError && servisData.length === 0 ? (
+          <div className="py-16 text-center">
+            <p className="text-sm font-medium">Belum ada data servis</p>
+            <p className="mt-1 text-sm text-muted-foreground">Tambahkan servis pertama untuk cabang ini.</p>
+          </div>
+        ) : null}
         {view === "table" && (
           <div className="relative -mx-1">
             <div className="overflow-x-auto scrollbar-none pb-3 px-1 mx-auto w-fit max-w-full [mask-image:linear-gradient(to_right,transparent,black_12px,black_calc(100%-12px),transparent)]">
@@ -630,7 +663,7 @@ export default function ServisPage() {
             </div>
           </div>
         )}
-        {view === "table" ? (
+        {servisData.length > 0 && (view === "table" ? (
           <Table variant="card" className="mt-2">
             <TableHeader>
               <TableRow>
@@ -696,23 +729,34 @@ export default function ServisPage() {
                 return;
               }
               if (moved && moved.to === "Batal" && (moved.from === "Dikerjakan" || moved.from === "Selesai")) {
-                getServisSpareparts(moved.item.id).then((rows) => {
-                  if (rows.length > 0) {
-                    setCancelTarget(moved.item);
-                    setPendingBatal(moved.item);
-                    setCancelOpen(true);
-                  } else {
-                    updateServisStatus(moved.item.id, "Batal").catch(()=>{});
+                getServisSpareparts(moved.item.id)
+                  .then(async (rows) => {
+                    if (rows.length > 0) {
+                      setCancelTarget(moved.item);
+                      setPendingBatal(moved.item);
+                      setCancelOpen(true);
+                      return;
+                    }
+                    await updateServisStatus(moved.item.id, "Batal");
                     applyLocalStatus(moved.item, "Batal");
                     setKanbanValue(next);
-                  }
-                });
+                  })
+                  .catch((error: unknown) => {
+                    toast.error(error instanceof Error ? error.message : "Gagal membatalkan servis");
+                  });
                 return;
               }
               // normal move
               if (moved) {
-                updateServisStatus(moved.item.id, moved.to).catch(()=>{});
-                applyLocalStatus(moved.item, moved.to);
+                updateServisStatus(moved.item.id, moved.to)
+                  .then(() => {
+                    applyLocalStatus(moved.item, moved.to);
+                    setKanbanValue(next);
+                  })
+                  .catch((error: unknown) => {
+                    toast.error(error instanceof Error ? error.message : "Gagal mengubah status");
+                  });
+                return;
               }
               setKanbanValue(next);
             }}
@@ -725,14 +769,14 @@ export default function ServisPage() {
                   <div className="flex items-center gap-2 px-1 py-2"><span className={`size-2 shrink-0 rounded-full ${DOT_COLOR[stage.key]}`} aria-hidden /><stage.icon className="size-3.5 text-muted-foreground" /><span className="font-mono text-[11px] uppercase tracking-wider">{stage.label}</span><Badge variant="secondary" className="ml-auto text-[10px]">{displayedKanban[stage.key]?.length ?? 0}</Badge></div>
                   <KanbanColumnContent value={stage.key} className="min-h-[320px]">
                     {(displayedKanban[stage.key] || []).map((item) => {
-                      const isSearchMatch = search.trim() ? `${item.id} ${item.customer}`.toLowerCase().includes(search.trim().toLowerCase()) : true;
+                      const isSearchMatch = search.trim() ? `${item.serviceNumber ?? ""} ${item.id} ${item.customer}`.toLowerCase().includes(search.trim().toLowerCase()) : true;
                       const disabled = !isSearchMatch;
                       return (
                         <ServisContextMenu key={item.id} servis={item} onViewDetails={handleViewDetails} onStatusChange={handleStatusChange} onEdit={handleEdit} onPrint={handlePrint} onInvoice={handleInvoice} onDelete={handleDelete}>
                           <KanbanItem value={item.id} disabled={disabled}>
                             <KanbanItemHandle>
                               <Card className={cn("shadow-xs", disabled ? "opacity-40 grayscale" : "cursor-grab active:cursor-grabbing")}>
-                                <CardContent className="p-3 space-y-1.5"><div className="font-mono text-xs font-medium">{item.id}</div><div className="text-sm font-medium leading-tight line-clamp-1">{item.device}</div><div className="text-xs text-muted-foreground line-clamp-1">{item.complaint}</div><div className="text-xs text-muted-foreground">{item.customer}</div><div className="flex items-center justify-between gap-2 pt-0.5"><span className="text-[11px] text-muted-foreground">{format(new Date(item.date), "d MMM yyyy", { locale: localeId })}</span><div className="flex items-center gap-1 shrink-0"><PaymentBadge status={getPaymentStatus(item)} /><Badge variant="outline" className="text-[10px] shrink-0">{item.teknisi}</Badge></div></div></CardContent>
+                                <CardContent className="p-3 space-y-1.5"><div className="font-mono text-xs font-medium">{servisLabel(item)}</div><div className="text-sm font-medium leading-tight line-clamp-1">{item.device}</div><div className="text-xs text-muted-foreground line-clamp-1">{item.complaint}</div><div className="text-xs text-muted-foreground">{item.customer}</div><div className="flex items-center justify-between gap-2 pt-0.5"><span className="text-[11px] text-muted-foreground">{format(new Date(item.date), "d MMM yyyy", { locale: localeId })}</span><div className="flex items-center gap-1 shrink-0"><PaymentBadge status={getPaymentStatus(item)} /><Badge variant="outline" className="text-[10px] shrink-0">{item.teknisi}</Badge></div></div></CardContent>
                               </Card>
                             </KanbanItemHandle>
                           </KanbanItem>
@@ -743,9 +787,9 @@ export default function ServisPage() {
                 </KanbanColumn>
               ))}
             </KanbanBoard>
-            <KanbanOverlay>{({ value }) => { const item = DUMMY.find((d) => d.id === value); if (!item) return null; return (<Card className="w-[200px] shadow-lg rotate-2"><CardContent className="p-3"><div className="font-mono text-xs">{item.id}</div><div className="text-sm font-medium">{item.device}</div><div className="text-xs text-muted-foreground">{item.complaint}</div></CardContent></Card>); }}</KanbanOverlay>
+            <KanbanOverlay>{({ value }) => { const item = servisData.find((d) => d.id === value); if (!item) return null; return (<Card className="w-[200px] shadow-lg rotate-2"><CardContent className="p-3"><div className="font-mono text-xs">{servisLabel(item)}</div><div className="text-sm font-medium">{item.device}</div><div className="text-xs text-muted-foreground">{item.complaint}</div></CardContent></Card>); }}</KanbanOverlay>
           </Kanban>
-        )}
+        ))}
       </main>
 
       {/* Bulk drawer dock - width fit content (menyesuaikan isi) */}
@@ -815,7 +859,7 @@ export default function ServisPage() {
                 <div className="py-12 text-center text-sm text-muted-foreground">Memuat detail...</div>
               ) : (
                 <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
-                  <ServisDetailView data={detailData} dummy={selectedServis ?? undefined} />
+                  <ServisDetailView data={detailData} />
                 </div>
               )}
             </div>
@@ -845,29 +889,9 @@ export default function ServisPage() {
                       setServisData((prev) => prev.map((it) => (it.id === detailData.id ? { ...it, device, teknisi: (detailData as any).teknisi?.full_name ?? it.teknisi } : it)));
                     }
                   }} onCancel={() => setEditOpen(false)} />
-                ) : selectedServis ? (
-                  <EditServisForm
-                    isDummy
-                    servisId={selectedServis.id}
-                    initial={dummyToDetail(selectedServis)}
-                    onSuccess={(updated: any) => {
-                      if (!updated) { setEditOpen(false); return; }
-                      const device = `${updated.merk} ${updated.tipe}`.trim() || selectedServis.device;
-                      const customer = `${updated.customer_name} · ${updated.customer_phone}`;
-                      const complaint = updated.kerusakan.join(", ");
-                      const teknisi = updated.teknisi_id || "—";
-                      const updatedItem = { ...selectedServis, device, customer, complaint, teknisi } as ServisItem;
-                      setServisData((prev) => prev.map((it) => (it.id === selectedServis.id ? updatedItem : it)));
-                      setKanbanValue((prev) => {
-                        const nextVal: Record<string, ServisItem[]> = {};
-                        for (const k of Object.keys(prev)) nextVal[k] = prev[k].map((it) => (it.id === selectedServis.id ? updatedItem : it));
-                        return nextVal;
-                      });
-                      setEditOpen(false);
-                    }}
-                    onCancel={() => setEditOpen(false)}
-                  />
-                ) : null}
+                ) : (
+                  <div className="py-12 text-center text-sm text-muted-foreground">Data detail servis tidak tersedia.</div>
+                )}
               </div>
             </div>
             <DialogPrimitive.Close className="absolute right-3 top-3 rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"><XIcon className="size-4" /></DialogPrimitive.Close>
@@ -875,14 +899,35 @@ export default function ServisPage() {
         </DialogPrimitive.Portal>
       </DialogPrimitive.Root>
 
-      {/* Delete confirm */}
+      {/* Delete confirm - hard delete, admin only. Destroys the service timeline. */}
       <DialogPrimitive.Root open={deleteOpen} onOpenChange={setDeleteOpen}>
         <DialogPrimitive.Portal>
           <DialogPrimitive.Backdrop className="fixed inset-0 z-50 bg-black/20 backdrop-blur-sm" />
           <DialogPrimitive.Popup className="fixed left-1/2 top-1/2 z-50 w-[95vw] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-xl border bg-background p-6 shadow-lg">
             <DialogPrimitive.Title className="font-semibold">Hapus Servis?</DialogPrimitive.Title>
-            <DialogPrimitive.Description className="text-sm text-muted-foreground">Yakin hapus <span className="font-mono font-medium">{selectedServis?.id}</span> · {selectedServis?.device}?</DialogPrimitive.Description>
-            <div className="mt-4 flex justify-end gap-2"><Button variant="outline" onClick={() => setDeleteOpen(false)}>Batal</Button><Button variant="destructive" onClick={confirmDelete}>Hapus</Button></div>
+            <DialogPrimitive.Description className="text-sm text-muted-foreground">
+              Yakin hapus <span className="font-mono font-medium">{selectedServis?.id}</span> · {selectedServis?.device}?
+            </DialogPrimitive.Description>
+            {deleteError ? (
+              <div role="alert" className="mt-4 rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">{deleteError}</div>
+            ) : null}
+            {deleteImpact ? (
+              <ul className="mt-4 space-y-1 rounded-lg border bg-muted/30 px-3 py-2 text-sm text-muted-foreground">
+                <li>Riwayat status &amp; timeline servis akan dihapus permanen.</li>
+                {deleteImpact.paymentCount > 0 ? (
+                  <li className="font-medium text-foreground">
+                    {deleteImpact.paymentCount} transaksi pembayaran ({formatCurrencyPlain(deleteImpact.paymentTotal)}) tetap tercatat di keuangan tanpa rujukan servis.
+                  </li>
+                ) : null}
+                {deleteImpact.tagCount > 0 ? <li>{deleteImpact.tagCount} tag kerusakan akan dikurangi dari usage.</li> : null}
+              </ul>
+            ) : null}
+            <div className="mt-4 flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setDeleteOpen(false)} disabled={deleteLoading}>Batal</Button>
+              <Button variant="destructive" onClick={confirmDelete} disabled={deleteLoading || !deleteImpact || Boolean(deleteError)}>
+                {deleteLoading ? "Menghapus…" : "Hapus permanen"}
+              </Button>
+            </div>
             <DialogPrimitive.Close className="absolute right-3 top-3 rounded-md p-1 text-muted-foreground hover:bg-muted"><XIcon className="size-4" /></DialogPrimitive.Close>
           </DialogPrimitive.Popup>
         </DialogPrimitive.Portal>
@@ -960,7 +1005,7 @@ export default function ServisPage() {
             <div className="mt-3 max-h-40 overflow-y-auto rounded border bg-muted/30 p-2 text-xs space-y-1">
               {selectedData.slice(0, 5).map((s) => (
                 <div key={s.id} className="flex justify-between">
-                  <span className="font-mono">{s.id}</span>
+                  <span className="font-mono">{servisLabel(s)}</span>
                   <span>
                     {s.device} — {formatCurrencyPlain(s.price)} {s.price === 0 && <span className="text-amber-600">(harga 0 dilewati)</span>}
                   </span>

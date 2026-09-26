@@ -2,6 +2,11 @@
 
 import { revalidatePath } from "next/cache";
 import { getActiveTenant } from "@/lib/supabase/actor";
+import { canAccess } from "@/lib/rbac";
+
+function requireCustomerAccess(role: string) {
+  if (!canAccess(role, "customer")) throw new Error("Role tidak diizinkan mengakses customer");
+}
 
 function normalizePhone62(raw: string): string {
   const digits = raw.replace(/\D/g, "");
@@ -38,12 +43,12 @@ export type CustomerListRow = {
 };
 
 export async function getCustomers(): Promise<CustomerListRow[]> {
-  const { supabase, orgId, branchId } = await getActiveTenant();
+  const { supabase, branchId, role } = await getActiveTenant();
+  requireCustomerAccess(role);
   if (!branchId) throw new Error("Branch not set for tenant");
   const { data: customers, error } = await supabase
-    .from("customers")
+    .from("cervise_customers")
     .select("id, name, phone, created_at")
-    .eq("organization_id", orgId)
     .eq("branch_id", branchId)
     .order("created_at", { ascending: false });
   if (error) throw new Error(error.message);
@@ -52,9 +57,9 @@ export async function getCustomers(): Promise<CustomerListRow[]> {
 
   const ids = list.map((c) => c.id);
   const { data: orders } = await supabase
-    .from("repair_orders")
-    .select("id, customer_id, status, created_at, subtotal_cents")
-    .eq("organization_id", orgId)
+    .from("cervise_services")
+    .select("id, customer_id, status, created_at, price")
+    .eq("branch_id", branchId)
     .in("customer_id", ids)
     .order("created_at", { ascending: false });
 
@@ -64,25 +69,13 @@ export async function getCustomers(): Promise<CustomerListRow[]> {
     orderByCustomer.get(o.customer_id)!.push(o);
   }
 
-  const statusLabel: Record<string, string> = {
-    received: "Masuk",
-    diagnosed: "Diagnosa",
-    waiting_approval: "Menunggu Konfirmasi",
-    waiting_part: "Menunggu Sparepart",
-    in_repair: "Dikerjakan",
-    quality_control: "Selesai",
-    ready: "Selesai",
-    picked_up: "Sudah Diambil",
-    cancelled: "Batal",
-  };
-
   return list.map((c) => {
     const ords = orderByCustomer.get(c.id) ?? [];
     const totalServis = ords.length;
-    const totalSpent = ords.reduce((a: number, o: any) => a + Number(o.subtotal_cents ?? 0) / 100, 0);
+    const totalSpent = ords.reduce((a: number, o: any) => a + Number(o.price ?? 0), 0);
     const last = ords[0] as any | undefined;
     const lastServis = last ? String(last.id).slice(0, 8).toUpperCase() : "—";
-    const lastStatus = last ? statusLabel[last.status] ?? last.status : "—";
+    const lastStatus = last ? (last.status as string) : "—";
     const lastDateRaw = last?.created_at ?? null;
     const lastDate = lastDateRaw ? new Date(lastDateRaw).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" }) : "—";
     const createdAtRaw = c.created_at as string;
@@ -109,45 +102,48 @@ export async function getCustomers(): Promise<CustomerListRow[]> {
 }
 
 export async function createCustomer(form: { name: string; phone: string }) {
-  const { supabase, orgId, branchId } = await getActiveTenant();
+  const { supabase, branchId, role } = await getActiveTenant();
+  requireCustomerAccess(role);
   if (!branchId) throw new Error("Branch not set");
   const name = form.name.trim();
   if (!name) throw new Error("Nama wajib");
   if (name.length < 2) throw new Error("Nama minimal 2 karakter");
   if (name.length > 120) throw new Error("Nama maksimal 120 karakter");
   const norm = normalizePhone62(form.phone);
-  const { data: dup } = await supabase.from("customers").select("id").eq("organization_id", orgId).eq("branch_id", branchId).eq("phone", norm).maybeSingle();
+  const { data: dup } = await supabase.from("cervise_customers").select("id").eq("branch_id", branchId).eq("phone", norm).maybeSingle();
   if (dup?.id) throw new Error("HP sudah terdaftar di cabang ini");
-  const { error } = await supabase.from("customers").insert({ organization_id: orgId, branch_id: branchId, name, phone: norm });
+  const { error } = await supabase.from("cervise_customers").insert({ branch_id: branchId, name, phone: norm, tags: [] });
   if (error) throw new Error(error.message);
   revalidatePath("/app/customer");
   return { ok: true };
 }
 
 export async function updateCustomer(id: string, form: { name: string; phone: string }) {
-  const { supabase, orgId, branchId } = await getActiveTenant();
+  const { supabase, branchId, role } = await getActiveTenant();
+  requireCustomerAccess(role);
   if (!branchId) throw new Error("Branch not set");
   if (!id) throw new Error("ID wajib");
   const name = form.name.trim();
   if (!name) throw new Error("Nama wajib");
   if (name.length > 120) throw new Error("Nama maksimal 120 karakter");
   const norm = normalizePhone62(form.phone);
-  const { data: dup } = await supabase.from("customers").select("id").eq("organization_id", orgId).eq("branch_id", branchId).eq("phone", norm).neq("id", id).maybeSingle();
+  const { data: dup } = await supabase.from("cervise_customers").select("id").eq("branch_id", branchId).eq("phone", norm).neq("id", id).maybeSingle();
   if (dup?.id) throw new Error("HP sudah terdaftar di cabang ini");
-  const { error } = await supabase.from("customers").update({ name, phone: norm }).eq("id", id).eq("organization_id", orgId).eq("branch_id", branchId);
+  const { error } = await supabase.from("cervise_customers").update({ name, phone: norm }).eq("id", id).eq("branch_id", branchId);
   if (error) throw new Error(error.message);
   revalidatePath("/app/customer");
   return { ok: true };
 }
 
 export async function deleteCustomer(id: string) {
-  const { supabase, orgId, branchId } = await getActiveTenant();
+  const { supabase, branchId, role } = await getActiveTenant();
+  requireCustomerAccess(role);
   if (!branchId) throw new Error("Branch not set");
   if (!id) throw new Error("ID wajib");
-  const { count, error: cntErr } = await supabase.from("repair_orders").select("id", { count: "exact", head: true }).eq("organization_id", orgId).eq("customer_id", id);
+  const { count, error: cntErr } = await supabase.from("cervise_services").select("id", { count: "exact", head: true }).eq("branch_id", branchId).eq("customer_id", id);
   if (cntErr) throw new Error(cntErr.message);
   if ((count ?? 0) > 0) throw new Error("Customer punya servis, tidak bisa dihapus");
-  const { error } = await supabase.from("customers").delete().eq("id", id).eq("organization_id", orgId).eq("branch_id", branchId);
+  const { error } = await supabase.from("cervise_customers").delete().eq("id", id).eq("branch_id", branchId);
   if (error) throw new Error(error.message);
   revalidatePath("/app/customer");
   return { ok: true };
@@ -158,33 +154,36 @@ export type CustomerServisRow = {
   problem: string;
   status: string;
   created_at: string;
-  subtotal_cents: number;
+  total: number;
 };
 
 export async function getCustomerServis(customerId: string): Promise<CustomerServisRow[]> {
-  const { supabase, orgId } = await getActiveTenant();
+  const { supabase, branchId, role } = await getActiveTenant();
+  requireCustomerAccess(role);
+  if (!branchId) throw new Error("Branch not set");
   const { data, error } = await supabase
-    .from("repair_orders")
-    .select("id, problem, status, created_at, subtotal_cents")
-    .eq("organization_id", orgId)
+    .from("cervise_services")
+    .select("id, complaint, device, status, created_at, price")
+    .eq("branch_id", branchId)
     .eq("customer_id", customerId)
     .order("created_at", { ascending: false })
     .limit(20);
   if (error) throw new Error(error.message);
   return (data ?? []).map((r: any) => ({
     id: String(r.id).slice(0, 8).toUpperCase(),
-    problem: r.problem as string,
+    problem: (r.complaint ?? r.device ?? "") as string,
     status: r.status as string,
     created_at: new Date(r.created_at).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" }),
-    subtotal_cents: Number(r.subtotal_cents ?? 0),
+    total: Number(r.price ?? 0),
   }));
 }
 export async function searchCustomersByPhone(q: string) {
-  const { supabase, orgId, branchId } = await getActiveTenant();
+  const { supabase, branchId, role } = await getActiveTenant();
+  requireCustomerAccess(role);
   if (!branchId) throw new Error("Branch not set");
   const term = q.trim().replace(/\D/g, "");
   if (term.length < 3) return [];
-  const { data, error } = await supabase.from("customers").select("id, name, phone").eq("organization_id", orgId).eq("branch_id", branchId).ilike("phone", `%${term}%`).limit(5);
+  const { data, error } = await supabase.from("cervise_customers").select("id, name, phone").eq("branch_id", branchId).ilike("phone", `%${term}%`).limit(5);
   if (error) throw new Error(error.message);
   return (data ?? []).map((r: any) => {
     const norm = String(r.phone ?? "").replace(/\D/g, "");
@@ -192,4 +191,39 @@ export async function searchCustomersByPhone(q: string) {
     if (phoneNorm.startsWith("0")) phoneNorm = "62" + phoneNorm.slice(1);
     return { id: r.id as string, name: r.name as string, phone: phoneNorm, phoneDisplay: formatPhoneDisplay(phoneNorm) };
   });
+}
+
+export async function findOrCreateCustomer(input: { phone: string; name?: string }) {
+  const { supabase, branchId, role } = await getActiveTenant();
+  requireCustomerAccess(role);
+  if (!branchId) throw new Error("Branch not set");
+  const norm = normalizePhone62(input.phone);
+  const name = (input.name ?? "").trim() || norm;
+
+  const { data: existing } = await supabase
+    .from("cervise_customers")
+    .select("id, name")
+    .eq("branch_id", branchId)
+    .eq("phone", norm)
+    .maybeSingle();
+  if (existing) return { id: existing.id as string, name: existing.name as string, created: false };
+
+  const { data, error } = await supabase
+    .from("cervise_customers")
+    .insert({ branch_id: branchId, name, phone: norm, tags: ["sales"] })
+    .select("id, name")
+    .single();
+
+  if (error) {
+    const { data: retry } = await supabase
+      .from("cervise_customers")
+      .select("id, name")
+      .eq("branch_id", branchId)
+      .eq("phone", norm)
+      .maybeSingle();
+    if (retry) return { id: retry.id as string, name: retry.name as string, created: false };
+    throw new Error(error.message);
+  }
+
+  return { id: data.id as string, name: data.name as string, created: true };
 }

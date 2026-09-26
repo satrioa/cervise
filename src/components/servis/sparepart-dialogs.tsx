@@ -21,7 +21,7 @@ export function SparepartPickDialog({
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
-  servis: { id: string; device?: string } | null;
+  servis: { id: string; device?: string; serviceNumber?: string | null } | null;
   mode: "transition" | "add";
   onSuccess: () => void;
 }) {
@@ -73,7 +73,7 @@ export function SparepartPickDialog({
     setSaving(true);
     setError(null);
     try {
-      const items = opts?.skip ? [] : selected.map((s) => ({ inventory_item_id: s.row.id, qty: s.qty }));
+      const items = opts?.skip ? [] : selected.map((s) => ({ product_id: s.row.id, qty: s.qty }));
       // validate qty <= stock client side
       for (const s of selected) {
         if (s.qty > s.row.qty) throw new Error(`Stok ${s.row.name} sisa ${s.row.qty}, diminta ${s.qty}`);
@@ -107,7 +107,7 @@ export function SparepartPickDialog({
             </DialogPrimitive.Title>
             <DialogPrimitive.Description className="text-sm text-muted-foreground">
               {mode === "transition" ? (
-                <>Pilih sparepart untuk servis <span className="font-mono font-medium text-foreground">{servis?.id}</span> · {servis?.device ?? ""} — akan langsung mengurangi stok inventory. Boleh dilewati jika tidak pakai part.</>
+                <>Pilih sparepart untuk servis <span className="font-mono font-medium text-foreground">{servis?.serviceNumber ?? servis?.id?.slice(0, 8).toUpperCase()}</span> · {servis?.device ?? ""} — akan langsung mengurangi stok inventory. Boleh dilewati jika tidak pakai part.</>
               ) : (
                 <>Tambah pemakaian sparepart saat status Dikerjakan — stok akan langsung terpotong.</>
               )}
@@ -161,7 +161,7 @@ export function SparepartPickDialog({
                       >
                         <div className="min-w-0">
                           <div className="text-sm font-medium truncate">{r.name}</div>
-                          <div className="font-mono text-xs text-muted-foreground">{r.sku} · {formatCurrencyPlain((r.price_cents / 100))}</div>
+                          <div className="font-mono text-xs text-muted-foreground">{r.sku} · {formatCurrencyPlain(r.price)}</div>
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
                           <Badge variant={out ? "destructive" : r.qty < 5 ? "warning" : "secondary"}>{out ? "Habis" : `Stok ${r.qty}`}</Badge>
@@ -204,18 +204,20 @@ export function CancelSparepartDialog({
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
-  servis: { id: string; device?: string } | null;
+  servis: { id: string; device?: string; serviceNumber?: string | null } | null;
   onSuccess: () => void;
 }) {
   const [rows, setRows] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [reason, setReason] = useState("");
 
   useEffect(() => {
     if (!open || !servis?.id) return;
     setLoading(true);
     setError(null);
+    setReason("");
     getServisSpareparts(servis.id)
       .then(setRows)
       .catch((e) => setError(e.message))
@@ -227,7 +229,7 @@ export function CancelSparepartDialog({
     setSaving(true);
     setError(null);
     try {
-      await cancelServisWithSpareparts(servis.id, decision);
+      await cancelServisWithSpareparts(servis.id, decision, reason);
       onSuccess();
       onOpenChange(false);
     } catch (e: any) {
@@ -237,6 +239,8 @@ export function CancelSparepartDialog({
     }
   };
 
+  const reasonMissing = rows.length > 0 && reason.trim().length < 3;
+
   return (
     <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
       <DialogPrimitive.Portal>
@@ -244,7 +248,7 @@ export function CancelSparepartDialog({
         <DialogPrimitive.Popup className="fixed left-1/2 top-1/2 z-50 w-[95vw] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-xl border bg-background p-6 shadow-xl">
           <DialogPrimitive.Title className="font-semibold flex items-center gap-2"><AlertTriangleIcon className="size-4 text-amber-600" /> Batalkan Servis?</DialogPrimitive.Title>
           <DialogPrimitive.Description className="text-sm text-muted-foreground">
-            Servis <span className="font-mono font-medium text-foreground">{servis?.id}</span> sudah pakai sparepart. Kembalikan ke stok?
+            Servis <span className="font-mono font-medium text-foreground">{servis?.serviceNumber ?? servis?.id?.slice(0, 8).toUpperCase()}</span> sudah pakai sparepart. Putuskan apa yang terjadi pada stok.
           </DialogPrimitive.Description>
 
           <div className="mt-4">
@@ -265,12 +269,24 @@ export function CancelSparepartDialog({
             {error && <div className="mt-2 text-xs text-destructive">{error}</div>}
           </div>
 
+          <div className="mt-4 space-y-2">
+            <label className="block text-xs font-medium text-muted-foreground" htmlFor="cancel-reason">Alasan pembatalan (wajib)</label>
+            <Input
+              id="cancel-reason"
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              placeholder="Contoh: pelanggan batal repair, unit tidak layak"
+              className="h-9"
+            />
+            {reasonMissing && <div className="text-xs text-destructive">Alasan wajib diisi minimal 3 karakter</div>}
+          </div>
+
           <div className="mt-4 flex justify-end gap-2">
             <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>Urungkan</Button>
-            <Button variant="outline" onClick={() => handle("keep_consumed")} disabled={saving} title="Stok tetap terpotong, tercatat sebagai Terpakai">
+            <Button variant="outline" onClick={() => handle("keep_consumed")} disabled={saving || reasonMissing} title="Stok tetap terpotong, tercatat sebagai Terpakai">
               {saving ? "..." : "Tetap terpakai"}
             </Button>
-            <Button onClick={() => handle("return")} disabled={saving} title="Stok dikembalikan">
+            <Button onClick={() => handle("return")} disabled={saving || reasonMissing} title="Stok dikembalikan">
               {saving ? "..." : "Kembalikan ke stok"}
             </Button>
           </div>

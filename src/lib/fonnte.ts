@@ -9,7 +9,10 @@ export async function sendFonnteWA(phone: string, message: string) {
     },
     body: new URLSearchParams({ target: phone, message }),
   });
-  return res.json();
+  if (!res.ok) {
+    throw new Error(`Fonnte request failed with status ${res.status}`);
+  }
+  return res.json() as Promise<unknown>;
 }
 
 // Example: on status change Masuk->Selesai

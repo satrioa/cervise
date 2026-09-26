@@ -27,6 +27,7 @@
     "@intentui": "https://intentui.com/r/{name}",
     "@pdfcn": "https://pdfcn.dev/r/{name}.json",
     "@smoothui": "https://smoothui.dev/r/{name}.json",
-    "@ncdai": "https://chanhdai.com/r/{name}.json"
+    "@ncdai": "https://chanhdai.com/r/{name}.json",
+    "@uitripled": "https://ui.tripled.work/r/{name}.json"
   }
 }

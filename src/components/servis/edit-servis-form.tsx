@@ -22,8 +22,7 @@ import { id as localeId } from "date-fns/locale";
 type Props = {
   servisId: string;
   initial: ServisDetail | any;
-  isDummy?: boolean;
-  onSuccess?: (updated?: any) => void;
+  onSuccess?: () => void;
   onCancel?: () => void;
 };
 
@@ -32,7 +31,7 @@ function initials(name?: string | null) {
   return name.trim().split(/\s+/).slice(0, 2).map((w) => w[0]?.toUpperCase()).join("") || "?";
 }
 
-export function EditServisForm({ servisId, initial, isDummy, onSuccess, onCancel }: Props) {
+export function EditServisForm({ servisId, initial, onSuccess, onCancel }: Props) {
   // prefill from initial
   const [merk, setMerk] = useState(initial.merk ?? "");
   const [tipe, setTipe] = useState(initial.tipe ?? "");
@@ -106,27 +105,6 @@ export function EditServisForm({ servisId, initial, isDummy, onSuccess, onCancel
     setError(null);
     const msg = validate();
     if (msg) { setError(msg); return; }
-    if (isDummy) {
-      // untuk DUMMY tidak panggil server, langsung callback dengan data lokal
-      onSuccess?.({
-        merk: merk.trim(),
-        tipe: tipe.trim(),
-        imei1: imei1.trim(),
-        imei2: imei2.trim() || undefined,
-        kerusakan,
-        kelengkapan,
-        password_type: passwordType,
-        password_value: passwordValue.trim(),
-        customer_name: custName.trim(),
-        customer_address: custAddr.trim() || undefined,
-        customer_phone: custPhone.trim(),
-        garansi_value: Number(garansiVal),
-        garansi_unit: garansiUnit,
-        price_estimasi: priceEstimasi === "" ? null : Number(priceEstimasi),
-        teknisi_id: teknisiId,
-      });
-      return;
-    }
     setLoading(true);
     try {
       await updateServis({

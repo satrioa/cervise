@@ -1,3 +1,5 @@
+import { normalizeRole } from "./auth/authorization";
+
 export type Role = "super_owner" | "master_admin" | "admin" | "frontliner" | "teknisi";
 
 export const ROLE_LABEL: Record<Role, string> = {
@@ -14,6 +16,7 @@ export const MENU_ACCESS: Record<string, Role[]> = {
   sparepart: ["super_owner", "master_admin", "admin"], // Hanya Admin per request
   inventory: ["super_owner", "master_admin", "admin"], // alias lama — hapus setelah migrasi route selesai
   penjualan: ["super_owner", "master_admin", "admin", "frontliner"],
+  harga_jual: ["super_owner", "master_admin", "admin"],
   customer: ["super_owner", "master_admin", "admin", "frontliner"],
   karyawan: ["super_owner", "master_admin", "admin"],
   cabang: ["super_owner", "master_admin", "admin"],
@@ -33,6 +36,9 @@ export const MENU_ACCESS: Record<string, Role[]> = {
   pengaturan_usage: ["super_owner", "master_admin", "admin"],
 };
 
-export function canAccess(role: Role, menu: string) {
-  return MENU_ACCESS[menu]?.includes(role) ?? false;
+export function canAccess(role: string | null | undefined, menu: string) {
+  const normalizedRole = normalizeRole(role);
+  if (!normalizedRole) return false;
+  const allowedRoles = MENU_ACCESS[menu]?.map((allowedRole) => normalizeRole(allowedRole));
+  return allowedRoles?.includes(normalizedRole) ?? false;
 }

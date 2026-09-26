@@ -11,7 +11,7 @@ export async function getLocale() {
   const uid = auth.user.id;
   const { data } = await supabase.from("profiles").select("settings").eq("id", uid).maybeSingle();
   if ((data as any)?.settings?.locale) return (data as any).settings.locale as LocaleState;
-  const { data: cp } = await supabase.from("cervise_profiles").select("settings").eq("id", uid).maybeSingle();
+  const { data: cp } = await supabase.from("profiles").select("settings").eq("id", uid).maybeSingle();
   return ((cp as any)?.settings?.locale as LocaleState) ?? null;
 }
 
@@ -32,11 +32,11 @@ export async function updateLocale(locale: LocaleState) {
   const merged = { ...((cur as any)?.settings ?? {}), locale };
   const { error } = await supabase.from("profiles").update({ settings: merged } as any).eq("id", uid);
   if (error) throw new Error(error.message);
-  // also sync cervise_profiles if exists
-  const { data: cur2 } = await supabase.from("cervise_profiles").select("settings").eq("id", uid).maybeSingle();
+  // also sync profiles if exists
+  const { data: cur2 } = await supabase.from("profiles").select("settings").eq("id", uid).maybeSingle();
   if (cur2) {
     const merged2 = { ...((cur2 as any)?.settings ?? {}), locale };
-    await supabase.from("cervise_profiles").update({ settings: merged2 } as any).eq("id", uid);
+    await supabase.from("profiles").update({ settings: merged2 } as any).eq("id", uid);
   }
   revalidatePath("/app/pengaturan/lokalisasi");
   return { ok: true };

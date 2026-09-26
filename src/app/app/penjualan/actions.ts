@@ -5,17 +5,19 @@ import { revalidatePath } from "next/cache";
 import { randomUUID } from "crypto";
 
 import { getActiveTenant } from "@/lib/supabase/actor";
+import { canAccess } from "@/lib/rbac";
+import { validateSaleItems } from "@/lib/sales/validation";
 
 async function getBranchUser() {
   const actor = await getActiveTenant();
   // getActiveTenant already validates is_active and tenant
+  if (!actor.branchId) throw new Error("Branch not set for tenant");
   const supabase = actor.supabase;
-  return { supabase, userId: actor.userId, branchId: actor.branchId!, organizationId: actor.orgId, role: actor.role, email: "" };
+  return { supabase, userId: actor.userId, branchId: actor.branchId, organizationId: actor.orgId, role: actor.role, email: "" };
 }
 
 function requireSalesAccess(role: string) {
-  const r = role.toLowerCase();
-  if (!["super_owner", "master_admin", "admin", "frontliner"].includes(r)) throw new Error("Hanya frontliner/admin boleh transaksi penjualan");
+  if (!canAccess(role, "penjualan")) throw new Error("Hanya frontliner/admin boleh transaksi penjualan");
 }
 
 function genNota(): string {
@@ -57,7 +59,8 @@ function slugParent(name: string): string {
 }
 
 export async function searchProductsForSale(q: string, opts?: { variant_type?: "BARU" | "BEKAS" | "semua" }): Promise<ProductRow[]> {
-  const { supabase, branchId } = await getBranchUser();
+  const { supabase, branchId, role } = await getBranchUser();
+  requireSalesAccess(role);
   let query = supabase
     .from("cervise_products")
     .select("id, branch_id, sku, barcode, name, category, stock_qty, cost, price, is_serialized, is_active, variant_type, storage, warna, bh_percent, kondisi_notes, garansi_days, imei, parent_key")
@@ -99,13 +102,20 @@ export async function createProduct(input: {
   garansi_days?: number | null;
   imei?: string | null;
 }) {
-  const { supabase, branchId, role } = await getBranchUser();
-  // also need organization_id for new table
-  const { data: orgData } = await supabase.from("employees").select("organization_id").eq("branch_id", branchId).limit(1).maybeSingle();
-  const organization_id = (orgData as any)?.organization_id ?? null;
+  const { supabase, branchId, organizationId, role } = await getBranchUser();
+  const organization_id = organizationId;
   requireSalesAccess(role);
   const name = input.name.trim();
   if (!name) throw new Error("Nama produk wajib");
+  if (!Number.isFinite(input.cost) || input.cost < 0) throw new Error("Modal harus valid");
+  if (!Number.isFinite(input.price) || input.price < 0) throw new Error("Harga jual harus valid");
+  if (!Number.isInteger(input.stock_qty ?? 0) || (input.stock_qty ?? 0) < 0) throw new Error("Stok awal harus bilangan bulat >= 0");
+  if (input.bh_percent != null && (!Number.isFinite(input.bh_percent) || input.bh_percent < 0 || input.bh_percent > 100)) {
+    throw new Error("Persentase BH harus 0-100");
+  }
+  if (input.garansi_days != null && (!Number.isInteger(input.garansi_days) || input.garansi_days < 0)) {
+    throw new Error("Garansi harus bilangan bulat >= 0");
+  }
   const category = ["Gadget", "Aksesori", "Lainnya"].includes(input.category) ? input.category : "Lainnya";
   const variant_type = input.variant_type ?? (input.is_serialized ? "BEKAS" : "BARU");
   const parent_key = slugParent(name);
@@ -169,12 +179,13 @@ export async function createProduct(input: {
     throw new Error(error.message);
   }
   revalidatePath("/app/penjualan");
-  revalidatePath("/app/sparepart");
+  revalidatePath("/app/inventori");
   return { sku };
 }
 
 export async function getSalesOrders(filters?: { q?: string; metode?: string; status?: string; from?: string; to?: string }) {
-  const { supabase, branchId } = await getBranchUser();
+  const { supabase, branchId, role } = await getBranchUser();
+  requireSalesAccess(role);
   let q = supabase.from("cervise_sales").select("id, branch_id, customer_id, sale_number, subtotal, discount_total, total, paid, payment_status, payment_method, status, kas_date, notes, created_at, created_by").eq("branch_id", branchId).order("created_at", { ascending: false }).limit(100);
   if (filters?.metode && filters.metode !== "semua") q = q.eq("payment_method", filters.metode);
   if (filters?.status && filters.status !== "semua") q = q.eq("status", filters.status);
@@ -210,7 +221,8 @@ export async function getSalesOrders(filters?: { q?: string; metode?: string; st
 }
 
 export async function getSaleDetail(saleId: string) {
-  const { supabase, branchId } = await getBranchUser();
+  const { supabase, branchId, role } = await getBranchUser();
+  requireSalesAccess(role);
   const { data: sale, error } = await supabase.from("cervise_sales").select("*").eq("id", saleId).eq("branch_id", branchId).maybeSingle();
   if (error || !sale) throw new Error("Sale not found");
   const { data: items } = await supabase.from("cervise_sales_items").select("*").eq("sale_id", saleId);
@@ -233,30 +245,52 @@ export async function createSale(input: {
   if (!input.customerId) throw new Error("Customer wajib");
   if (!input.items.length) throw new Error("Keranjang kosong");
   if (!["Tunai", "Debit", "Transfer", "QRIS", "E-Wallet"].includes(input.payment_method)) throw new Error("Metode invalid");
+  if (!Number.isFinite(input.paid) || input.paid < 0) throw new Error("Pembayaran tidak valid");
 
-  // validate stock & snapshot
   const pIds = input.items.map((i) => i.product_id);
   const { data: prods, error: pErr } = await supabase.from("cervise_products").select("id, sku, name, category, stock_qty, cost, price, is_serialized").in("id", pIds).eq("branch_id", branchId);
   if (pErr) throw new Error(pErr.message);
   const pMap = new Map<string, any>();
   for (const p of (prods as any[]) ?? []) pMap.set(p.id, p);
+
+  const canOverridePrice = canAccess(role, "harga_jual");
+  const saleItems = input.items.map((item) => {
+    const product = pMap.get(item.product_id);
+    return {
+      ...item,
+      qty: Number(item.qty),
+      unit_price: canOverridePrice ? Number(item.unit_price) : Number(product.price),
+    };
+  });
+
+  validateSaleItems(
+    saleItems,
+    [...pMap.values()].map((product) => ({
+      id: product.id,
+      name: product.name,
+      stock_qty: Number(product.stock_qty),
+      is_serialized: Boolean(product.is_serialized),
+      price: Number(product.price),
+    })),
+  );
+
   let subtotal = 0;
-  for (const it of input.items) {
+  for (const it of saleItems) {
     const p = pMap.get(it.product_id);
-    if (!p) throw new Error("Produk tidak ditemukan");
-    if (p.is_serialized && it.qty !== 1) throw new Error(`${p.name} wajib qty 1 (IMEI)`);
-    if (it.qty > p.stock_qty) throw new Error(`Stok ${p.name} tidak cukup (sisa ${p.stock_qty})`);
-    if (it.unit_price < 0) throw new Error("Harga tidak valid");
-    if (p.is_serialized && !it.imei1?.trim()) throw new Error(`IMEI wajib untuk ${p.name}`);
-    // cek imei duplikat di sales_items
-    if (it.imei1) {
+    if (p.is_serialized && it.imei1) {
       const { data: dup } = await supabase.from("cervise_sales_items").select("id").eq("is_serialized", true).contains("item_meta", { imei1: it.imei1.trim() });
       if (dup && (dup as any[]).length) throw new Error(`IMEI ${it.imei1} sudah terpakai`);
     }
-    subtotal += it.qty * it.unit_price;
+    subtotal += Number(it.qty) * Number(it.unit_price);
   }
-  const discount_total = Math.max(0, Math.min(Number(input.discount_total ?? 0), subtotal));
+  const requestedDiscount = Number(input.discount_total ?? 0);
+  if (!Number.isFinite(requestedDiscount) || requestedDiscount < 0) throw new Error("Diskon tidak valid");
+  if (!canOverridePrice && requestedDiscount > 0) throw new Error("Hanya admin yang boleh memberikan diskon");
+  const discount_total = Math.max(0, Math.min(requestedDiscount, subtotal));
   const total = Math.max(0, subtotal - discount_total); // stack: promo di atas diskon per item
+  if (input.payment_method !== "Tunai" && input.paid > total) {
+    throw new Error("Pembayaran non-tunai tidak boleh melebihi total");
+  }
   const paid = Math.min(input.paid, total);
   const payment_status = paid >= total ? "lunas" : paid > 0 ? "dp" : "belum_bayar";
   const sale_number = genNota();
@@ -286,7 +320,7 @@ export async function createSale(input: {
   if (sErr) throw new Error(sErr.message);
   const saleId = (sale as any).id as string;
 
-  for (const it of input.items) {
+  for (const it of saleItems) {
     const p = pMap.get(it.product_id);
     const line_total = it.qty * it.unit_price;
     const { error: iErr } = await supabase.from("cervise_sales_items").insert({
@@ -303,13 +337,24 @@ export async function createSale(input: {
       item_meta: { imei1: it.imei1?.trim() || null, imei2: it.imei2?.trim() || null, warna: it.warna || null },
     } as any);
     if (iErr) throw new Error(iErr.message);
-    // kurangi stok
-    const { error: stErr } = await supabase.from("cervise_products").update({ stock_qty: p.stock_qty - it.qty } as any).eq("id", p.id).eq("branch_id", branchId);
+    const { error: stErr } = await supabase.rpc("adjust_product_stock", {
+      p_product_id: p.id,
+      p_delta: -it.qty,
+      p_expected_stock: Number(p.stock_qty),
+    });
     if (stErr) throw new Error(stErr.message);
   }
 
   if (paid > 0) {
-    await supabase.from("cervise_finance_tx").insert({ branch_id: branchId, type: "pemasukan", amount: paid, description: `Penjualan ${sale_number}`, kas_date: input.kas_date, created_by: userId } as any);
+    const { error: financeError } = await supabase.from("finance_tx").insert({
+      branch_id: branchId,
+      type: "pemasukan",
+      amount: paid,
+      description: `Penjualan ${sale_number}`,
+      kas_date: input.kas_date,
+      created_by: userId,
+    } as any);
+    if (financeError) throw new Error(financeError.message);
   }
 
   revalidatePath("/app/penjualan");
@@ -327,11 +372,14 @@ export async function returnSaleItems(saleId: string, returns: { item_id: string
     const { data: it } = await supabase.from("cervise_sales_items").select("id, product_id, qty, qty_returned").eq("id", r.item_id).eq("sale_id", saleId).maybeSingle();
     if (!it) throw new Error("Item not found");
     const available = (it as any).qty - (it as any).qty_returned;
-    if (r.qty <= 0 || r.qty > available) throw new Error("Qty retur invalid");
-    // kembalikan stok
-    const { data: prod } = await supabase.from("cervise_products").select("stock_qty").eq("id", (it as any).product_id).eq("branch_id", branchId).maybeSingle();
-    await supabase.from("cervise_products").update({ stock_qty: ((prod as any)?.stock_qty ?? 0) + r.qty } as any).eq("id", (it as any).product_id);
-    await supabase.from("cervise_sales_items").update({ qty_returned: (it as any).qty_returned + r.qty } as any).eq("id", r.item_id);
+    if (!Number.isInteger(r.qty) || r.qty <= 0 || r.qty > available) throw new Error("Qty retur invalid");
+    const { error: stockError } = await supabase.rpc("adjust_product_stock", {
+      p_product_id: (it as any).product_id,
+      p_delta: r.qty,
+    });
+    if (stockError) throw new Error(stockError.message);
+    const { error: returnError } = await supabase.from("cervise_sales_items").update({ qty_returned: (it as any).qty_returned + r.qty } as any).eq("id", r.item_id);
+    if (returnError) throw new Error(returnError.message);
   }
   // cek apakah semua qty sudah retur → status retur
   const { data: allItems } = await supabase.from("cervise_sales_items").select("qty, qty_returned").eq("sale_id", saleId);

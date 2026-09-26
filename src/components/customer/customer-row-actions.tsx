@@ -118,7 +118,7 @@ export function CustomerRowActions({ customer }: { customer: Customer }) {
                         <div className="truncate text-sm">{s.problem}</div>
                         <div className="text-xs text-muted-foreground">{s.created_at}</div>
                       </div>
-                      <Badge variant="secondary" size="sm" className="font-mono tabular-nums shrink-0">{formatCurrencyPlain((s.subtotal_cents / 100))}</Badge>
+                      <Badge variant="secondary" size="sm" className="font-mono tabular-nums shrink-0">{formatCurrencyPlain(s.total)}</Badge>
                     </div>
                   ))}
                 </div>

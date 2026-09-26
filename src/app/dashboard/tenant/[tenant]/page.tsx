@@ -1,18 +1,15 @@
-import { notFound } from "next/navigation";
-import { cookies } from "next/headers";
-import { getTenantBySlugForCurrentUser } from "@/lib/supabase/actor";
-import DashboardPage from "@/app/app/page";
+import { redirect } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { getTenantAccessRedirect } from "@/lib/auth/authorization";
+import { getTenantBySlugForCurrentUser, TenantAccessError } from "@/lib/supabase/actor";
+import { selectTenant } from "../actions";
 
 export default async function TenantDashboardPage({ params }: { params: Promise<{ tenant: string }> }) {
   const { tenant: slug } = await params;
-  // Centralized resolver: validates auth + slug + active employee membership, 404 if invalid/unauthorized
-  const { organization } = await getTenantBySlugForCurrentUser(slug);
+  const { organization } = await getTenantBySlugForCurrentUser(slug).catch((error: unknown) => {
+    if (error instanceof TenantAccessError) redirect(getTenantAccessRedirect(error.code));
+    throw error;
+  });
 
-  // URL is canonical, update compatibility cookie to resolved org id (never override URL)
-  const cookieStore = await cookies();
-  cookieStore.set("cervise_org", organization.id, { path: "/", maxAge: 31536000 });
-
-  // Render operational dashboard (reuse existing)
-  // TenantProvider will pick up cookie on next client navigation, but we also pass via props implicitly
-  return <DashboardPage />;
+  return <main className="flex min-h-svh items-center justify-center bg-background px-4 py-12"><form action={selectTenant} className="rounded-xl border bg-card p-6 text-center"><h1 className="font-heading text-xl">Buka {organization.name}</h1><p className="mt-2 text-sm text-muted-foreground">Simpan tenant ini sebagai tenant terakhir yang dibuka.</p><input type="hidden" name="organizationId" value={organization.id} /><Button type="submit" className="mt-4">Lanjutkan</Button></form></main>;
 }

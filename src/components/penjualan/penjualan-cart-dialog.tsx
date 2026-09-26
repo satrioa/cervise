@@ -12,9 +12,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
-import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
 import { searchProductsForSale, createSale, type ProductRow } from "@/app/app/penjualan/actions";
+import { findOrCreateCustomer } from "@/app/app/customer/actions";
 
 const METODE = ["Tunai", "Debit", "Transfer", "QRIS", "E-Wallet"] as const;
 
@@ -81,20 +81,13 @@ export function PenjualanCartDialog({ open, onOpenChange, branchLabel, onSuccess
   const lookupCustomer = async () => {
     const phone = customerPhone.trim();
     if (!phone) return;
-    const supabase = createClient();
-    const { data } = await supabase.from("cervise_customers").select("id, name").ilike("phone", `%${phone}%`).limit(1).maybeSingle();
-    if (data) { setCustomerId((data as any).id); setCustomerName((data as any).name); toast.success(`Customer ditemukan: ${(data as any).name}`); }
-    else {
-      // create inline
-      const { data: branch } = await supabase.from("cervise_branches").select("id").limit(1).maybeSingle();
-      if (!branch) { toast.error("Branch tidak ditemukan"); return; }
-      // need branch_id from current user — fallback to first
-      const { data: prof } = await supabase.auth.getUser();
-      const { data: cp } = await supabase.from("cervise_profiles").select("branch_id").eq("id", prof.user!.id).maybeSingle();
-      const branchId = (cp as any)?.branch_id ?? (branch as any).id;
-      const { data: nc, error } = await supabase.from("cervise_customers").insert({ branch_id: branchId, name: customerName || phone, phone, tags: ["sales"] } as any).select("id").single();
-      if (error) toast.error(error.message);
-      else { setCustomerId((nc as any).id); toast.success("Customer baru dibuat"); }
+    try {
+      const result = await findOrCreateCustomer({ phone, name: customerName });
+      setCustomerId(result.id);
+      setCustomerName(result.name);
+      toast.success(result.created ? "Customer baru dibuat" : `Customer ditemukan: ${result.name}`);
+    } catch (e: any) {
+      toast.error(e.message ?? "Gagal memproses customer");
     }
   };
 

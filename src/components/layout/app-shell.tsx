@@ -58,13 +58,12 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { label: "Servis", href: "/app/servis", icon: Wrench, badge: 12 },
       { label: "Penjualan", href: "/app/penjualan", icon: ShoppingCart },
-      { label: "Sparepart", href: "/app/sparepart", icon: Package },
     ],
   },
   {
     label: "Manajemen",
     items: [
-      { label: "Inventori", href: "/app/inventori", icon: ShoppingBag },
+      { label: "Inventori", href: "/app/inventori", icon: Package },
       { label: "Customer", href: "/app/customer", icon: Users },
       { label: "Karyawan", href: "/app/karyawan", icon: UserCog },
       { label: "Cabang", href: "/app/cabang", icon: Building2 },
@@ -119,8 +118,7 @@ function navItemKey(item: NavItem): string {
   if (item.href === "/app") return "items.dashboard";
   if (item.href === "/app/servis") return "items.service";
   if (item.href === "/app/penjualan") return "items.sales";
-  if (item.href === "/app/inventori") return "items.inventory";
-  if (item.href === "/app/sparepart") return "items.sparepart";
+  if (item.href === "/app/inventori") return "items.sparepart";
   if (item.href === "/app/customer") return "items.customer";
   if (item.href === "/app/karyawan") return "items.employee";
   if (item.href === "/app/cabang") return "items.branch";
@@ -409,7 +407,7 @@ const BOTTOM_TABS: BottomTab[] = [
   { key: "dashboard", label: "Beranda", href: "/app", icon: HomeIcon },
   { key: "servis", label: "Servis", href: "/app/servis", icon: Wrench },
   { key: "create", label: "Tambah", href: "/app/servis/baru", icon: PlusIcon, isCenter: true },
-  { key: "sparepart", label: "Sparepart", href: "/app/sparepart", icon: Package },
+  { key: "sparepart", label: "Sparepart", href: "/app/inventori", icon: Package },
   { key: "lainnya", label: "Lainnya", icon: Settings },
 ];
 

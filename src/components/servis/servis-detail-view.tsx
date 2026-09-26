@@ -82,27 +82,6 @@ function PatternPreview({ value }: { value: string }) {
 
 type Props = {
   data: ServisDetail | null;
-  dummy?: {
-    id: string;
-    device: string;
-    status: string;
-    price: number;
-    date: string;
-    complaint?: string;
-    merk?: string;
-    tipe?: string;
-    imei1?: string;
-    imei2?: string;
-    kerusakan?: string[];
-    kelengkapan?: string[];
-    password_type?: string;
-    password_value?: string;
-    garansi_value?: number;
-    garansi_unit?: string;
-    garansi_until?: string | null;
-    kondisi_awal?: Record<string, { status: "normal" | "tidak_normal"; note: string }>;
-    created_at?: string;
-  };
 };
 
 function initials(name?: string | null) {
@@ -199,11 +178,12 @@ function mapLogsToEvents(logs: any[], history: any[], detail: any): TimelineEven
   return events;
 }
 
-export function ServisDetailView({ data, dummy }: Props) {
-  const d: any = data ?? dummy;
+export function ServisDetailView({ data }: Props) {
+  const d: any = data;
   if (!d) return <div className="p-6 text-sm text-muted-foreground">Data tidak tersedia</div>;
 
   const id = d.id ?? "—";
+  const serviceNumber: string = d.service_number ?? id.slice(0, 8).toUpperCase();
   const device = d.device ?? (`${d.merk ?? ""} ${d.tipe ?? ""}`.trim() || "—");
   const status = d.status ?? "Masuk";
   const price = d.price ?? 0;
@@ -238,7 +218,7 @@ export function ServisDetailView({ data, dummy }: Props) {
   const [spareparts, setSpareparts] = useState<any[]>([]);
   const [spLoading, setSpLoading] = useState(false);
   const [openAddPart, setOpenAddPart] = useState(false);
-  const totalPaid = history.length ? history.reduce((a, b) => a + Number(b.amount), 0) : Number(d.price ?? 0);
+  const totalPaid = history.reduce((a, b) => a + Number(b.amount), 0);
   const estimasiVal = d.price_estimasi ?? null;
   const sisa = estimasiVal != null ? Math.max(0, estimasiVal - totalPaid) : null;
   const canAdd = canAddSparepart(status as any);
@@ -287,7 +267,7 @@ export function ServisDetailView({ data, dummy }: Props) {
               </div>
               <CardTitle className="mt-2 text-xl leading-tight truncate">{device}</CardTitle>
               <CardDescription className="flex items-center gap-1.5 mt-1">
-                {garansiUntil ? <span className="inline-flex items-center gap-1"><ShieldCheckIcon className="size-3.5" /> Garansi s/d {format(new Date(garansiUntil), "d MMM yyyy", { locale: localeId })}</span> : <span className="text-xs text-muted-foreground">ID Servis: <span className="font-mono">{id}</span> · Jam {createdAt ? format(new Date(createdAt), "HH:mm", { locale: localeId }) : "—"}</span>}
+                {garansiUntil ? <span className="inline-flex items-center gap-1"><ShieldCheckIcon className="size-3.5" /> Garansi s/d {format(new Date(garansiUntil), "d MMM yyyy", { locale: localeId })}</span> : <span className="text-xs text-muted-foreground">No. Servis: <span className="font-mono">{serviceNumber}</span> · Jam {createdAt ? format(new Date(createdAt), "HH:mm", { locale: localeId }) : "—"}</span>}
               </CardDescription>
             </div>
             <div className="hidden sm:flex flex-col items-end gap-2 shrink-0">
@@ -465,11 +445,11 @@ export function ServisDetailView({ data, dummy }: Props) {
                       <div className="divide-y">
                         {spareparts.map((r: any) => (
                           <div key={r.id} className="grid grid-cols-1 sm:grid-cols-[1fr_90px_80px_90px_110px] gap-1 sm:gap-2 px-3 py-2.5 text-sm items-center">
-                            <span className="font-medium truncate">{r.name ?? r.description}</span>
+                            <span className="font-medium truncate">{r.name}</span>
                             <span className="font-mono text-xs text-muted-foreground">{r.sku ?? "—"}</span>
                             <span className="text-center font-mono">×{r.qty}</span>
-                            <span className="text-right font-mono text-xs">{formatCurrencyPlain((Number(r.unit_price_cents ?? 0) / 100))}</span>
-                            <span className="flex justify-center">{r.is_returned ? <Badge variant="warning">Dikembalikan</Badge> : status === "Batal" ? <Badge variant="secondary">Terpakai</Badge> : <Badge variant="success">Terpakai</Badge>}</span>
+                            <span className="text-right font-mono text-xs">{formatCurrencyPlain(Number(r.unit_price ?? 0))}</span>
+                            <span className="flex justify-center">{r.is_returned ? <Badge variant="warning">Dikembalikan</Badge> : <Badge variant="success">Terpakai</Badge>}</span>
                           </div>
                         ))}
                       </div>
@@ -593,7 +573,7 @@ export function ServisDetailView({ data, dummy }: Props) {
         </DialogPrimitive.Portal>
       </DialogPrimitive.Root>
 
-      <SparepartPickDialog open={openAddPart} onOpenChange={setOpenAddPart} servis={{ id, device }} mode="add" onSuccess={refreshSpareparts} />
+      <SparepartPickDialog open={openAddPart} onOpenChange={setOpenAddPart} servis={{ id, device, serviceNumber }} mode="add" onSuccess={refreshSpareparts} />
     </div>
   );
 }

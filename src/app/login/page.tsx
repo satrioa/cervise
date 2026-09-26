@@ -9,8 +9,8 @@ import { Card, CardHeader, CardPanel } from "@/components/ui/card";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
-import { Separator } from "@/components/ui/separator";
 import { createClient } from "@/lib/supabase/client";
+import { getPostLoginDestination } from "./actions";
 import { toast } from "sonner";
 
 export default function LoginPage() {
@@ -70,23 +70,15 @@ function SignInForm() {
     setPending(true);
     try {
       const supabase = createClient();
-      const { data, error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
+      const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
       if (error) throw error;
       toast.success("Berhasil masuk");
-      // If user has no tenant/branch yet, send to onboarding (dark stepper)
-      const uid = data.user?.id;
-      if (uid) {
-        const { data: emps } = await supabase.from("employees").select("id").eq("profile_id", uid).eq("is_active", true).limit(1);
-        if (!emps || emps.length === 0) {
-          router.push("/onboarding");
-          router.refresh();
-          return;
-        }
-      }
-      router.push("/app");
+      const clientSavedOrganizationId = window.localStorage.getItem("cervise_org");
+      const destination = await getPostLoginDestination(clientSavedOrganizationId);
+      router.push(destination);
       router.refresh();
-    } catch (err: any) {
-      toast.error(err?.message ?? "Gagal masuk");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Gagal masuk");
     } finally {
       setPending(false);
     }

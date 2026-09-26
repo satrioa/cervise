@@ -1,9 +1,9 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
-import { format, differenceInCalendarDays } from "date-fns";
+import { format } from "date-fns";
 import { id as localeId } from "date-fns/locale";
-import { ShieldCheckIcon, SearchIcon, CalendarIcon, XIcon, FileTextIcon, PhoneIcon, WrenchIcon } from "lucide-react";
+import { ShieldCheckIcon, SearchIcon, CalendarIcon, XIcon, FileTextIcon, PhoneIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
@@ -16,8 +16,7 @@ import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
 import { Label } from "@/components/ui/label";
 import { GaransiField } from "@/components/servis/garansi-field";
 import { useBranch } from "@/lib/branch-context";
-import { cn } from "@/lib/utils";
-import { getServisDetail } from "@/app/app/servis/actions";
+import { extendGaransi, getGaransiList } from "@/app/app/garansi/actions";
 import { PageHeader } from "@/components/layout/page-header";
 
 type GaransiRow = {
@@ -32,16 +31,6 @@ type GaransiRow = {
   cabang: string;
   status: string;
 };
-
-const DUMMY_GARANSI: GaransiRow[] = [
-  { id: "SV-1007", invoiceNo: "INV-12092026120000", createdAt: "2026-09-12", garansiUntil: "2026-10-12", garansiValue: 30, garansiUnit: "hari", customer: { name: "Citra Amelia", phone: "081245667788" }, device: "iPhone 11", cabang: "Cervise Pusat", status: "Sudah Diambil" },
-  { id: "SV-1009", invoiceNo: "INV-08092026080000", createdAt: "2026-09-08", garansiUntil: "2026-09-23", garansiValue: 15, garansiUnit: "hari", customer: { name: "Bambang Wijaya", phone: "081299001122" }, device: "Vivo Y20", cabang: "Cervise Pusat", status: "Sudah Diambil" },
-  { id: "SV-1008", invoiceNo: "INV-10092026100000", createdAt: "2026-09-10", garansiUntil: "2026-09-20", garansiValue: 10, garansiUnit: "hari", customer: { name: "Doni", phone: "081388990011" }, device: "Xiaomi Redmi", cabang: "Cervise Pusat", status: "Selesai" },
-  { id: "SV-1013", invoiceNo: "INV-15092026150000", createdAt: "2026-09-15", garansiUntil: null, garansiValue: 30, garansiUnit: "hari", customer: { name: "Eko", phone: "081212009900" }, device: "Infinix Hot 12", cabang: "Cervise Pusat", status: "Masuk" },
-  { id: "SV-1011", invoiceNo: "INV-19092026190000", createdAt: "2026-09-19", garansiUntil: "2026-10-26", garansiValue: 1, garansiUnit: "bulan", customer: { name: "Fajar", phone: "081376543210" }, device: "Realme 11", cabang: "Cervise Pusat", status: "Selesai" },
-  { id: "SV-1014", invoiceNo: "INV-19092026191939", createdAt: "2026-09-19", garansiUntil: "2026-09-26", garansiValue: 7, garansiUnit: "hari", customer: { name: "Hadi", phone: "081299887766" }, device: "Oppo A57", cabang: "Cervise Pusat", status: "Batal" },
-  { id: "SV-1015", invoiceNo: "INV-21092026070000", createdAt: "2026-09-21", garansiUntil: "2026-12-21", garansiValue: 3, garansiUnit: "bulan", customer: { name: "Rina", phone: "081212345601" }, device: "iPhone 14 Pro", cabang: "Cervise Pusat", status: "Sudah Diambil" },
-];
 
 function toDays(value: number, unit: string): number {
   if (unit === "hari") return value;
@@ -72,22 +61,37 @@ export default function GaransiPage() {
   const [q, setQ] = useState("");
   const [status, setStatus] = useState<string>("Semua");
   const [dateRange, setDateRange] = useState<{ from?: Date; to?: Date }>({});
-  const [rows, setRows] = useState<GaransiRow[]>(DUMMY_GARANSI);
+  const [rows, setRows] = useState<GaransiRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [perpanjangOpen, setPerpanjangOpen] = useState(false);
   const [selected, setSelected] = useState<GaransiRow | null>(null);
   const [newValue, setNewValue] = useState<number | "">("");
   const [newUnit, setNewUnit] = useState<"hari" | "bulan" | "tahun">("hari");
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
-  // Try to fetch real data, fallback to dummy
+  // Reset during render when the branch changes, so the effect only fetches.
+  const [loadedBranchId, setLoadedBranchId] = useState(branch.id);
+  if (loadedBranchId !== branch.id) {
+    setLoadedBranchId(branch.id);
+    setRows([]);
+    setLoading(true);
+    setLoadError(null);
+  }
+
   useEffect(() => {
     let cancelled = false;
-    (async () => {
-      try {
-        // Attempt to fetch via getServisDetail for each dummy id is not efficient; keep dummy for demo
-        // Real implementation would call getGaransiList server action
-      } catch {}
-      if (cancelled) return;
-    })();
+    getGaransiList()
+      .then((data) => {
+        if (!cancelled) setRows(data);
+      })
+      .catch((error) => {
+        if (!cancelled) setLoadError(error instanceof Error ? error.message : "Gagal memuat data garansi");
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
     return () => {
       cancelled = true;
     };
@@ -95,10 +99,9 @@ export default function GaransiPage() {
 
   const filtered = useMemo(() => {
     return rows.filter((r) => {
-      if (branch.id !== "all" && r.cabang !== branch.label && branch.label !== "Semua cabang") {
-        // If dummy cabang doesn't match branch, filter out
-        if (r.cabang !== branch.label) return false;
-      }
+      // the server action already scopes to the actor branch; this only guards
+      // the case where the client is showing a different selected branch
+      if (branch.id !== "all" && r.cabang !== branch.label) return false;
       if (q.trim()) {
         const hay = `${r.invoiceNo} ${r.customer.name} ${r.customer.phone} ${r.device}`.toLowerCase();
         if (!hay.includes(q.trim().toLowerCase())) return false;
@@ -146,21 +149,26 @@ export default function GaransiPage() {
     setSelected(row);
     setNewValue(row.garansiValue);
     setNewUnit(row.garansiUnit);
+    setSaveError(null);
     setPerpanjangOpen(true);
   };
 
-  const handlePerpanjang = () => {
-    if (!selected || newValue === "" || Number(newValue) <= 0) return;
+  const handlePerpanjang = async () => {
+    if (!selected || newValue === "" || Number(newValue) <= 0 || saving) return;
     const val = Number(newValue);
     const unit = newUnit;
-    const totalDays = toDays(val, unit);
-    const until = new Date();
-    until.setHours(23, 59, 59, 999);
-    // Add totalDays to today
-    until.setDate(until.getDate() + totalDays);
-    const newUntil = until.toISOString().slice(0, 10);
-    setRows((prev) => prev.map((r) => (r.id === selected.id ? { ...r, garansiValue: val, garansiUnit: unit, garansiUntil: newUntil } : r)));
-    setPerpanjangOpen(false);
+    setSaving(true);
+    setSaveError(null);
+    try {
+      const result = await extendGaransi(selected.id, val, unit);
+      const newUntil = result.garansiUntil.slice(0, 10);
+      setRows((prev) => prev.map((r) => (r.id === selected.id ? { ...r, garansiValue: val, garansiUnit: unit, garansiUntil: newUntil } : r)));
+      setPerpanjangOpen(false);
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : "Gagal memperpanjang garansi");
+    } finally {
+      setSaving(false);
+    }
   };
 
   const dateLabel = (() => {
@@ -257,7 +265,19 @@ export default function GaransiPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filtered.length === 0 ? (
+                {loading ? (
+                  <TableRow>
+                    <TableCell colSpan={7} className="py-10 text-center text-sm text-muted-foreground">
+                      Memuat data garansi…
+                    </TableCell>
+                  </TableRow>
+                ) : loadError ? (
+                  <TableRow>
+                    <TableCell colSpan={7} className="py-10 text-center text-sm text-destructive">
+                      {loadError}
+                    </TableCell>
+                  </TableRow>
+                ) : filtered.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={7} className="py-10 text-center text-sm text-muted-foreground">
                       Tidak ada garansi
@@ -361,11 +381,18 @@ export default function GaransiPage() {
                   })()}
                 </div>
               )}
+              {saveError ? (
+                <div role="alert" className="rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                  {saveError}
+                </div>
+              ) : null}
               <div className="flex justify-end gap-2">
-                <Button variant="outline" onClick={() => setPerpanjangOpen(false)}>
+                <Button variant="outline" onClick={() => setPerpanjangOpen(false)} disabled={saving}>
                   Batal
                 </Button>
-                <Button onClick={handlePerpanjang}>Simpan</Button>
+                <Button onClick={handlePerpanjang} disabled={saving || newValue === "" || Number(newValue) <= 0}>
+                  {saving ? "Menyimpan…" : "Simpan"}
+                </Button>
               </div>
             </div>
             <DialogPrimitive.Close className="absolute right-3 top-3 rounded-md p-1 text-muted-foreground hover:bg-muted">

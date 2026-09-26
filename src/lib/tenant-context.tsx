@@ -15,10 +15,10 @@ type TenantContextValue = {
 
 const TenantContext = React.createContext<TenantContextValue | null>(null);
 
-export function TenantProvider({ children }: { children: React.ReactNode }) {
-  const params = useParams() as Record<string, string | string[]> | null;
+export function TenantProvider({ children, fixedOrganizationId = null }: { children: React.ReactNode; fixedOrganizationId?: string | null }) {
+  const params = useParams() as { tenant?: string | string[] } | null;
   const routeTenantSlug = (() => {
-    const t = (params as any)?.tenant;
+    const t = params?.tenant;
     if (!t) return null;
     const s = Array.isArray(t) ? t[0] : t;
     return typeof s === "string" ? s : null;
@@ -33,17 +33,24 @@ export function TenantProvider({ children }: { children: React.ReactNode }) {
       const { data: auth } = await supabase.auth.getUser();
       if (!auth.user) { setLoading(false); return; }
       const { data: emps } = await supabase.from("employees").select("organization_id").eq("profile_id", auth.user.id).eq("is_active", true);
-      const orgIds = [...new Set((emps ?? []).map((e: any) => e.organization_id).filter(Boolean))] as string[];
-      // also include orgs created by user
-      const { data: owned } = await supabase.from("organizations").select("id, name, paket, slug").eq("created_by", auth.user.id);
-      for (const o of (owned ?? []) as any[]) if (!orgIds.includes(o.id)) orgIds.push(o.id);
+      const employeeOrganizationIds = [...new Set((emps ?? []).map((employee: { organization_id: string }) => employee.organization_id).filter(Boolean))] as string[];
+      const orgIds: string[] = [];
+      if (fixedOrganizationId && employeeOrganizationIds.includes(fixedOrganizationId)) {
+        orgIds.push(fixedOrganizationId);
+      } else if (!fixedOrganizationId) {
+        orgIds.push(...employeeOrganizationIds);
+        const { data: owned } = await supabase.from("organizations").select("id, name, paket, slug").eq("created_by", auth.user.id);
+        for (const organization of (owned ?? []) as { id: string }[]) {
+          if (!orgIds.includes(organization.id)) orgIds.push(organization.id);
+        }
+      }
       if (orgIds.length === 0) { setLoading(false); return; }
       const { data: orgs } = await supabase.from("organizations").select("id, name, paket, slug").in("id", orgIds);
-      const list = (orgs ?? []).map((o: any) => ({ id: o.id as string, name: o.name as string, paket: (o.paket as string) ?? "trial", slug: (o as any).slug as string | null }));
-      setTenants(list as any);
+      const list = ((orgs ?? []) as { id: string; name: string; paket: string | null; slug: string | null }[]).map((organization) => ({ id: organization.id, name: organization.name, paket: organization.paket ?? "trial", slug: organization.slug }));
+      setTenants(list);
       // For tenant-specific routes, prioritize URL slug over cookie (do not fallback to first tenant)
       if (routeTenantSlug) {
-        const foundBySlug = list.find((t: any) => (t as any).slug === routeTenantSlug);
+         const foundBySlug = list.find((tenant) => tenant.slug === routeTenantSlug);
         if (foundBySlug) {
           setActiveOrgIdState(foundBySlug.id);
           // update cookie to canonical tenant for compatibility, but do not use cookie as auth source
@@ -60,7 +67,7 @@ export function TenantProvider({ children }: { children: React.ReactNode }) {
       // legacy fallback for non-tenant routes: restore active from cookie/localStorage or first
       const saved = typeof window !== "undefined" ? (document.cookie.match(/(?:^|; )cervise_org=([^;]*)/)?.[1] ?? localStorage.getItem("cervise_org")) : null;
       const decoded = saved ? decodeURIComponent(saved) : null;
-      const found = decoded ? list.find((t) => t.id === decoded) : null;
+       const found = decoded ? list.find((tenant) => tenant.id === decoded) : null;
       const active = found ? found.id : list[0]?.id ?? null;
       setActiveOrgIdState(active);
       if (active) {
@@ -70,9 +77,10 @@ export function TenantProvider({ children }: { children: React.ReactNode }) {
       setLoading(false);
     };
     load();
-  }, [routeTenantSlug]);
+  }, [routeTenantSlug, fixedOrganizationId]);
 
   const setActiveOrg = React.useCallback((id: string) => {
+    if (fixedOrganizationId && id !== fixedOrganizationId) return;
     setActiveOrgIdState(id);
     if (typeof window !== "undefined") {
       document.cookie = `cervise_org=${encodeURIComponent(id)}; path=/; max-age=31536000`;
@@ -81,7 +89,7 @@ export function TenantProvider({ children }: { children: React.ReactNode }) {
       // also trigger refresh to reload tenant-scoped data
       window.location.reload();
     }
-  }, []);
+  }, [fixedOrganizationId]);
 
   const value = React.useMemo(() => ({ tenants, activeOrgId, setActiveOrg, loading }), [tenants, activeOrgId, setActiveOrg, loading]);
   return <TenantContext.Provider value={value}>{children}</TenantContext.Provider>;
