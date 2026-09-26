@@ -213,7 +213,7 @@ function BranchSwitcher({ canSwitch }: { canSwitch: boolean }) {
   const [open, setOpen] = useState(false);
   if (!canSwitch) {
     return (
-      <div className="flex h-12 w-full items-center gap-2 rounded-xl border border-border/60 bg-muted/20 px-2.5">
+      <div className="flex h-12 w-full items-center gap-2 rounded-xl border border-border/60 bg-white px-2.5 dark:bg-card">
         <div className={`flex size-8 shrink-0 items-center justify-center rounded-lg border bg-gradient-to-br font-heading font-semibold text-xs ${branchTone(branch.id)}`}>
           {branchLetter(branch.label)}
         </div>
@@ -227,7 +227,7 @@ function BranchSwitcher({ canSwitch }: { canSwitch: boolean }) {
         render={
           <button
             type="button"
-            className="flex h-12 w-full items-center justify-between gap-2 rounded-xl border border-border/60 bg-muted/30 px-2.5 text-left transition-colors hover:bg-muted/60"
+            className="flex h-12 w-full items-center justify-between gap-2 rounded-xl border border-border/60 bg-white px-2.5 text-left transition-colors hover:bg-muted/60 dark:bg-card"
           />
         }
       >
