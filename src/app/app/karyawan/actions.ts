@@ -6,6 +6,7 @@ import { getActiveTenant, type Actor } from "@/lib/supabase/actor";
 import { isEmployeeTargetInOrganization, isManagerRole } from "@/lib/auth/authorization";
 import { canAccess } from "@/lib/rbac";
 import { generateTempPassword } from "@/lib/auth/password";
+import { EMPLOYEE_TO_PROFILE_ROLE, canManageEmployees } from "@/lib/auth/account-input";
 import { publicPhotoUrl } from "@/lib/photos";
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 
@@ -101,6 +102,9 @@ export type CreateKaryawanInput = { fullName: string; email: string; phone?: str
 
 export async function createKaryawan(input: CreateKaryawanInput): Promise<{ employeeId: string; profileId: string; tempPassword: string }> {
   const { supabase, organizationId, role } = await getBranchUser();
+  // Gate mengikuti policy employees_insert, bukan requireManager() yang juga
+  // menerima ADMIN - ADMIN akan lolos di sini lalu ditolak RLS diam-diam.
+  if (!canManageEmployees(role)) throw new Error("Hanya Master Admin yang bisa menambah karyawan.");
   requireManager(role);
   const email = input.email.trim().toLowerCase();
   const fullName = input.fullName.trim();
@@ -127,12 +131,21 @@ export async function createKaryawan(input: CreateKaryawanInput): Promise<{ empl
   });
   if (createError || !created.user) throw new Error(createError?.message ?? "Gagal membuat akun");
   const uid = created.user.id;
+
+  // profiles.role dan employees.role memakai KASUS BEDA dan masing-masing punya
+  // CHECK constraint: profiles huruf kecil (schema.sql:20), employees huruf
+  // besar. Sebelumnya targetRole yang sudah uppercase ditulis ke keduanya, jadi
+  // insert ke profiles selalu ditolak dan tidak ada karyawan yang pernah
+  // berhasil dibuat. Kedua bentuk diambil dari konstanta yang sama.
+  const profileRole = EMPLOYEE_TO_PROFILE_ROLE[targetRole];
+  if (!profileRole) throw new Error("Role tidak valid");
+
   const profilePatch = {
     id: uid,
     full_name: fullName,
     phone: input.phone?.trim() || null,
     email,
-    role: targetRole,
+    role: profileRole,
   };
   const { error: profileError } = await admin.from("profiles").upsert(profilePatch, { onConflict: "id" });
   if (profileError) {
@@ -145,8 +158,18 @@ export async function createKaryawan(input: CreateKaryawanInput): Promise<{ empl
     .select("id")
     .single();
   if (employeeError || !employee) {
+    // Baris profiles HARUS ikut dihapus. Dulu rollback hanya menghapus user
+    // auth, meninggalkan profiles yatim - email itu lalu terlihat "sudah
+    // dipakai" walau tidak ada akun yang bisa login.
+    await admin.from("profiles").delete().eq("id", uid);
     await admin.auth.admin.deleteUser(uid);
-    throw new Error(employeeError?.message ?? "Gagal membuat karyawan");
+    const detail = employeeError?.message ?? "Gagal membuat karyawan";
+    // employees_insert hanya mengizinkan MASTER_ADMIN. Kalau pemanggilnya
+    // ADMIN, RLS menolak tanpa penjelasan yang berguna untuk user.
+    if (/employees_insert|row-level security|permission denied/i.test(detail)) {
+      throw new Error("Gagal membuat karyawan. Hanya Master Admin yang bisa menambah karyawan.");
+    }
+    throw new Error(detail);
   }
   revalidatePath("/app/karyawan");
   return { employeeId: employee.id as string, profileId: uid, tempPassword };
@@ -156,6 +179,7 @@ export type UpdateKaryawanInput = { profileId: string; employeeId: string; fullN
 
 export async function updateKaryawan(input: UpdateKaryawanInput) {
   const { supabase, organizationId, role } = await getBranchUser();
+  if (!canManageEmployees(role)) throw new Error("Hanya Master Admin yang bisa mengubah karyawan.");
   requireManager(role);
   const fullName = input.fullName.trim();
   const targetRole = input.role.trim().toUpperCase();
@@ -205,6 +229,12 @@ export async function updateKaryawan(input: UpdateKaryawanInput) {
     phone: input.phone?.trim() || null,
   };
   if (email) profilePatch.email = email;
+  // profiles.role tidak disentuh sama sekali sebelumnya, jadi mengubah peran
+  // lewat UI hanya mengubah employees.role dan membuat dua tabel berbeda
+  // pendapat. profiles.role kini disinkronkan dengan bentuk huruf kecilnya.
+  const profileRole = EMPLOYEE_TO_PROFILE_ROLE[targetRole];
+  if (profileRole) profilePatch.role = profileRole;
+
   const admin = getAdminClient();
   const { data: updatedProfile, error: profileError } = await admin
     .from("profiles")

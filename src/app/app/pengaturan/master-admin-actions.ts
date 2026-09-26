@@ -7,6 +7,7 @@ import { generateTempPassword } from "@/lib/auth/password";
 import {
   EMPLOYEE_ROLE,
   PROFILE_ROLE,
+  canManageEmployees,
   validateMasterAdminInput,
 } from "@/lib/auth/account-input";
 
@@ -20,15 +21,14 @@ import {
  */
 
 /**
- * Gate-nya sengaja TIDAK memakai canAccess("pengaturan_general") yang juga
- * mengizinkan role ADMIN. Policy employees_insert di
- * 20260925090000_cervise_owner_platform_additive.sql:349 hanya menerima
- * has_tenant_role(..., ['MASTER_ADMIN']), jadi ADMIN akan lolos cek aplikasi
- * lalu ditolak RLS tanpa pesan yang jelas. Persempit di sini supaya user tidak
- * melihat tombol yang pasti gagal.
+ * Gate-nya mengikuti policy employees_insert di
+ * 20260925090000_cervise_owner_platform_additive.sql:349, yang hanya menerima
+ * has_tenant_role(..., ['MASTER_ADMIN']). canAccess("pengaturan_general")
+ * juga mengizinkan ADMIN, jadi kalau gate ikut longgar, user melihat tombol
+ * yang pasti ditolak RLS tanpa penjelasan.
  */
 function requireMasterAdminStrict(role: string): void {
-  if (role !== EMPLOYEE_ROLE.MASTER_ADMIN) {
+  if (!canManageEmployees(role)) {
     throw new Error("Hanya Master Admin yang bisa menambah Master Admin lain.");
   }
 }

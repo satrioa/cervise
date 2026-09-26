@@ -7,6 +7,7 @@ import {
 } from "@/lib/billing/renewal";
 import type { TenantAccessErrorCode } from "@/lib/auth/authorization";
 import { publicPhotoUrl } from "@/lib/photos";
+import { canManageEmployees } from "@/lib/auth/account-input";
 
 export class TenantAccessError extends Error {
   readonly code: TenantAccessErrorCode;
@@ -179,9 +180,19 @@ export async function getActiveTenantStrict(): Promise<Actor> {
   return getActiveTenant();
 }
 
+/**
+ * Gate untuk aksi yang butuh role MASTER_ADMIN.
+ *
+ * Dulu role ADMIN ikut diterima. Itu tidak sesuai dengan database: policy
+ * employees_insert / employees_update di
+ * 20260925090000_cervise_owner_platform_additive.sql hanya mengizinkan
+ * has_tenant_role(..., ['MASTER_ADMIN']). Akibatnya ADMIN lolos cek di sini,
+ * lalu insert-nya ditolak RLS sehingga user melihat kegagalan tanpa penjelasan.
+ * Gate di sini harus lebih ketat dari yang ditulis database, bukan lebih longgar.
+ */
 export async function requireMasterAdmin(): Promise<Actor> {
   const actor = await getActiveTenant();
-  if (!["MASTER_ADMIN", "ADMIN"].includes(actor.role)) throw new Error("Hanya Master Admin");
+  if (!canManageEmployees(actor.role)) throw new Error("Hanya Master Admin");
   return actor;
 }
 

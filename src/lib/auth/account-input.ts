@@ -27,13 +27,36 @@ export const EMPLOYEE_ROLE = {
   TECHNICIAN: "TECHNICIAN",
 } as const;
 
+/** Satu-satunya cara yang benar mengisi baris profiles untuk sebuah role. */
+export const EMPLOYEE_TO_PROFILE_ROLE: Readonly<Record<string, string>> = {
+  [EMPLOYEE_ROLE.MASTER_ADMIN]: PROFILE_ROLE.MASTER_ADMIN,
+  [EMPLOYEE_ROLE.ADMIN]: PROFILE_ROLE.ADMIN,
+  [EMPLOYEE_ROLE.FRONTLINER]: PROFILE_ROLE.FRONTLINER,
+  [EMPLOYEE_ROLE.TECHNICIAN]: PROFILE_ROLE.TECHNICIAN,
+};
+
+/**
+ * Siapa yang boleh menambah atau mengubah baris employees.
+ *
+ * Ini mencerminkan policy database, bukan selera aplikasi:
+ * employees_insert / employees_update di
+ * 20260925090000_cervise_owner_platform_additive.sql hanya mengizinkan
+ * has_tenant_role(organization_id, array['MASTER_ADMIN']) (atau platform admin).
+ *
+ *canAccess("pengaturan_general") dan requireManager() sama-sama menerima ADMIN,
+ * sehingga ADMIN lolos cek aplikasi lalu ditolak RLS tanpa pesan yang berguna.
+ * Gate di sini harus mengikuti database, bukan melebarinya.
+ */
+export function canManageEmployees(role: string | null | undefined): boolean {
+  return (role ?? "").toUpperCase() === EMPLOYEE_ROLE.MASTER_ADMIN;
+}
+
 export type MasterAdminInput = {
   fullName: string;
   email: string;
   phone: string | null;
   branchId: string;
 };
-
 export type ValidatedMasterAdmin = {
   fullName: string;
   email: string;

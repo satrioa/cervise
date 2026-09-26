@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
 import { toast } from "sonner";
 import { createTenant } from "@/app/owner/actions";
+import { TempPasswordDialog } from "@/components/temp-password-dialog";
 
 export function CreateTenantDialog() {
   const router = useRouter();
@@ -17,6 +18,7 @@ export function CreateTenantDialog() {
   const [ownerEmail, setOwnerEmail] = useState("");
   const [ownerPhone, setOwnerPhone] = useState("");
   const [saving, setSaving] = useState(false);
+  const [created, setCreated] = useState<{ email: string; tempPassword: string } | null>(null);
 
   const handleCreate = async () => {
     if (!name.trim() || !ownerEmail.trim() || !ownerPhone.trim()) {
@@ -26,17 +28,27 @@ export function CreateTenantDialog() {
 
     setSaving(true);
     try {
-      await createTenant({
+      const result = await createTenant({
         name: name.trim(),
         ownerEmail: ownerEmail.trim(),
         ownerPhone: ownerPhone.trim(),
       });
-      toast.success(`Tenant "${name}" dibuat dengan trial 14 hari`);
       setName("");
       setOwnerEmail("");
       setOwnerPhone("");
       setOpen(false);
       router.refresh();
+
+      if (result.tempPassword) {
+        // Akun owner baru dibuat dengan password sementara. Tanpa ini, akunnya
+        // tidak akan pernah bisa login karena aplikasi ini tidak punya magic
+        // link dan createUser lama tidak pernah menyertakan password.
+        setCreated({ email: result.ownerEmail, tempPassword: result.tempPassword });
+      } else {
+        toast.success(
+          `Tenant "${name}" dibuat dengan trial 14 hari. Email owner sudah punya akun, password tidak diubah.`,
+        );
+      }
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Gagal membuat tenant");
     } finally {
@@ -76,6 +88,10 @@ export function CreateTenantDialog() {
                 <Input id="owner-phone" value={ownerPhone} onChange={(event) => setOwnerPhone(event.target.value)} placeholder="08xxxxxxxxxx" inputMode="tel" />
               </div>
               <p className="rounded-lg bg-muted/50 p-3 text-xs text-muted-foreground">Trial 14 hari dibuat otomatis. Pembayaran renewal dan aktivasi paket dikonfirmasi lewat WhatsApp.</p>
+              <p className="rounded-lg bg-muted/50 p-3 text-xs text-muted-foreground">
+                Akun owner dibuat dengan password sementara yang ditampilkan sekali setelah tenant
+        dibuat. Salin dan serahkan ke owner, lalu minta dia menggantinya di halaman Profil.
+              </p>
             </div>
             <div className="flex justify-end gap-2 border-t bg-muted/20 px-6 py-3">
               <Button variant="outline" onClick={() => setOpen(false)} disabled={saving}>Batal</Button>
@@ -87,6 +103,13 @@ export function CreateTenantDialog() {
           </DialogPrimitive.Popup>
         </DialogPrimitive.Portal>
       </DialogPrimitive.Root>
+
+      <TempPasswordDialog
+        open={created !== null}
+        onOpenChange={(next: boolean) => { if (!next) setCreated(null); }}
+        email={created?.email ?? ""}
+        password={created?.tempPassword ?? ""}
+      />
     </>
   );
 }

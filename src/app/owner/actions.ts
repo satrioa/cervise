@@ -9,6 +9,7 @@ import {
   parsePackageInput,
 } from "@/lib/platform/validation";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { generateTempPassword } from "@/lib/auth/password";
 import { buildOwnerAccountRows } from "@/lib/platform/owner-accounts";
 
 type PackageRow = {
@@ -294,31 +295,57 @@ export async function createTenant(input: {
   });
   if (listError) throw listError;
 
-  let owner = userList.users.find(
+  const existing = userList.users.find(
     (candidate) => candidate.email?.toLowerCase() === tenantInput.ownerEmail,
   );
-  if (!owner) {
+
+  let ownerId: string;
+  let tempPassword: string | null = null;
+
+  if (existing) {
+    // Emailnya sudah punya akun. Password existing TIDAK diubah - diam-diam
+    // menimpa password seseorang akan mengunci mereka dari akunnya sendiri.
+    ownerId = existing.id;
+  } else {
+    // Dulu createUser dipanggil tanpa password sama sekali, jadi setiap owner
+    // yang dibuat dari console ini punya akun yang mustahil login: aplikasi ini
+    // tidak punya magic link, login murni password. Sekarang dibuat dengan
+    // password sementara yang dikembalikan sekali ke pemanggil.
+    const generated = generateTempPassword();
     const { data, error } = await admin.auth.admin.createUser({
       email: tenantInput.ownerEmail,
       phone: tenantInput.ownerPhone,
+      password: generated,
       email_confirm: true,
     });
     if (error) throw error;
-    owner = data.user;
+    ownerId = data.user.id;
+    tempPassword = generated;
   }
 
   const { data: organizationId, error } = await supabase.rpc("platform_create_tenant", {
     tenant_name: tenantInput.name,
     tenant_slug: tenantInput.slug,
-    owner_user_id: owner.id,
+    owner_user_id: ownerId,
     owner_email: tenantInput.ownerEmail,
     owner_phone: tenantInput.ownerPhone,
   });
-  if (error) throw error;
+  if (error) {
+    // Tenant gagal dibuat. Kalau akun auth baru saja dibuat untuk ini, ikut
+    // dibersihkan supaya tidak ada akun yatim tanpa tenant.
+    if (tempPassword) await admin.auth.admin.deleteUser(ownerId);
+    throw error;
+  }
 
   revalidatePath("/owner");
   revalidatePath("/owner/tenants");
-  return { id: organizationId as string };
+  return {
+    id: organizationId as string,
+    ownerEmail: tenantInput.ownerEmail,
+    // null = emailnya sudah punya akun, jadi password tidak diubah.
+    tempPassword: tempPassword ?? undefined,
+    reusedExistingAccount: !tempPassword,
+  };
 }
 
 export async function approveInvoice(input: { invoiceId: string; note: string }) {
