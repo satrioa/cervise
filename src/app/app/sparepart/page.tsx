@@ -95,17 +95,6 @@ export default async function SparepartPage({ searchParams }: { searchParams: Pr
         title="Sparepart"
         titleClassName="font-heading text-2xl"
         description={`Menampilkan ${sorted.length} dari ${PRODUCTS.length} sparepart`}
-        search={<InventorySearch query={q?.trim() ?? ""} />}
-        filters={
-          <InventoryFilters
-            query={q?.trim() ?? ""}
-            category={category}
-            stock={stock}
-            sort={sortKey}
-            view={viewKey}
-            categories={categories}
-          />
-        }
         actions={
           <>
             <Button size="sm" variant="outline" disabled title="Segera hadir — stok opname per cabang + selisih & berita acara">
@@ -120,7 +109,22 @@ export default async function SparepartPage({ searchParams }: { searchParams: Pr
 
       <main className="mx-auto max-w-6xl px-10 py-8">
         <SparepartRevenue />
-        <div className="mt-6">
+        <div className="mt-6 flex flex-col gap-2 lg:flex-row lg:items-center">
+          <div className="w-full lg:w-72 lg:shrink-0">
+            <InventorySearch query={q?.trim() ?? ""} />
+          </div>
+          <div className="flex min-w-0 flex-1 items-center justify-start gap-2 overflow-x-auto scrollbar-none lg:justify-end">
+            <InventoryFilters
+              query={q?.trim() ?? ""}
+              category={category}
+              stock={stock}
+              sort={sortKey}
+              view={viewKey}
+              categories={categories}
+            />
+          </div>
+        </div>
+        <div className="mt-4">
           <SparepartList rows={sorted} categories={categories} view={viewKey} />
         </div>
         <p className="mt-3 text-xs text-muted-foreground">SKU otomatis SP-XXX · stok per cabang · Harga Modal dari cost_cents.</p>
