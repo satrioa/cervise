@@ -82,7 +82,7 @@ export default function GeneralPage() {
         title="General"
         titleClassName="font-heading text-2xl"
         description="Nama Brand, Logo, dan akses Master Admin per cabang."
-        innerClassName="max-w-4xl"
+        containerClassName="max-w-4xl"
       />
 
       <div className="mx-auto max-w-4xl px-6 py-8 space-y-8">

@@ -181,25 +181,25 @@ export default function GaransiPage() {
         title="Cek Garansi"
         titleClassName="font-heading text-2xl"
         description={`${stats.total} garansi · ${stats.aktif} aktif · ${stats.segera} segera habis · ${stats.expired} expired · cabang ${branch.label}`}
-        toolbar={
-          <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
-            <div className="relative w-full sm:w-[300px]">
-              <InputGroup className="h-8">
-                <InputGroupAddon align="inline-start">
-                  <SearchIcon className="size-3.5 opacity-60" />
-                </InputGroupAddon>
-                <InputGroupInput placeholder="Cari INV, customer, device…" value={q} onChange={(e) => setQ(e.target.value)} className="text-sm" />
-                {q && (
-                  <InputGroupAddon align="inline-end">
-                    <button type="button" onClick={() => setQ("")} className="rounded p-0.5 text-muted-foreground hover:text-foreground">
-                      <XIcon className="size-3.5" />
-                    </button>
-                  </InputGroupAddon>
-                )}
-              </InputGroup>
-            </div>
+        search={
+          <InputGroup className="h-8 w-full">
+            <InputGroupAddon align="inline-start">
+              <SearchIcon className="size-3.5 opacity-60" />
+            </InputGroupAddon>
+            <InputGroupInput placeholder="Cari INV, customer, device…" value={q} onChange={(e) => setQ(e.target.value)} className="text-sm" />
+            {q && (
+              <InputGroupAddon align="inline-end">
+                <button type="button" onClick={() => setQ("")} className="rounded p-0.5 text-muted-foreground hover:text-foreground">
+                  <XIcon className="size-3.5" />
+                </button>
+              </InputGroupAddon>
+            )}
+          </InputGroup>
+        }
+        filters={
+          <>
             <Select value={status} onValueChange={(v) => { if (v) setStatus(v); }}>
-              <SelectTrigger className="w-full sm:w-40" size="sm">
+              <SelectTrigger className="w-40 shrink-0" size="sm">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -213,7 +213,7 @@ export default function GaransiPage() {
             <Popover>
               <PopoverTrigger
                 render={
-                  <Button variant="outline" size="filter" className={`w-full sm:w-auto justify-start gap-2 font-normal text-sm shrink-0 ${!dateRange.from && !dateRange.to && "text-muted-foreground"}`} />
+                  <Button variant="outline" size="filter" className={`w-auto shrink-0 justify-start gap-2 font-normal text-sm ${!dateRange.from && !dateRange.to && "text-muted-foreground"}`} />
                 }
               >
                 <CalendarIcon className="size-4 opacity-70" />
@@ -237,7 +237,7 @@ export default function GaransiPage() {
                 </div>
               </PopoverContent>
             </Popover>
-          </div>
+          </>
         }
       />
 

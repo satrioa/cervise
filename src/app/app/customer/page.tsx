@@ -2,7 +2,7 @@ import { PhoneIcon } from "lucide-react";
 import { formatCurrencyPlain, formatNumberPlain } from "@/lib/format";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { CustomerToolbar, CUSTOMER_DEFAULTS } from "@/components/customer/customer-toolbar";
+import { CustomerSearch, CustomerFilters, CustomerExportButton, CUSTOMER_DEFAULTS } from "@/components/customer/customer-toolbar";
 import { CustomerCreateButton } from "@/components/customer/customer-create-button";
 import { CustomerRowActions } from "@/components/customer/customer-row-actions";
 import { PageHeader } from "@/components/layout/page-header";
@@ -69,28 +69,32 @@ export default async function CustomerPage({ searchParams }: { searchParams: Pro
     <div className="min-h-svh bg-background">
       <PageHeader
         title="Customer"
-        description={`${totalCount} customer · isolasi per cabang — cabang A tidak terlihat di cabang B`}
-        innerClassName="max-w-5xl"
-        toolbarClassName="max-w-5xl"
-        actions={<CustomerCreateButton />}
-        toolbar={
-          <CustomerToolbar
+        description={`Menampilkan ${sorted.length} dari ${totalCount} customer · isolasi per cabang`}
+        containerClassName="max-w-5xl"
+        search={<CustomerSearch query={q?.trim() ?? ""} />}
+        filters={
+          <CustomerFilters
             query={q?.trim() ?? ""}
             status={statusFilter}
             sort={sortKey}
-            shown={sorted.length}
-            total={totalCount}
-            exportRows={sorted.map((c) => ({
-              name: c.name,
-              phone: c.phoneDisplay,
-              totalServis: c.totalServis,
-              totalSpent: c.totalSpent,
-              lastServis: c.lastServis,
-              lastStatus: c.lastStatus,
-              lastDate: c.lastDate,
-              createdAt: c.createdAt,
-            }))}
           />
+        }
+        actions={
+          <>
+            <CustomerCreateButton />
+            <CustomerExportButton
+              exportRows={sorted.map((c) => ({
+                name: c.name,
+                phone: c.phoneDisplay,
+                totalServis: c.totalServis,
+                totalSpent: c.totalSpent,
+                lastServis: c.lastServis,
+                lastStatus: c.lastStatus,
+                lastDate: c.lastDate,
+                createdAt: c.createdAt,
+              }))}
+            />
+          </>
         }
       />
 

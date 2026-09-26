@@ -107,7 +107,7 @@ export function SettingsProfileCervise({
         title="Profil Anda"
         titleClassName="font-heading text-2xl"
         description="Kelola identitas akun Cervise. Perubahan cabang hanya untuk Master Admin."
-        innerClassName="max-w-3xl"
+        containerClassName="max-w-3xl"
       />
       <div className="mx-auto max-w-3xl px-8 py-8 pb-32">
 

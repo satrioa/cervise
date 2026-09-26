@@ -56,7 +56,7 @@ export default function UsagePage() {
         title="Usage"
         titleClassName="font-heading text-2xl"
         description="Count servis — bukan amount. Kuota trial 100, basic 500, pro unlimited."
-        innerClassName="max-w-4xl"
+        containerClassName="max-w-4xl"
       />
 
       <div className="mx-auto max-w-4xl px-6 py-8 space-y-6">

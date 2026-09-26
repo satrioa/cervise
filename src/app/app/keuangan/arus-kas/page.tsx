@@ -13,7 +13,6 @@ import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/in
 import { Select, SelectItem, SelectPopup, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 import { isToday, isYesterday, format } from "date-fns";
@@ -176,8 +175,7 @@ export default function ArusKasPage() {
       <PageHeader
         title="Arus Kas"
         description="Grouped by hari · collapsed semua · multi open"
-        innerClassName="max-w-5xl"
-        toolbarClassName="max-w-5xl"
+        containerClassName="max-w-5xl"
         actions={
           <ArusKasExport
             rows={groups.flatMap((g) =>
@@ -191,19 +189,18 @@ export default function ArusKasPage() {
             )}
           />
         }
-        toolbar={
-          <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
-            <div className="relative w-full sm:w-64">
-              <InputGroup className="h-8">
-                <InputGroupAddon align="inline-start">
-                  <SearchIcon className="size-3.5 opacity-60" />
-                </InputGroupAddon>
-                <InputGroupInput placeholder="Cari deskripsi, ID..." value={q} onChange={(e) => setQ(e.target.value)} className="text-sm" />
-              </InputGroup>
-            </div>
-            <Separator orientation="vertical" className="hidden h-6 sm:block" />
+        search={
+          <InputGroup className="h-8 w-full">
+            <InputGroupAddon align="inline-start">
+              <SearchIcon className="size-3.5 opacity-60" />
+            </InputGroupAddon>
+            <InputGroupInput placeholder="Cari deskripsi, ID..." value={q} onChange={(e) => setQ(e.target.value)} className="text-sm" />
+          </InputGroup>
+        }
+        filters={
+          <>
             <Select value={branchFilter} onValueChange={(v) => setBranchFilter((v as string) ?? "all")}>
-              <SelectTrigger size="sm" className="w-full sm:w-36">
+              <SelectTrigger size="sm" className="w-36 shrink-0">
                 <SelectValue />
               </SelectTrigger>
               <SelectPopup>
@@ -217,7 +214,7 @@ export default function ArusKasPage() {
               </SelectPopup>
             </Select>
             <Select value={typeFilter} onValueChange={(v) => setTypeFilter((v as string) ?? "all")}>
-              <SelectTrigger size="sm" className="w-full sm:w-32">
+              <SelectTrigger size="sm" className="w-32 shrink-0">
                 <SelectValue />
               </SelectTrigger>
               <SelectPopup>
@@ -229,7 +226,7 @@ export default function ArusKasPage() {
             <Popover>
               <PopoverTrigger
                 render={
-                  <Button variant="outline" size="sm" className={cn("w-full sm:w-auto justify-start gap-2 font-normal text-sm", !dateRange.from && !dateRange.to && "text-muted-foreground")} />
+                  <Button variant="outline" size="sm" className={cn("w-auto shrink-0 justify-start gap-2 font-normal text-sm", !dateRange.from && !dateRange.to && "text-muted-foreground")} />
                 }
               >
                 <CalendarIcon className="size-4 opacity-70" />
@@ -243,8 +240,8 @@ export default function ArusKasPage() {
                 </div>
               </PopoverContent>
             </Popover>
-            <span className="ms-auto hidden text-[11px] text-muted-foreground sm:block">{filtered.length} transaksi · {groups.length} hari</span>
-          </div>
+            <span className="hidden shrink-0 text-[11px] text-muted-foreground sm:block">{filtered.length} transaksi · {groups.length} hari</span>
+          </>
         }
       />
 

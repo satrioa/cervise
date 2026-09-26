@@ -8,10 +8,13 @@ import {
   PlusIcon,
   TrendingUpIcon,
   StoreIcon,
+  XIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { CerviseAnalyticsSection } from "@/components/dashboards-analytics";
 import { PageHeader } from "@/components/layout/page-header";
+import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
+import { ServisForm } from "@/components/servis/servis-form";
 import { useBranch } from "@/lib/branch-context";
 import { createClient } from "@/lib/supabase/client";
 
@@ -39,6 +42,7 @@ function getSparkForPeriod(period: Period, factor: number): number[] {
 export default function DashboardPage() {
   const { branch } = useBranch();
   const [period, setPeriod] = useState<Period>("30d");
+  const [openServis, setOpenServis] = useState(false);
 
   // supabase live data (fallback to deterministic mock to avoid hydration mismatch)
   const [live, setLive] = useState<{
@@ -156,12 +160,12 @@ export default function DashboardPage() {
         title="Overview"
         titleClassName="font-heading text-2xl"
         actions={
-          <Button size="sm" type="button" className="shrink-0">
+          <Button size="sm" type="button" className="h-8 shrink-0" onClick={() => setOpenServis(true)}>
             <PlusIcon />
             Servis Baru
           </Button>
         }
-        toolbar={<PeriodFilter period={period} setPeriod={setPeriod} branchLabel={branch.label} />}
+        filters={<PeriodFilter period={period} setPeriod={setPeriod} branchLabel={branch.label} />}
       />
 
       <main className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-10 py-8">
@@ -178,6 +182,20 @@ export default function DashboardPage() {
       </main>
 
       <CerviseAnalyticsSection period={period} />
+
+      <DialogPrimitive.Root open={openServis} onOpenChange={setOpenServis}>
+        <DialogPrimitive.Portal>
+          <DialogPrimitive.Backdrop className="fixed inset-0 z-50 bg-black/20 backdrop-blur-sm" />
+          <DialogPrimitive.Popup className="fixed left-1/2 top-1/2 z-50 flex max-h-[90vh] w-[95vw] max-w-3xl -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-2xl border bg-background shadow-xl">
+            <div className="overflow-y-auto p-6">
+              <ServisForm onSuccess={() => setOpenServis(false)} onCancel={() => setOpenServis(false)} />
+            </div>
+            <DialogPrimitive.Close className="absolute right-3 top-3 rounded-md p-1 text-muted-foreground hover:bg-muted" aria-label="Tutup">
+              <XIcon className="size-4" />
+            </DialogPrimitive.Close>
+          </DialogPrimitive.Popup>
+        </DialogPrimitive.Portal>
+      </DialogPrimitive.Root>
     </div>
   );
 }

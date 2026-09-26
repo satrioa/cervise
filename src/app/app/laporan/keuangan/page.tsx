@@ -227,30 +227,30 @@ export default function LaporanKeuanganPage() {
         title="Laporan Keuangan"
         titleClassName="font-heading text-2xl"
         description={`Harian & Bulanan · ${cabangLabel} · ${from ? format(from, "d MMM", { locale: localeId }) : ""} — ${to ? format(to, "d MMM yyyy", { locale: localeId }) : ""}`}
-        toolbar={
-          <div className="grid gap-2 sm:grid-cols-3">
+        filters={
+          <>
             <Popover>
-              <PopoverTrigger render={<Button variant="outline" className="w-full justify-start font-normal" />}>
+              <PopoverTrigger render={<Button variant="outline" size="sm" className="h-8 w-auto shrink-0 justify-start font-normal" />}>
                 <CalendarIcon className="size-4 opacity-60" />
                 {from ? format(from, "d MMM yyyy", { locale: localeId }) : "Tanggal awal"}
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={from} onSelect={setFrom} /></PopoverContent>
             </Popover>
             <Popover>
-              <PopoverTrigger render={<Button variant="outline" className="w-full justify-start font-normal" />}>
+              <PopoverTrigger render={<Button variant="outline" size="sm" className="h-8 w-auto shrink-0 justify-start font-normal" />}>
                 <CalendarIcon className="size-4 opacity-60" />
                 {to ? format(to, "d MMM yyyy", { locale: localeId }) : "Tanggal akhir"}
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={to} onSelect={setTo} /></PopoverContent>
             </Popover>
             <Select value={cabang} onValueChange={(v) => setCabang((v as string) ?? "all")}>
-              <SelectTrigger><SelectValue placeholder="Semua cabang" /></SelectTrigger>
+              <SelectTrigger size="sm" className="shrink-0"><SelectValue placeholder="Semua cabang" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Semua cabang</SelectItem>
                 {branches.map((b) => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
               </SelectContent>
             </Select>
-          </div>
+          </>
         }
       />
 

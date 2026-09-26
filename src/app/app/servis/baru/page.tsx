@@ -9,7 +9,7 @@ export default function BaruServisPage() {
     <div className="bg-background text-foreground min-h-svh">
       <PageHeader
         title="Tambah Servis"
-        innerClassName="max-w-3xl"
+        containerClassName="max-w-3xl"
         actions={
           <Link href="/app/servis">
             <Button variant="ghost" size="icon-sm" aria-label="Kembali">

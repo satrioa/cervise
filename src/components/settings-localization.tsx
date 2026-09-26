@@ -114,7 +114,7 @@ export function SettingsLocalizationShowcasePage() {
         title="Localization"
         titleClassName="font-heading text-2xl"
         description="Pick how dates, times, numbers, and currencies are shown to you across the app. Perubahan tersimpan ke akun dan berlaku global."
-        innerClassName="max-w-5xl"
+        containerClassName="max-w-5xl"
       />
       <div className="mx-auto max-w-5xl px-6 py-8 sm:px-10 pb-32">
 

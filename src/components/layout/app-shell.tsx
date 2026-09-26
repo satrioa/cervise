@@ -3,7 +3,6 @@
 import {
   ChevronsUpDown,
   LayoutDashboard,
-  Search,
   Settings,
   Users,
   UserCog,
@@ -29,7 +28,7 @@ import { createClient } from "@/lib/supabase/client";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { CerviseCommandPalette } from "@/components/layout/command-palette";
+import { CommandPaletteProvider } from "@/components/layout/command-palette-provider";
 import { BranchProvider, useBranch } from "@/lib/branch-context";
 import { TenantProvider, useTenant } from "@/lib/tenant-context";
 import { LocaleProvider } from "@/lib/localization-context";
@@ -216,7 +215,7 @@ function BranchSwitcher({ canSwitch }: { canSwitch: boolean }) {
   const [open, setOpen] = useState(false);
   if (!canSwitch) {
     return (
-      <div className="flex w-full items-center gap-2 rounded-xl border border-border/60 bg-muted/20 px-2.5 py-2">
+      <div className="flex h-12 w-full items-center gap-2 rounded-xl border border-border/60 bg-muted/20 px-2.5">
         <div className={`flex size-8 shrink-0 items-center justify-center rounded-lg border bg-gradient-to-br font-heading font-semibold text-xs ${branchTone(branch.id)}`}>
           {branchLetter(branch.label)}
         </div>
@@ -230,7 +229,7 @@ function BranchSwitcher({ canSwitch }: { canSwitch: boolean }) {
         render={
           <button
             type="button"
-            className="flex w-full items-center justify-between gap-2 rounded-xl border border-border/60 bg-muted/30 px-2.5 py-2 text-left transition-colors hover:bg-muted/60"
+            className="flex h-12 w-full items-center justify-between gap-2 rounded-xl border border-border/60 bg-muted/30 px-2.5 text-left transition-colors hover:bg-muted/60"
           />
         }
       >
@@ -272,7 +271,7 @@ function BranchSwitcher({ canSwitch }: { canSwitch: boolean }) {
   );
 }
 
-function SidebarContent({ onNavigate, onSearchClick, role }: { onNavigate?: () => void; onSearchClick?: () => void; role: string }) {
+function SidebarContent({ onNavigate, role }: { onNavigate?: () => void; role: string }) {
   const pathname = usePathname();
   const router = useRouter();
   const { branch } = useBranch();
@@ -287,18 +286,6 @@ function SidebarContent({ onNavigate, onSearchClick, role }: { onNavigate?: () =
 
       <div className="px-2 pt-2">
         <BranchSwitcher canSwitch={canSwitchBranchValue} />
-      </div>
-
-      <div className="px-3 pt-3">
-        <button
-          type="button"
-          onClick={onSearchClick}
-          className="flex w-full items-center gap-2 rounded-md border border-border/60 bg-background/60 px-2.5 py-1.5 text-left transition-colors hover:bg-foreground/[0.04]"
-        >
-          <Search className="size-3.5 opacity-50" />
-          <span className="flex-1 truncate text-muted-foreground text-xs">{t("search.placeholder")}</span>
-          <kbd className="rounded border border-border/60 bg-background/80 px-1 font-mono text-[9px] text-muted-foreground">⌘K</kbd>
-        </button>
       </div>
 
       <nav className="mt-3 flex-1 overflow-y-auto scrollbar-none px-2 pb-2">
@@ -532,7 +519,6 @@ export type AppShellActor = {
 
 function AppShellInner({ children, actor }: { children: React.ReactNode; actor: AppShellActor }) {
   const [open, setOpen] = useState(false);
-  const [cmdOpen, setCmdOpen] = useState(false);
   const pathname = usePathname();
   const scrollRef = useRef<HTMLDivElement>(null);
   const [showTopFade, setShowTopFade] = useState(false);
@@ -545,17 +531,6 @@ function AppShellInner({ children, actor }: { children: React.ReactNode; actor: 
     const canScroll = scrollHeight > clientHeight + 4;
     setShowTopFade(canScroll && scrollTop > 6);
     setShowBottomFade(canScroll && scrollTop + clientHeight < scrollHeight - 6);
-  }, []);
-
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
-        e.preventDefault();
-        setCmdOpen((v) => !v);
-      }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
   }, []);
 
   useEffect(() => {
@@ -584,7 +559,7 @@ function AppShellInner({ children, actor }: { children: React.ReactNode; actor: 
   return (
     <div className="flex h-svh w-full overflow-hidden bg-background text-foreground lg:grid lg:grid-cols-[260px_1fr]">
       <aside className="hidden h-svh shrink-0 flex-col border-r border-border/60 bg-foreground/[0.02] lg:flex sticky top-0 overflow-hidden">
-        <SidebarContent role={actor.role} onSearchClick={() => setCmdOpen(true)} />
+        <SidebarContent role={actor.role} />
       </aside>
 
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden lg:col-start-2">
@@ -600,10 +575,6 @@ function AppShellInner({ children, actor }: { children: React.ReactNode; actor: 
               <SidebarContent
                 role={actor.role}
                 onNavigate={() => setOpen(false)}
-                onSearchClick={() => {
-                  setOpen(false);
-                  setTimeout(() => setCmdOpen(true), 200);
-                }}
               />
             </SheetContent>
           </Sheet>
@@ -613,8 +584,6 @@ function AppShellInner({ children, actor }: { children: React.ReactNode; actor: 
           </div>
           <div className="size-8" />
         </div>
-
-        <CerviseCommandPalette open={cmdOpen} onOpenChange={setCmdOpen} />
 
         <div
           ref={scrollRef}
@@ -649,7 +618,9 @@ export function AppShell({ children, actor }: { children: React.ReactNode; actor
     <LocaleProvider>
       <TenantProvider fixedOrganizationId={actor.role.toUpperCase() === "MASTER_ADMIN" ? null : actor.orgId}>
         <BranchProvider fixedBranchId={actor.role.toUpperCase() === "MASTER_ADMIN" ? null : actor.branchId ?? "unassigned"}>
-          <AppShellInner actor={actor}>{children}</AppShellInner>
+          <CommandPaletteProvider>
+            <AppShellInner actor={actor}>{children}</AppShellInner>
+          </CommandPaletteProvider>
         </BranchProvider>
       </TenantProvider>
     </LocaleProvider>

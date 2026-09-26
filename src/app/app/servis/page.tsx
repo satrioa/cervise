@@ -576,48 +576,49 @@ export default function ServisPage() {
       <PageHeader
         title="Servis"
         titleClassName="font-heading text-2xl"
-        actions={
-          <Button size="filter" className="shrink-0" onClick={() => setOpenServis(true)}>Tambah Servis</Button>
+        description={
+          hasActiveFilters
+            ? `${filteredByAll.length} servis${search ? ` untuk “${search}”` : ""}${dateRange.from || dateRange.to ? ` · ${dateLabel}` : ""}${paymentFilter !== "Semua" ? ` · ${paymentFilter}` : ""}`
+            : undefined
         }
-        toolbar={
+        search={
+          <InputGroup className="h-8 w-full bg-background">
+            <InputGroupAddon align="inline-start"><SearchIcon className="size-3.5 opacity-60" /></InputGroupAddon>
+            <InputGroupInput placeholder="Cari ID, nama, HP…" value={search} onChange={(e) => setSearch(e.target.value)} className="text-sm" aria-label="Cari servis" />
+            {search && (<InputGroupAddon align="inline-end"><button type="button" onClick={() => setSearch("")} className="rounded p-0.5 text-muted-foreground hover:text-foreground transition-colors" aria-label="Hapus pencarian"><XIcon className="size-3.5" /></button></InputGroupAddon>)}
+          </InputGroup>
+        }
+        filters={
           <>
-            <div className="flex w-full flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center lg:justify-end">
-              <div className="relative w-full sm:w-[240px] lg:w-[260px]">
-                <InputGroup className="h-8 bg-background">
-                  <InputGroupAddon align="inline-start"><SearchIcon className="size-3.5 opacity-60" /></InputGroupAddon>
-                  <InputGroupInput placeholder="Cari ID, nama, HP…" value={search} onChange={(e) => setSearch(e.target.value)} className="text-sm" aria-label="Cari servis" />
-                  {search && (<InputGroupAddon align="inline-end"><button type="button" onClick={() => setSearch("")} className="rounded p-0.5 text-muted-foreground hover:text-foreground transition-colors" aria-label="Hapus pencarian"><XIcon className="size-3.5" /></button></InputGroupAddon>)}
-                </InputGroup>
-              </div>
-              <Popover>
-                <PopoverTrigger render={<Button variant="outline" size="filter" className={cn("w-full sm:w-auto justify-start gap-2 font-normal text-sm shrink-0", !dateRange.from && !dateRange.to && "text-muted-foreground")} />}>
-                  <CalendarIcon className="size-4 opacity-70" /><span className="truncate">{dateLabel}</span>
-                  {(dateRange.from || dateRange.to) && (<span role="button" tabIndex={0} onClick={(e) => { e.stopPropagation(); setDateRange({}); }} className="ml-1 rounded p-0.5 hover:bg-foreground/10 -mr-1" aria-label="Hapus rentang tanggal"><XIcon className="size-3.5" /></span>)}
-                </PopoverTrigger>
-                <PopoverContent align="end" className="w-auto p-0">
-                  <Calendar mode="range" selected={dateRange.from ? { from: dateRange.from, to: dateRange.to } : undefined} onSelect={(range) => { if (!range) setDateRange({}); else setDateRange({ from: range?.from, to: range?.to }); }} numberOfMonths={2} />
-                  <div className="flex items-center justify-between border-t p-2"><span className="text-xs text-muted-foreground px-2">{dateRange.from || dateRange.to ? `${filteredByAll.length} hasil` : "Pilih rentang tanggal"}</span><Button variant="ghost" size="xs" onClick={() => setDateRange({})}>Reset</Button></div>
-                </PopoverContent>
-              </Popover>
-              <Select value={paymentFilter} onValueChange={(v) => setPaymentFilter(v ?? "Semua")}>
-                <SelectTrigger size="sm" className="w-full sm:w-[160px] bg-background">
-                  <SelectValue placeholder="Pembayaran" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Semua">Semua pembayaran</SelectItem>
-                  <SelectItem value="Lunas">Lunas</SelectItem>
-                  <SelectItem value="DP">DP</SelectItem>
-                  <SelectItem value="Belum dibayar">Belum dibayar</SelectItem>
-                </SelectContent>
-              </Select>
-              <div className="flex items-center gap-2 sm:ml-1 w-full sm:w-auto">
-                <Tabs value={view} onValueChange={(v) => setView(v as "table" | "kanban")} className="flex-1 sm:flex-none">
-                  <TabsList className="w-full sm:w-auto"><TabsTrigger value="table" aria-label="Table view" className="flex-1 sm:flex-none px-2.5"><TableIcon className="size-4" /></TabsTrigger><TabsTrigger value="kanban" aria-label="Kanban view" className="flex-1 sm:flex-none px-2.5"><LayoutGridIcon className="size-4" /></TabsTrigger></TabsList>
-                </Tabs>
-              </div>
-            </div>
-            {hasActiveFilters && (<div className="mt-2 flex flex-wrap items-center gap-2 text-xs"><span className="text-muted-foreground">{filteredByAll.length} servis{search && <> untuk &ldquo;{search}&rdquo;</>}{(dateRange.from || dateRange.to) && <> · {dateLabel}</>}{paymentFilter !== "Semua" && <> · {paymentFilter}</>}</span><button type="button" onClick={clearFilters} className="inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs hover:bg-muted transition-colors"><XIcon className="size-3" /> Hapus filter</button></div>)}
+            <Popover>
+              <PopoverTrigger render={<Button variant="outline" size="filter" className={cn("w-auto shrink-0 justify-start gap-2 font-normal text-sm", !dateRange.from && !dateRange.to && "text-muted-foreground")} />}>
+                <CalendarIcon className="size-4 opacity-70" /><span className="truncate">{dateLabel}</span>
+                {(dateRange.from || dateRange.to) && (<span role="button" tabIndex={0} onClick={(e) => { e.stopPropagation(); setDateRange({}); }} className="ml-1 rounded p-0.5 hover:bg-foreground/10 -mr-1" aria-label="Hapus rentang tanggal"><XIcon className="size-3.5" /></span>)}
+              </PopoverTrigger>
+              <PopoverContent align="end" className="w-auto p-0">
+                <Calendar mode="range" selected={dateRange.from ? { from: dateRange.from, to: dateRange.to } : undefined} onSelect={(range) => { if (!range) setDateRange({}); else setDateRange({ from: range?.from, to: range?.to }); }} numberOfMonths={2} />
+                <div className="flex items-center justify-between border-t p-2"><span className="text-xs text-muted-foreground px-2">{dateRange.from || dateRange.to ? `${filteredByAll.length} hasil` : "Pilih rentang tanggal"}</span><Button variant="ghost" size="xs" onClick={() => setDateRange({})}>Reset</Button></div>
+              </PopoverContent>
+            </Popover>
+            <Select value={paymentFilter} onValueChange={(v) => setPaymentFilter(v ?? "Semua")}>
+              <SelectTrigger size="sm" className="w-[160px] shrink-0 bg-background">
+                <SelectValue placeholder="Pembayaran" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Semua">Semua pembayaran</SelectItem>
+                <SelectItem value="Lunas">Lunas</SelectItem>
+                <SelectItem value="DP">DP</SelectItem>
+                <SelectItem value="Belum dibayar">Belum dibayar</SelectItem>
+              </SelectContent>
+            </Select>
+            <Tabs value={view} onValueChange={(v) => setView(v as "table" | "kanban")} className="shrink-0">
+              <TabsList><TabsTrigger value="table" aria-label="Table view" className="px-2.5"><TableIcon className="size-4" /></TabsTrigger><TabsTrigger value="kanban" aria-label="Kanban view" className="px-2.5"><LayoutGridIcon className="size-4" /></TabsTrigger></TabsList>
+            </Tabs>
+            {hasActiveFilters && (<button type="button" onClick={clearFilters} className="inline-flex shrink-0 items-center gap-1 rounded-full border px-2.5 py-1 text-xs hover:bg-muted transition-colors"><XIcon className="size-3" /> Hapus filter</button>)}
           </>
+        }
+        actions={
+          <Button size="sm" className="h-8 shrink-0" onClick={() => setOpenServis(true)}>Tambah Servis</Button>
         }
       />
 

@@ -178,37 +178,37 @@ export default function LaporanServisPage() {
         title="Laporan Servis"
         titleClassName="font-heading text-2xl"
         description={`Harian & Bulanan · kas_date (tanggal servis masuk) · ${cabangLabel} · ${teknisiLabel}`}
-        toolbar={
-          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+        filters={
+          <>
             <Popover>
-              <PopoverTrigger render={<Button variant="outline" className="w-full justify-start font-normal" />}>
+              <PopoverTrigger render={<Button variant="outline" size="sm" className="h-8 w-auto shrink-0 justify-start font-normal" />}>
                 <CalendarIcon className="size-4 opacity-60" />
                 {from ? format(from, "d MMM yyyy", { locale: localeId }) : "Tanggal awal"}
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={from} onSelect={setFrom} /></PopoverContent>
             </Popover>
             <Popover>
-              <PopoverTrigger render={<Button variant="outline" className="w-full justify-start font-normal" />}>
+              <PopoverTrigger render={<Button variant="outline" size="sm" className="h-8 w-auto shrink-0 justify-start font-normal" />}>
                 <CalendarIcon className="size-4 opacity-60" />
                 {to ? format(to, "d MMM yyyy", { locale: localeId }) : "Tanggal akhir"}
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={to} onSelect={setTo} /></PopoverContent>
             </Popover>
             <Select value={cabang} onValueChange={(v) => setCabang((v as string) ?? "all")}>
-              <SelectTrigger><SelectValue placeholder="Semua cabang" /></SelectTrigger>
+              <SelectTrigger size="sm" className="shrink-0"><SelectValue placeholder="Semua cabang" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Semua cabang</SelectItem>
                 {branches.map((b) => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
               </SelectContent>
             </Select>
             <Select value={teknisi} onValueChange={(v) => setTeknisi((v as string) ?? "all")}>
-              <SelectTrigger><SelectValue placeholder="Semua teknisi" /></SelectTrigger>
+              <SelectTrigger size="sm" className="shrink-0"><SelectValue placeholder="Semua teknisi" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Semua teknisi</SelectItem>
                 {teknisis.map((t) => <SelectItem key={t.id} value={t.id}>{t.full_name ?? t.id.slice(0, 6)}</SelectItem>)}
               </SelectContent>
             </Select>
-          </div>
+          </>
         }
       />
 

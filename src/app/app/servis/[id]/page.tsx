@@ -31,7 +31,7 @@ export default async function ServisDetailPage({ params }: { params: Promise<{ i
     <div className="bg-background text-foreground min-h-svh">
       <PageHeader
         title={`Detail ${invoiceNo}`}
-        innerClassName="max-w-4xl"
+        containerClassName="max-w-4xl"
         actions={
           <>
             <Link href="/app/servis">

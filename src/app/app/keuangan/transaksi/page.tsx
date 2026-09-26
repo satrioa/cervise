@@ -10,7 +10,6 @@ import { Pagination, PaginationContent, PaginationItem, PaginationLink, Paginati
 import { Select, SelectItem, SelectPopup, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { Separator } from "@/components/ui/separator";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { createClient } from "@/lib/supabase/client";
 import { TransaksiExportButton } from "@/components/transaksi-export-button";
@@ -163,24 +162,25 @@ export default function TransaksiPage() {
             <TransaksiExportButton rows={txs as any} />
           </>
         }
-        toolbar={
-          <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
-            <InputGroup className="w-full sm:w-64">
-              <InputGroupAddon>
-                <SearchIcon className="size-4 text-muted-foreground" />
+        search={
+          <InputGroup className="h-8 w-full">
+            <InputGroupAddon>
+              <SearchIcon className="size-4 text-muted-foreground" />
+            </InputGroupAddon>
+            <InputGroupInput placeholder="Cari deskripsi, ID, cabang..." value={q} onChange={(e) => setQ(e.target.value)} />
+            {q && (
+              <InputGroupAddon align="inline-end">
+                <button type="button" onClick={() => setQ("")} className="rounded p-0.5 text-muted-foreground hover:text-foreground">
+                  <XIcon className="size-3.5" />
+                </button>
               </InputGroupAddon>
-              <InputGroupInput placeholder="Cari deskripsi, ID, cabang..." value={q} onChange={(e) => setQ(e.target.value)} />
-              {q && (
-                <InputGroupAddon align="inline-end">
-                  <button type="button" onClick={() => setQ("")} className="rounded p-0.5 text-muted-foreground hover:text-foreground">
-                    <XIcon className="size-3.5" />
-                  </button>
-                </InputGroupAddon>
-              )}
-            </InputGroup>
-            <Separator orientation="vertical" className="mx-1 hidden h-6 sm:block" />
+            )}
+          </InputGroup>
+        }
+        filters={
+          <>
             <Select value={branchFilter} onValueChange={(v) => setBranchFilter((v as string) ?? "all")}>
-              <SelectTrigger className="w-full sm:w-36" size="sm">
+              <SelectTrigger className="w-36 shrink-0" size="sm">
                 <SelectValue />
               </SelectTrigger>
               <SelectPopup>
@@ -194,7 +194,7 @@ export default function TransaksiPage() {
               </SelectPopup>
             </Select>
             <Select value={typeFilter} onValueChange={(v) => setTypeFilter((v as string) ?? "all")}>
-              <SelectTrigger className="w-full sm:w-32" size="sm">
+              <SelectTrigger className="w-32 shrink-0" size="sm">
                 <SelectValue />
               </SelectTrigger>
               <SelectPopup>
@@ -206,7 +206,7 @@ export default function TransaksiPage() {
             <Popover>
               <PopoverTrigger
                 render={
-                  <Button variant="outline" size="sm" className={cn("w-full sm:w-auto justify-start gap-2 font-normal text-sm", !dateRange.from && !dateRange.to && "text-muted-foreground")} />
+                  <Button variant="outline" size="sm" className={cn("w-auto shrink-0 justify-start gap-2 font-normal text-sm", !dateRange.from && !dateRange.to && "text-muted-foreground")} />
                 }
               >
                 <CalendarIcon className="size-4 opacity-70" />
@@ -225,8 +225,8 @@ export default function TransaksiPage() {
                 </div>
               </PopoverContent>
             </Popover>
-            <span className="ms-auto hidden font-mono text-[11px] text-muted-foreground sm:block">{loading ? "memuat..." : `${txs.length} transaksi`}</span>
-          </div>
+            <span className="hidden shrink-0 font-mono text-[11px] text-muted-foreground sm:block">{loading ? "memuat..." : `${txs.length} transaksi`}</span>
+          </>
         }
       />
 

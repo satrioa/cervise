@@ -8,7 +8,7 @@ export default function SubscriptionPage() {
         title="Subscription"
         titleClassName="font-heading text-2xl"
         description="Harga dalam Rp — mengikuti pengaturan Lokalisasi (IDR). Untuk USD, ubah Currency di Lokalisasi."
-        innerClassName="max-w-4xl"
+        containerClassName="max-w-4xl"
       />
       <div className="mx-auto max-w-4xl px-6 py-8">
         <SettingsBillingShowcasePage />

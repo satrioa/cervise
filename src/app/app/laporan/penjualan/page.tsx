@@ -76,11 +76,11 @@ export default function LaporanPenjualanPage() {
         title="Laporan Penjualan"
         titleClassName="font-heading text-2xl"
         description="Harian & Bulanan · terpisah dari Servis · stok per cabang"
-        toolbar={
-          <div className="grid gap-2 sm:grid-cols-2">
-            <Popover><PopoverTrigger render={<Button variant="outline" className="w-full justify-start font-normal" />}><CalendarIcon className="size-4 opacity-60" />{from ? format(from, "d MMM yyyy", { locale: localeId }) : "Tanggal awal"}</PopoverTrigger><PopoverContent className="w-auto p-0"><Calendar mode="single" selected={from} onSelect={setFrom} /></PopoverContent></Popover>
-            <Popover><PopoverTrigger render={<Button variant="outline" className="w-full justify-start font-normal" />}><CalendarIcon className="size-4 opacity-60" />{to ? format(to, "d MMM yyyy", { locale: localeId }) : "Tanggal akhir"}</PopoverTrigger><PopoverContent className="w-auto p-0"><Calendar mode="single" selected={to} onSelect={setTo} /></PopoverContent></Popover>
-          </div>
+        filters={
+          <>
+            <Popover><PopoverTrigger render={<Button variant="outline" size="sm" className="h-8 w-auto shrink-0 justify-start font-normal" />}><CalendarIcon className="size-4 opacity-60" />{from ? format(from, "d MMM yyyy", { locale: localeId }) : "Tanggal awal"}</PopoverTrigger><PopoverContent className="w-auto p-0"><Calendar mode="single" selected={from} onSelect={setFrom} /></PopoverContent></Popover>
+            <Popover><PopoverTrigger render={<Button variant="outline" size="sm" className="h-8 w-auto shrink-0 justify-start font-normal" />}><CalendarIcon className="size-4 opacity-60" />{to ? format(to, "d MMM yyyy", { locale: localeId }) : "Tanggal akhir"}</PopoverTrigger><PopoverContent className="w-auto p-0"><Calendar mode="single" selected={to} onSelect={setTo} /></PopoverContent></Popover>
+          </>
         }
       />
       <main className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-10 py-8 space-y-8">

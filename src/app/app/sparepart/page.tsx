@@ -1,7 +1,8 @@
 import { ClipboardCheckIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SparepartRevenue } from "@/components/sparepart/sparepart-revenue";
-import { InventoryToolbar, INVENTORY_DEFAULTS, type InventoryView } from "@/components/sparepart/inventory-toolbar";
+import { InventorySearch, InventoryFilters, INVENTORY_DEFAULTS, type InventoryView } from "@/components/sparepart/inventory-toolbar";
+import { ExportInventoryCsv } from "@/components/sparepart/export-inventory-csv";
 import { SparepartHeaderActions } from "@/components/sparepart/sparepart-header-actions";
 import { SparepartList } from "@/components/sparepart/sparepart-list";
 import { stockTone, type SparepartRow } from "@/components/sparepart/stock-tone";
@@ -93,6 +94,18 @@ export default async function SparepartPage({ searchParams }: { searchParams: Pr
       <PageHeader
         title="Sparepart"
         titleClassName="font-heading text-2xl"
+        description={`Menampilkan ${sorted.length} dari ${PRODUCTS.length} sparepart`}
+        search={<InventorySearch query={q?.trim() ?? ""} />}
+        filters={
+          <InventoryFilters
+            query={q?.trim() ?? ""}
+            category={category}
+            stock={stock}
+            sort={sortKey}
+            view={viewKey}
+            categories={categories}
+          />
+        }
         actions={
           <>
             <Button size="sm" variant="outline" disabled title="Segera hadir — stok opname per cabang + selisih & berita acara">
@@ -100,20 +113,8 @@ export default async function SparepartPage({ searchParams }: { searchParams: Pr
               <span className="ml-1 rounded bg-muted px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-muted-foreground">Segera hadir</span>
             </Button>
             <SparepartHeaderActions categories={categories} />
+            <ExportInventoryCsv rows={sorted} />
           </>
-        }
-        toolbar={
-          <InventoryToolbar
-            query={q?.trim() ?? ""}
-            category={category}
-            stock={stock}
-            sort={sortKey}
-            view={viewKey}
-            categories={categories}
-            shown={sorted.length}
-            total={PRODUCTS.length}
-            exportRows={sorted}
-          />
         }
       />
 

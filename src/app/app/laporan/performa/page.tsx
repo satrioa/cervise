@@ -63,8 +63,42 @@ export default function PerformaPage() {
       <PageHeader
         title="Performa Teknisi"
         description={`${filtered.length}/${TEKNISI.length} teknisi · metrik: Selesai + Sudah Diambil = selesai · insentif per cabang (persentase/nominal) · target opsional`}
-        innerClassName="max-w-5xl"
-        toolbarClassName="max-w-5xl"
+        containerClassName="max-w-5xl"
+        search={
+          <div className="relative w-full">
+            <SearchIcon className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+            <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Nama teknisi…" className="h-8 ps-8" />
+          </div>
+        }
+        filters={
+          <>
+            <Select value={cabangFilter} onValueChange={(v) => setCabangFilter((v as string) ?? "all")}>
+              <SelectTrigger className="shrink-0"><SelectValue placeholder="Semua cabang" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Semua cabang</SelectItem>
+                {cabangOptions.map((c) => (
+                  <SelectItem key={c} value={c}>{c}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={intensifFilter} onValueChange={(v) => setIntensifFilter((v as string) ?? "all")}>
+              <SelectTrigger className="shrink-0"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Semua</SelectItem>
+                <SelectItem value="aktif">Insentif aktif</SelectItem>
+                <SelectItem value="off">Off</SelectItem>
+              </SelectContent>
+            </Select>
+            {(q || cabangFilter !== "all" || intensifFilter !== "all") && (
+              <>
+                <span className="hidden shrink-0 font-mono text-xs text-muted-foreground sm:block">{filtered.length} hasil</span>
+                <Button variant="ghost" size="xs" className="h-8 shrink-0" onClick={() => { setQ(""); setCabangFilter("all"); setIntensifFilter("all"); }}>
+                  Reset filter
+                </Button>
+              </>
+            )}
+          </>
+        }
         actions={
           <PerformaExport
             rows={filtered.map((t) => ({
@@ -76,41 +110,6 @@ export default function PerformaPage() {
               totalInsentif: calcInsentif(t),
             }))}
           />
-        }
-        toolbar={
-          <>
-            <div className="grid gap-2 sm:grid-cols-3">
-              <div className="relative">
-                <SearchIcon className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
-                <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Nama teknisi…" className="ps-8" />
-              </div>
-              <Select value={cabangFilter} onValueChange={(v) => setCabangFilter((v as string) ?? "all")}>
-                <SelectTrigger><SelectValue placeholder="Semua cabang" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Semua cabang</SelectItem>
-                  {cabangOptions.map((c) => (
-                    <SelectItem key={c} value={c}>{c}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Select value={intensifFilter} onValueChange={(v) => setIntensifFilter((v as string) ?? "all")}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Semua</SelectItem>
-                  <SelectItem value="aktif">Insentif aktif</SelectItem>
-                  <SelectItem value="off">Off</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            {(q || cabangFilter !== "all" || intensifFilter !== "all") && (
-              <div className="mt-2 flex items-center gap-2">
-                <span className="font-mono text-xs text-muted-foreground">{filtered.length} hasil</span>
-                <Button variant="ghost" size="xs" onClick={() => { setQ(""); setCabangFilter("all"); setIntensifFilter("all"); }}>
-                  Reset filter
-                </Button>
-              </div>
-            )}
-          </>
         }
       />
 

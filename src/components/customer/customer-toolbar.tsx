@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/button";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { cn } from "@/lib/utils";
 import { Select, SelectItem, SelectPopup, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Separator } from "@/components/ui/separator";
 import { GenericExportDialog, type ExportField } from "@/components/generic-export-dialog";
 
 export const CUSTOMER_DEFAULTS = {
@@ -45,28 +44,10 @@ const CUSTOMER_EXPORT_FIELDS: ExportField[] = [
   { id: "createdAt", label: "Created At", default: false },
 ];
 
-interface Props {
-  query: string;
-  status: string;
-  sort: string;
-  shown: number;
-  total: number;
-  exportRows: Record<string, any>[];
-}
-
-export function CustomerToolbar({ query: initialQuery, status: initialStatus, sort: initialSort, shown, total, exportRows }: Props) {
+function useCustomerCommit() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const searchRef = useRef<HTMLInputElement>(null);
-  const [exportOpen, setExportOpen] = useState(false);
-
-  const [query, setQuery] = useState(initialQuery);
-  const [prevQuery, setPrevQuery] = useState(initialQuery);
-  if (initialQuery !== prevQuery) {
-    setPrevQuery(initialQuery);
-    setQuery(initialQuery);
-  }
 
   const commit = useCallback(
     (next: { q?: string; status?: string; sort?: string }) => {
@@ -90,6 +71,21 @@ export function CustomerToolbar({ query: initialQuery, status: initialStatus, so
     [pathname, router, searchParams]
   );
 
+  return { commit };
+}
+
+export function CustomerSearch({ query: initialQuery }: { query: string }) {
+  const { commit } = useCustomerCommit();
+  const searchParams = useSearchParams();
+  const searchRef = useRef<HTMLInputElement>(null);
+
+  const [query, setQuery] = useState(initialQuery);
+  const [prevQuery, setPrevQuery] = useState(initialQuery);
+  if (initialQuery !== prevQuery) {
+    setPrevQuery(initialQuery);
+    setQuery(initialQuery);
+  }
+
   useEffect(() => {
     const t = setTimeout(() => {
       const paramQ = searchParams.get("q") ?? "";
@@ -110,96 +106,102 @@ export function CustomerToolbar({ query: initialQuery, status: initialStatus, so
     return () => document.removeEventListener("keydown", onKey);
   }, []);
 
+  return (
+    <InputGroup className="h-8 w-full">
+      <InputGroupAddon>
+        <SearchIcon className="size-4 text-muted-foreground" />
+      </InputGroupAddon>
+      <InputGroupInput
+        ref={searchRef}
+        placeholder="Cari nama, HP, servis…"
+        aria-label="Cari customer"
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+        nativeInput
+      />
+      <InputGroupAddon align="inline-end">
+        <Kbd>/</Kbd>
+      </InputGroupAddon>
+    </InputGroup>
+  );
+}
+
+export function CustomerFilters({
+  query,
+  status: initialStatus,
+  sort: initialSort,
+}: {
+  query: string;
+  status: string;
+  sort: string;
+}) {
+  const { commit } = useCustomerCommit();
+
   const status = initialStatus || CUSTOMER_DEFAULTS.status;
   const sort = initialSort || CUSTOMER_DEFAULTS.sort;
 
   const activeCount =
-    (initialQuery ? 1 : 0) + (status !== CUSTOMER_DEFAULTS.status ? 1 : 0) + (sort !== CUSTOMER_DEFAULTS.sort ? 1 : 0);
+    (query ? 1 : 0) + (status !== CUSTOMER_DEFAULTS.status ? 1 : 0) + (sort !== CUSTOMER_DEFAULTS.sort ? 1 : 0);
 
   const clear = () => {
-    setQuery("");
     commit({ q: "", status: CUSTOMER_DEFAULTS.status, sort: CUSTOMER_DEFAULTS.sort });
   };
 
   return (
-    <div className="flex flex-col gap-2 rounded-xl border bg-card px-3 py-2.5 shadow-xs/5">
-      <div className="flex flex-wrap items-center gap-2">
-        <InputGroup className="w-64">
-          <InputGroupAddon>
-            <SearchIcon className="size-4 text-muted-foreground" />
-          </InputGroupAddon>
-          <InputGroupInput
-            ref={searchRef}
-            placeholder="Cari nama, HP, servis…"
-            aria-label="Cari customer"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            nativeInput
-          />
-          <InputGroupAddon align="inline-end">
-            <Kbd>/</Kbd>
-          </InputGroupAddon>
-        </InputGroup>
+    <>
+      <Select value={status} onValueChange={(v) => commit({ status: v ?? CUSTOMER_DEFAULTS.status })}>
+        <SelectTrigger className="w-44 shrink-0" size="sm">
+          <SelectValue>{STATUS_OPTIONS.find((s) => s.value === status)?.label ?? "Semua status"}</SelectValue>
+        </SelectTrigger>
+        <SelectPopup>
+          {STATUS_OPTIONS.map((s) => (
+            <SelectItem key={s.value} value={s.value}>
+              {s.label}
+            </SelectItem>
+          ))}
+        </SelectPopup>
+      </Select>
 
-        <Separator orientation="vertical" className="mx-1 h-6" />
+      <Select value={sort} onValueChange={(v) => commit({ sort: v ?? CUSTOMER_DEFAULTS.sort })}>
+        <SelectTrigger className="w-48 shrink-0" size="sm">
+          <ArrowUpDownIcon className="text-muted-foreground" />
+          <SelectValue>{SORT_OPTIONS.find((s) => s.value === sort)?.label ?? "Terakhir terbaru"}</SelectValue>
+        </SelectTrigger>
+        <SelectPopup>
+          {SORT_OPTIONS.map((s) => (
+            <SelectItem key={s.value} value={s.value}>
+              {s.label}
+            </SelectItem>
+          ))}
+        </SelectPopup>
+      </Select>
 
-        <Select value={status} onValueChange={(v) => commit({ status: v ?? CUSTOMER_DEFAULTS.status })}>
-          <SelectTrigger className="w-44" size="sm">
-            <SelectValue>{STATUS_OPTIONS.find((s) => s.value === status)?.label ?? "Semua status"}</SelectValue>
-          </SelectTrigger>
-          <SelectPopup>
-            {STATUS_OPTIONS.map((s) => (
-              <SelectItem key={s.value} value={s.value}>
-                {s.label}
-              </SelectItem>
-            ))}
-          </SelectPopup>
-        </Select>
+      {activeCount > 0 ? (
+        <Button size="xs" variant="ghost" onClick={clear} className="h-8 shrink-0 px-1.5 text-muted-foreground">
+          <XIcon /> Clear ({activeCount})
+        </Button>
+      ) : null}
+    </>
+  );
+}
 
-        <Select value={sort} onValueChange={(v) => commit({ sort: v ?? CUSTOMER_DEFAULTS.sort })}>
-          <SelectTrigger className="w-48" size="sm">
-            <ArrowUpDownIcon className="text-muted-foreground" />
-            <SelectValue>{SORT_OPTIONS.find((s) => s.value === sort)?.label ?? "Terakhir terbaru"}</SelectValue>
-          </SelectTrigger>
-          <SelectPopup>
-            {SORT_OPTIONS.map((s) => (
-              <SelectItem key={s.value} value={s.value}>
-                {s.label}
-              </SelectItem>
-            ))}
-          </SelectPopup>
-        </Select>
-
-        <div className="ms-auto flex items-center gap-2">
-          <Button size="filter" variant="outline" onClick={() => setExportOpen(true)}>
-            Export
-          </Button>
-          <GenericExportDialog
-            open={exportOpen}
-            onOpenChange={setExportOpen}
-            title="Export Customer"
-            description="Unduh data customer terfilter."
-            fields={CUSTOMER_EXPORT_FIELDS}
-            rows={exportRows}
-            fileNamePrefix="customer"
-          />
-        </div>
-      </div>
-
-      <Separator className="my-0" />
-
-      <div className="flex items-center gap-1.5 py-0.5">
-        <span className="ms-auto inline-flex items-center gap-1.5 text-muted-foreground text-xs leading-none">
-          <span className={"size-1.5 rounded-full " + (shown === 0 ? "bg-destructive" : "bg-emerald-500")} />
-          Menampilkan {shown} dari {total} customer
-          {activeCount > 0 ? (
-            <Button size="xs" variant="ghost" onClick={clear} className="-mr-2 h-6 px-1.5 text-muted-foreground">
-              <XIcon /> Clear ({activeCount})
-            </Button>
-          ) : null}
-        </span>
-      </div>
-    </div>
+export function CustomerExportButton({ exportRows }: { exportRows: Record<string, any>[] }) {
+  const [exportOpen, setExportOpen] = useState(false);
+  return (
+    <>
+      <Button size="sm" variant="outline" className="h-8 shrink-0" onClick={() => setExportOpen(true)}>
+        Export
+      </Button>
+      <GenericExportDialog
+        open={exportOpen}
+        onOpenChange={setExportOpen}
+        title="Export Customer"
+        description="Unduh data customer terfilter."
+        fields={CUSTOMER_EXPORT_FIELDS}
+        rows={exportRows}
+        fileNamePrefix="customer"
+      />
+    </>
   );
 }
 

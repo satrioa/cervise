@@ -113,22 +113,21 @@ export default function KategoriSparepartPage() {
         title="Kategori Sparepart"
         titleClassName="font-heading text-2xl"
         description="CRUD kategori per cabang. Dipakai di filter Inventori & form Sparepart."
-        innerClassName="max-w-4xl"
-        toolbarClassName="max-w-4xl"
-        actions={
-          <Button size="sm" onClick={openCreate}>
-            <PlusIcon className="size-3.5" /> Tambah Kategori
-          </Button>
-        }
-        toolbar={
-          <div className="flex gap-2">
-            <Input placeholder="Cari kategori..." value={q} onChange={(e) => setQ(e.target.value)} className="max-w-sm" />
+        containerClassName="max-w-4xl"
+        search={
+          <div className="flex w-full items-center gap-2">
+            <Input placeholder="Cari kategori..." value={q} onChange={(e) => setQ(e.target.value)} className="h-8" />
             {q && (
-              <Button variant="ghost" size="sm" onClick={() => setQ("")}>
+              <Button variant="ghost" size="sm" className="h-8 shrink-0" onClick={() => setQ("")}>
                 <XIcon className="size-3.5" /> Clear
               </Button>
             )}
           </div>
+        }
+        actions={
+          <Button size="sm" className="h-8 shrink-0" onClick={openCreate}>
+            <PlusIcon className="size-3.5" /> Tambah Kategori
+          </Button>
         }
       />
 

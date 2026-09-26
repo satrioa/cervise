@@ -32,7 +32,7 @@ export default async function CabangPage() {
       <PageHeader
         title="Cabang"
         description={`${total}/${limit} Cabang ● ${aktif} Aktif ● ${nonaktif} Nonaktif${isDemo ? " · Demo" : ""}`}
-        innerClassName="max-w-2xl"
+        containerClassName="max-w-2xl"
         actions={<CabangHeaderActions />}
       />
 

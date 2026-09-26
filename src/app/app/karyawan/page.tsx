@@ -1,5 +1,5 @@
 import { getKaryawan, getKaryawanBranches } from "./actions";
-import { KaryawanToolbar, KARYAWAN_DEFAULTS } from "@/components/karyawan/karyawan-toolbar";
+import { KaryawanSearch, KaryawanFilters, KaryawanExportButton, KARYAWAN_DEFAULTS } from "@/components/karyawan/karyawan-toolbar";
 import type { ExportKaryawanRow } from "@/components/karyawan/export-karyawan-csv";
 import { KaryawanHeaderActions, KaryawanList } from "@/components/karyawan/karyawan-list";
 import { PageHeader } from "@/components/layout/page-header";
@@ -55,19 +55,22 @@ export default async function KaryawanPage({ searchParams }: { searchParams: Pro
       <PageHeader
         title="Data Karyawan"
         titleClassName="font-heading text-2xl"
-        description={`${rows.length} orang · ${branches.length || cabangs.length} cabang`}
-        actions={<KaryawanHeaderActions branches={branches} />}
-        toolbar={
-          <KaryawanToolbar
+        description={`Menampilkan ${filtered.length} dari ${rows.length} karyawan · ${branches.length || cabangs.length} cabang`}
+        search={<KaryawanSearch query={q?.trim() ?? ""} />}
+        filters={
+          <KaryawanFilters
             query={q?.trim() ?? ""}
             cabang={cabangFilter}
             role={roleFilter}
             status={statusFilter}
             cabangs={cabangs}
-            shown={filtered.length}
-            total={rows.length}
-            exportRows={exportRows}
           />
+        }
+        actions={
+          <>
+            <KaryawanHeaderActions branches={branches} />
+            <KaryawanExportButton exportRows={exportRows} />
+          </>
         }
       />
 

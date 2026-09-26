@@ -18,12 +18,7 @@ export default function AuditLogPage() {
           </span>
         }
         titleClassName="font-heading text-2xl"
-        description="Jejak aktivitas servis, inventory & akses — filter otomatis mengikuti cabang di sidebar."
-        actions={
-          <div className="text-xs text-muted-foreground font-mono">
-            Cabang aktif: <span className="text-foreground font-medium">{branch.label}</span> · {branch.meta}
-          </div>
-        }
+        description={`Jejak aktivitas servis, inventory & akses — cabang aktif: ${branch.label} · ${branch.meta}`}
       />
 
       <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-10 py-6 lg:py-8">
