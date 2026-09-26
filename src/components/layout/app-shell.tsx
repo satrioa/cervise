@@ -31,6 +31,8 @@ import { Badge } from "@/components/ui/badge";
 import { CommandPaletteProvider } from "@/components/layout/command-palette-provider";
 import { BranchProvider, useBranch } from "@/lib/branch-context";
 import { TenantProvider, useTenant } from "@/lib/tenant-context";
+import { TrialCard } from "@/components/layout/trial-card";
+import { canAccess } from "@/lib/rbac";
 import { LocaleProvider } from "@/lib/localization-context";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { MultipleAccounts, type AccountOption } from "@/components/uitripled/multiple-accounts-shadcnui";
@@ -273,6 +275,7 @@ function SidebarContent({ onNavigate, role }: { onNavigate?: () => void; role: s
   const pathname = usePathname();
   const router = useRouter();
   const { branch } = useBranch();
+  const { activeOrgId } = useTenant();
   const t = useTranslations("nav");
   const canSwitchTenantValue = canSwitchTenant(role);
   const canSwitchBranchValue = canSwitchBranch(role);
@@ -349,39 +352,8 @@ function SidebarContent({ onNavigate, role }: { onNavigate?: () => void; role: s
         ))}
       </nav>
 
-      {/* Trial card — fixed di bottom body container, dark, progress shimmer hijau di atas button */}
-      <div className="shrink-0 border-t border-border/60 p-3">
-        <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-3 text-zinc-100 shadow-sm">
-          <div className="text-xs font-semibold tracking-tight">{t("trial.title", { days: 12 })}</div>
-          <p className="mt-1 text-xs leading-relaxed text-zinc-400">{t("trial.subtitle", { branches: 3, users: 15 })}</p>
-          {/* Status progress — elapsed 14% = 2/14 terpakai, sisa 12/14 (contoh 10 hari: 1/10=10% sisa 9) — shimmer hijau, dynamic nanti dari org trial */}
-          <div className="mt-3 space-y-1.5">
-            <div className="flex justify-between font-mono text-[10px] uppercase tracking-widest text-zinc-400">
-              <span>{t("trial.remaining", { days: 12 })}</span>
-              <span>14%</span>
-            </div>
-            <div className="h-1.5 w-full overflow-hidden rounded-full bg-zinc-800">
-              <div className="relative h-full overflow-hidden rounded-full bg-emerald-500" style={{ width: "14%" }}>
-                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/35 to-transparent" style={{ animation: "shimmer 1.6s linear infinite" }} />
-              </div>
-            </div>
-          </div>
-          <Button
-            variant="candy"
-            size="sm"
-            className="mt-3 w-full h-7 text-xs font-medium"
-            style={
-              {
-                "--btn": "oklch(0.99 0.015 85)",
-                "--btn-hover": "oklch(0.96 0.02 85)",
-                "--btn-fg": "oklch(0.22 0 0)",
-              } as React.CSSProperties
-            }
-          >
-            {t("trial.viewPackage")}
-          </Button>
-        </div>
-      </div>
+      {/* Trial card — live dari tenant_subscriptions; sembunyi bila bukan trial */}
+      <TrialCard organizationId={activeOrgId} canManageSubscription={canAccess(role, "pengaturan_subscription")} />
 
       <div className="flex items-center gap-2 border-t border-border/60 px-3 py-2.5">
         <div className="flex size-8 items-center justify-center rounded-full bg-foreground text-xs font-medium text-background">MA</div>
