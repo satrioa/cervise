@@ -36,6 +36,7 @@ import { canAccess } from "@/lib/rbac";
 import { LocaleProvider } from "@/lib/localization-context";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { MultipleAccounts, type AccountOption } from "@/components/uitripled/multiple-accounts-shadcnui";
+import { IdentityAvatar } from "@/components/identity-avatar";
 import { cn } from "@/lib/utils";
 import { CheckIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
@@ -185,9 +186,16 @@ function TenantSwitcher({ canSwitchTenant: canSwitchTenantValue }: { canSwitchTe
   const activeTenant = tenants.find((tenant) => tenant.id === activeOrgId) ?? tenants[0];
   if (!canSwitchTenantValue) {
     return (
-      <div className="w-full px-3.5 py-2">
-        <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Tenant assigned</div>
-        <div className="mt-1 truncate font-semibold">{activeTenant?.name ?? "Tenant"}</div>
+      <div className="flex w-full items-center gap-2.5 px-3.5 py-2">
+        <IdentityAvatar
+          photoUrl={activeTenant?.logoUrl ?? null}
+          name={activeTenant?.name}
+          className="size-8 text-xs"
+        />
+        <div className="min-w-0">
+          <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Tenant assigned</div>
+          <div className="mt-1 truncate font-semibold">{activeTenant?.name ?? "Tenant"}</div>
+        </div>
       </div>
     );
   }
@@ -196,6 +204,9 @@ function TenantSwitcher({ canSwitchTenant: canSwitchTenantValue }: { canSwitchTe
     name: tenant.name,
     description: `${tenant.paket ?? "tenant"} · Organization`,
     plan: tenant.paket ?? "trial",
+    // Dipakai MultipleAccounts untuk merender AvatarImage. Sebelumnya field ini
+    // ada di tipe tapi tidak pernah diisi, jadi Logo tenant tidak pernah tampil.
+    avatarUrl: tenant.logoUrl ?? undefined,
   }));
   return (
     <MultipleAccounts
@@ -271,7 +282,17 @@ function BranchSwitcher({ canSwitch }: { canSwitch: boolean }) {
   );
 }
 
-function SidebarContent({ onNavigate, role }: { onNavigate?: () => void; role: string }) {
+function SidebarContent({
+  onNavigate,
+  role,
+  fullName,
+  avatarUrl,
+}: {
+  onNavigate?: () => void;
+  role: string;
+  fullName: string | null;
+  avatarUrl: string | null;
+}) {
   const pathname = usePathname();
   const router = useRouter();
   const { branch } = useBranch();
@@ -356,9 +377,9 @@ function SidebarContent({ onNavigate, role }: { onNavigate?: () => void; role: s
       <TrialCard organizationId={activeOrgId} canManageSubscription={canAccess(role, "pengaturan_subscription")} />
 
       <div className="flex items-center gap-2 border-t border-border/60 px-3 py-2.5">
-        <div className="flex size-8 items-center justify-center rounded-full bg-foreground text-xs font-medium text-background">MA</div>
+        <IdentityAvatar photoUrl={avatarUrl} name={fullName ?? roleLabel(role)} className="size-8 text-xs" />
         <div className="min-w-0 flex-1">
-            <div className="truncate text-sm font-medium">{roleLabel(role)}</div>
+            <div className="truncate text-sm font-medium">{fullName ?? roleLabel(role)}</div>
           <div className="flex items-center gap-1.5 truncate text-xs text-muted-foreground">
             <span className="size-1.5 rounded-full bg-emerald-500" />
             <span className="truncate">{branch.label}</span>
@@ -509,6 +530,9 @@ export type AppShellActor = {
   role: string;
   orgId: string;
   branchId: string | null;
+  /** Identitas akun untuk sidebar. null = belum diketahui / belum diisi. */
+  fullName: string | null;
+  avatarUrl: string | null;
 };
 
 function AppShellInner({ children, actor }: { children: React.ReactNode; actor: AppShellActor }) {
@@ -553,7 +577,7 @@ function AppShellInner({ children, actor }: { children: React.ReactNode; actor: 
   return (
     <div className="flex h-svh w-full overflow-hidden bg-background text-foreground lg:grid lg:grid-cols-[260px_1fr]">
       <aside className="hidden h-svh shrink-0 flex-col border-r border-border/60 bg-foreground/[0.02] lg:flex sticky top-0 overflow-hidden">
-        <SidebarContent role={actor.role} />
+        <SidebarContent role={actor.role} fullName={actor.fullName} avatarUrl={actor.avatarUrl} />
       </aside>
 
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden lg:col-start-2">
@@ -568,6 +592,8 @@ function AppShellInner({ children, actor }: { children: React.ReactNode; actor: 
               </SheetHeader>
               <SidebarContent
                 role={actor.role}
+                fullName={actor.fullName}
+                avatarUrl={actor.avatarUrl}
                 onNavigate={() => setOpen(false)}
               />
             </SheetContent>

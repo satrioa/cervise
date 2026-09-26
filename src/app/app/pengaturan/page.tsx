@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,9 +9,11 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { getBrand, getMasterAdmins, updateBrand } from "@/app/app/pengaturan/actions";
+import { uploadTenantLogo, removeTenantLogo } from "@/app/app/pengaturan/photo-actions";
+import { PhotoUpload } from "@/components/photo-upload";
 import { useBranch } from "@/lib/branch-context";
 import { toast } from "sonner";
-import { UploadIcon, TrashIcon, BuildingIcon, UsersIcon, MailIcon, ShieldIcon } from "lucide-react";
+import { BuildingIcon, UsersIcon, MailIcon, ShieldIcon } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
 
 export default function GeneralPage() {
@@ -21,7 +23,6 @@ export default function GeneralPage() {
   const [loading, setLoading] = useState(false);
   const [users, setUsers] = useState<any[]>([]);
   const [inviteEmail, setInviteEmail] = useState("");
-  const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     let active = true;
@@ -61,17 +62,6 @@ export default function GeneralPage() {
     setInviteEmail("");
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const url = URL.createObjectURL(file);
-    setLogoUrl(url);
-    toast.info("Preview logo — upload ke storage cervise_brand_logos nanti");
-    e.target.value = "";
-  };
-
-  const logoSrc = logoUrl || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(brandName)}`;
-
   return (
     <div className="min-h-svh bg-background">
       <PageHeader
@@ -88,29 +78,13 @@ export default function GeneralPage() {
           <CardDescription>Terlihat di struk, invoice, dan header cabang</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          {/* Photo — devl pattern */}
-          <div className="flex items-center gap-5">
-            <img
-              alt={brandName}
-              src={logoSrc}
-              className="size-20 shrink-0 rounded-full object-cover ring-1 ring-border/60"
-              draggable={false}
-            />
-            <div className="flex flex-1 flex-col gap-2">
-              <div className="flex items-center gap-2">
-                <Button size="sm" variant="outline" type="button" onClick={() => fileRef.current?.click()}>
-                  <UploadIcon />
-                  Upload
-                </Button>
-                <Button size="sm" variant="ghost" type="button" disabled={!logoUrl} onClick={() => { setLogoUrl(null); toast.info("Logo dihapus"); }}>
-                  <TrashIcon className="size-4" />
-                  Remove
-                </Button>
-              </div>
-              <p className="text-muted-foreground text-xs">Rekomendasi: 400×400 PNG/JPG.</p>
-            </div>
-          </div>
-          <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleFileChange} />
+          <PhotoUpload
+            photoUrl={logoUrl}
+            name={brandName}
+            onUpload={uploadTenantLogo}
+            onRemove={removeTenantLogo}
+            label="Logo tenant"
+          />
           <Separator />
           <div className="space-y-3">
             <div className="space-y-1.5">

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { EllipsisIcon, MailIcon, PencilIcon, ShieldIcon, TrashIcon, UserMinusIcon, UserCheckIcon } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { IdentityAvatar } from "@/components/identity-avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Menu, MenuItem, MenuPopup, MenuSeparator, MenuTrigger } from "@/components/ui/menu";
@@ -115,7 +116,15 @@ export function KaryawanList({ rows, branches }: { rows: KaryawanRow[]; branches
                 <TableRow key={m.employeeId}>
                   <TableCell className="ps-4">
                     <div className="flex items-center gap-3">
-                      <Avatar className={"size-8 " + tone}><AvatarFallback className="bg-transparent font-medium text-[11px]">{initials}</AvatarFallback></Avatar>
+                      {m.avatarUrl ? (
+                        <IdentityAvatar
+                          photoUrl={m.avatarUrl}
+                          name={m.fullName}
+                          className={"size-8 text-[11px] " + tone}
+                        />
+                      ) : (
+                        <Avatar className={"size-8 " + tone}><AvatarFallback className="bg-transparent font-medium text-[11px]">{initials}</AvatarFallback></Avatar>
+                      )}
                       <div className="min-w-0">
                         <div className="flex items-center gap-2">
                           <span className="font-medium">{m.fullName}</span>

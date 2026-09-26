@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { getActiveTenant, type Actor } from "@/lib/supabase/actor";
 import { isEmployeeTargetInOrganization, isManagerRole } from "@/lib/auth/authorization";
 import { canAccess } from "@/lib/rbac";
+import { publicPhotoUrl } from "@/lib/photos";
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 
 type BranchUser = { supabase: Actor["supabase"]; userId: string; employeeId: string; organizationId: string; branchId: string; role: string };
@@ -50,6 +51,8 @@ export type KaryawanRow = {
   role: string;
   branchId: string | null;
   branchName: string | null;
+  /** URL foto publik; null = belum ada foto. */
+  avatarUrl: string | null;
   isActive: boolean;
   createdAt: string;
 };
@@ -63,11 +66,17 @@ export async function getKaryawan(): Promise<KaryawanRow[]> {
   const pIds = (emps as any[]).map((e) => e.profile_id).filter(Boolean);
   const bIds = (emps as any[]).map((e) => e.branch_id).filter(Boolean);
   const [{ data: profs }, { data: branches }] = await Promise.all([
-    pIds.length ? supabase.from("profiles").select("id, full_name, phone, email").in("id", pIds) : Promise.resolve({ data: [] as any[] } as any),
+    pIds.length ? supabase.from("profiles").select("id, full_name, phone, email, avatar_url").in("id", pIds) : Promise.resolve({ data: [] as any[] } as any),
     bIds.length ? supabase.from("branches").select("id, name").in("id", bIds) : Promise.resolve({ data: [] as any[] } as any),
   ]);
-  const pMap = new Map<string, { full_name: string | null; phone: string | null; email: string | null }>();
-  for (const p of (profs ?? []) as any[]) pMap.set(p.id, { full_name: p.full_name, phone: p.phone, email: (p as any).email ?? null });
+  const pMap = new Map<string, { full_name: string | null; phone: string | null; email: string | null; avatarUrl: string | null }>();
+  for (const p of (profs ?? []) as any[])
+    pMap.set(p.id, {
+      full_name: p.full_name,
+      phone: p.phone,
+      email: p.email ?? null,
+      avatarUrl: publicPhotoUrl(process.env.NEXT_PUBLIC_SUPABASE_URL ?? "", p.avatar_url ?? null),
+    });
   const bMap = new Map<string, string>();
   for (const b of (branches ?? []) as any[]) bMap.set(b.id, b.name);
   return (emps as any[]).map((e) => {
@@ -81,6 +90,7 @@ export async function getKaryawan(): Promise<KaryawanRow[]> {
       role: String(e.role),
       branchId: (e.branch_id as string | null) ?? null,
       branchName: (e.branch_id ? bMap.get(e.branch_id) ?? null : null) as string | null,
+      avatarUrl: prof?.avatarUrl ?? null,
       isActive: !!e.is_active,
       createdAt: e.created_at as string,
     };

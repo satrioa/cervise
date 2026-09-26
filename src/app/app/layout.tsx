@@ -8,5 +8,17 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     const code = error instanceof TenantAccessError ? error.code : "lookup_failed";
     redirect(getTenantAccessRedirect(code));
   });
-  return <AppShell actor={{ role: actor.role, orgId: actor.orgId, branchId: actor.branchId }}>{children}</AppShell>;
+  return (
+    <AppShell
+      actor={{
+        role: actor.role,
+        orgId: actor.orgId,
+        branchId: actor.branchId,
+        fullName: actor.fullName,
+        avatarUrl: actor.avatarUrl,
+      }}
+    >
+      {children}
+    </AppShell>
+  );
 }

@@ -6,6 +6,7 @@ import {
   type SubscriptionLifecycleStatus,
 } from "@/lib/billing/renewal";
 import type { TenantAccessErrorCode } from "@/lib/auth/authorization";
+import { publicPhotoUrl } from "@/lib/photos";
 
 export class TenantAccessError extends Error {
   readonly code: TenantAccessErrorCode;
@@ -40,6 +41,9 @@ export type Actor = {
   branchId: string | null;
   employeeId: string;
   role: string;
+  /** Identitas akun, untuk sidebar dan header. Boleh null kalau belum diisi. */
+  fullName: string | null;
+  avatarUrl: string | null;
   subscription: {
     status: SubscriptionLifecycleStatus;
     currentPeriodEnd: string | null;
@@ -91,7 +95,7 @@ export async function getActiveTenant(): Promise<Actor> {
 
   const { data: profile, error: profileError } = await supabase
     .from("profiles")
-    .select("is_active")
+    .select("is_active, full_name, email, avatar_url")
     .eq("id", auth.user.id)
     .maybeSingle();
   if (profileError) throw new TenantAccessError("lookup_failed", profileError.message);
@@ -163,6 +167,10 @@ export async function getActiveTenant(): Promise<Actor> {
     branchId: (actorRow.branch_id as string | null) ?? null,
     employeeId: actorRow.id as string,
     role: (actorRow.role as string) ?? "TECHNICIAN",
+    fullName: (profile.full_name as string | null) ?? null,
+    // Path dari database tidak pernah dipakai mentah: divalidasi bentuknya dulu
+    // supaya nilai yang tersuntik tidak bisa mengubah host URL.
+    avatarUrl: publicPhotoUrl(process.env.NEXT_PUBLIC_SUPABASE_URL ?? "", profile.avatar_url as string | null),
     subscription,
   };
 }

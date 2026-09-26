@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { KeyRoundIcon, ShieldCheckIcon, TrashIcon, UploadIcon } from "lucide-react";
+import { useEffect, useState } from "react";
+import { KeyRoundIcon, ShieldCheckIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,6 +10,8 @@ import { Separator } from "@/components/ui/separator";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/layout/page-header";
+import { PhotoUpload } from "@/components/photo-upload";
+import { uploadAccountPhoto, removeAccountPhoto } from "@/app/app/pengaturan/photo-actions";
 
 type BranchOpt = { id: string; name: string };
 
@@ -21,6 +23,8 @@ export type SettingsProfileInitial = {
   role: string;
   cabangOptions: BranchOpt[];
   isMasterAdmin: boolean;
+  /** URL foto publik dari server; null = belum ada foto. */
+  avatarUrl?: string | null;
 };
 
 export function SettingsProfileCervise({
@@ -35,10 +39,8 @@ export function SettingsProfileCervise({
   const [fullName, setFullName] = useState(initial.fullName);
   const [phone, setPhone] = useState(initial.phone);
   const [branchId, setBranchId] = useState<string>(initial.branchId ?? (initial.cabangOptions[0]?.id ?? ""));
-  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
-  const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     setFullName(initial.fullName);
@@ -47,19 +49,8 @@ export function SettingsProfileCervise({
     setDirty(false);
   }, [initial.fullName, initial.phone, initial.branchId, initial.cabangOptions]);
 
-  const avatarSrc = avatarUrl || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(fullName || initial.fullName)}`;
-
   const checkDirty = (n: string, p: string, b: string) =>
     n.trim() !== initial.fullName.trim() || p.trim() !== initial.phone.trim() || b !== (initial.branchId ?? "");
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const url = URL.createObjectURL(file);
-    setAvatarUrl(url);
-    toast.info("Preview avatar — upload ke storage nanti");
-    e.target.value = "";
-  };
 
   const handleSave = async () => {
     if (!fullName.trim()) {
@@ -112,27 +103,12 @@ export function SettingsProfileCervise({
       <div className="mx-auto max-w-3xl px-8 py-8 pb-32">
 
         <Section title="Foto">
-          <div className="flex items-center gap-5">
-            <img
-              alt={fullName || initial.fullName}
-              src={avatarSrc}
-              className="size-20 shrink-0 rounded-full object-cover ring-1 ring-border/60"
-              draggable={false}
-            />
-            <div className="flex flex-1 flex-col gap-2">
-              <div className="flex items-center gap-2">
-                <Button size="sm" variant="outline" type="button" onClick={() => fileRef.current?.click()}>
-                  <UploadIcon />
-                  Upload
-                </Button>
-                <Button size="sm" variant="ghost" type="button" disabled={!avatarUrl} onClick={() => { setAvatarUrl(null); toast.info("Avatar dihapus"); }}>
-                  Remove
-                </Button>
-              </div>
-              <p className="text-muted-foreground text-xs">Rekomendasi: 400×400 PNG/JPG. Preview lokal sebelum upload ke storage.</p>
-            </div>
-          </div>
-          <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleFileChange} />
+          <PhotoUpload
+            photoUrl={initial.avatarUrl ?? null}
+            name={fullName || initial.email}
+            onUpload={uploadAccountPhoto}
+            onRemove={removeAccountPhoto}
+          />
         </Section>
 
         <Separator className="my-8" />

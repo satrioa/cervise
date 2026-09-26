@@ -2,7 +2,9 @@
 
 import { revalidatePath } from "next/cache";
 import { getActiveTenant } from "@/lib/supabase/actor";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { canAccess } from "@/lib/rbac";
+import { publicPhotoUrl } from "@/lib/photos";
 
 /**
  * Branch selector Context memakai sentinel "all" untuk "Semua cabang", yang
@@ -26,7 +28,13 @@ export async function updateBrand(input: { name: string }) {
 
   // Brand = nama organisasi. branches.name adalah nama CABANG (mis. "Cabang
   // Pusat") dan hanya boleh diubah lewat pengaturan cabang terpisah.
-  const { data, error } = await actor.supabase
+  //
+  // Wajib lewat service role: 20260925122000_harden_auth_rls.sql:36 melakukan
+  // `revoke insert, update, delete on table organizations from authenticated`,
+  // jadi menulis lewat actor.supabase (anon key) selalu berakhir
+  // "permission denied for table organizations". Baris org sudah dicegah lebih
+  // dulu oleh canAccess + orgId dari actor, bukan oleh RLS.
+  const { data, error } = await createAdminClient()
     .from("organizations")
     .update({ name })
     .eq("id", actor.orgId)
@@ -36,7 +44,9 @@ export async function updateBrand(input: { name: string }) {
   if (error) throw new Error(error.message);
   if (!data) throw new Error("Organisasi tidak ditemukan");
 
+  // Sidebar membaca nama brand, jadi /app juga harus disegarkan.
   revalidatePath("/app/pengaturan");
+  revalidatePath("/app");
   return { ok: true };
 }
 
@@ -47,12 +57,18 @@ export async function getBrand(branchId: string) {
 
   const targetBranchId = resolveBranchId(actor, branchId);
 
+  // Brand + logo milik TENANT (organizations). branches.logo_url sengaja tidak
+  // dipakai: logo cabang tidak pernah ditulis dan tidak pernah ditampilkan.
   const [orgRes, branchRes] = await Promise.all([
-    actor.supabase.from("organizations").select("id, name").eq("id", actor.orgId).maybeSingle(),
+    actor.supabase
+      .from("organizations")
+      .select("id, name, logo_url")
+      .eq("id", actor.orgId)
+      .maybeSingle(),
     targetBranchId
       ? actor.supabase
           .from("branches")
-          .select("id, name, logo_url")
+          .select("id, name")
           .eq("id", targetBranchId)
           .eq("organization_id", actor.orgId)
           .maybeSingle()
@@ -62,11 +78,16 @@ export async function getBrand(branchId: string) {
   if (orgRes.error) throw new Error(orgRes.error.message);
   if (branchRes.error) throw new Error(branchRes.error.message);
 
-  const branch = branchRes.data as { id: string; name: string; logo_url: string | null } | null;
+  const org = orgRes.data as { id: string; name: string; logo_url: string | null } | null;
+  const branch = branchRes.data as { id: string; name: string } | null;
+
   return {
-    name: (orgRes.data as { name: string } | null)?.name ?? null,
+    name: org?.name ?? null,
     branchName: branch?.name ?? null,
-    logoUrl: branch?.logo_url ?? null,
+    // Path dari database divalidasi bentuknya dulu, lalu URL publik dibangun di
+    // server. Kalau path-nya tidak lolos, hasilnya null dan UI jatuh ke
+    // inisial lokal - bukan ke URL yang bisa diarahkan ke host lain.
+    logoUrl: publicPhotoUrl(process.env.NEXT_PUBLIC_SUPABASE_URL ?? "", org?.logo_url),
   };
 }
 

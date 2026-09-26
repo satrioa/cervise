@@ -3,8 +3,16 @@
 import * as React from "react";
 import { useParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { publicPhotoUrl } from "@/lib/photos";
 
-export type Tenant = { id: string; name: string; paket: string; slug?: string | null };
+export type Tenant = {
+  id: string;
+  name: string;
+  paket: string;
+  slug?: string | null;
+  /** URL publik logo tenant, sudah tervalidasi bentuk path-nya di server. */
+  logoUrl?: string | null;
+};
 
 type TenantContextValue = {
   tenants: Tenant[];
@@ -45,8 +53,20 @@ export function TenantProvider({ children, fixedOrganizationId = null }: { child
         }
       }
       if (orgIds.length === 0) { setLoading(false); return; }
-      const { data: orgs } = await supabase.from("organizations").select("id, name, paket, slug").in("id", orgIds);
-      const list = ((orgs ?? []) as { id: string; name: string; paket: string | null; slug: string | null }[]).map((organization) => ({ id: organization.id, name: organization.name, paket: organization.paket ?? "trial", slug: organization.slug }));
+      const { data: orgs } = await supabase.from("organizations").select("id, name, paket, slug, logo_url").in("id", orgIds);
+      const list = ((orgs ?? []) as { id: string; name: string; paket: string | null; slug: string | null; logo_url: string | null }[]).map((organization) => ({
+        id: organization.id,
+        name: organization.name,
+        paket: organization.paket ?? "trial",
+        slug: organization.slug,
+        // Path dari database divalidasi bentuknya dulu, lalu URL-nya dibangun
+        // di server. Nilai yang gagal validasi menjadi null supaya switcher
+        // jatuh ke inisial, bukan ke URL asing.
+        logoUrl: publicPhotoUrl(
+          process.env.NEXT_PUBLIC_SUPABASE_URL ?? "",
+          organization.logo_url,
+        ),
+      }));
       setTenants(list);
       // For tenant-specific routes, prioritize URL slug over cookie (do not fallback to first tenant)
       if (routeTenantSlug) {

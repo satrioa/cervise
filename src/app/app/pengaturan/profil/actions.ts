@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { getActiveTenant } from "@/lib/supabase/actor";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { publicPhotoUrl } from "@/lib/photos";
 import { revalidatePath } from "next/cache";
 
 export async function getProfileInitial() {
@@ -15,7 +16,7 @@ export async function getProfileInitial() {
 
   const { data: prof } = await supabase
     .from("profiles")
-    .select("full_name, phone, email, branch_id")
+    .select("full_name, phone, email, branch_id, avatar_url")
     .eq("id", uid)
     .maybeSingle();
   const { data: emp } = await supabase
@@ -42,9 +43,14 @@ export async function getProfileInitial() {
   }));
 
   return {
-    fullName: (prof?.full_name as string) ?? auth.user.user_metadata?.full_name ?? "Pengguna",
+    // Kosong, bukan "Pengguna": kolom yang kosong mengundang pengguna
+    // mengisinya, sedangkan "Pengguna" terlihat seperti nilai yang benar-benar
+    // tersimpan di database.
+    fullName: (prof?.full_name as string) ?? auth.user.user_metadata?.full_name ?? "",
     email: (prof?.email as string) ?? email,
     phone: (prof?.phone as string) ?? "",
+    // Path divalidasi bentuknya dulu sebelum jadi URL.
+    avatarUrl: publicPhotoUrl(process.env.NEXT_PUBLIC_SUPABASE_URL ?? "", prof?.avatar_url as string | null),
     branchId,
     role,
     isMasterAdmin,
