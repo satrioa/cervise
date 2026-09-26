@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { getActiveTenant, type Actor } from "@/lib/supabase/actor";
 import { isEmployeeTargetInOrganization, isManagerRole } from "@/lib/auth/authorization";
 import { canAccess } from "@/lib/rbac";
+import { generateTempPassword } from "@/lib/auth/password";
 import { publicPhotoUrl } from "@/lib/photos";
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 
@@ -32,14 +33,6 @@ function getAdminClient() {
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!key) throw new Error("SUPABASE_SERVICE_ROLE_KEY belum diset");
   return createSupabaseClient(url, key, { auth: { autoRefreshToken: false, persistSession: false } });
-}
-
-function genPassword(): string {
-  const a = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789";
-  let s = "";
-  const rnd = crypto.getRandomValues(new Uint8Array(10));
-  for (let i = 0; i < 10; i++) s += a[rnd[i] % a.length];
-  return s + "1!";
 }
 
 export type KaryawanRow = {
@@ -125,7 +118,7 @@ export async function createKaryawan(input: CreateKaryawanInput): Promise<{ empl
     .maybeSingle();
   if (!branch) throw new Error("Cabang tidak ditemukan");
   const admin = getAdminClient();
-  const tempPassword = genPassword();
+  const tempPassword = generateTempPassword();
   const { data: created, error: createError } = await admin.auth.admin.createUser({
     email,
     password: tempPassword,

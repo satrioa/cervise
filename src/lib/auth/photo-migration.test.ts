@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 
 const migrationPath = resolve(
   process.cwd(),
-  "supabase/migrations/20260925170000_add_photo_urls.sql",
+  "supabase/migrations/20260925180000_add_photo_urls.sql",
 );
 
 const sql = existsSync(migrationPath)
