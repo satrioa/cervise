@@ -56,7 +56,7 @@ export const NAV_GROUPS: NavGroup[] = [
   {
     label: "Operasional",
     items: [
-      { label: "Servis", href: "/app/servis", icon: Wrench, badge: 12 },
+      { label: "Servis", href: "/app/servis", icon: Wrench },
       { label: "Penjualan", href: "/app/penjualan", icon: ShoppingCart },
     ],
   },
@@ -118,7 +118,7 @@ function navItemKey(item: NavItem): string {
   if (item.href === "/app") return "items.dashboard";
   if (item.href === "/app/servis") return "items.service";
   if (item.href === "/app/penjualan") return "items.sales";
-  if (item.href === "/app/inventori") return "items.sparepart";
+  if (item.href === "/app/inventori") return "items.inventory";
   if (item.href === "/app/customer") return "items.customer";
   if (item.href === "/app/karyawan") return "items.employee";
   if (item.href === "/app/cabang") return "items.branch";
@@ -276,6 +276,29 @@ function SidebarContent({ onNavigate, role }: { onNavigate?: () => void; role: s
   const t = useTranslations("nav");
   const canSwitchTenantValue = canSwitchTenant(role);
   const canSwitchBranchValue = canSwitchBranch(role);
+
+  // Live count of in-progress servis for the badge (terminal states excluded).
+  const [activeServisCount, setActiveServisCount] = useState<number | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    const supabase = createClient();
+    (async () => {
+      try {
+        let query = supabase
+          .from("cervise_services")
+          .select("id", { count: "exact", head: true })
+          .not("status", "in", '("Selesai","Sudah Diambil","Batal")');
+        if (branch.id !== "all") query = query.eq("branch_id", branch.id);
+        const { count, error } = await query;
+        if (!cancelled && !error) setActiveServisCount(count ?? 0);
+      } catch {
+        if (!cancelled) setActiveServisCount(null);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [branch.id, pathname]);
   return (
     <>
       <div className="flex h-16 shrink-0 items-center border-b border-border/60 bg-white px-2 dark:bg-card">
@@ -298,6 +321,7 @@ function SidebarContent({ onNavigate, role }: { onNavigate?: () => void; role: s
                 const active = pathname === item.href || (item.href !== "/app" && pathname.startsWith(item.href));
                 const key = navItemKey(item);
                 const label = key.startsWith("items.") ? t(key) : item.label;
+                const badge = item.href === "/app/servis" ? (activeServisCount ?? 0) : (item.badge ?? 0);
                 return (
                   <li key={item.href}>
                     <Link
@@ -311,9 +335,9 @@ function SidebarContent({ onNavigate, role }: { onNavigate?: () => void; role: s
                         <item.icon className="size-4 opacity-70" />
                         {label}
                       </span>
-                      {item.badge ? (
+                      {badge ? (
                         <Badge variant="secondary" className="rounded-full px-1.5 py-0 text-[10px]">
-                          {item.badge}
+                          {badge}
                         </Badge>
                       ) : null}
                     </Link>
@@ -407,7 +431,7 @@ const BOTTOM_TABS: BottomTab[] = [
   { key: "dashboard", label: "Beranda", href: "/app", icon: HomeIcon },
   { key: "servis", label: "Servis", href: "/app/servis", icon: Wrench },
   { key: "create", label: "Tambah", href: "/app/servis/baru", icon: PlusIcon, isCenter: true },
-  { key: "sparepart", label: "Sparepart", href: "/app/inventori", icon: Package },
+  { key: "inventory", label: "Inventori", href: "/app/inventori", icon: Package },
   { key: "lainnya", label: "Lainnya", icon: Settings },
 ];
 
@@ -419,8 +443,8 @@ function bottomTabKey(key: string): string {
       return "bottomTabs.service";
     case "create":
       return "bottomTabs.add";
-    case "sparepart":
-      return "bottomTabs.sparepart";
+    case "inventory":
+      return "bottomTabs.inventory";
     case "lainnya":
       return "bottomTabs.more";
     default:
