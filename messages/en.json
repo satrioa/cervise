@@ -33,6 +33,7 @@
       "sales": "Sales",
       "inventory": "Inventory",
       "sparepart": "Spareparts",
+    "inventory": "Inventory",
       "customer": "Customers",
       "employee": "Employees",
       "branch": "Branches",
@@ -48,7 +49,8 @@
     },
     "search": { "placeholder": "Search service, customer..." },
     "branch": { "choose": "Choose branch" },
-    "bottomTabs": { "home": "Home", "service": "Service", "add": "Add", "sparepart": "Spareparts", "more": "More" },
+    "bottomTabs": { "home": "Home", "service": "Service", "add": "Add", "sparepart": "Spareparts",
+    "inventory": "Inventory", "more": "More" },
     "trial": {
       "title": "Trial Pro {days} days left",
       "subtitle": "Upgrade to open {branches} branches & {users} users",

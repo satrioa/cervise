@@ -6,18 +6,7 @@ import { CustomerSearch, CustomerFilters, CustomerExportButton, CUSTOMER_DEFAULT
 import { CustomerCreateButton } from "@/components/customer/customer-create-button";
 import { CustomerRowActions } from "@/components/customer/customer-row-actions";
 import { PageHeader } from "@/components/layout/page-header";
-import { getCustomers, type CustomerListRow } from "./actions";
-
-type FallbackRow = CustomerListRow & { phoneDisplay: string; createdAt: string };
-
-const FALLBACK: FallbackRow[] = [
-  { id: "fb-1", name: "Rina Hartati", phone: "6281212345601", phoneDisplay: "0812 1234 5601", totalServis: 3, totalSpent: 1250000, lastServis: "SV-001", lastStatus: "Dikerjakan", lastDate: "21 Sep 2026", lastDateRaw: null, createdAt: "10 Jan 2025", createdAtRaw: "2025-01-10T00:00:00.000Z" },
-  { id: "fb-2", name: "Agus Pratama", phone: "6281313445602", phoneDisplay: "0813 1344 5602", totalServis: 1, totalSpent: 350000, lastServis: "SV-002", lastStatus: "Menunggu Sparepart", lastDate: "20 Sep 2026", lastDateRaw: null, createdAt: "05 Mar 2025", createdAtRaw: "2025-03-05T00:00:00.000Z" },
-  { id: "fb-3", name: "Dewi Lestari", phone: "6281212880103", phoneDisplay: "0812 1288 0103", totalServis: 2, totalSpent: 780000, lastServis: "SV-003", lastStatus: "Selesai", lastDate: "19 Sep 2026", lastDateRaw: null, createdAt: "12 Feb 2025", createdAtRaw: "2025-02-12T00:00:00.000Z" },
-  { id: "fb-4", name: "Bambang Wijaya", phone: "6281299001122", phoneDisplay: "0812 9900 1122", totalServis: 5, totalSpent: 2150000, lastServis: "SV-006", lastStatus: "Sudah Diambil", lastDate: "17 Sep 2026", lastDateRaw: null, createdAt: "22 Nov 2024", createdAtRaw: "2024-11-22T00:00:00.000Z" },
-  { id: "fb-5", name: "Citra Amelia", phone: "6281245667788", phoneDisplay: "0812 4566 7788", totalServis: 4, totalSpent: 1680000, lastServis: "SV-007", lastStatus: "Selesai", lastDate: "12 Sep 2026", lastDateRaw: null, createdAt: "18 Jan 2025", createdAtRaw: "2025-01-18T00:00:00.000Z" },
-  { id: "fb-6", name: "Eko Saputra", phone: "6281212009900", phoneDisplay: "0812 1200 9900", totalServis: 1, totalSpent: 0, lastServis: "SV-010", lastStatus: "Masuk", lastDate: "21 Sep 2026", lastDateRaw: null, createdAt: "03 Sep 2026", createdAtRaw: "2026-09-03T00:00:00.000Z" },
-];
+import { getCustomersSafe, type CustomerListRow } from "./actions";
 
 function statusTone(s: string) {
   if (s === "Selesai" || s === "Sudah Diambil") return "bg-emerald-500";
@@ -33,13 +22,20 @@ export default async function CustomerPage({ searchParams }: { searchParams: Pro
   const statusFilter = (status ?? "").trim() || CUSTOMER_DEFAULTS.status;
   const sortKey = (sort ?? "").trim() || CUSTOMER_DEFAULTS.sort;
 
-  let live: CustomerListRow[] = [];
-  try {
-    live = await getCustomers();
-  } catch {
-    live = [];
+  const { data: live, error } = await getCustomersSafe();
+  if (error) {
+    return (
+      <div className="bg-background text-foreground">
+        <PageHeader title="Customer" titleClassName="font-heading text-2xl" />
+        <main className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-10 py-8">
+          <div role="alert" className="rounded-xl border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+            Gagal memuat data customer: {error.message}
+          </div>
+        </main>
+      </div>
+    );
   }
-  const base: CustomerListRow[] = live.length ? live : FALLBACK;
+  const base: CustomerListRow[] = live;
 
   const filtered = base.filter((c) => {
     if (query && !`${c.name} ${c.phoneDisplay} ${c.phone} ${c.lastServis} ${c.lastStatus}`.toLowerCase().includes(query)) return false;
@@ -116,7 +112,9 @@ export default async function CustomerPage({ searchParams }: { searchParams: Pro
               {sorted.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={6} className="py-8 text-center text-sm text-muted-foreground">
-                    Tidak ada customer yang cocok
+                    {base.length === 0
+                      ? "Belum ada customer di cabang ini"
+                      : "Tidak ada customer yang cocok dengan filter"}
                   </TableCell>
                 </TableRow>
               ) : (

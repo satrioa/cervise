@@ -13,8 +13,7 @@ type Tx = {
   counterparty: string;
   amount: number;
   direction: "in" | "out";
-  method: string;
-  status: string;
+  metode: string | null;
 };
 
 export function TransaksiExportButton({ rows }: { rows: Tx[] }) {

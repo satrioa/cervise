@@ -33,6 +33,7 @@
       "sales": "Penjualan",
       "inventory": "Inventori",
       "sparepart": "Sparepart",
+    "inventory": "Inventori",
       "customer": "Customer",
       "employee": "Karyawan",
       "branch": "Cabang",
@@ -48,7 +49,8 @@
     },
     "search": { "placeholder": "Cari servis, customer..." },
     "branch": { "choose": "Pilih cabang" },
-    "bottomTabs": { "home": "Beranda", "service": "Servis", "add": "Tambah", "sparepart": "Sparepart", "more": "Lainnya" },
+    "bottomTabs": { "home": "Beranda", "service": "Servis", "add": "Tambah", "sparepart": "Sparepart",
+    "inventory": "Inventori", "more": "Lainnya" },
     "trial": {
       "title": "Trial Pro {days} hari lagi",
       "subtitle": "Upgrade untuk buka {branches} cabang & {users} user",

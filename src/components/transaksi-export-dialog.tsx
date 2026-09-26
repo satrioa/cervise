@@ -29,8 +29,7 @@ type Tx = {
   counterparty: string;
   amount: number;
   direction: "in" | "out";
-  method: string;
-  status: string;
+  metode: string | null;
 };
 
 const INCLUDE_FIELDS = [
@@ -39,7 +38,6 @@ const INCLUDE_FIELDS = [
   { id: "id", label: "ID Transaksi", default: true },
   { id: "cabang", label: "Cabang", default: true },
   { id: "metode", label: "Metode", default: false },
-  { id: "status", label: "Status", default: false },
   { id: "nominal", label: "Nominal", default: true },
 ] as const;
 
@@ -77,8 +75,7 @@ export function TransaksiExportDialog({
       if (include.deskripsi) row["Deskripsi"] = r.description;
       if (include.id) row["ID"] = r.id;
       if (include.cabang) row["Cabang"] = r.counterparty;
-      if (include.metode) row["Metode"] = r.method;
-      if (include.status) row["Status"] = r.status;
+      if (include.metode) row["Metode"] = r.metode ?? "";
       if (include.nominal) row["Nominal"] = String(r.amount);
       return row;
     });

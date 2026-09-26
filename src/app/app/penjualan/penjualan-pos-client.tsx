@@ -40,14 +40,6 @@ const HARGA_ITEMS = [
   { value: "termahal", label: "Termahal" },
 ];
 
-const DUMMY_PRODUCTS: ProductRow[] = [
-  { id: "dummy-1", branch_id: "dummy", sku: "GD-IP15P-001", barcode: "8991234560011", name: "iPhone 15 Pro 256GB Second", category: "Gadget", stock_qty: 3, cost: 15500000, price: 17900000, is_serialized: true, is_active: true, variant_type: "BEKAS", storage: "256 GB", warna: "Black", bh_percent: 85, kondisi_notes: "Lecet halus", garansi_days: 30, imei: "356938035412345", parent_key: "iphone-15-pro" },
-  { id: "dummy-2", branch_id: "dummy", sku: "GD-SAMA54-002", barcode: "8991234560028", name: "Samsung Galaxy A54 8/256", category: "Gadget", stock_qty: 7, cost: 3800000, price: 4599000, is_serialized: false, is_active: true, variant_type: "BARU", storage: "256 GB", warna: "Black", bh_percent: null, kondisi_notes: null, garansi_days: null, imei: null, parent_key: "samsung-galaxy-a54" },
-  { id: "dummy-3", branch_id: "dummy", sku: "AK-ANK65-003", barcode: "8991234560035", name: "Anker Charger 65W PD", category: "Aksesori", stock_qty: 0, cost: 280000, price: 429000, is_serialized: false, is_active: true, variant_type: "BARU", storage: "64 GB", warna: "White", bh_percent: null, kondisi_notes: null, garansi_days: null, imei: null, parent_key: "anker-charger-65w" },
-  { id: "dummy-4", branch_id: "dummy", sku: "AK-CASE14-004", barcode: "8991234560042", name: "Case iPhone 14 Pro Premium", category: "Aksesori", stock_qty: 12, cost: 125000, price: 249000, is_serialized: false, is_active: true, variant_type: "BARU", storage: "128 GB", warna: "Black", bh_percent: null, kondisi_notes: null, garansi_days: null, imei: null, parent_key: "case-iphone-14-pro" },
-  { id: "dummy-5", branch_id: "dummy", sku: "AK-FD64-005", barcode: "8991234560059", name: "Flashdisk Sandisk 64GB Ultra", category: "Aksesori", stock_qty: 4, cost: 85000, price: 149000, is_serialized: false, is_active: true, variant_type: "BARU", storage: "64 GB", warna: "Silver", bh_percent: null, kondisi_notes: null, garansi_days: null, imei: null, parent_key: "flashdisk-sandisk-64gb" },
-];
-
 export function PenjualanPOSClient({ initialRows }: { initialRows: any[] }) {
   const router = useRouter();
   const { branch } = useBranch();
@@ -57,6 +49,8 @@ export function PenjualanPOSClient({ initialRows }: { initialRows: any[] }) {
   const [stockFilter, setStockFilter] = useState<string>("semua");
   const [sortHarga, setSortHarga] = useState<"termurah" | "termahal">("termurah");
   const [products, setProducts] = useState<ProductRow[]>([]);
+  const [productsLoading, setProductsLoading] = useState(true);
+  const [productsError, setProductsError] = useState<string | null>(null);
   const [customerPhone, setCustomerPhone] = useState("");
   const [customerId, setCustomerId] = useState<string | null>(null);
   const [riwayatOpen, setRiwayatOpen] = useState(false);
@@ -71,11 +65,20 @@ export function PenjualanPOSClient({ initialRows }: { initialRows: any[] }) {
     (async () => {
       try {
         const rows = await searchProductsForSale("");
+        // An empty catalogue must stay empty: substituting placeholder products
+        // here would let the cashier sell something that does not exist.
         if (!cancelled) {
-          if (rows.length === 0) setProducts(DUMMY_PRODUCTS);
-          else setProducts(rows);
+          setProducts(rows);
+          setProductsError(null);
         }
-      } catch { if (!cancelled) setProducts(DUMMY_PRODUCTS); }
+      } catch (cause) {
+        if (!cancelled) {
+          setProducts([]);
+          setProductsError(cause instanceof Error ? cause.message : "Gagal memuat produk");
+        }
+      } finally {
+        if (!cancelled) setProductsLoading(false);
+      }
     })();
     return () => { cancelled = true; };
   }, [branch.id]);
@@ -186,7 +189,18 @@ export function PenjualanPOSClient({ initialRows }: { initialRows: any[] }) {
               </div>
             </CardPanel>
             <CardPanel className="flex-1 overflow-y-auto p-2.5 bg-muted/20 min-h-0">
-              {view === "grid" ? (
+              {productsError ? (
+                <div role="alert" className="m-2 rounded-xl border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+                  {productsError}
+                </div>
+              ) : productsLoading ? (
+                <div className="flex h-40 items-center justify-center text-sm text-muted-foreground">Memuat produk…</div>
+              ) : products.length === 0 ? (
+                <div className="flex h-40 flex-col items-center justify-center gap-1 px-4 text-center">
+                  <p className="text-sm font-medium">Belum ada produk untuk dijual</p>
+                  <p className="text-sm text-muted-foreground">Tambahkan produk di halaman Inventori terlebih dahulu.</p>
+                </div>
+              ) : view === "grid" ? (
                 <PenjualanProductGrid products={filteredProducts} onAdd={(p) => { if ((window as any).__penjualanAddToCart) (window as any).__penjualanAddToCart(p); else toast.info("Klik keranjang kanan"); }} />
               ) : (
                 <div className="rounded-xl border overflow-hidden bg-card">
@@ -202,7 +216,7 @@ export function PenjualanPOSClient({ initialRows }: { initialRows: any[] }) {
                     </TableHeader>
                     <TableBody>
                       {filteredProducts.length === 0 ? (
-                        <TableRow><TableCell colSpan={5} className="py-8 text-center text-sm text-muted-foreground">Tidak ada produk</TableCell></TableRow>
+                        <TableRow><TableCell colSpan={5} className="py-8 text-center text-sm text-muted-foreground">Tidak ada produk yang cocok dengan filter</TableCell></TableRow>
                       ) : (
                         filteredProducts.map((p) => {
                           const isBekas = (p as any).variant_type === "BEKAS";

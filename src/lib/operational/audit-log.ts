@@ -27,6 +27,10 @@ const ACTION_LABELS: Record<string, string> = {
   edit_field: "Field servis diubah",
   extend_garansi: "Garansi diperpanjang",
   delete: "Servis dihapus",
+  status_change: "Status servis diubah",
+  add_sparepart: "Sparepart ditambahkan",
+  return_sparepart: "Sparepart dikembalikan ke stok",
+  keep_sparepart: "Sparepart ditandai tetap terpakai",
 };
 
 export function auditActionLabel(action: string): string {

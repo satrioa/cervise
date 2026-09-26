@@ -14,21 +14,12 @@ import { Select, SelectItem, SelectPopup, SelectTrigger, SelectValue } from "@/c
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
-import { createClient } from "@/lib/supabase/client";
+import { getFinanceLedger } from "@/app/app/keuangan/actions";
+import type { FinanceTx } from "@/lib/operational/laporan-keuangan";
 import { isToday, isYesterday, format } from "date-fns";
 import { id as localeId } from "date-fns/locale";
 import { useLocale } from "@/lib/localization-context";
-import { useTranslations } from "next-intl";
 
-type Tx = {
-  id: string;
-  description: string;
-  type: "pemasukan" | "pengeluaran";
-  amount: number;
-  kas_date: string;
-  created_at: string;
-  branch_id: string | null;
-};
 
 function labelFor(iso: string) {
   const d = new Date(iso);
@@ -39,42 +30,35 @@ function labelFor(iso: string) {
 
 export default function ArusKasPage() {
   const { formatCurrency } = useLocale();
-  const tCommon = useTranslations("common");
   const formatRp = (n: number) => formatCurrency(Number(n));
   const [q, setQ] = useState("");
   const [branchFilter, setBranchFilter] = useState<string>("all");
   const [typeFilter, setTypeFilter] = useState<string>("all");
   const [dateRange, setDateRange] = useState<{ from?: Date; to?: Date }>({});
-  const [txs, setTxs] = useState<Tx[]>([]);
+  const [txs, setTxs] = useState<FinanceTx[]>([]);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [branches, setBranches] = useState<{ id: string; name: string }[]>([]);
   const [openGroups, setOpenGroups] = useState<Set<string>>(new Set());
   const [page, setPage] = useState(1);
   const pageSize = 5;
 
   useEffect(() => {
-    const supabase = createClient();
+    let cancelled = false;
     (async () => {
-      const [{ data: rows }, { data: br }] = await Promise.all([
-        supabase.from("cervise_finance_tx").select("id,description,type,amount,kas_date,created_at,branch_id").order("kas_date", { ascending: false }).order("created_at", { ascending: false }).limit(100),
-        supabase.from("cervise_branches").select("id,name"),
-      ]);
-      setBranches((br as any) ?? []);
-      if (rows && rows.length > 0) {
-        setTxs(rows as Tx[]);
+      const { data, error } = await getFinanceLedger();
+      if (cancelled) return;
+      if (error) {
+        setLoadError(error);
+        setTxs([]);
+        setBranches([]);
       } else {
-        // fallback dummy for demo when empty
-        const today = new Date().toISOString().slice(0, 10);
-        const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
-        const twoDaysAgo = new Date(Date.now() - 86400000 * 2).toISOString().slice(0, 10);
-        setTxs([
-          { id: "dummy1", description: "Servis SV-1001 - iPhone 14 Pro", type: "pemasukan", amount: 450000, kas_date: today, created_at: new Date().toISOString(), branch_id: null },
-          { id: "dummy2", description: "Beli sparepart LCD", type: "pengeluaran", amount: 200000, kas_date: today, created_at: new Date().toISOString(), branch_id: null },
-          { id: "dummy3", description: "Servis SV-1004 - iPhone 11", type: "pemasukan", amount: 350000, kas_date: yesterday, created_at: new Date().toISOString(), branch_id: null },
-          { id: "dummy4", description: "Operasional harian", type: "pengeluaran", amount: 120000, kas_date: yesterday, created_at: new Date().toISOString(), branch_id: null },
-          { id: "dummy5", description: "Servis SV-1010", type: "pemasukan", amount: 180000, kas_date: twoDaysAgo, created_at: new Date().toISOString(), branch_id: null },
-        ]);
+        setTxs(data.transactions);
+        setBranches(data.branches);
       }
     })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const branchMap = useMemo(() => new Map(branches.map((b) => [b.id, b.name])), [branches]);
@@ -87,8 +71,7 @@ export default function ArusKasPage() {
         if (!hay.includes(q.trim().toLowerCase())) return false;
       }
       if (branchFilter !== "all" && t.branch_id !== branchFilter) {
-        // also handle null branch as "pusat" fallback
-        if (!(branchFilter === "pusat" && !t.branch_id)) return false;
+        return false;
       }
       if (typeFilter !== "all" && t.type !== typeFilter) return false;
       if (dateRange.from || dateRange.to) {
@@ -111,9 +94,9 @@ export default function ArusKasPage() {
 
   // grouping by kas_date
   const groups = useMemo(() => {
-    const map = new Map<string, { kas_date: string; masuk: number; keluar: number; net: number; txs: Tx[] }>();
+    const map = new Map<string, { kas_date: string; masuk: number; keluar: number; net: number; txs: FinanceTx[] }>();
     for (const t of filtered) {
-      const g = map.get(t.kas_date) ?? { kas_date: t.kas_date, masuk: 0, keluar: 0, net: 0, txs: [] as Tx[] };
+      const g = map.get(t.kas_date) ?? { kas_date: t.kas_date, masuk: 0, keluar: 0, net: 0, txs: [] as FinanceTx[] };
       if (t.type === "pemasukan") g.masuk += Number(t.amount);
       else g.keluar += Number(t.amount);
       g.net = g.masuk - g.keluar;
@@ -159,7 +142,7 @@ export default function ArusKasPage() {
   })();
 
   const handleExport = () => {
-    const rows = groups.flatMap((g) => g.txs.map((t) => `${g.kas_date},${t.type},${t.amount},"${t.description.replace(/"/g, '""')}",${branchMap.get(t.branch_id ?? "") ?? ""}`));
+    const rows = groups.flatMap((g) => g.txs.map((t) => `${g.kas_date},${t.type},${t.amount},"${(t.description ?? "").replace(/"/g, '""')}",${branchMap.get(t.branch_id ?? "") ?? ""}`));
     const csv = ["kas_date,type,amount,description,branch", ...rows].join("\n");
     const blob = new Blob([csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
@@ -210,7 +193,6 @@ export default function ArusKasPage() {
                     {b.name}
                   </SelectItem>
                 ))}
-                {branches.length === 0 && <SelectItem value="pusat">Cervise Pusat</SelectItem>}
               </SelectPopup>
             </Select>
             <Select value={typeFilter} onValueChange={(v) => setTypeFilter((v as string) ?? "all")}>
@@ -247,18 +229,21 @@ export default function ArusKasPage() {
 
       <div className="px-4 sm:px-6 lg:px-10 py-8">
         <div className="mx-auto max-w-5xl">
+        {loadError ? (
+          <div role="alert" className="mb-4 rounded-xl border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+            {loadError}
+          </div>
+        ) : null}
         <div className="grid gap-3 lg:grid-cols-3 mb-6">
           <div className="rounded-xl border bg-card p-5 shadow-xs/5">
             <div className="font-mono text-[10px] text-muted-foreground uppercase tracking-[0.25em]">Kas Masuk (filtered)</div>
             <div className="mt-1 font-heading text-xl">{formatRp(totalMasuk)}</div>
-            <div className="mt-1 inline-flex items-center gap-1 text-xs text-emerald-600">
-              <ArrowUpRightIcon className="size-3" /> {groups.length} hari
-            </div>
+            <div className="mt-1 text-xs text-muted-foreground">{groups.length} hari dengan transaksi</div>
           </div>
           <div className="rounded-xl border bg-card p-5 shadow-xs/5">
             <div className="font-mono text-[10px] text-muted-foreground uppercase tracking-[0.25em]">Kas Keluar (filtered)</div>
             <div className="mt-1 font-heading text-xl">{formatRp(totalKeluar)}</div>
-            <div className="mt-1 text-xs text-rose-600">Sparepart & operasional</div>
+            <div className="mt-1 text-xs text-muted-foreground">dari transaksi pengeluaran</div>
           </div>
           <div className="rounded-xl border bg-card p-5 shadow-xs/5">
             <div className="font-mono text-[10px] text-muted-foreground uppercase tracking-[0.25em]">Net Arus Kas</div>
@@ -284,7 +269,7 @@ export default function ArusKasPage() {
               {paginatedGroups.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={5} className="py-10 text-center text-sm text-muted-foreground">
-                    {tCommon("empty.noDataFilter")}
+                    {txs.length === 0 ? "Belum ada transaksi kas" : "Tidak ada transaksi yang cocok dengan filter"}
                   </TableCell>
                 </TableRow>
               ) : (
@@ -349,14 +334,14 @@ export default function ArusKasPage() {
                                 <TableBody>
                                   {g.txs.map((t) => (
                                     <TableRow key={t.id} className="border-0">
-                                      <TableCell className="py-1.5 font-mono text-xs text-muted-foreground tabular-nums">{new Date(t.created_at).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })}</TableCell>
+                                      <TableCell className="py-1.5 font-mono text-xs text-muted-foreground tabular-nums">{new Date(t.created_at ?? t.kas_date).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })}</TableCell>
                                       <TableCell className="py-1.5">
                                         <div className="flex items-center gap-2">
                                           <span className={`size-1.5 rounded-full ${t.type === "pemasukan" ? "bg-emerald-500" : "bg-rose-500"}`} />
                                           <span className="text-xs">{t.description || "—"}</span>
                                         </div>
                                       </TableCell>
-                                      <TableCell className="py-1.5 text-xs text-muted-foreground">{t.branch_id ? (branchMap.get(t.branch_id) ?? t.branch_id.slice(0, 6)) : "Pusat"}</TableCell>
+                                      <TableCell className="py-1.5 text-xs text-muted-foreground">{t.branch_id ? (branchMap.get(t.branch_id) ?? t.branch_id.slice(0, 6)) : "Tanpa cabang"}</TableCell>
                                       <TableCell className="py-1.5 text-right">
                                         <span className={`font-mono text-xs tabular-nums ${t.type === "pemasukan" ? "text-emerald-600" : "text-rose-600"}`}>
                                           {t.type === "pemasukan" ? "+" : "-"}

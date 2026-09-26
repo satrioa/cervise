@@ -8,10 +8,12 @@ const FIELDS: ExportField[] = [
   { id: "name", label: "Teknisi", default: true },
   { id: "cabang", label: "Cabang", default: true },
   { id: "selesai", label: "Selesai", default: true },
-  { id: "rating", label: "Rating", default: false },
+  { id: "revenue", label: "Pendapatan", default: true },
+  { id: "insentif", label: "Aturan insentif", default: true },
+  { id: "totalInsentif", label: "Total insentif", default: true },
 ];
 
-export function PerformaExport({ rows }: { rows: Record<string, any>[] }) {
+export function PerformaExport({ rows }: { rows: Record<string, string | number>[] }) {
   const [open, setOpen] = useState(false);
   return (
     <>

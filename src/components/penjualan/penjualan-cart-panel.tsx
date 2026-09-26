@@ -100,22 +100,14 @@ export function PenjualanCartPanel({ onSuccess, customerId, customerPhone, custo
   };
   const setUnitPrice = (id: string, price: number) => setCart((prev) => prev.map((c) => c.product.id === id ? { ...c, unit_price: Math.max(0, price) } : c));
 
+  // Discounts must come from a server-validated promo table. Hard-coded codes
+  // here let the browser invent its own discount, so none are accepted.
   const applyPromo = () => {
     const code = promoCode.trim().toUpperCase();
     if (!code) { setPromoError("Masukkan kode promo"); return; }
     if (cart.length === 0) { setPromoError("Keranjang kosong"); return; }
-    setPromoError(null);
-    if (code === "CONTOH10") {
-      const disc = Math.min(Math.round(subtotal * 0.1), 50000);
-      if (disc <= 0) { setPromoError("Subtotal terlalu kecil"); return; }
-      setPromoDisc(disc); setPromoCode(code); haptic(30); toast.success(`Promo ${code} diterapkan: -${formatCurrencyPlain(disc)}`);
-    } else if (code === "HEMAT20K") {
-      const disc = Math.min(20000, subtotal);
-      setPromoDisc(disc); setPromoCode(code); haptic(30); toast.success(`Promo ${code} diterapkan: -${formatCurrencyPlain(disc)}`);
-    } else {
-      setPromoError("Kode tidak valid. Coba CONTOH10 atau HEMAT20K (mock)");
-      haptic([20, 30, 20]);
-    }
+    setPromoError("Kode promo belum tersedia. Beri diskon manual per item atau hubungi admin.");
+    haptic([20, 30, 20]);
   };
   const clearPromo = () => { setPromoDisc(0); setPromoCode(""); setPromoError(null); haptic(15); };
 

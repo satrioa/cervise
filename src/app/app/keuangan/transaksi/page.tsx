@@ -11,60 +11,39 @@ import { Select, SelectItem, SelectPopup, SelectTrigger, SelectValue } from "@/c
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { createClient } from "@/lib/supabase/client";
+import { getFinanceLedger } from "@/app/app/keuangan/actions";
+import type { FinanceTx } from "@/lib/operational/laporan-keuangan";
 import { TransaksiExportButton } from "@/components/transaksi-export-button";
 import { PageHeader } from "@/components/layout/page-header";
 import { cn } from "@/lib/utils";
-import { useTranslations } from "next-intl";
 import { format } from "date-fns";
 import { id as localeId } from "date-fns/locale";
 
 type Direction = "in" | "out";
 
-const STATUS_TONE: Record<string, string> = {
-  succeeded: "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400",
-  pending: "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-400",
-};
-
-type RawTx = {
-  id: string;
-  description: string | null;
-  type: "pemasukan" | "pengeluaran";
-  amount: number;
-  kas_date: string;
-  created_at: string;
-  branch_id: string | null;
-  metode: string | null;
-};
-
 export default function TransaksiPage() {
-  const tCommon = useTranslations("common");
   const [q, setQ] = useState("");
   const [branchFilter, setBranchFilter] = useState<string>("all");
   const [typeFilter, setTypeFilter] = useState<string>("all");
   const [dateRange, setDateRange] = useState<{ from?: Date; to?: Date }>({});
-  const [txsRaw, setTxsRaw] = useState<RawTx[]>([]);
+  const [txsRaw, setTxsRaw] = useState<FinanceTx[]>([]);
   const [branches, setBranches] = useState<{ id: string; name: string }[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const pageSize = 10;
 
   const fetchData = async () => {
     setLoading(true);
-    const supabase = createClient();
-    const [{ data: rows }, { data: br }] = await Promise.all([
-      supabase.from("cervise_finance_tx").select("id,description,type,amount,kas_date,created_at,branch_id,metode").order("kas_date", { ascending: false }).order("created_at", { ascending: false }).limit(100),
-      supabase.from("cervise_branches").select("id,name"),
-    ]);
-    setBranches((br as any) ?? []);
-    if (rows && rows.length > 0) {
-      setTxsRaw(rows as RawTx[]);
+    setLoadError(null);
+    const { data, error } = await getFinanceLedger();
+    if (error) {
+      setLoadError(error);
+      setTxsRaw([]);
+      setBranches([]);
     } else {
-      const today = new Date().toISOString().slice(0, 10);
-      setTxsRaw([
-        { id: "dummy1", description: "Servis SV-001 - iPhone 11", type: "pemasukan", amount: 350000, kas_date: today, created_at: new Date().toISOString(), branch_id: null, metode: "Tunai" },
-        { id: "dummy2", description: "Beli sparepart LCD", type: "pengeluaran", amount: 200000, kas_date: today, created_at: new Date().toISOString(), branch_id: null, metode: null },
-      ]);
+      setTxsRaw(data.transactions);
+      setBranches(data.branches);
     }
     setLoading(false);
   };
@@ -86,7 +65,7 @@ export default function TransaksiPage() {
         if (!hay.includes(q.trim().toLowerCase())) return false;
       }
       if (branchFilter !== "all" && r.branch_id !== branchFilter) {
-        if (!(branchFilter === "pusat" && !r.branch_id)) return false;
+        return false;
       }
       if (typeFilter !== "all") {
         if (typeFilter === "pemasukan" && r.type !== "pemasukan") return false;
@@ -113,17 +92,16 @@ export default function TransaksiPage() {
   }, [txsRaw, q, branchFilter, typeFilter, dateRange, branchMap]);
 
   const txs = useMemo(() => {
-    return filteredRaw.map((r: any) => ({
+    return filteredRaw.map((r) => ({
       id: String(r.id).slice(0, 8).toUpperCase(),
       rawId: r.id,
-      date: new Date(r.kas_date).toLocaleDateString("id-ID", { month: "short", day: "numeric" }) + " · " + new Date(r.created_at).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" }),
+      date: new Date(r.kas_date).toLocaleDateString("id-ID", { month: "short", day: "numeric" }),
       kas_date: r.kas_date,
       description: r.description ?? "—",
-      counterparty: r.branch_id ? (branchMap.get(r.branch_id) || String(r.branch_id).slice(0, 6)) : "Cervise Pusat",
+      counterparty: r.branch_id ? (branchMap.get(r.branch_id) || String(r.branch_id).slice(0, 6)) : "Tanpa cabang",
       amount: Number(r.amount),
       direction: (r.type === "pemasukan" ? "in" : "out") as Direction,
       metode: r.metode ?? null,
-      status: (r.type === "pemasukan" ? "succeeded" : "pending") as string,
       type: r.type,
     }));
   }, [filteredRaw, branchMap]);
@@ -159,7 +137,7 @@ export default function TransaksiPage() {
             <Button size="sm" variant="ghost" onClick={fetchData}>
               <RefreshCcwIcon /> Refresh
             </Button>
-            <TransaksiExportButton rows={txs as any} />
+            <TransaksiExportButton rows={txs} />
           </>
         }
         search={
@@ -190,7 +168,6 @@ export default function TransaksiPage() {
                     {b.name}
                   </SelectItem>
                 ))}
-                {branches.length === 0 && <SelectItem value="pusat">Cervise Pusat</SelectItem>}
               </SelectPopup>
             </Select>
             <Select value={typeFilter} onValueChange={(v) => setTypeFilter((v as string) ?? "all")}>
@@ -231,6 +208,11 @@ export default function TransaksiPage() {
       />
 
       <main className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-10 py-8">
+        {loadError ? (
+          <div role="alert" className="mb-4 rounded-xl border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+            {loadError}
+          </div>
+        ) : null}
         <div className="mb-4 grid grid-cols-3 gap-3">
           <SummaryTile label="Pemasukan" amount={inflow} tone="positive" />
           <SummaryTile label="Pengeluaran" amount={outflow} tone="negative" />
@@ -252,20 +234,20 @@ export default function TransaksiPage() {
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="py-10 text-center text-sm text-muted-foreground">
+                  <TableCell colSpan={5} className="py-10 text-center text-sm text-muted-foreground">
                     Memuat...
                   </TableCell>
                 </TableRow>
               ) : txs.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="py-10 text-center text-sm text-muted-foreground">
-                    {tCommon("empty.noDataFilter")}
+                  <TableCell colSpan={5} className="py-10 text-center text-sm text-muted-foreground">
+                    {txsRaw.length === 0 ? "Belum ada transaksi keuangan" : "Tidak ada transaksi yang cocok dengan filter"}
                   </TableCell>
                 </TableRow>
               ) : paginated.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="py-10 text-center text-sm text-muted-foreground">
-                    {tCommon("empty.noData")}
+                  <TableCell colSpan={5} className="py-10 text-center text-sm text-muted-foreground">
+                    Tidak ada transaksi di halaman ini
                   </TableCell>
                 </TableRow>
               ) : (
@@ -288,9 +270,6 @@ export default function TransaksiPage() {
                       <Badge variant="outline" size="sm" className="font-mono text-[10px]">
                         {t.metode ?? "—"}
                       </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className={"capitalize " + STATUS_TONE[t.status]}>{t.status}</Badge>
                     </TableCell>
                     <TableCell className="pe-4 text-right">
                       <div className={"font-mono tabular-nums " + (t.direction === "in" ? "text-emerald-600 dark:text-emerald-400" : "text-foreground")}>

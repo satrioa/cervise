@@ -1,30 +1,32 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { formatCurrencyPlain } from "@/lib/format";
+import { formatCurrencyPlain, formatNumberPlain } from "@/lib/format";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
-import { DownloadIcon, CalendarIcon, ArrowUpRightIcon, ArrowDownRightIcon, ChevronDownIcon, PlusIcon } from "lucide-react";
-import { createClient } from "@/lib/supabase/client";
+import { DownloadIcon, CalendarIcon, ArrowUpRightIcon, ArrowDownRightIcon } from "lucide-react";
 import { format } from "date-fns";
 import { id as localeId } from "date-fns/locale";
-import { Area, AreaChart, CartesianGrid, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
+import { Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 import { PageHeader } from "@/components/layout/page-header";
+import { getLaporanKeuangan } from "@/app/app/laporan/keuangan/actions";
+import { toLocalDateString } from "@/lib/operational/garansi-list";
+import type { FinanceTx } from "@/lib/operational/laporan-keuangan";
 
-type Tx = {
-  id: string;
-  amount: number;
-  type: "pemasukan" | "pengeluaran";
-  kas_date: string;
-  branch_id: string | null;
-  description: string | null;
-  metode: string | null;
-};
+type Tx = FinanceTx;
+
+const SLICE_COLORS = [
+  "rgb(99 102 241)",
+  "rgb(16 185 129)",
+  "rgb(56 189 248)",
+  "rgb(245 158 11)",
+  "rgb(244 63 94)",
+  "rgb(168 85 247)",
+];
 
 function formatHarian(iso: string) {
   return format(new Date(iso + "T12:00:00"), "EEEE, d MMMM yyyy", { locale: localeId });
@@ -84,134 +86,89 @@ export default function LaporanKeuanganPage() {
   const [cabang, setCabang] = useState<string>("all");
   const [rows, setRows] = useState<Tx[]>([]);
   const [branches, setBranches] = useState<{ id: string; name: string }[]>([]);
-  const [spareparts, setSpareparts] = useState<any[]>([]);
+  const [report, setReport] = useState<{
+    totalMasuk: number;
+    totalKeluar: number;
+    totalNet: number;
+    transactionCount: number;
+    harian: { key: string; masuk: number; keluar: number; net: number; count: number }[];
+    bulanan: { key: string; masuk: number; keluar: number; net: number; count: number }[];
+    byBranch: { branchId: string | null; branchName: string; masuk: number; keluar: number; net: number; count: number }[];
+    byDescription: { name: string; amount: number; pct: number }[];
+    monthComparison: { current: number; previous: number; changePct: number | null };
+  } | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Reset during render when the filter changes so the effect only fetches.
+  const queryKey = `${toLocalDateString(from ?? new Date())}:${toLocalDateString(to ?? new Date())}:${cabang}`;
+  const [loadedKey, setLoadedKey] = useState(queryKey);
+  if (loadedKey !== queryKey) {
+    setLoadedKey(queryKey);
+    setReport(null);
+    setRows([]);
+    setLoading(true);
+    setError(null);
+  }
 
   useEffect(() => {
-    const supabase = createClient();
-    (async () => {
-      const [{ data: br }, { data: sp }] = await Promise.all([
-        supabase.from("cervise_branches").select("id,name"),
-        supabase.from("cervise_spareparts").select("id,branch_id,stock_qty").limit(200),
-      ]);
-      setBranches((br as any) ?? []);
-      setSpareparts((sp as any) ?? []);
-    })();
-  }, []);
-
-  useEffect(() => {
-    const supabase = createClient();
-    (async () => {
-      setLoading(true);
-      let q = supabase.from("cervise_finance_tx").select("id,amount,type,kas_date,branch_id,description,metode").order("kas_date", { ascending: false }).limit(500);
-      if (from) q = q.gte("kas_date", from.toISOString().slice(0, 10));
-      if (to) q = q.lte("kas_date", to.toISOString().slice(0, 10));
-      if (cabang !== "all") q = q.eq("branch_id", cabang);
-      const { data } = await q;
-      if (data && data.length) setRows(data as Tx[]);
-      else {
-        // fallback dummy biar card tetap ada
-        const today = new Date().toISOString().slice(0, 10);
-        const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
-        setRows([
-          { id: "1", amount: 450000, type: "pemasukan", kas_date: today, branch_id: null, description: "Servis", metode: "Tunai" },
-          { id: "2", amount: 200000, type: "pengeluaran", kas_date: today, branch_id: null, description: "Sparepart", metode: null },
-          { id: "3", amount: 350000, type: "pemasukan", kas_date: yesterday, branch_id: null, description: "Servis", metode: "QRIS" },
-        ]);
-      }
-      setLoading(false);
-    })();
-  }, [from, to, cabang]);
+    let cancelled = false;
+    // queryKey is "from:to:branchId" with YYYY-MM-DD dates, so it is the single
+    // source of truth for this fetch.
+    const [fromDate, toDate, branchId] = queryKey.split(":");
+    getLaporanKeuangan({ from: fromDate, to: toDate, branchId })
+      .then((data) => {
+        if (cancelled) return;
+        setReport(data.report);
+        setBranches(data.branches);
+        setRows(data.transactions);
+      })
+      .catch((cause) => {
+        if (!cancelled) setError(cause instanceof Error ? cause.message : "Gagal memuat laporan keuangan");
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [queryKey]);
 
   const cabangLabel = cabang === "all" ? "Semua cabang" : branches.find((b) => b.id === cabang)?.name ?? cabang.slice(0, 6);
 
-  const harian = useMemo(() => {
-    const map = new Map<string, { date: string; total: number; masuk: number; keluar: number; net: number; trx: number }>();
-    for (const r of rows) {
-      const date = r.kas_date;
-      const g = map.get(date) ?? { date, total: 0, masuk: 0, keluar: 0, net: 0, trx: 0 };
-      g.total += 1;
-      if (r.type === "pemasukan") g.masuk += Number(r.amount);
-      else g.keluar += Number(r.amount);
-      g.net = g.masuk - g.keluar;
-      g.trx += 1;
-      map.set(date, g);
-    }
-    return Array.from(map.values()).sort((a, b) => (a.date < b.date ? 1 : -1));
-  }, [rows]);
+  const harian = useMemo(() => (report?.harian ?? []).map((row) => ({ ...row, date: row.key, trx: row.count })), [report]);
 
-  const bulanan = useMemo(() => {
-    const map = new Map<string, { month: string; total: number; masuk: number; keluar: number; net: number }>();
-    for (const r of rows) {
-      const month = r.kas_date.slice(0, 7);
-      const g = map.get(month) ?? { month, total: 0, masuk: 0, keluar: 0, net: 0 };
-      g.total += 1;
-      if (r.type === "pemasukan") g.masuk += Number(r.amount);
-      else g.keluar += Number(r.amount);
-      g.net = g.masuk - g.keluar;
-      map.set(month, g);
-    }
-    return Array.from(map.values()).sort((a, b) => (a.month < b.month ? 1 : -1));
-  }, [rows]);
+  const bulanan = useMemo(() => (report?.bulanan ?? []).map((row) => ({ ...row, month: row.key, total: row.count })), [report]);
 
-  // chart: daily net last 30 days
+  // Net per day for the trend chart, oldest first.
   const chartData = useMemo(() => {
     return harian
-      .slice(0, 30)
-      .reverse()
-      .map((g) => ({ date: g.date.slice(5), net: g.net, masuk: g.masuk, keluar: g.keluar }));
+      .slice(-30)
+      .map((g) => ({ date: g.date.slice(5), net: g.net }));
   }, [harian]);
 
-  const totalMasuk = harian.reduce((a, g) => a + g.masuk, 0);
-  const totalKeluar = harian.reduce((a, g) => a + g.keluar, 0);
-  const totalNet = totalMasuk - totalKeluar;
+  const totalMasuk = report?.totalMasuk ?? 0;
+  const totalKeluar = report?.totalKeluar ?? 0;
+  const totalNet = report?.totalNet ?? 0;
 
-  // Market dashboard - Bulan ini vs Bulan lalu, Servis/Inventori/Sales/Lain-lain
-  const { featuredPrice, changePct, series } = useMemo(() => {
-    const now = new Date();
-    const curMonth = now.toISOString().slice(0, 7);
-    const lastMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-    const lastMonth = lastMonthDate.toISOString().slice(0, 7);
-    const curRows = rows.filter((f) => f.kas_date?.slice(0, 7) === curMonth && f.type === "pemasukan");
-    const lastRows = rows.filter((f) => f.kas_date?.slice(0, 7) === lastMonth && f.type === "pemasukan");
-    const curSum = curRows.reduce((a, b) => a + Number(b.amount), 0);
-    const lastSum = lastRows.reduce((a, b) => a + Number(b.amount), 0);
-    const pct = lastSum ? ((curSum - lastSum) / lastSum) * 100 : 0;
-    const dailyMap = new Map<string, number>();
-    for (const f of rows) {
-      if (f.type !== "pemasukan") continue;
-      dailyMap.set(f.kas_date, (dailyMap.get(f.kas_date) ?? 0) + Number(f.amount));
-    }
-    const sorted = Array.from(dailyMap.entries()).sort((a, b) => (a[0] < b[0] ? -1 : 1)).slice(-24);
-    const vals = sorted.map(([, v]) => v / 1000);
-    const s = vals.length ? vals : Array.from({ length: 24 }, (_, i) => 50 + Math.sin(i) * 10);
-    return { featuredPrice: curSum, changePct: pct, series: s };
-  }, [rows]);
+  const monthComparison = report?.monthComparison ?? { current: 0, previous: 0, changePct: null };
 
+  // Real daily income for the month sparkline; no synthetic series when empty.
+  const series = useMemo(() => {
+    return harian
+      .slice(-24)
+      .map((g) => g.masuk / 1000);
+  }, [harian]);
+
+  // Income split by the description actually recorded on each transaction.
   const allocation = useMemo(() => {
-    const servisSum = rows.filter((f) => f.type === "pemasukan").reduce((a, b) => a + Number(b.amount), 0) * 0.7;
-    const inventoriSum = spareparts.reduce((a: any, b: any) => a + Number(b.stock_qty ?? 0) * 50000, 0) || rows.filter((f) => f.type === "pengeluaran").reduce((a, b) => a + Number(b.amount), 0) * 0.4;
-    const salesSum = 0;
-    const totalMasukAll = rows.filter((f) => f.type === "pemasukan").reduce((a, b) => a + Number(b.amount), 0) || 1;
-    const lainSum = Math.max(0, totalMasukAll - servisSum - salesSum);
-    const total = servisSum + inventoriSum + salesSum + lainSum || 1;
-    return [
-      { name: "Servis", pct: Math.round((servisSum / total) * 100), color: "rgb(99 102 241)" },
-      { name: "Inventori", pct: Math.round((inventoriSum / total) * 100), color: "rgb(16 185 129)" },
-      { name: "Sales", pct: 0, color: "rgb(56 189 248)", badge: "Segera" },
-      { name: "Lain-lain", pct: Math.round((lainSum / total) * 100), color: "rgb(245 158 11)" },
-    ];
-  }, [rows, spareparts]);
-
-  const watchlist = useMemo(() => {
-    const byBranch = branches.map((b) => {
-      const sum = rows.filter((f) => f.branch_id === b.id && f.type === "pemasukan").reduce((a, v) => a + Number(v.amount), 0);
-      const cnt = rows.filter((f) => f.branch_id === b.id).length;
-      return { symbol: b.name.slice(0, 4).toUpperCase(), name: b.name, price: sum, changePct: 2.1, vol: `${cnt} trx`, series: Array.from({ length: 24 }, (_, i) => 50 + Math.sin(i + sum) * 10) };
-    });
-    if (byBranch.length) return byBranch.slice(0, 8);
-    return [{ symbol: "PSAT", name: "Cervise Pusat", price: 412000, changePct: 1.42, vol: "12 trx", series: Array.from({ length: 24 }, (_, i) => 50 + Math.sin(i) * 5) }];
-  }, [rows, branches]);
+    return (report?.byDescription ?? []).slice(0, 6).map((entry, index) => ({
+      name: entry.name,
+      pct: entry.pct,
+      amount: entry.amount,
+      color: SLICE_COLORS[index % SLICE_COLORS.length],
+    }));
+  }, [report]);
 
   const news = useMemo(() => {
     return rows.slice(0, 4).map((f) => ({
@@ -256,63 +213,102 @@ export default function LaporanKeuanganPage() {
 
       <main className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-10 py-8 space-y-8">
 
-        {/* Market Dashboard - Cervise: Bulan ini vs Bulan lalu, Servis/Inventori/Sales/Lain-lain */}
-        <div className="grid grid-cols-1 gap-px overflow-hidden rounded-2xl border border-border/60 bg-border/60 lg:grid-cols-[1fr_300px]">
-          <div className="bg-background p-6">
-            <div className="flex items-baseline justify-between">
-              <div>
-                <div className="flex items-baseline gap-2">
-                  <span className="font-heading text-2xl">IDR</span>
-                  <span className="font-mono text-muted-foreground text-xs uppercase tracking-[0.2em]">Omzet Bulan Ini</span>
-                </div>
-                <div className="mt-2 flex items-baseline gap-3">
-                  <span className="font-mono text-5xl tabular-nums">Rp {(featuredPrice / 1000).toFixed(0)}k</span>
-                  <span className={`inline-flex items-baseline gap-0.5 font-mono tabular-nums ${changePct >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`}>
-                    {changePct >= 0 ? <ArrowUpRightIcon className="size-4" /> : <ArrowDownRightIcon className="size-4" />}
-                    {Math.abs(changePct).toFixed(2)}%
-                  </span>
-                </div>
-                <div className="mt-1 font-mono text-muted-foreground text-xs">Bulan ini vs Bulan lalu · vol {rows.length} trx</div>
+        {error ? (
+          <div role="alert" className="rounded-xl border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+            {error}
+          </div>
+        ) : null}
+
+        {/* Total periode terpilih */}
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          {[
+            { label: "Pemasukan (periode)", value: totalMasuk, tone: "text-emerald-600 dark:text-emerald-400" },
+            { label: "Pengeluaran (periode)", value: totalKeluar, tone: "text-rose-600 dark:text-rose-400" },
+            { label: "Netto (periode)", value: totalNet, tone: totalNet >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400" },
+            { label: "Transaksi", value: null, tone: "", raw: report?.transactionCount ?? 0 },
+          ].map((card) => (
+            <div key={card.label} className="rounded-xl border border-border/60 bg-background/40 p-4">
+              <div className="font-mono text-[10px] text-muted-foreground uppercase tracking-[0.25em]">{card.label}</div>
+              <div className={`mt-2 font-heading text-2xl tabular-nums ${card.tone}`}>
+                {card.raw !== undefined ? formatNumberPlain(card.raw) : formatCurrencyPlain(card.value ?? 0)}
               </div>
-              <div className="flex gap-1">
-                {["1D", "1W", "1M", "1Y", "ALL"].map((r) => (
-                  <button key={r} type="button" className={`rounded-md px-2 py-1 font-mono text-[10px] uppercase tracking-[0.25em] ${r === "1M" ? "bg-foreground/[0.06] text-foreground" : "text-muted-foreground hover:bg-foreground/[0.04] hover:text-foreground"}`}>
-                    {r}
-                  </button>
-                ))}
+            </div>
+          ))}
+        </div>
+
+        {/* Ringkasan periode */}
+        <div className="grid grid-cols-1 gap-px overflow-hidden rounded-2xl border border-border/60 bg-border/60 lg:grid-cols-[1fr_320px]">
+          <div className="bg-background p-6">
+            <div>
+              <div className="flex items-baseline gap-2">
+                <span className="font-heading text-2xl">IDR</span>
+                <span className="font-mono text-muted-foreground text-xs uppercase tracking-[0.2em]">Omzet Bulan Ini</span>
+              </div>
+              <div className="mt-2 flex flex-wrap items-baseline gap-3">
+                <span className="font-mono text-5xl tabular-nums">{formatCurrencyPlain(monthComparison.current)}</span>
+                {monthComparison.changePct === null ? (
+                  <span className="font-mono text-xs text-muted-foreground">Bulan lalu tanpa pemasukan — tidak ada pembanding</span>
+                ) : (
+                  <span className={`inline-flex items-baseline gap-0.5 font-mono tabular-nums ${monthComparison.changePct >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`}>
+                    {monthComparison.changePct >= 0 ? <ArrowUpRightIcon className="size-4" /> : <ArrowDownRightIcon className="size-4" />}
+                    {Math.abs(monthComparison.changePct)}%
+                  </span>
+                )}
+              </div>
+              <div className="mt-1 font-mono text-muted-foreground text-xs">
+                Bulan lalu {formatCurrencyPlain(monthComparison.previous)} · {formatNumberPlain(report?.transactionCount ?? 0)} trx pada periode terpilih
               </div>
             </div>
             <div className="mt-5">
-              <PriceChart values={series} positive={changePct >= 0} />
+              {series.length > 0 ? (
+                <PriceChart values={series} positive={monthComparison.changePct === null || monthComparison.changePct >= 0} />
+              ) : (
+                <div className="flex h-24 items-center justify-center text-sm text-muted-foreground">Belum ada pemasukan untuk ditampilkan</div>
+              )}
             </div>
+            {chartData.length > 0 ? (
+              <div className="mt-5 border-t pt-4">
+                <div className="font-mono text-[10px] text-muted-foreground uppercase tracking-[0.25em]">Netto harian</div>
+                <div className="mt-2 h-28 w-full">
+                  <NetChart data={chartData} />
+                </div>
+              </div>
+            ) : null}
           </div>
           <div className="bg-background p-6">
-            <div className="font-mono text-[10px] text-muted-foreground uppercase tracking-[0.3em]">Alokasi Sumber Revenue</div>
-            <div className="mt-3 flex justify-center">
-              <div className="h-36 w-36">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie data={allocation.filter((a) => a.pct > 0)} dataKey="pct" nameKey="name" cx="50%" cy="50%" innerRadius={45} outerRadius={65} paddingAngle={2} stroke="none">
-                      {allocation.filter((a) => a.pct > 0).map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} />
-                      ))}
-                    </Pie>
-                    <Tooltip formatter={(value: any) => `${value}%`} />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-            <ul className="mt-3 space-y-1.5 font-mono text-[11px]">
-              {allocation.map((a) => (
-                <li key={a.name} className="flex items-center justify-between">
-                  <span className="flex items-center gap-2">
-                    <span className="size-2 rounded-full" style={{ background: a.color }} />
-                    {a.name} {(a as any).badge && <span className="rounded bg-muted px-1.5 py-0.5 text-[9px]">{(a as any).badge}</span>}
-                  </span>
-                  <span className="tabular-nums text-muted-foreground">{a.pct}%</span>
-                </li>
-              ))}
-            </ul>
+            <div className="font-mono text-[10px] text-muted-foreground uppercase tracking-[0.3em]">Sumber Pemasukan</div>
+            {allocation.length === 0 ? (
+              <p className="mt-6 text-sm text-muted-foreground">Belum ada pemasukan pada periode ini.</p>
+            ) : (
+              <>
+                <div className="mt-3 flex justify-center">
+                  <div className="h-36 w-36">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie data={allocation} dataKey="pct" nameKey="name" cx="50%" cy="50%" innerRadius={45} outerRadius={65} paddingAngle={2} stroke="none">
+                          {allocation.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={entry.color} />
+                          ))}
+                        </Pie>
+                        <Tooltip formatter={(value: unknown, _name: unknown, item: { payload?: { amount?: number } }) => `${value}% · ${formatCurrencyPlain(item?.payload?.amount ?? 0)}`} />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+                <ul className="mt-3 space-y-1.5 font-mono text-[11px]">
+                  {allocation.map((a) => (
+                    <li key={a.name} className="flex items-center justify-between gap-2">
+                      <span className="flex min-w-0 items-center gap-2">
+                        <span className="size-2 shrink-0 rounded-full" style={{ background: a.color }} />
+                        <span className="truncate">{a.name}</span>
+                      </span>
+                      <span className="shrink-0 tabular-nums text-muted-foreground">{a.pct}%</span>
+                    </li>
+                  ))}
+                </ul>
+                <p className="mt-3 text-[11px] text-muted-foreground">Dihitung dari deskripsi yang dicatat pada tiap transaksi pemasukan.</p>
+              </>
+            )}
           </div>
         </div>
 
@@ -320,44 +316,42 @@ export default function LaporanKeuanganPage() {
           <div className="bg-background">
             <div className="flex items-baseline justify-between border-border/40 border-b px-5 py-3">
               <span className="font-mono text-[10px] text-muted-foreground uppercase tracking-[0.3em]">Per Cabang</span>
-              <span className="font-mono text-[10px] text-muted-foreground uppercase tracking-[0.2em]">{watchlist.length} cabang · last 30d</span>
+              <span className="font-mono text-[10px] text-muted-foreground uppercase tracking-[0.2em]">
+                {(report?.byBranch ?? []).length} cabang · periode terpilih
+              </span>
             </div>
             <table className="w-full">
               <thead>
                 <tr className="border-border/40 border-b text-left font-mono text-[10px] text-muted-foreground uppercase tracking-[0.25em]">
                   <th className="px-5 py-2 font-normal">Cabang</th>
-                  <th className="px-5 py-2 text-right font-normal">Total</th>
-                  <th className="px-5 py-2 text-right font-normal">Growth</th>
-                  <th className="px-5 py-2 font-normal">30d</th>
+                  <th className="px-5 py-2 text-right font-normal">Masuk</th>
+                  <th className="px-5 py-2 text-right font-normal">Keluar</th>
+                  <th className="px-5 py-2 text-right font-normal">Net</th>
                   <th className="px-5 py-2 text-right font-normal">Trx</th>
                 </tr>
               </thead>
               <tbody>
-                {watchlist.map((t) => {
-                  const positive = t.changePct >= 0;
-                  const color = positive ? "rgb(16 185 129)" : "rgb(244 63 94)";
-                  return (
-                    <tr key={t.symbol} className="border-border/30 border-b hover:bg-foreground/[0.02]">
-                      <td className="px-5 py-2.5">
-                        <div className="font-mono text-sm">{t.symbol}</div>
-                        <div className="font-mono text-[10px] text-muted-foreground">{t.name}</div>
-                      </td>
-                      <td className="px-5 py-2.5 text-right font-mono text-sm tabular-nums">Rp {(t.price / 1000).toFixed(0)}k</td>
+                {(report?.byBranch ?? []).length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="px-5 py-10 text-center text-sm text-muted-foreground">
+                      {loading ? "Memuat…" : "Belum ada transaksi pada periode ini"}
+                    </td>
+                  </tr>
+                ) : (
+                  (report?.byBranch ?? []).map((branch) => (
+                    <tr key={branch.branchId ?? "none"} className="border-border/30 border-b hover:bg-foreground/[0.02]">
+                      <td className="px-5 py-2.5 text-sm">{branch.branchName}</td>
+                      <td className="px-5 py-2.5 text-right font-mono text-sm tabular-nums">{formatCurrencyPlain(branch.masuk)}</td>
+                      <td className="px-5 py-2.5 text-right font-mono text-sm tabular-nums text-muted-foreground">{formatCurrencyPlain(branch.keluar)}</td>
                       <td className="px-5 py-2.5 text-right font-mono text-sm tabular-nums">
-                        <span className={positive ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}>
-                          {positive ? "+" : ""}
-                          {t.changePct.toFixed(2)}%
+                        <span className={branch.net >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}>
+                          {formatCurrencyPlain(branch.net)}
                         </span>
                       </td>
-                      <td className="px-5 py-2.5">
-                        <div className="h-7 w-32">
-                          <Spark values={t.series} color={color} />
-                        </div>
-                      </td>
-                      <td className="px-5 py-2.5 text-right font-mono text-[11px] text-muted-foreground tabular-nums">{t.vol}</td>
+                      <td className="px-5 py-2.5 text-right font-mono text-[11px] tabular-nums text-muted-foreground">{formatNumberPlain(branch.count)}</td>
                     </tr>
-                  );
-                })}
+                  ))
+                )}
               </tbody>
             </table>
           </div>
@@ -414,7 +408,7 @@ export default function LaporanKeuanganPage() {
                     <TableRow key={r.date}>
                       <TableCell className="font-medium whitespace-nowrap">{formatHarian(r.date)}</TableCell>
                       <TableCell className="text-muted-foreground text-sm">{cabangLabel}</TableCell>
-                      <TableCell className="text-right font-mono tabular-nums">{r.total}</TableCell>
+                      <TableCell className="text-right font-mono tabular-nums">{r.count}</TableCell>
                       <TableCell className="text-right font-mono tabular-nums text-emerald-600">{formatCurrencyPlain(r.masuk)}</TableCell>
                       <TableCell className="text-right font-mono tabular-nums text-rose-600">{formatCurrencyPlain(r.keluar)}</TableCell>
                       <TableCell className="text-right font-mono tabular-nums">{formatCurrencyPlain(r.net)}</TableCell>
@@ -468,7 +462,7 @@ export default function LaporanKeuanganPage() {
                     <TableRow key={r.month}>
                       <TableCell className="font-medium whitespace-nowrap">{formatBulanan(r.month)}</TableCell>
                       <TableCell className="text-muted-foreground text-sm">{cabangLabel}</TableCell>
-                      <TableCell className="text-right font-mono tabular-nums">{r.total}</TableCell>
+                      <TableCell className="text-right font-mono tabular-nums">{r.count}</TableCell>
                       <TableCell className="text-right font-mono tabular-nums text-emerald-600">{formatCurrencyPlain(r.masuk)}</TableCell>
                       <TableCell className="text-right font-mono tabular-nums text-rose-600">{formatCurrencyPlain(r.keluar)}</TableCell>
                       <TableCell className="text-right font-mono tabular-nums">{formatCurrencyPlain(r.net)}</TableCell>
@@ -523,17 +517,21 @@ function PriceChart({ values, positive }: { values: number[]; positive: boolean 
   );
 }
 
-function Spark({ values, color }: { values: number[]; color: string }) {
-  const w = 120;
-  const h = 28;
-  const max = Math.max(...values);
-  const min = Math.min(...values);
-  const range = Math.max(0.001, max - min);
-  const stepX = w / (values.length - 1);
-  const pts = values.map((v, i) => `${i * stepX},${h - ((v - min) / range) * (h - 4) - 2}`).join(" L ");
+function NetChart({ data }: { data: { date: string; net: number }[] }) {
+  const w = 700;
+  const h = 110;
+  const values = data.map((d) => d.net);
+  const max = Math.max(...values, 0);
+  const min = Math.min(...values, 0);
+  const range = Math.max(1, max - min);
+  const stepX = w / Math.max(1, data.length - 1);
+  const y = (v: number) => h - ((v - min) / range) * (h - 20) - 10;
+  const pts = data.map((d, i) => `${i * stepX},${y(d.net)}`).join(" L ");
+  const zeroY = y(0);
   return (
-    <svg viewBox={`0 0 ${w} ${h}`} className="h-full w-full" preserveAspectRatio="none">
-      <path d={`M ${pts}`} fill="none" stroke={color} strokeWidth="1.5" />
+    <svg viewBox={`0 0 ${w} ${h}`} className="h-full w-full" preserveAspectRatio="none" role="img" aria-label="Netto harian">
+      <line x1="0" x2={w} y1={zeroY} y2={zeroY} stroke="rgb(127 127 127 / 0.25)" strokeDasharray="2 4" />
+      <path d={`M ${pts}`} fill="none" stroke="rgb(99 102 241)" strokeWidth="1.75" />
     </svg>
   );
 }

@@ -1,14 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { formatCurrencyPlain, formatNumberPlain } from "@/lib/format";
+import { useState } from "react";
+import { formatCurrencyPlain } from "@/lib/format";
 import { CheckCircle2Icon, ChevronRightIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
-import { toggleCabangActive, toggleCabangIntensif } from "@/app/app/cabang/actions";
+import { toggleCabangActive } from "@/app/app/cabang/actions";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
@@ -26,14 +26,6 @@ type BranchItem = {
   teknisiCount: number;
 };
 
-const TONES = [
-  "from-emerald-500/20 to-teal-500/10",
-  "from-slate-500/20 to-slate-500/5",
-  "from-violet-500/20 to-fuchsia-500/10",
-  "from-amber-500/20 to-orange-500/10",
-  "from-sky-500/20 to-sky-500/5",
-];
-
 function statusFor(b: BranchItem): "ok" | "warn" | "off" {
   if (!b.is_active) return "off";
   if (!b.city && !b.phone) return "warn";
@@ -49,10 +41,13 @@ export function BranchCards({ branches, onKelola }: { branches: BranchItem[]; on
   const [confirm, setConfirm] = useState<BranchItem | null>(null);
   const [saving, setSaving] = useState(false);
 
-  // Wire up: sync when server prop changes after router.refresh()
-  useEffect(() => {
+  // Reset during render when the server prop changes after router.refresh(),
+  // so the optimistic local edits below do not need a syncing effect.
+  const [syncedFrom, setSyncedFrom] = useState(branches);
+  if (syncedFrom !== branches) {
+    setSyncedFrom(branches);
     setItems(branches);
-  }, [branches]);
+  }
 
   const activeCount = items.filter((b) => b.is_active).length;
   const inactiveCount = items.length - activeCount;
@@ -78,32 +73,12 @@ export function BranchCards({ branches, onKelola }: { branches: BranchItem[]; on
       await toggleCabangActive(branch.id, enabled);
       toast.success(enabled ? `Cabang "${branch.name}" diaktifkan` : `Cabang "${branch.name}" dinonaktifkan`);
       router.refresh();
-    } catch (e: any) {
+    } catch (e) {
       setItems(prev);
-      toast.error(e?.message ?? "Gagal mengubah status cabang");
+      toast.error(e instanceof Error ? e.message : "Gagal mengubah status cabang");
     } finally {
       setSaving(false);
       setConfirm(null);
-    }
-  };
-
-  const handleIntensifToggle = async (branch: BranchItem, next: boolean) => {
-    if (branch.id.startsWith("mock-")) {
-      toast.error("Cabang demo tidak bisa diubah. Buat cabang baru dulu.");
-      return;
-    }
-    const prev = items;
-    setItems((cur) => cur.map((b) => (b.id === branch.id ? { ...b, is_intensif_enabled: next } : b)));
-    setSaving(true);
-    try {
-      await toggleCabangIntensif(branch.id, next);
-      toast.success(next ? `Insentif "${branch.name}" diaktifkan` : `Insentif "${branch.name}" dinonaktifkan`);
-      router.refresh();
-    } catch (e: any) {
-      setItems(prev);
-      toast.error(e?.message ?? "Gagal mengubah intensif");
-    } finally {
-      setSaving(false);
     }
   };
 
@@ -117,18 +92,13 @@ export function BranchCards({ branches, onKelola }: { branches: BranchItem[]; on
       </div>
 
       <div className="flex flex-col gap-3">
-        {items.map((b, idx) => {
+        {items.map((b) => {
           const enabled = b.is_active;
           const status = enabled ? statusFor(b) : "off";
-          const tone = TONES[idx % TONES.length];
-          const letter = (b.name.trim()[0] ?? "?").toUpperCase();
           const lastSync = enabled ? `dibuat ${new Date(b.created_at).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })}` : "Nonaktif";
           return (
             <Card key={b.id} className="overflow-hidden">
               <div className="flex items-center gap-4 p-4">
-                <div className={"flex size-11 shrink-0 items-center justify-center rounded-xl border bg-gradient-to-br font-heading font-semibold text-base " + tone}>
-                  {letter}
-                </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
                     <span className="font-heading font-semibold text-base">{b.name}</span>
@@ -155,10 +125,6 @@ export function BranchCards({ branches, onKelola }: { branches: BranchItem[]; on
                   <div className="flex flex-col items-end gap-1">
                     <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Aktif</span>
                     <Switch checked={enabled} disabled={saving} onCheckedChange={(v) => handleToggle(b, Boolean(v))} />
-                  </div>
-                  <div className="flex flex-col items-end gap-1">
-                    <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Insentif</span>
-                    <Switch checked={!!b.is_intensif_enabled} disabled={saving || !enabled} onCheckedChange={(v) => handleIntensifToggle(b, Boolean(v))} />
                   </div>
                   <Button variant="ghost" size="xs" className="text-muted-foreground" onClick={() => onKelola?.(b)}>
                     Kelola

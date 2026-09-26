@@ -18,7 +18,7 @@ export default function AuditLogPage() {
           </span>
         }
         titleClassName="font-heading text-2xl"
-        description={`Jejak aktivitas servis, inventory & akses — cabang aktif: ${branch.label} · ${branch.meta}`}
+        description={`Jejak aktivitas servis · cabang aktif: ${branch.label}`}
       />
 
       <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-10 py-6 lg:py-8">

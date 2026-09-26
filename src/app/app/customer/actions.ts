@@ -3,11 +3,21 @@
 import { revalidatePath } from "next/cache";
 import { getActiveTenant } from "@/lib/supabase/actor";
 import { canAccess } from "@/lib/rbac";
+import {
+  mapCustomerRows,
+  type CustomerInput,
+  type CustomerListRow,
+  type CustomerServiceInput,
+} from "@/lib/operational/customer-list";
+
+export type { CustomerListRow };
 
 function requireCustomerAccess(role: string) {
   if (!canAccess(role, "customer")) throw new Error("Role tidak diizinkan mengakses customer");
 }
 
+// Strict validator for the write paths; the mapper has its own lenient version
+// for display, because stored data can predate these rules.
 function normalizePhone62(raw: string): string {
   const digits = raw.replace(/\D/g, "");
   if (!digits) throw new Error("Telepon wajib");
@@ -27,21 +37,6 @@ function formatPhoneDisplay(norm62: string): string {
   return local.replace(/(\d{4})(\d{4})(\d+)/, "$1 $2 $3").trim();
 }
 
-export type CustomerListRow = {
-  id: string;
-  name: string;
-  phone: string;
-  phoneDisplay: string;
-  createdAt: string;
-  createdAtRaw: string;
-  totalServis: number;
-  totalSpent: number;
-  lastServis: string;
-  lastStatus: string;
-  lastDate: string;
-  lastDateRaw: string | null;
-};
-
 export async function getCustomers(): Promise<CustomerListRow[]> {
   const { supabase, branchId, role } = await getActiveTenant();
   requireCustomerAccess(role);
@@ -52,53 +47,35 @@ export async function getCustomers(): Promise<CustomerListRow[]> {
     .eq("branch_id", branchId)
     .order("created_at", { ascending: false });
   if (error) throw new Error(error.message);
-  const list = (customers ?? []) as any[];
+  const list = (customers ?? []) as CustomerInput[];
   if (list.length === 0) return [];
 
-  const ids = list.map((c) => c.id);
-  const { data: orders } = await supabase
+  const { data: services, error: servicesError } = await supabase
     .from("cervise_services")
-    .select("id, customer_id, status, created_at, price")
+    .select("id, service_number, customer_id, status, created_at, price")
     .eq("branch_id", branchId)
-    .in("customer_id", ids)
-    .order("created_at", { ascending: false });
+    .in(
+      "customer_id",
+      list.map((customer) => customer.id),
+    );
+  if (servicesError) throw new Error(servicesError.message);
 
-  const orderByCustomer = new Map<string, any[]>();
-  for (const o of (orders ?? []) as any[]) {
-    if (!orderByCustomer.has(o.customer_id)) orderByCustomer.set(o.customer_id, []);
-    orderByCustomer.get(o.customer_id)!.push(o);
-  }
+  return mapCustomerRows({ customers: list, services: (services ?? []) as CustomerServiceInput[] });
+}
 
-  return list.map((c) => {
-    const ords = orderByCustomer.get(c.id) ?? [];
-    const totalServis = ords.length;
-    const totalSpent = ords.reduce((a: number, o: any) => a + Number(o.price ?? 0), 0);
-    const last = ords[0] as any | undefined;
-    const lastServis = last ? String(last.id).slice(0, 8).toUpperCase() : "—";
-    const lastStatus = last ? (last.status as string) : "—";
-    const lastDateRaw = last?.created_at ?? null;
-    const lastDate = lastDateRaw ? new Date(lastDateRaw).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" }) : "—";
-    const createdAtRaw = c.created_at as string;
-    const createdAt = new Date(createdAtRaw).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" });
-    const norm = c.phone ? String(c.phone).replace(/\D/g, "") : "";
-    let phoneNorm = norm;
-    if (phoneNorm.startsWith("0")) phoneNorm = "62" + phoneNorm.slice(1);
-    const phoneDisplay = phoneNorm ? formatPhoneDisplay(phoneNorm) : "—";
+/** Same data, but returns the error instead of throwing so pages can render it. */
+export async function getCustomersSafe(): Promise<{
+  data: CustomerListRow[];
+  error: { message: string } | null;
+}> {
+  try {
+    return { data: await getCustomers(), error: null };
+  } catch (cause) {
     return {
-      id: c.id as string,
-      name: c.name as string,
-      phone: phoneNorm,
-      phoneDisplay,
-      createdAt,
-      createdAtRaw,
-      totalServis,
-      totalSpent: Math.round(totalSpent),
-      lastServis,
-      lastStatus,
-      lastDate,
-      lastDateRaw,
+      data: [],
+      error: { message: cause instanceof Error ? cause.message : "Gagal memuat data customer" },
     };
-  });
+  }
 }
 
 export async function createCustomer(form: { name: string; phone: string }) {
