@@ -36,7 +36,7 @@ set public = excluded.public,
     allowed_mime_types = excluded.allowed_mime_types;
 
 -- 3. Hapus policy storage.objects yang mungkin pernah dibuat untuk bucket ini.
---    posthak: upload hanya boleh lewat server action, bukan dari browser.
+--    Efeknya: upload hanya boleh lewat server action, bukan dari browser.
 drop policy if exists "cervise photos select" on storage.objects;
 drop policy if exists "cervise photos insert" on storage.objects;
 drop policy if exists "cervise photos update" on storage.objects;
