@@ -7,6 +7,7 @@ export type Branch = {
   id: string;
   label: string;
   meta: string;
+  phone?: string | null;
 };
 
 export const BRANCHES: Branch[] = [
@@ -41,7 +42,7 @@ export function BranchProvider({ children, fixedBranchId = null }: { children: R
       if (fixedBranchId) {
         const { data: fixedBranch } = await supabase
           .from("branches")
-          .select("id, name, city")
+          .select("id, name, city, phone")
           .eq("id", fixedBranchId)
           .eq("is_active", true)
           .maybeSingle();
@@ -50,6 +51,7 @@ export function BranchProvider({ children, fixedBranchId = null }: { children: R
             id: fixedBranch.id as string,
             label: fixedBranch.name as string,
             meta: (fixedBranch.city as string) || "Cabang assigned",
+            phone: (fixedBranch.phone as string | null) ?? null,
           };
           setBranches([mapped]);
           setBranchState(mapped);
@@ -64,12 +66,12 @@ export function BranchProvider({ children, fixedBranchId = null }: { children: R
       }
       const { data: rows } = await supabase
         .from("branches")
-        .select("id, name, city")
+        .select("id, name, city, phone")
         .eq("organization_id", orgId)
         .eq("is_active", true)
         .order("name");
       if (rows && rows.length) {
-        const mapped: Branch[] = ((rows ?? []) as { id: string; name: string; city: string | null }[]).map((row) => ({ id: row.id, label: row.name, meta: row.city || "Project" }));
+        const mapped: Branch[] = ((rows ?? []) as { id: string; name: string; city: string | null; phone: string | null }[]).map((row) => ({ id: row.id, label: row.name, meta: row.city || "Project", phone: row.phone ?? null }));
         const all = mapped.length > 1 ? BRANCHES.slice(0, 1).concat(mapped) : mapped;
         setBranches(all);
         const saved = localStorage.getItem("cervise-branch");

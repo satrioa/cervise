@@ -4,7 +4,17 @@ import { revalidatePath } from "next/cache";
 import { getActiveTenant } from "@/lib/supabase/actor";
 import { canAccess } from "@/lib/rbac";
 
-export async function updateBranchBrand(input: { branchId: string; name: string }) {
+/**
+ * Branch selector Context memakai sentinel "all" untuk "Semua cabang", yang
+ * bukan UUID. Query per-cabang dengan nilai itu selalu kosong, jadi resolve
+ * dulu ke cabang yang benar-benar dimiliki actor.
+ */
+function resolveBranchId(actor: { branchId: string | null }, branchId: string): string | null {
+  if (branchId && branchId !== "all") return branchId;
+  return actor.branchId;
+}
+
+export async function updateBrand(input: { name: string }) {
   const actor = await getActiveTenant();
   if (!canAccess(actor.role, "pengaturan_general")) {
     throw new Error("Role tidak diizinkan mengubah pengaturan cabang");
@@ -14,33 +24,50 @@ export async function updateBranchBrand(input: { branchId: string; name: string 
   const name = input.name.trim();
   if (name.length < 2 || name.length > 80) throw new Error("Nama brand harus 2-80 karakter");
 
+  // Brand = nama organisasi. branches.name adalah nama CABANG (mis. "Cabang
+  // Pusat") dan hanya boleh diubah lewat pengaturan cabang terpisah.
   const { data, error } = await actor.supabase
-    .from("branches")
+    .from("organizations")
     .update({ name })
-    .eq("id", input.branchId)
-    .eq("organization_id", actor.orgId)
+    .eq("id", actor.orgId)
     .select("id")
     .maybeSingle();
 
   if (error) throw new Error(error.message);
-  if (!data) throw new Error("Cabang tidak ditemukan");
+  if (!data) throw new Error("Organisasi tidak ditemukan");
 
   revalidatePath("/app/pengaturan");
   return { ok: true };
 }
 
-export async function getBranchBrand(branchId: string) {
+export async function getBrand(branchId: string) {
   const actor = await getActiveTenant();
   if (!canAccess(actor.role, "dashboard")) throw new Error("Role tidak diizinkan");
+  if (!actor.orgId) throw new Error("Organisasi tidak ditemukan");
 
-  const { data, error } = await actor.supabase
-    .from("branches")
-    .select("id, name, logo_url")
-    .eq("id", branchId)
-    .maybeSingle();
+  const targetBranchId = resolveBranchId(actor, branchId);
 
-  if (error) throw new Error(error.message);
-  return data;
+  const [orgRes, branchRes] = await Promise.all([
+    actor.supabase.from("organizations").select("id, name").eq("id", actor.orgId).maybeSingle(),
+    targetBranchId
+      ? actor.supabase
+          .from("branches")
+          .select("id, name, logo_url")
+          .eq("id", targetBranchId)
+          .eq("organization_id", actor.orgId)
+          .maybeSingle()
+      : Promise.resolve({ data: null, error: null }),
+  ]);
+
+  if (orgRes.error) throw new Error(orgRes.error.message);
+  if (branchRes.error) throw new Error(branchRes.error.message);
+
+  const branch = branchRes.data as { id: string; name: string; logo_url: string | null } | null;
+  return {
+    name: (orgRes.data as { name: string } | null)?.name ?? null,
+    branchName: branch?.name ?? null,
+    logoUrl: branch?.logo_url ?? null,
+  };
 }
 
 export async function getMasterAdmins(branchId: string) {
@@ -49,12 +76,15 @@ export async function getMasterAdmins(branchId: string) {
     throw new Error("Role tidak diizinkan melihat daftar admin");
   }
 
+  const targetBranchId = resolveBranchId(actor, branchId);
+  if (!targetBranchId) return [];
+
   // employees.role adalah sumber otoritas (uppercase). profiles.role hanya field
   // legacy lowercase, jadi jangan difilter dari sana.
   const { data: employees, error: employeesError } = await actor.supabase
     .from("employees")
     .select("id, role, profile_id")
-    .eq("branch_id", branchId)
+    .eq("branch_id", targetBranchId)
     .eq("role", "MASTER_ADMIN")
     .eq("is_active", true)
     .limit(50);

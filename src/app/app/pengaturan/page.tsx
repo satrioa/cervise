@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { getBranchBrand, getMasterAdmins, updateBranchBrand } from "@/app/app/pengaturan/actions";
+import { getBrand, getMasterAdmins, updateBrand } from "@/app/app/pengaturan/actions";
 import { useBranch } from "@/lib/branch-context";
 import { toast } from "sonner";
 import { UploadIcon, TrashIcon, BuildingIcon, UsersIcon, MailIcon, ShieldIcon } from "lucide-react";
@@ -16,7 +16,7 @@ import { PageHeader } from "@/components/layout/page-header";
 
 export default function GeneralPage() {
   const { branch } = useBranch();
-  const [brandName, setBrandName] = useState(branch.label);
+  const [brandName, setBrandName] = useState("");
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [users, setUsers] = useState<any[]>([]);
@@ -24,19 +24,15 @@ export default function GeneralPage() {
   const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    setBrandName(branch.label);
-  }, [branch.label]);
-
-  useEffect(() => {
     let active = true;
     (async () => {
       try {
-        const [brand, admins] = await Promise.all([getBranchBrand(branch.id), getMasterAdmins(branch.id)]);
+        const [brand, admins] = await Promise.all([getBrand(branch.id), getMasterAdmins(branch.id)]);
         if (!active) return;
-        if (brand) {
-          setBrandName(brand.name ?? branch.label);
-          setLogoUrl(brand.logo_url ?? null);
-        }
+        // Brand berasal dari organizations.name, bukan branches.name ("Cabang
+        // Pusat") dan bukan label selector ("Semua cabang").
+        if (brand?.name) setBrandName(brand.name);
+        setLogoUrl(brand?.logoUrl ?? null);
         setUsers((admins ?? []) as any[]);
       } catch {
         if (active) setUsers([]);
@@ -45,12 +41,12 @@ export default function GeneralPage() {
     return () => {
       active = false;
     };
-  }, [branch.id, branch.label]);
+  }, [branch.id]);
 
   const handleSaveBrand = async () => {
     setLoading(true);
     try {
-      await updateBranchBrand({ branchId: branch.id, name: brandName });
+      await updateBrand({ name: brandName });
       toast.success("Nama brand disimpan");
     } catch (e: any) {
       toast.error(e.message ?? "Gagal simpan");

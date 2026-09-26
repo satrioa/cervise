@@ -3,7 +3,11 @@
 import { format } from "date-fns";
 
 type PrintData = {
-  branch: { name: string; address: string; phone: string; website: string };
+  /**
+   * `name` = brand (organizations.name). Kontak opsional: Cetak/struk tidak
+   * boleh menampilkan alamat/telepon fiktif bila data cabang belum diisi.
+   */
+  branch: { name: string; address: string | null; phone: string | null; website: string | null };
   invoiceNo: string;
   service: {
     id: string;
@@ -16,7 +20,7 @@ type PrintData = {
     kerusakan?: string[];
     deskripsi?: string;
     sparepart?: string;
-    price: number;
+    price: number | null;
     status: string;
     teknisi: string;
     complaint?: string;
@@ -32,6 +36,37 @@ type PrintData = {
   printTime: string;
 };
 
+/** Placeholder for genuinely absent data. Never substitute invented values. */
+const EM_DASH = "\u2014";
+
+function text(value: unknown): string {
+  if (value === null || value === undefined) return EM_DASH;
+  const trimmed = String(value).trim();
+  return trimmed === "" ? EM_DASH : trimmed;
+}
+
+/** Joins only the parts that actually exist, so absent contact data leaves no gap. */
+function joinPresent(...parts: (string | null | undefined)[]): string {
+  return parts
+    .map((part) => (part === null || part === undefined ? "" : String(part).trim()))
+    .filter((part) => part !== "")
+    .join(" \u00b7 ");
+}
+
+/** Space-joined variant, e.g. "Samsung Galaxy S23" (not "Samsung \u00b7 Galaxy S23"). */
+function joinWords(...parts: (string | null | undefined)[]): string {
+  return parts
+    .map((part) => (part === null || part === undefined ? "" : String(part).trim()))
+    .filter((part) => part !== "")
+    .join(" ");
+}
+
+/** Wraps a markup line so it is omitted entirely when its value is missing. */
+function optionalLine(value: string | null | undefined, render: (value: string) => string): string {
+  if (value === null || value === undefined || String(value).trim() === "") return "";
+  return render(String(value).trim());
+}
+
 function maskPhone(phone: string): string {
   const digits = phone.replace(/\D/g, "");
   const normalized = digits.replace(/^0/, "62").replace(/^8/, "62");
@@ -45,7 +80,8 @@ function formatPhoneDisplay(phone: string): string {
   return masked.startsWith("62") ? `+${masked}` : masked;
 }
 
-function formatEn(price: number): string {
+function formatEn(price: number | null): string {
+  if (price === null || !Number.isFinite(price)) return EM_DASH;
   return new Intl.NumberFormat("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(price);
 }
 
@@ -54,65 +90,78 @@ function formatInvoiceNo(date: string | Date): string {
   return `INV-${format(d, "ddMMyyyyHHmmss")}`;
 }
 
-export function toPrintData(
-  servis: any,
-  branch: { label: string; meta?: string },
-  detail?: any
-): PrintData {
-  // Prefer detail (ServisDetail) if available, else fallback to ServisItem dummy
-  const s = detail || servis;
-  const customerName = s?.cervise_customers?.name || s?.customer?.split("·")[0]?.trim() || s?.customer || "FARHAN";
-  const customerPhoneRaw = s?.cervise_customers?.phone || s?.customer?.split("·")[1]?.trim() || "0896****2404";
-  const merk = s?.merk || s?.device?.split(" ")[0] || "IPHONE";
-  const tipe = s?.tipe || s?.device?.split(" ").slice(1).join(" ") || "11";
-  const imei1 = s?.imei1 ?? "0";
-  const imei2 = s?.imei2 ?? "-";
-  const kelengkapan = Array.isArray(s?.kelengkapan) ? s.kelengkapan : s?.kelengkapan ? [s.kelengkapan] : ["SIMTRAY"];
-  const kerusakan = Array.isArray(s?.kerusakan) ? s.kerusakan : s?.kerusakan ? [s.kerusakan] : s?.complaint ? [s.complaint] : ["REPAIR KAMERA BELAKANG"];
-  const deskripsi = s?.deskripsi || s?.password_value || "1111";
-  const sparepart = s?.sparepart || "TIDAK";
-  const price = s?.price ?? 200000;
-  const status = s?.status || "Masuk";
-  const teknisiName = s?.teknisi?.full_name || s?.teknisi || "Teknisitasik1";
-  const adminName = s?.creator?.full_name || "Kasservice indonesia";
-  const createdAt = s?.created_at || s?.date || new Date().toISOString();
-  const tanggalTerima = format(new Date(createdAt), "yyyy-MM-dd");
-  const garansiSampai = s?.garansi_until ? format(new Date(s.garansi_until), "yyyy-MM-dd") : "2026-09-30";
-  const invoiceNo = s?.invoice_no || formatInvoiceNo(createdAt);
+/** Identitas toko untuk header struk. Brand = organizations.name. */
+export type PrintContext = {
+  brandName?: string | null;
+  branchName?: string | null;
+  address?: string | null;
+  phone?: string | null;
+  website?: string | null;
+};
 
-  // Branch mapping: use branch label as store name, fallback
-  const branchName = branch?.label === "Semua cabang" ? "KasserviceKlaten" : branch?.label || "KasserviceKlaten";
-  const branchAddress = "Jl.Mayor Kusmanto Proliman 113 ( Bramen )";
-  const branchPhone = "+62088245238197";
-  const branchWebsite = "https://rbm-borneo.com/Store/KasserviceKlaten";
+export function toPrintData(servis: any, context: PrintContext, detail?: any): PrintData {
+  // Prefer detail (ServisDetail) when available: the list row is a summary.
+  const s = detail || servis;
+
+  // Tidak ada fallback fiktif. Absen = null, dicetak sebagai "—".
+  const customerName = s?.cervise_customers?.name || s?.customer?.split("\u00b7")[0]?.trim() || s?.customer || null;
+  const customerPhoneRaw = s?.cervise_customers?.phone || s?.customer?.split("\u00b7")[1]?.trim() || null;
+  const merk = s?.merk || s?.device?.split(" ")[0] || null;
+  const tipe = s?.tipe || s?.device?.split(" ").slice(1).join(" ") || null;
+  const imei1 = s?.imei1 ?? null;
+  const imei2 = s?.imei2 ?? null;
+  const kelengkapan = Array.isArray(s?.kelengkapan) ? s.kelengkapan : s?.kelengkapan ? [s.kelengkapan] : [];
+  const kerusakan = Array.isArray(s?.kerusakan) ? s.kerusakan : s?.kerusakan ? [s.kerusakan] : [];
+  const deskripsi = s?.deskripsi ?? s?.password_value ?? null;
+  const sparepart = s?.sparepart ?? null;
+  const price = typeof s?.price === "number" && Number.isFinite(s.price) ? s.price : null;
+  const status = s?.status ?? null;
+  const teknisiName = s?.teknisi?.full_name || s?.teknisi || null;
+  const adminName = s?.creator?.full_name || null;
+  const createdAt = s?.created_at || s?.date || null;
+  const tanggalTerima = createdAt ? format(new Date(createdAt), "yyyy-MM-dd") : null;
+  const garansiSampai = s?.garansi_until ? format(new Date(s.garansi_until), "yyyy-MM-dd") : null;
+  const invoiceNo = s?.invoice_no || (createdAt ? formatInvoiceNo(createdAt) : null);
+
+  // Brand = organizations.name (mis. "Servisin"). Fallback ke nama cabang
+  // hanya jika brand belum dimuat; jangan pernah memakai nama toko fiktif.
+  const storeName = text(context.brandName || context.branchName);
 
   return {
-    branch: { name: branchName, address: branchAddress, phone: branchPhone, website: branchWebsite },
-    invoiceNo,
+    branch: {
+      name: storeName,
+      address: context.address ?? null,
+      phone: context.phone ?? null,
+      website: context.website ?? null,
+    },
+    invoiceNo: text(invoiceNo),
     service: {
-      id: s?.id || "SV-1001",
-      device: `${merk} ${tipe}`.trim(),
-      merk,
-      tipe,
-      imei1: String(imei1),
-      imei2: String(imei2 ?? "-"),
+      id: text(s?.id),
+      device: text(joinWords(merk, tipe)),
+      // Semua field tampilan di bawah selalu berupa string, sehingga ketiga
+      // renderer tidak pernah mencetak "undefined" untuk data yang kosong.
+      merk: text(merk),
+      tipe: text(tipe),
+      imei1: text(imei1),
+      imei2: text(imei2),
       kelengkapan,
       kerusakan,
-      deskripsi: String(deskripsi),
-      sparepart: String(sparepart),
+      deskripsi: text(deskripsi),
+      sparepart: text(sparepart),
       price,
-      status,
-      teknisi: teknisiName,
-      complaint: s?.complaint || kerusakan.join(", "),
-      date: tanggalTerima,
-      garansiSampai,
-      tanggalTerima,
-      passwordType: s?.password_type || "POLA",
-      passwordValue: s?.password_value || "1,2,5",
+      status: text(status),
+      teknisi: text(teknisiName),
+      complaint: s?.complaint || (kerusakan.length ? kerusakan.join(", ") : undefined),
+      date: text(tanggalTerima),
+      garansiSampai: text(garansiSampai),
+      tanggalTerima: text(tanggalTerima),
+      // Ditampilkan sebagai POLA hanya bila record benar-benar tipe POLA.
+      passwordType: s?.password_type || undefined,
+      passwordValue: s?.password_value || undefined,
     },
-    customer: { name: String(customerName).toUpperCase(), phone: String(customerPhoneRaw) },
-    admin: adminName,
-    teknisi: teknisiName,
+    customer: { name: text(customerName).toUpperCase(), phone: text(customerPhoneRaw) },
+    admin: text(adminName),
+    teknisi: text(teknisiName),
     printTime: format(new Date(), "dd/MM/yyyy, HH:mm"),
   };
 }
@@ -160,8 +209,8 @@ function renderPolaDotsHtml(passwordValue?: string): string {
 // JET - A4, system-ui, 8-col table, pola, signatures
 export function renderJetHtml(data: PrintData): string {
   const { branch, invoiceNo, service, customer, admin, teknisi, printTime } = data;
-  const kerusakanStr = (service.kerusakan || []).join(", ").toUpperCase() || service.complaint?.toUpperCase() || "REPAIR KAMERA BELAKANG";
-  const kelengkapanStr = (service.kelengkapan || []).join(", ").toUpperCase() || "SIMTRAY";
+  const kerusakanStr = (service.kerusakan || []).join(", ").toUpperCase() || service.complaint?.toUpperCase() || EM_DASH;
+  const kelengkapanStr = (service.kelengkapan || []).join(", ").toUpperCase() || EM_DASH;
   const polaSvg = service.passwordType === "POLA" ? renderPolaSvg(service.passwordValue) : "";
   const maskedCustomerPhone = formatPhoneDisplay(customer.phone);
   const maskedBranchPhone = branch.phone;
@@ -220,8 +269,8 @@ export function renderJetHtml(data: PrintData): string {
   <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:24px;">
     <div>
       <h1 style="font-size:18pt; font-weight:700; margin:0;">${branch.name}</h1>
-      <div style="font-size:8pt; color:#6b7280; word-break:break-word;">${branch.address} · ${maskedBranchPhone}</div>
-      <div style="font-size:8pt; color:#6b7280; word-break:break-all;">${branch.website}</div>
+      ${optionalLine(joinPresent(branch.address, branch.phone), (v) => `<div style="font-size:8pt; color:#6b7280; word-break:break-word;">${v}</div>`)}
+      ${optionalLine(branch.website, (v) => `<div style="font-size:8pt; color:#6b7280; word-break:break-all;">${v}</div>`)}
     </div>
     <div style="border:2px solid #111827; border-radius:8px; padding:8px 12px; text-align:right; align-self:flex-start; min-width:140px;">
       <div style="font-size:7pt; font-weight:700; color:#6b7280; text-transform:uppercase; letter-spacing:.1em;">Invoice</div>
@@ -236,9 +285,9 @@ export function renderJetHtml(data: PrintData): string {
     <div>
       <div class="row bullet"><span class="label">Admin</span><span class="colon">:</span><span class="val">${admin}</span></div>
       <div class="row bullet"><span class="label">Teknisi</span><span class="colon">:</span><span class="val">${teknisi}</span></div>
-      <div class="row bullet"><span class="label">Telepon</span><span class="colon">:</span><span class="val phone">${maskedBranchPhone}</span></div>
-      <div class="row bullet"><span class="label">Alamat</span><span class="colon">:</span><span class="val" style="overflow-wrap:break-word;">${branch.address}</span></div>
-      <div class="row bullet"><span class="label">Website</span><span class="colon">:</span><span class="val url">${branch.website}</span></div>
+      ${optionalLine(maskedBranchPhone, (v) => `<div class="row bullet"><span class="label">Telepon Toko</span><span class="colon">:</span><span class="val phone">${v}</span></div>`)}
+      ${optionalLine(branch.address, (v) => `<div class="row bullet"><span class="label">Alamat</span><span class="colon">:</span><span class="val" style="overflow-wrap:break-word;">${v}</span></div>`)}
+      ${optionalLine(branch.website, (v) => `<div class="row bullet"><span class="label">Website</span><span class="colon">:</span><span class="val url">${v}</span></div>`)}
     </div>
     <div>
       <div class="row bullet"><span class="label">Konsumen</span><span class="colon">:</span><span class="val">${customer.name}</span></div>
@@ -247,20 +296,20 @@ export function renderJetHtml(data: PrintData): string {
       <div class="row bullet"><span class="label">Garansi sampai</span><span class="colon">:</span><span class="val">${service.garansiSampai}</span></div>
     </div>
   </div>
-  <div class="total-row"><span class="payment">Payment Cash</span><span class="total">Total &nbsp; ${formatEn(service.price)}</span></div>
+  <div class="total-row"><span class="total">Total &nbsp; ${formatEn(service.price)}</span></div>
   <div class="checks"><span>Cek Service</span><span>Cek Garansi</span></div>
   ${service.passwordType === "POLA" ? `<div class="pola"><h3>POLA</h3><div class="pola-grid">${polaSvg}${renderPolaDotsHtml(service.passwordValue)}</div></div>` : ""}
   <div class="catatan"><h3>Catatan :</h3><ol><li>Garansi service 2 Minggu, berlaku barang sudah diambil.</li><li>Slip ini wajib dibawa ketika akan mengambil service.</li><li>Garansi berlaku pada kerusakan yang sama.</li><li>Cek kembali barang service anda saat penyerahan.</li></ol></div>
   <div class="sigs"><div class="sig"><div class="role">Konsumen</div><div class="name">( ${customer.name} )</div></div><div class="sig"><div class="role">Admin</div><div class="name">( ${admin} )</div></div></div>
-  <div class="footer"><span>${printTime} Invoice Service</span><span>https://rbm-borneo.com/User/Service/print/jet/${invoiceNo}</span><span>1/1</span></div>
+  <div class="footer"><span>${printTime} Invoice Service</span><span>${invoiceNo}</span><span>1/1</span></div>
 </div><script>window.print();</script></body></html>`;
 }
 
 // Dot Matrix - 80 cols continuous, monospace, dashed
 export function renderDotMatrixHtml(data: PrintData): string {
   const { branch, invoiceNo, service, customer, admin, teknisi, printTime } = data;
-  const kelengkapanStr = (service.kelengkapan || []).join(", ").toUpperCase() || "SIMTRAY";
-  const kerusakanStr = (service.kerusakan || []).join(", ").toUpperCase() || service.complaint?.toUpperCase() || "REPAIR KAMERA BELAKANG";
+  const kelengkapanStr = (service.kelengkapan || []).join(", ").toUpperCase() || EM_DASH;
+  const kerusakanStr = (service.kerusakan || []).join(", ").toUpperCase() || service.complaint?.toUpperCase() || EM_DASH;
   const maskedCustomerPhone = formatPhoneDisplay(customer.phone);
   const maskedBranchPhone = branch.phone;
 
@@ -304,7 +353,7 @@ export function renderDotMatrixHtml(data: PrintData): string {
   <table class="items"><thead><tr><th>Merek</th><th>Kelengkapan</th><th>Kerusakan</th><th>Harga</th></tr></thead>
   <tbody><tr><td>${(service.merk || service.device.split(" ")[0]).toUpperCase()} ${service.tipe || ""}</td><td>${kelengkapanStr}</td><td>${kerusakanStr}</td><td>${formatEn(service.price)}</td></tr></tbody></table>
   <hr class="dashed">
-  <div class="totals">Payment Cash<br>Total &nbsp; ${formatEn(service.price)}</div>
+  <div class="totals">Total &nbsp; ${formatEn(service.price)}</div>
   <hr class="double">
   <div>Catatan :</div><ol class="notes"><li>Garansi 2 Minggu, berlaku barang sudah diambil.</li><li>Slip ini wajib dibawa ketika akan mengambil service.</li><li>Garansi berlaku pada kerusakan yang sama.</li><li>Cek kembali barang service anda saat penyerahan.</li></ol>
   <hr class="dashed">
@@ -318,7 +367,7 @@ export function renderThermalHtml(data: PrintData): string {
   const { branch, invoiceNo, service, customer, admin, teknisi, printTime } = data;
   const maskedCustomerPhone = formatPhoneDisplay(customer.phone);
   const maskedBranchPhone = branch.phone;
-  const kerusaanStr = (service.kerusakan || []).join(", ").toUpperCase() || service.complaint?.toUpperCase() || "REPAIR KAMERA BELAKANG";
+  const kerusaanStr = (service.kerusakan || []).join(", ").toUpperCase() || service.complaint?.toUpperCase() || EM_DASH;
 
   return `<!doctype html><html><head><meta charset="utf-8"><title>Print ${invoiceNo} — Thermal</title>
 <style>
@@ -352,7 +401,7 @@ export function renderThermalHtml(data: PrintData): string {
   <div class="field"><span class="label">Merek</span><span class="value">${service.merk || service.device.split(" ")[0]} ${service.tipe || ""}</span></div>
   <div class="field"><span class="label">Imei 1 /SN</span><span class="value">${service.imei1}</span></div>
   <div class="field"><span class="label">Imei 2 /SN</span><span class="value">${service.imei2}</span></div>
-  <div class="field"><span class="label">Kelengkapan</span><span class="value">${(service.kelengkapan || []).join(", ") || "SIMTRAY"}</span></div>
+  <div class="field"><span class="label">Kelengkapan</span><span class="value">${(service.kelengkapan || []).join(", ") || EM_DASH}</span></div>
   <div class="field"><span class="label">Deskripsi</span><span class="value">${service.deskripsi}</span></div>
   <hr class="sep">
   <div class="center bold">###COPY###</div>

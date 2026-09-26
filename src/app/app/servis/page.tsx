@@ -43,7 +43,8 @@ import Link from "next/link";
 import { getServisDetail, getServisList, getServisDeleteImpact, deleteServis, type ServisDetail } from "@/app/app/servis/actions";
 import { updateServisStatus, getServisSpareparts } from "@/app/app/servis/sparepart-actions";
 import { useBranch } from "@/lib/branch-context";
-import { toPrintData, renderJetHtml, renderDotMatrixHtml, renderThermalHtml } from "@/components/print-templates";
+import { useTenantOptional } from "@/lib/tenant-context";
+import { toPrintData, renderJetHtml, renderDotMatrixHtml, renderThermalHtml, type PrintContext } from "@/components/print-templates";
 import { cn } from "@/lib/utils";
 import { SparepartPickDialog, CancelSparepartDialog } from "@/components/servis/sparepart-dialogs";
 import { PageHeader } from "@/components/layout/page-header";
@@ -164,6 +165,21 @@ export default function ServisPage() {
   const [cancelOpen, setCancelOpen] = useState(false);
   const [pendingBatal, setPendingBatal] = useState<ServisItem | null>(null);
   const { branch } = useBranch();
+  const tenantCtx = useTenantOptional();
+  const activeTenant = useMemo(
+    () => tenantCtx?.tenants.find((t) => t.id === tenantCtx.activeOrgId) ?? null,
+    [tenantCtx?.tenants, tenantCtx?.activeOrgId],
+  );
+  // Header struk memakai brand organisasi ("Servisin"), bukan nama cabang
+  // ("Cabang Pusat"). Selector "Semua cabang" tidak pernah jadi nama toko.
+  const printContext = useMemo<PrintContext>(
+    () => ({
+      brandName: activeTenant?.name ?? null,
+      branchName: branch.id === "all" ? null : branch.label,
+      phone: branch.phone ?? null,
+    }),
+    [activeTenant?.name, branch.id, branch.label, branch.phone],
+  );
   const [kanbanValue, setKanbanValue] = useState<Record<string, ServisItem[]>>({});
 
   useEffect(() => {
@@ -343,7 +359,7 @@ export default function ServisPage() {
     try {
       detail = await getServisDetail(s.id);
     } catch {}
-    const data = toPrintData(s, branch, detail);
+    const data = toPrintData(s, printContext, detail);
     const html = type === "Jet" ? renderJetHtml(data) : type === "Dot Matrix" ? renderDotMatrixHtml(data) : renderThermalHtml(data);
     const w = window.open("", "_blank", "width=800,height=600");
     if (!w) return;
@@ -518,7 +534,7 @@ export default function ServisPage() {
         try {
           detail = await getServisDetail(s.id);
         } catch {}
-        return toPrintData(s, branch, detail);
+        return toPrintData(s, printContext, detail);
       })
     );
     const htmlPages = printDatas
