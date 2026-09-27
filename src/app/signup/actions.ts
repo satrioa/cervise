@@ -2,18 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-
-function decodeRef(url: string | undefined, key: string | undefined): { urlRef: string | null; keyRef: string | null } {
-  const urlRef = url ? new URL(url).hostname.split(".")[0] : null;
-  let keyRef: string | null = null;
-  if (key) {
-    try {
-      const payload = JSON.parse(Buffer.from(key.split(".")[1], "base64").toString());
-      keyRef = payload.ref ?? null;
-    } catch {}
-  }
-  return { urlRef, keyRef };
-}
+import { checkProjectRef } from "@/lib/supabase/env-check";
 
 export async function signupAction(input: { name: string; email: string; password: string }) {
   const name = input.name.trim();
@@ -23,10 +12,17 @@ export async function signupAction(input: { name: string; email: string; passwor
   if (!email || !email.includes("@")) throw new Error("Email tidak valid");
   if (!password || password.length < 8) throw new Error("Password minimal 8 karakter");
 
-  // validate env mismatch early for clearer message
-  const { urlRef, keyRef } = decodeRef(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
-  if (urlRef && keyRef && urlRef !== keyRef) {
-    throw new Error(`SUPABASE_SERVICE_ROLE_KEY tidak cocok dengan URL (${keyRef} ≠ ${urlRef}). Periksa .env.local`);
+  // Validasi kecocokan project hanya bisa dilakukan untuk key JWT legacy.
+  // Key baru (sb_secret_...) tidak memuat project ref, jadi results.matches
+  // bernilai false dan pemeriksaan ini dilewati - bukan berarti cocok.
+  const check = checkProjectRef(
+    process.env.NEXT_PUBLIC_SUPABASE_URL,
+    process.env.SUPABASE_SERVICE_ROLE_KEY,
+  );
+  if (check.keyRef && check.urlRef && !check.matches) {
+    throw new Error(
+      `SUPABASE_SERVICE_ROLE_KEY tidak cocok dengan URL (${check.keyRef} ≠ ${check.urlRef}). Periksa .env.local`,
+    );
   }
 
   const admin = createAdminClient();
@@ -46,7 +42,12 @@ export async function signupAction(input: { name: string; email: string; passwor
       // fallback to anon signUp so user is not blocked by env mismatch
       const supabase = await createClient();
       const { error: anonErr } = await supabase.auth.signUp({ email, password, options: { data: { full_name: name } } });
-      if (anonErr) throw new Error(`Invalid API key (service_role mismatch) dan anon juga gagal: ${anonErr.message}. Cek .env.local URL vs key ref (${urlRef} vs ${keyRef})`);
+      if (anonErr) {
+        throw new Error(
+          `Invalid API key (service_role mismatch) dan anon juga gagal: ${anonErr.message}. ` +
+            `Cek .env.local URL vs key ref (${check.urlRef} vs ${check.keyRef ?? "tidak terbaca - key format baru"})`,
+        );
+      }
       return { ok: true as const };
     }
     throw new Error(error.message);
