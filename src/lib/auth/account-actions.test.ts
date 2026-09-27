@@ -113,6 +113,35 @@ describe("updateKaryawan", () => {
     // membuat dua tabel berbeda pendapat.
     expect(body).toContain("profilePatch.role = profileRole");
   });
+
+  // Tiga tulisan berurutan: employees -> profiles -> auth. Kalau salah satu
+  // gagal, dua yang sebelumnya sudah tertulis harus dikembalikan, kalau tidak
+  // ada karyawan dengan role berbeda di employees dan profiles.
+  it("captures the previous values before writing", () => {
+    expect(body).toContain('const previousRole = String(employee.role)');
+    expect(body).toContain("previousProfile");
+    expect(body).toContain('const profileId = employee.profile_id');
+  });
+
+  it("restores employees when the profiles update fails", () => {
+    // Dicek di dalam blok gagalnya, bukan "di mana saja setelahnya" - kalau
+    // hanya dicek keberadaan string, menghapus restoreEmployee() dari blok itu
+    // tidak akan terdeteksi karena pemanggilan lain masih ada.
+    const blockStart = body.indexOf("if (profileError || !updatedProfile) {");
+    expect(blockStart).toBeGreaterThan(-1);
+    const block = body.slice(blockStart, body.indexOf("}", body.indexOf("throw", blockStart)));
+    expect(block).toContain("restoreEmployee()");
+  });
+
+  it("restores both tables when the auth email update fails", () => {
+    const authUpdate = body.indexOf("updateUserById");
+    expect(authUpdate).toBeGreaterThan(-1);
+    const after = body.slice(authUpdate);
+    // Urutan pembatalan harus terbalik: profiles dulu, baru employees.
+    expect(after).toContain("restoreProfile()");
+    expect(after).toContain("restoreEmployee()");
+    expect(after.indexOf("restoreProfile()")).toBeLessThan(after.indexOf("restoreEmployee()"));
+  });
 });
 
 describe("requireMasterAdmin", () => {

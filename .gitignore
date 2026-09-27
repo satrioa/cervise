@@ -43,3 +43,6 @@ next-env.d.ts
 
 # supabase cli local state
 /supabase/.temp/
+
+# Id baris hasil seed demo - regenerated tiap kali seed dijalankan
+supabase/.seed-ids.json

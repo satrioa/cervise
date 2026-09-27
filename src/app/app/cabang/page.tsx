@@ -13,15 +13,11 @@ export default async function CabangPage() {
     branches = [];
   }
 
-  // Wire up: show real data; fallback demo only when unauthenticated/empty and no error
-  const isDemo = branches.length === 0 && !loadError;
-  const display = isDemo
-    ? [
-        { id: "mock-1", name: "Cervise Pusat", city: "Jl. Merdeka No.1", phone: "081211111111", is_active: true, is_intensif_enabled: true, intensif_mode: "percent" as const, intensif_value: 5, intensif_target_count: 15, created_at: new Date().toISOString(), teknisiCount: 3 },
-        { id: "mock-2", name: "Cervise Cabang 2", city: "Jl. Pahlawan No.5", phone: "081222222222", is_active: true, is_intensif_enabled: true, intensif_mode: "fixed" as const, intensif_value: 50000, intensif_target_count: 10, created_at: new Date(Date.now() - 86400000 * 2).toISOString(), teknisiCount: 2 },
-      ]
-    : branches;
-
+  // Tidak ada fallback demo. Dulu daftar kosong diganti dua cabang palsu
+  // ("Cervise Pusat", "Cervise Cabang 2") supaya halaman tidak terlihat
+  // kosong, padahal data itu fiktif dan bisa disalin ke cabang sungguhan.
+  // Daftar kosong yang jujur lebih berguna daripada isian palsu.
+  const display = branches;
   const limit = 3;
   const total = display.length;
   const aktif = display.filter((b) => b.is_active).length;
@@ -31,16 +27,16 @@ export default async function CabangPage() {
     <div className="min-h-svh bg-background">
       <PageHeader
         title="Cabang"
-        description={`${total}/${limit} Cabang ● ${aktif} Aktif ● ${nonaktif} Nonaktif${isDemo ? " · Demo" : ""}`}
+        description={`${total}/${limit} Cabang ● ${aktif} Aktif ● ${nonaktif} Nonaktif`}
         containerClassName="max-w-2xl"
         actions={<CabangHeaderActions />}
       />
 
       <div className="px-6 py-8">
         <div className="mx-auto max-w-2xl">
-          {loadError && <p className="mb-3 text-xs text-destructive">{loadError} — {isDemo ? "menampilkan data demo" : "coba refresh"}</p>}
+          {loadError && <p className="mb-3 text-xs text-destructive">{loadError} — coba refresh</p>}
           {!loadError && display.length === 0 && <p className="mb-3 text-xs text-muted-foreground">Belum ada cabang. Buat cabang pertama di bawah.</p>}
-          <CabangClient branches={display} isDemo={isDemo} />
+          <CabangClient branches={display} />
         </div>
       </div>
     </div>

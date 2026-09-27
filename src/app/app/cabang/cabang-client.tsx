@@ -20,7 +20,7 @@ type BranchItem = {
   intensif_target_count?: number;
 };
 
-export function CabangClient({ branches, isDemo }: { branches: any[]; isDemo?: boolean }) {
+export function CabangClient({ branches }: { branches: any[] }) {
   const [open, setOpen] = useState(false);
   const [selected, setSelected] = useState<any | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -33,11 +33,6 @@ export function CabangClient({ branches, isDemo }: { branches: any[]; isDemo?: b
 
   return (
     <>
-      {isDemo && (
-        <div className="mb-3 rounded-lg border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-400">
-          Mode demo — data cabang belum terhubung ke database (belum login / RLS). Buat cabang akan gagal sampai login. Kelola menampilkan data mock.
-        </div>
-      )}
       <BranchCards branches={branches} onKelola={(b) => { setSelected(b); setDrawerOpen(true); }} />
       <div className="mt-3">
         <CreateCabangCardButton onClick={() => setOpen(true)} />

@@ -191,7 +191,7 @@ export async function updateKaryawan(input: UpdateKaryawanInput) {
 
   const { data: employee } = await supabase
     .from("employees")
-    .select("id, organization_id, branch_id, profile_id")
+    .select("id, organization_id, branch_id, profile_id, role")
     .eq("id", input.employeeId)
     .eq("organization_id", organizationId)
     .maybeSingle();
@@ -215,6 +215,44 @@ export async function updateKaryawan(input: UpdateKaryawanInput) {
     .maybeSingle();
   if (!targetBranch) throw new Error("Cabang tidak ditemukan");
 
+  // Nilai lama diambil lebih dulu supaya tiga tulisan di bawah bisa dibatalkan
+  // kalau salah satunya gagal. Tanpa ini, employees bisa sudah pindah role
+  // sementara profiles masih menyimpan data lama - atau sebaliknya.
+  const profileId = employee.profile_id as string;
+  const admin = getAdminClient();
+  const { data: previousProfile, error: previousProfileError } = await admin
+    .from("profiles")
+    .select("full_name, phone, email, role")
+    .eq("id", profileId)
+    .maybeSingle();
+  if (previousProfileError) throw new Error(previousProfileError.message);
+
+  const previousRole = String(employee.role);
+  const previousBranchId = employee.branch_id as string | null;
+
+  async function restoreEmployee(): Promise<void> {
+    const { error } = await supabase
+      .from("employees")
+      .update({ role: previousRole, branch_id: previousBranchId })
+      .eq("id", input.employeeId)
+      .eq("organization_id", organizationId);
+    if (error) console.error("gagal mengembalikan employees:", error.message);
+  }
+
+  async function restoreProfile(): Promise<void> {
+    if (!previousProfile) return;
+    const { error } = await admin
+      .from("profiles")
+      .update({
+        full_name: previousProfile.full_name ?? null,
+        phone: previousProfile.phone ?? null,
+        email: previousProfile.email ?? null,
+        role: previousProfile.role,
+      })
+      .eq("id", profileId);
+    if (error) console.error("gagal mengembalikan profiles:", error.message);
+  }
+
   const { data: updatedEmployee, error: employeeError } = await supabase
     .from("employees")
     .update({ role: targetRole, branch_id: input.branchId })
@@ -222,7 +260,13 @@ export async function updateKaryawan(input: UpdateKaryawanInput) {
     .eq("organization_id", organizationId)
     .select("id")
     .single();
-  if (employeeError || !updatedEmployee) throw new Error(employeeError?.message ?? "Gagal memperbarui karyawan");
+  if (employeeError || !updatedEmployee) {
+    const detail = employeeError?.message ?? "Gagal memperbarui karyawan";
+    if (/employees_update|row-level security|permission denied/i.test(detail)) {
+      throw new Error("Gagal memperbarui karyawan. Hanya Master Admin yang bisa mengubah karyawan.");
+    }
+    throw new Error(detail);
+  }
 
   const profilePatch: Record<string, unknown> = {
     full_name: fullName,
@@ -235,18 +279,28 @@ export async function updateKaryawan(input: UpdateKaryawanInput) {
   const profileRole = EMPLOYEE_TO_PROFILE_ROLE[targetRole];
   if (profileRole) profilePatch.role = profileRole;
 
-  const admin = getAdminClient();
   const { data: updatedProfile, error: profileError } = await admin
     .from("profiles")
     .update(profilePatch)
-    .eq("id", employee.profile_id)
+    .eq("id", profileId)
     .select("id")
     .single();
-  if (profileError || !updatedProfile) throw new Error(profileError?.message ?? "Gagal memperbarui profile");
+  if (profileError || !updatedProfile) {
+    // employees sudah berubah; kembalikan supaya tidak ada karyawan yang
+    // punya role di satu tabel dan role berbeda di tabel lain.
+    await restoreEmployee();
+    throw new Error(profileError?.message ?? "Gagal memperbarui profile");
+  }
 
   if (email) {
-    const { error: authError } = await admin.auth.admin.updateUserById(employee.profile_id, { email });
-    if (authError) throw new Error(authError.message);
+    const { error: authError } = await admin.auth.admin.updateUserById(profileId, { email });
+    if (authError) {
+      // profiles sudah ditulis email baru sementara auth masih email lama.
+      // Kembalikan keduanya supaya tidak ada akun yang tidak bisa login.
+      await restoreProfile();
+      await restoreEmployee();
+      throw new Error(authError.message);
+    }
   }
 
   revalidatePath("/app/karyawan");

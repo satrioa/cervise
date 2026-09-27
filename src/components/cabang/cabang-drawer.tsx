@@ -83,15 +83,6 @@ export function CabangDrawer({ branch, open, onOpenChange }: { branch: BranchIte
     setIntensifTarget(branch.intensif_target_count ? String(branch.intensif_target_count) : "");
     setErrorIntensif(null);
     setLoading(true);
-    // Wired: real fetch for real ids, mock fallback only for demo ids
-    if (branch.id.startsWith("mock-")) {
-      setMembers([
-        { id: "1", name: "Rudi Teknisi", initials: "RT", email: "rudi@cabang.local", role: "Teknisi", status: "online", customStatus: "🛠 Sedang servis", active: "active now", permission: "Member" },
-        { id: "2", name: "Sari Admin", initials: "SA", email: "sari@cabang.local", role: "Admin", status: "away", customStatus: "🚂 Istirahat", active: "active 12m ago", permission: "Admin" },
-      ]);
-      setLoading(false);
-      return;
-    }
     getCabangMembers(branch.id)
       .then((rows) => setMembers(rows as Member[]))
       .catch((e: any) => {
@@ -104,10 +95,6 @@ export function CabangDrawer({ branch, open, onOpenChange }: { branch: BranchIte
   const handleSave = async () => {
     if (!branch) return;
     if (!name.trim()) { setError("Nama cabang wajib"); return; }
-    if (branch.id.startsWith("mock-")) {
-      setError("Cabang demo tidak bisa disimpan. Buat cabang baru dulu.");
-      return;
-    }
     setSaving(true);
     setError(null);
     try {
@@ -125,10 +112,7 @@ export function CabangDrawer({ branch, open, onOpenChange }: { branch: BranchIte
   };
 
   const handleIntensifToggle = async (next: boolean) => {
-    if (!branch || branch.id.startsWith("mock-")) {
-      toast.error("Cabang demo tidak bisa diubah.");
-      return;
-    }
+    if (!branch) return;
     setSavingIntensif(true);
     setErrorIntensif(null);
     const prev = intensifEnabled;
@@ -147,10 +131,7 @@ export function CabangDrawer({ branch, open, onOpenChange }: { branch: BranchIte
   };
 
   const handleSaveIntensif = async () => {
-    if (!branch || branch.id.startsWith("mock-")) {
-      setErrorIntensif("Cabang demo tidak bisa disimpan.");
-      return;
-    }
+    if (!branch) return;
     const val = Number(intensifValue);
     if (isNaN(val) || val < 0) { setErrorIntensif("Nilai harus angka ≥ 0"); return; }
     if (intensifMode === "percent" && val > 100) { setErrorIntensif("Persentase maksimal 100%"); return; }
