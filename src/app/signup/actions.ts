@@ -1,14 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
-import { createClient as createSupabaseClient } from "@supabase/supabase-js";
-
-function getAdminClient() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url || !key) throw new Error("SUPABASE_SERVICE_ROLE_KEY belum diset di .env.local");
-  return createSupabaseClient(url, key, { auth: { autoRefreshToken: false, persistSession: false } });
-}
+import { createAdminClient } from "@/lib/supabase/admin";
 
 function decodeRef(url: string | undefined, key: string | undefined): { urlRef: string | null; keyRef: string | null } {
   const urlRef = url ? new URL(url).hostname.split(".")[0] : null;
@@ -36,7 +29,7 @@ export async function signupAction(input: { name: string; email: string; passwor
     throw new Error(`SUPABASE_SERVICE_ROLE_KEY tidak cocok dengan URL (${keyRef} ≠ ${urlRef}). Periksa .env.local`);
   }
 
-  const admin = getAdminClient();
+  const admin = createAdminClient();
   const { data, error } = await admin.auth.admin.createUser({
     email,
     password,

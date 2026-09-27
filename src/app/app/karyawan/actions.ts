@@ -8,7 +8,7 @@ import { canAccess } from "@/lib/rbac";
 import { generateTempPassword } from "@/lib/auth/password";
 import { EMPLOYEE_TO_PROFILE_ROLE, canManageEmployees } from "@/lib/auth/account-input";
 import { publicPhotoUrl } from "@/lib/photos";
-import { createClient as createSupabaseClient } from "@supabase/supabase-js";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 type BranchUser = { supabase: Actor["supabase"]; userId: string; employeeId: string; organizationId: string; branchId: string; role: string };
 
@@ -27,13 +27,6 @@ async function getBranchUser(): Promise<BranchUser> {
 
 function requireManager(role: string) {
   if (!isManagerRole(role)) throw new Error("Hanya manager boleh kelola karyawan");
-}
-
-function getAdminClient() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!key) throw new Error("SUPABASE_SERVICE_ROLE_KEY belum diset");
-  return createSupabaseClient(url, key, { auth: { autoRefreshToken: false, persistSession: false } });
 }
 
 export type KaryawanRow = {
@@ -121,7 +114,7 @@ export async function createKaryawan(input: CreateKaryawanInput): Promise<{ empl
     .eq("is_active", true)
     .maybeSingle();
   if (!branch) throw new Error("Cabang tidak ditemukan");
-  const admin = getAdminClient();
+  const admin = createAdminClient();
   const tempPassword = generateTempPassword();
   const { data: created, error: createError } = await admin.auth.admin.createUser({
     email,
@@ -219,7 +212,7 @@ export async function updateKaryawan(input: UpdateKaryawanInput) {
   // kalau salah satunya gagal. Tanpa ini, employees bisa sudah pindah role
   // sementara profiles masih menyimpan data lama - atau sebaliknya.
   const profileId = employee.profile_id as string;
-  const admin = getAdminClient();
+  const admin = createAdminClient();
   const { data: previousProfile, error: previousProfileError } = await admin
     .from("profiles")
     .select("full_name, phone, email, role")
@@ -316,7 +309,7 @@ export async function resetKaryawanPassword(profileId: string) {
   const { data: prof } = await supabase.from("profiles").select("email").eq("id", profileId).maybeSingle();
   email = (prof as any)?.email ?? null;
   if (!email) {
-    const { data } = await getAdminClient().auth.admin.getUserById(profileId);
+    const { data } = await createAdminClient().auth.admin.getUserById(profileId);
     email = (data.user as any)?.email ?? null;
   }
   if (!email) throw new Error("Email tidak ditemukan");
@@ -324,7 +317,7 @@ export async function resetKaryawanPassword(profileId: string) {
   const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: `${process.env.NEXT_PUBLIC_SUPABASE_URL}/auth/callback` } as any);
   // fallback: admin invite
   if (error) {
-    const { error: aErr } = await getAdminClient().auth.admin.generateLink({ type: "recovery", email } as any);
+    const { error: aErr } = await createAdminClient().auth.admin.generateLink({ type: "recovery", email } as any);
     if (aErr) throw new Error(aErr.message);
   }
   return { ok: true as const, email };
@@ -365,7 +358,7 @@ export async function deleteKaryawan(profileId: string, employeeId: string) {
   }
   if (profileId !== employee.profile_id) throw new Error("Target profile tidak valid");
 
-  const admin = getAdminClient();
+  const admin = createAdminClient();
   const { data: otherAssignments, error: assignmentsError } = await admin
     .from("employees")
     .select("id")
