@@ -1238,6 +1238,73 @@ describe("publicLacakUrl", () => {
     expect(publicLacakUrl("https://app.cervise.id", "servisin", null)).toBe("");
     expect(publicLacakUrl("https://app.cervise.id", null, "F5FB0DFCB6")).toBe("");
   });
+
+  it("tetap benar kalau origin berakhir dengan garis miring", () => {
+    // Tanpa kasus ini, penyusunan tautan polos dengan interpolasi string
+    // lolos semua test sambil menghasilkan `//`.
+    expect(publicLacakUrl("https://app.cervise.id/", "servisin", "F5FB0DFCB6")).toBe(
+      "https://app.cervise.id/servisin/lacak/F5FB0DFCB6",
+    );
+    expect(publicLacakUrl("https://app.cervise.id///", "servisin", "F5FB0DFCB6")).toBe(
+      "https://app.cervise.id/servisin/lacak/F5FB0DFCB6",
+    );
+  });
+
+  it("tidak melempar saat origin belum dikonfigurasi", () => {
+    // siteOrigin datang dari env di task berikutnya. Kalau env itu kosong,
+    // pemanggil harus dapat string kosong, bukan TypeError di dalam worker.
+    expect(publicLacakUrl(null as unknown as string, "servisin", "F5FB0DFCB6")).toBe("");
+    expect(publicLacakUrl(undefined as unknown as string, "servisin", "F5FB0DFCB6")).toBe("");
+  });
+});
+
+describe("struktur pesan", () => {
+  const sparseFields: (keyof ServiceMessageInput)[] = [
+    "serviceNumber",
+    "complaint",
+    "trackingCode",
+    "status",
+  ];
+
+  it("tidak pernah meninggalkan label menggantung, baris kosong, atau pisah", () => {
+    // Semua kombinasi field kosong, supaya tidak ada baris yang berakhir dengan
+    // tanda titik dua, baris kosong, atau baris yang diawali pemisah.
+    for (const field of sparseFields) {
+      const message = buildCustomerStatusMessage({ ...base, [field]: null });
+      const lines = message.split("\n");
+
+      expect(lines.length).toBeGreaterThan(0);
+      for (const line of lines) {
+        expect(line).not.toBe("");
+        expect(line.trim()).toBe(line);
+        expect(line.endsWith(":")).toBe(false);
+        expect(line.startsWith("- ")).toBe(false);
+      }
+    }
+  });
+
+  it("tetap menyebut nama toko walau field lain kosong", () => {
+    const bare: ServiceMessageInput = {
+      storeName: "Servisin",
+      tenantSlug: null,
+      serviceId: "svc-1",
+      serviceNumber: null,
+      device: "iPhone 13",
+      complaint: null,
+      trackingCode: null,
+      status: null,
+      siteOrigin: "",
+    };
+
+    for (const message of [
+      buildCustomerCreatedMessage(bare),
+      buildCustomerStatusMessage(bare),
+      buildTechnicianCreatedMessage(bare),
+    ]) {
+      expect(message.startsWith("Servisin")).toBe(true);
+      expect(message.trim()).toBe(message);
+    }
+  });
 });
 
 describe("pesan ke customer", () => {
@@ -1378,7 +1445,7 @@ export function buildTechnicianCreatedMessage(input: ServiceMessageInput): strin
 - [ ] **Step 4: Jalankan test, harus lulus**
 
 Run: `npm test -- src/lib/notifications/service-message.test.ts`
-Expected: PASS — 6 test.
+Expected: PASS — 10 test.
 
 - [ ] **Step 5: Commit**
 
