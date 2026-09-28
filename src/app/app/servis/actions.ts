@@ -95,15 +95,28 @@ export async function getServisList(): Promise<ServisListRow[]> {
 }
 
 export async function getTeknisi() {
-  const { supabase, branchId } = await getBranchAndUser();
+  const { supabase, branchId, orgId } = await getBranchAndUser();
+  // employees adalah sumber otoritas role dan cabang. profiles.branch_id tidak
+  // pernah diisi createKaryawan, jadi memfilter profiles membuat dropdown ini
+  // kosong. Yang dikembalikan tetap profiles.id karena
+  // cervise_services.teknisi_id mereferensikan profiles(id).
   const { data, error } = await supabase
-    .from("profiles")
-    .select("id, full_name, email, role")
+    .from("employees")
+    .select("profile_id, profiles!inner(id, full_name, phone)")
+    .eq("organization_id", orgId)
     .eq("branch_id", branchId)
-    .eq("role", "teknisi")
-    .order("full_name");
+    .eq("role", "TECHNICIAN")
+    .eq("is_active", true)
+    .order("full_name", { referencedTable: "profiles" });
   if (error) throw new Error(error.message);
-  return data ?? [];
+  return (data ?? []).flatMap((row) => {
+    const embedded = row.profiles as unknown;
+    const profile = (Array.isArray(embedded) ? embedded[0] : embedded) as
+      | { id: string; full_name: string | null; phone: string | null }
+      | null;
+    if (!profile) return [];
+    return [{ id: profile.id, full_name: profile.full_name, phone: profile.phone ?? null }];
+  });
 }
 
 export async function searchCustomers(q: string) {

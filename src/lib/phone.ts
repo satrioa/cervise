@@ -2,9 +2,13 @@
 // dan pengiriman WhatsApp.
 //
 // Beberapa tempat lain masih punya versinya sendiri dan SENGAJA dibiarkan.
-// - src/lib/auth/account-input.ts:92-98 menyimpan input mentah apa adanya, jadi
-//   profiles.phone bisa berisi `0812 3456 7890`. Aturan di sini tidak boleh
-//   berubah jadi bentuk kanonik, atau penulisan itu ikut gagal.
+// - profiles.phone bisa berisi bentuk mentah `0812 3456 7890`, karena satu-
+//   satunya jalur yang masih bisa menulis seperti itu adalah PATCH langsung ke
+//   /rest/v1/profiles lewat grant kolom self-service. Semua penulis lewat
+//   server action sudah melewati validatePhone, termasuk createMasterAdmin,
+//   jadi account-input.ts:96-102 bukan lagi bukti bahwa input mentah tersimpan.
+//   Aturan di sini tidak boleh berubah jadi bentuk kanonik, atau penulisan itu
+//   ikut gagal.
 // - src/lib/operational/customer-list.ts punya fungsi bernama mirip untuk
 //   tampilan saja, dan sengaja tidak menolak input lawas.
 // - src/app/app/customer/actions.ts dan src/lib/platform/validation.ts punya

@@ -49,7 +49,7 @@ export function EditServisForm({ servisId, initial, onSuccess, onCancel }: Props
   const [garansiUnit, setGaransiUnit] = useState<"hari" | "bulan" | "tahun">((initial.garansi_unit as any) ?? "hari");
   const [priceEstimasi, setPriceEstimasi] = useState<number | "">(initial.price_estimasi ?? "");
 
-  const [teknisiOpts, setTeknisiOpts] = useState<{ id: string; full_name: string | null; email: string | null }[]>([]);
+  const [teknisiOpts, setTeknisiOpts] = useState<{ id: string; full_name: string | null; phone: string | null }[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -164,7 +164,7 @@ export function EditServisForm({ servisId, initial, onSuccess, onCancel }: Props
             <Select value={teknisiId} onValueChange={(v) => setTeknisiId(v as string)}>
               <SelectTrigger><SelectValue placeholder="Pilih teknisi" /></SelectTrigger>
               <SelectPopup>
-                {teknisiOpts.length === 0 ? <SelectItem value="__empty" disabled>Tidak ada teknisi</SelectItem> : teknisiOpts.map((t) => <SelectItem key={t.id} value={t.id}>{t.full_name || t.email || t.id.slice(0, 6)}</SelectItem>)}
+                {teknisiOpts.length === 0 ? <SelectItem value="__empty" disabled>Tidak ada teknisi</SelectItem> : teknisiOpts.map((t) => <SelectItem key={t.id} value={t.id}>{t.full_name || t.phone || t.id.slice(0, 6)}</SelectItem>)}
               </SelectPopup>
             </Select>
           </div>

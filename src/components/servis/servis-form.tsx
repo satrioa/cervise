@@ -43,7 +43,7 @@ export function ServisForm({ onSuccess, onCancel }: ServisFormProps) {
 
   // teknisi & garansi & estimasi
   const [teknisiId, setTeknisiId] = useState("");
-  const [teknisiOpts, setTeknisiOpts] = useState<{ id: string; full_name: string | null; email: string | null }[]>([]);
+  const [teknisiOpts, setTeknisiOpts] = useState<{ id: string; full_name: string | null; phone: string | null }[]>([]);
   const [garansiVal, setGaransiVal] = useState<number | "">("");
   const [garansiUnit, setGaransiUnit] = useState<"hari" | "bulan" | "tahun">("hari");
   const [priceEstimasi, setPriceEstimasi] = useState<number | "">("");
@@ -159,7 +159,7 @@ export function ServisForm({ onSuccess, onCancel }: ServisFormProps) {
                 </SelectTrigger>
                 <SelectPopup>
                   {teknisiOpts.length === 0 ? <SelectItem value="__empty" disabled>Tidak ada teknisi</SelectItem> : teknisiOpts.map((t) => (
-                    <SelectItem key={t.id} value={t.id}>{t.full_name || t.email || t.id.slice(0, 6)}</SelectItem>
+                    <SelectItem key={t.id} value={t.id}>{t.full_name || t.phone || t.id.slice(0, 6)}</SelectItem>
                   ))}
                 </SelectPopup>
               </Select>
