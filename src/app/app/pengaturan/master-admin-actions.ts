@@ -10,6 +10,7 @@ import {
   canManageEmployees,
   validateMasterAdminInput,
 } from "@/lib/auth/account-input";
+import { validatePhone } from "@/lib/phone";
 
 /**
  * Brand access: membuat akun Master Admin untuk satu cabang.
@@ -57,6 +58,16 @@ export async function createMasterAdmin(input: {
   if (!validation.ok) throw new Error(validation.error);
   const { fullName, email, phone } = validation.value;
 
+  // validateMasterAdminInput sengaja mengembalikan input mentah apa adanya,
+  // karena ia memvalidasi ketikan, bukan bentuk tersimpan. Bentuk kanonik
+  // tetap dipegang validatePhone di sini - kalau tidak, profiles.phone bisa
+  // berisi `0812 3456 7890` dan tidak bisa langsung dipakai notifikasi.
+  // Nomornya tetap opsional: role di path ini MASTER_ADMIN, bukan teknisi.
+  // Dicek sebelum createUser supaya input yang ditolak tidak meninggalkan akun
+  // auth yatim.
+  const phoneCheck = validatePhone(phone);
+  if (!phoneCheck.ok) throw new Error(phoneCheck.error);
+
   // Cabang wajib milik organisasi actor. Tanpa cek ini, MASTER_ADMIN satu
   // tenant bisa menunjuk branch_id tenant lain.
   const { data: branch, error: branchError } = await actor.supabase
@@ -93,7 +104,7 @@ export async function createMasterAdmin(input: {
   //    schema.sql:20), jadi di sini MUSTAHIL memakai EMPLOYEE_ROLE yang huruf
   //    besar - keduanya akan ditolak.
   const { error: profileError } = await admin.from("profiles").upsert(
-    { id: userId, full_name: fullName, phone, email, role: PROFILE_ROLE.MASTER_ADMIN },
+    { id: userId, full_name: fullName, phone: phoneCheck.value, email, role: PROFILE_ROLE.MASTER_ADMIN },
     { onConflict: "id" },
   );
   if (profileError) {

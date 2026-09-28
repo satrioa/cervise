@@ -16,14 +16,6 @@ describe("validasi nomor karyawan", () => {
     // expression lama menyimpan input apa adanya: phone: input.phone?.trim() || null
     expect(source).not.toContain("phone: input.phone?.trim() || null");
   });
-
-  it("menuntut nomor saat role teknisi", () => {
-    // Nama role di kode adalah TECHNICIAN. Huruf "TEKNI" tidak pernah muncul
-    // di file ini, jadi assertion itu hanya bisa hijau bila teknisi ditulis
-    // dengan ejaan lain; yang dijaga betulkan ada di describe createKaryawan
-    // dan updateKaryawan di bawah.
-    expect(source).toContain("TECHNICIAN");
-  });
 });
 
 /*
@@ -114,10 +106,54 @@ describe("updateProfile", () => {
     expect(body).not.toContain("data.phone.trim() || null");
   });
 
+  it("memeriksa nomor sebelum memindahkan cabang", () => {
+    // Path ini bisa memindahkan cabang Master Admin ke tenant lain lebih dulu,
+    // baru menulis profiles. Nomor yang ditolak tidak boleh meninggalkan
+    // karyawan yang sudah pindah cabang tanpa nomor yang gagal disimpan.
+    const check = body.indexOf("validatePhone(data.phone)");
+    const branchMove = body.indexOf(".update({ branch_id: data.branchId })");
+    expect(check).toBeGreaterThan(-1);
+    expect(branchMove).toBeGreaterThan(-1);
+    expect(check).toBeLessThan(branchMove);
+  });
+
   it("tetap membiarkan karyawan mengganti nomornya sendiri tanpa nomor", () => {
     // Jalur ini milik karyawan sendiri lewat column grant, jadi tidak boleh
     // ikut menuntut nomor hanya karena perannya teknisi.
     expect(body).not.toContain("TECHNICIAN");
+  });
+});
+
+describe("createMasterAdmin", () => {
+  const body = sliceFunction(
+    readSource("src/app/app/pengaturan/master-admin-actions.ts"),
+    "createMasterAdmin",
+  );
+
+  it("menulis nilai hasil validasi, bukan input mentah", () => {
+    // validateMasterAdminInput sengaja mengembalikan input mentah apa adanya,
+    // jadi tanpa validatePhone di sini profiles.phone masih bisa berisi
+    // `0812 3456 7890` dan bentuk kanoniknya jadi tidak seragam.
+    expect(body).toContain("validatePhone(phone)");
+    expect(body).toContain("phone: phoneCheck.value");
+    // Flag `s` tidak dipakai karena tsconfig repository ini tidak menargetkan
+    // es2018; `[^}]` sudah melewati baris baru tanpa perlu itu.
+    expect(body).not.toMatch(/upsert\(\s*\{[^}]*\bphone\b(?!: phoneCheck)/);
+  });
+
+  it("memeriksa nomor sebelum membuat user auth", () => {
+    // Sama seperti createKaryawan: nomor ditolak setelah createUser akan
+    // meninggalkan akun auth yatim.
+    const check = body.indexOf("validatePhone(phone)");
+    const createUser = body.indexOf("auth.admin.createUser");
+    expect(check).toBeGreaterThan(-1);
+    expect(createUser).toBeGreaterThan(-1);
+    expect(check).toBeLessThan(createUser);
+  });
+
+  it("tidak mewajibkan nomor karena Master Admin bukan teknisi", () => {
+    expect(body).not.toContain("TECHNICIAN");
+    expect(body).not.toContain("wajib diisi untuk teknisi");
   });
 });
 
