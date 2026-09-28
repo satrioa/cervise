@@ -1445,7 +1445,7 @@ export function buildTechnicianCreatedMessage(input: ServiceMessageInput): strin
 - [ ] **Step 4: Jalankan test, harus lulus**
 
 Run: `npm test -- src/lib/notifications/service-message.test.ts`
-Expected: PASS — 10 test.
+Expected: PASS — 12 test. Bukan 10: dua mutasi masih hijau kalau `storeName` tidak pernah dikosongkan di fixture, dan `internalServisUrl` tidak punya test sama sekali.
 
 - [ ] **Step 5: Commit**
 
