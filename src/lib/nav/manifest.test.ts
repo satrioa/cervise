@@ -384,12 +384,11 @@ describe("menu per role", () => {
 });
 
 describe("pemilihan shell", () => {
-  it("TEKNICIAN memakai compact, role lain tetap legacy", () => {
+  it("TEKNICIAN dan FRONTLINER memakai compact, role lain tetap legacy", () => {
     expect(surfaceFor("TECHNICIAN")).toBe(COMPACT);
+    expect(surfaceFor("FRONTLINER")).toBe(COMPACT);
     expect(surfaceFor("MASTER_ADMIN")).toBe(LEGACY);
     expect(surfaceFor("ADMIN")).toBe(LEGACY);
-    // FRONTLINER menyusul di Spec 3.
-    expect(surfaceFor("FRONTLINER")).toBe(LEGACY);
   });
 
   it("entri /app tetap punya surface legacy sebagai default", () => {

@@ -90,8 +90,9 @@ export const NAV_ENTRIES: NavEntry[] = [
     group: "dashboard",
     roles: ALL,
     surface: ["legacy"],
-    // TEKNICIAN memakai shell compact. FRONTLINER menyusul di Spec 3.
-    compactRoles: ["TECHNICIAN"],
+    // TEKNICIAN dan FRONTLINER memakai shell compact. Menambah role ketiga
+    // cukup menambah satu nilai di sini.
+    compactRoles: ["TECHNICIAN", "FRONTLINER"],
     menuKeys: ["dashboard"],
   },
   {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { usePathname } from "next/navigation";
 import { Menu } from "lucide-react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
@@ -10,6 +10,9 @@ import { CompactSidebar } from "@/components/layout/compact-sidebar";
 import { BranchProvider } from "@/lib/branch-context";
 import { TenantProvider } from "@/lib/tenant-context";
 import { LocaleProvider } from "@/lib/localization-context";
+import { normalizeAppRole } from "@/lib/nav/manifest";
+import { OpeningBalanceDialog } from "@/components/cash/opening-balance-dialog";
+import { checkOpenCashSession, type CashSessionRow } from "@/app/app/actions/cash";
 
 /**
  * Shell kedua untuk Cervise, dipakai TEKNICIAN (dan FRONTLINER di Spec 3).
@@ -55,6 +58,26 @@ function CompactShellInner({
 }) {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
+  const role = normalizeAppRole(actor.role);
+
+  // Saldo awal hanya untuk role yang menjalankan shift kas. TEKNICIAN punya
+  // To-Do sendiri dan tidak pernah membuka laci.
+  const needsCashSession = role === "FRONTLINER";
+  const [session, setSession] = useState<CashSessionRow | null>(null);
+  const [cashChecked, setCashChecked] = useState(false);
+
+  useEffect(() => {
+    if (!needsCashSession) return;
+    let cancelled = false;
+    checkOpenCashSession().then((result) => {
+      if (cancelled || !result.ok) return;
+      setSession(result.data.current);
+      setCashChecked(true);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [needsCashSession]);
 
   return (
     <div className="flex h-svh w-full overflow-hidden bg-background text-foreground lg:grid lg:grid-cols-[256px_1fr]">
@@ -101,6 +124,12 @@ function CompactShellInner({
           {children}
         </main>
       </div>
+
+      {/* Saldo awal wajib. Dialog ini yang menentukan boleh tidaknya
+          dashboard dipakai: `cashChecked` menahan render sampai sesi dicek. */}
+      {needsCashSession && cashChecked && !session ? (
+        <OpeningBalanceDialog staffName={actor.fullName ?? undefined} onOpened={setSession} />
+      ) : null}
     </div>
   );
 }
