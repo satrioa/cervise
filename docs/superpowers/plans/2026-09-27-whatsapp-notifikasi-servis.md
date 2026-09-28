@@ -152,6 +152,26 @@ Tambahkan dua test baru di `src/lib/fonnte.test.ts`, di dalam `describe("sendFon
     ).toMatchObject({ retryable: true });
   });
 
+  it("marks a 400 with an unlisted reason as not retryable", async () => {
+    // Fonnte membalas alasan sendiri, dan daftar PERMANENT_REASONS tidak
+    // mungkin lengkap. Status 4xx menutupi yang terlewat.
+    process.env.FONNTE_TOKEN = "test-token";
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response(JSON.stringify({ reason: "pesan melebihi batas" }), {
+          status: 400,
+        }),
+      ),
+    );
+
+    const error = await sendFonnteWA("628123456789", "Halo").catch(
+      (err: unknown) => err,
+    );
+    expect((error as FonnteError).reason).toBe("pesan melebihi batas");
+    expect((error as FonnteError).retryable).toBe(false);
+  });
+
   it("sends the country code when one is given", async () => {
     process.env.FONNTE_TOKEN = "test-token";
     const fetchMock = vi.fn().mockResolvedValue(
@@ -271,9 +291,11 @@ export async function sendFonnteWA(
     const bodyReason =
       typeof payload.reason === "string" && payload.reason ? payload.reason : null;
     const reason = bodyReason ?? `HTTP ${res.status}`;
-    const permanent = bodyReason
-      ? isPermanentReason(bodyReason)
-      : isPermanentStatus(res.status);
+    // Keduanya diperiksa, bukan salah satu. Alasan dari body/html yang tak
+    // terdaftar tetap harus ikut, kalau tidak maka HTTP 400 dengan alasan
+    // aneh akan dianggap sementara padahal permintaannya tidak valid.
+    const permanent = (bodyReason ? isPermanentReason(bodyReason) : false)
+      || isPermanentStatus(res.status);
     throw new FonnteError(reason, !permanent);
   }
 
@@ -328,7 +350,7 @@ Dan ganti test "throws when Fonnte rejects the request":
 - [ ] **Step 5: Jalankan test, harus lulus**
 
 Run: `npm test -- src/lib/fonnte.test.ts`
-Expected: PASS — 8 test.
+Expected: PASS — 9 test.
 
 - [ ] **Step 6: Commit**
 
