@@ -77,9 +77,11 @@ export async function sendFonnteWA(
     const bodyReason =
       typeof payload.reason === "string" && payload.reason ? payload.reason : null;
     const reason = bodyReason ?? `HTTP ${res.status}`;
-    const permanent = bodyReason
-      ? isPermanentReason(bodyReason)
-      : isPermanentStatus(res.status);
+    // Keduanya diperiksa, bukan salah satu. Alasan dari body/html yang tak
+    // terdaftar tetap harus ikut, kalau tidak maka HTTP 400 dengan alasan
+    // aneh akan dianggap sementara padahal permintaannya tidak valid.
+    const permanent = (bodyReason ? isPermanentReason(bodyReason) : false)
+      || isPermanentStatus(res.status);
     throw new FonnteError(reason, !permanent);
   }
 
