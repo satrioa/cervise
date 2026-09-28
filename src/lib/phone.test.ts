@@ -51,10 +51,11 @@ describe("validatePhone", () => {
   });
 
   it("menguji batas 24 karakter tepat di batasnya", () => {
-    // Batas karakter harus diuji tepat di batasnya. Kalau cap dihapus, test
-    // ini tetap hijau karena nomor tersebut juga gagal cek jumlah digit.
-    // Ekor " -----" itu ballast supaya totalnya tepat 24 karakter: nomor
-    // Indonesia yang sah tidak mungkin 24 karakter tanpa banyak tanda baca.
+    // Batas karakter harus diuji tepat di batasnya, dan nomornya harus lolos
+    // SEMUA cek lain, supaya test ini benar-benar hanya menguji cap. Bungkus
+    // " -----" di akhir itu wajib, bukan sisa: pada 24 karakter dengan maksimal
+    // 15 digit, minimal 9 karakter harus tanda baca. Jangan dirapikan jadi
+    // nomor yang terlihat natural.
     const at24 = "0812 3456 78 (012) -----";
     expect(at24).toHaveLength(24);
     expect(validatePhone(at24).ok).toBe(true);
