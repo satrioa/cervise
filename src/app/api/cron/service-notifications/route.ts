@@ -32,8 +32,17 @@ export async function GET(request: Request) {
   // Menolak, bukan mengirim tanpa origin. Dispatcher boleh jalan dengan origin
   // kosong -- `service-message` lalu menghapus baris "Cek status" dan tetap
   // mengirim. Hasilnya justru yang paling sulit dilihat: pelanggan menerima
-  // pesan tanpa tautan, dan tidak ada yang gagal. Baris tetap pending di bawah
-  // lease, jadi run berikutnya mengambilnya lagi begitu header tersedia.
+  // pesan tanpa tautan, dan tidak ada yang gagal.
+  //
+  // Yang terjadi pada baris di antrean: TIDAK ADA yang diklaim. Kode ini
+  // berhenti sebelum dispatcher dipanggil, jadi claim_service_notifications
+  // tidak pernah jalan dan TIDAK ADA lease 2 menit yang terpasang. Barisnya
+  // hanya duduk pending, tidak "pending di bawah lease" -- jadi jangan
+  // menghitung waktu penguinsiran dari lease untuk jalur ini.
+  //
+  // Dan kondisi ini tidak magically hilang: kalau origin tidak bisa ditentukan
+  // sekarang, besok pagi pun begitu. Tick 5 menit berikutnya akan
+  // 500 lagi sampai ada yang memperbaiki konfigurasinya.
   if (!siteOrigin) {
     return NextResponse.json(
       { error: "Origin aplikasi tidak bisa ditentukan dari header request" },

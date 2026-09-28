@@ -133,6 +133,12 @@ describe("GET /api/cron/service-notifications", () => {
     // Isi error tidak ikut dikembalikan ke pemanggil: pesan dari Supabase bisa
     // memuat detail koneksi, dan response ini masuk log platform.
     expect(body).not.toHaveProperty("sent");
+    // Menjaga claim di komentar route: `toHaveProperty("error")` saja juga
+    // akan lulus kalau route mengembalikan error.message mentah, yang justru
+    // kebocoran yang komentarnya. Cek kata yang disuntikkan, bukan hanya
+    // bentuk body.
+    expect(JSON.stringify(body)).not.toContain("connection reset");
+    expect(JSON.stringify(body)).not.toContain("1a2b");
   });
 
   it("mencatat penyebab kegagalan ke log saat dispatcher melempar", async () => {
@@ -141,7 +147,18 @@ describe("GET /api/cron/service-notifications", () => {
     await GET(authorized());
 
     // Kegagalan yang tidak masuk log tidak bisa ditindaklanjuti.
-    expect(consoleError).toHaveBeenCalled();
+    //
+    // `toHaveBeenCalled()` saja juga lulus untuk `console.error("boom")`, jadi
+    // tidak menjamin apa yang dikomentarnya di route: "yang ditulis ke log
+    // adalah error aslinya". Suntikkan objek Error-nya dan cek keduanya.
+    expect(consoleError).toHaveBeenCalledWith(
+      expect.stringContaining("[cron/service-notifications]"),
+      expect.any(Error),
+    );
+    const logged = consoleError.mock.calls.flat();
+    expect(logged.some((arg) => arg instanceof Error && arg.message.includes("timeout"))).toBe(
+      true,
+    );
   });
 
   it("memberi dispatcher origin absolut dari header request", async () => {
