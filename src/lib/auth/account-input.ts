@@ -38,17 +38,21 @@ export const EMPLOYEE_TO_PROFILE_ROLE: Readonly<Record<string, string>> = {
 /**
  * Siapa yang boleh menambah atau mengubah baris employees.
  *
- * Ini mencerminkan policy database, bukan selera aplikasi:
- * employees_insert / employees_update di
- * 20260925090000_cervise_owner_platform_additive.sql hanya mengizinkan
- * has_tenant_role(organization_id, array['MASTER_ADMIN']) (atau platform admin).
+ * Ini mencerminkan policy database, bukan selera aplikasi. Policy di
+ * 20260925220000_add_role_scoped_policies.sql mengizinkan dua bentuk:
  *
- *canAccess("pengaturan_general") dan requireManager() sama-sama menerima ADMIN,
- * sehingga ADMIN lolos cek aplikasi lalu ditolak RLS tanpa pesan yang berguna.
- * Gate di sini harus mengikuti database, bukan melebarinya.
+ *   - MASTER_ADMIN di seluruh tenant, lewat
+ *     has_tenant_role(organization_id, ['MASTER_ADMIN'])
+ *   - ADMIN, HANYA untuk baris yang cabangnya sama dengan cabangnya
+ *     (subquery `caller.branch_id = employees.branch_id`)
+ *
+ * Batas per-cabang itu ditegakkan RLS, jadi gate di sini tidak perlu
+ * memeriksa branch — cukup memeriksa role. Menolaknya di sini dengan alasan lain
+ * akan membuat ADMIN lolos cek lalu ditolak RLS tanpa pesan yang berguna.
  */
 export function canManageEmployees(role: string | null | undefined): boolean {
-  return (role ?? "").toUpperCase() === EMPLOYEE_ROLE.MASTER_ADMIN;
+  const upper = (role ?? "").toUpperCase();
+  return upper === EMPLOYEE_ROLE.MASTER_ADMIN || upper === EMPLOYEE_ROLE.ADMIN;
 }
 
 export type MasterAdminInput = {

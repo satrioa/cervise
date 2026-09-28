@@ -1,29 +1,12 @@
-"use client";
+﻿import { requireMenu } from "@/lib/auth/require-menu";
+import AuditLogPage from "./audit-log-client";
 
-import { CerviseAuditLogTable } from "@/components/table-audit-log";
-import { useBranch } from "@/lib/branch-context";
-import { PageHeader } from "@/components/layout/page-header";
-
-export default function AuditLogPage() {
-  const { branch } = useBranch();
-  return (
-    <div className="bg-background text-foreground">
-      <PageHeader
-        title={
-          <span className="inline-flex items-center gap-2">
-            Audit Log
-            <span className="hidden sm:inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-normal text-muted-foreground">
-              {branch.label}
-            </span>
-          </span>
-        }
-        titleClassName="font-heading text-2xl"
-        description={`Jejak aktivitas servis · cabang aktif: ${branch.label}`}
-      />
-
-      <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-10 py-6 lg:py-8">
-        <CerviseAuditLogTable cabangFilter={branch.label} />
-      </div>
-    </div>
-  );
+/**
+ * Route guard untuk halaman ini. Menyembunyikan link di sidebar tidak cukup:
+ * URL masih bisa dibuka langsung, lalu server action di dalamnya melempar
+ * error yang tidak informatif bagi pengguna.
+ */
+export default async function Page() {
+  await requireMenu("audit_log");
+  return <AuditLogPage />;
 }

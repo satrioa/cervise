@@ -1,7 +1,10 @@
+import { requireMenu } from "@/lib/auth/require-menu";
 import { SettingsBillingShowcasePage } from "@/components/settings-billing";
 import { PageHeader } from "@/components/layout/page-header";
 
-export default function SubscriptionPage() {
+export default async function SubscriptionPage() {
+  // Paket, harga, dan masa langganan milik pemilik tenant.
+  await requireMenu("pengaturan_subscription");
   return (
     <div className="min-h-svh bg-background">
       <PageHeader

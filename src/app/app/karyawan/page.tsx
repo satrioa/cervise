@@ -1,4 +1,5 @@
 import { getKaryawan, getKaryawanBranches } from "./actions";
+import { requireMenu } from "@/lib/auth/require-menu";
 import { KaryawanSearch, KaryawanFilters, KaryawanExportButton, KARYAWAN_DEFAULTS } from "@/components/karyawan/karyawan-toolbar";
 import type { ExportKaryawanRow } from "@/components/karyawan/export-karyawan-csv";
 import { KaryawanHeaderActions, KaryawanList } from "@/components/karyawan/karyawan-list";
@@ -12,6 +13,7 @@ const ROLES: { label: string; value: string }[] = [
 ];
 
 export default async function KaryawanPage({ searchParams }: { searchParams: Promise<{ q?: string; cabang?: string; role?: string; status?: string }> }) {
+  await requireMenu("karyawan");
   const { q, cabang, role, status } = await searchParams;
   const query = (q ?? "").trim().toLowerCase();
   const cabangFilter = (cabang ?? "").trim() || KARYAWAN_DEFAULTS.cabang;

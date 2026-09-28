@@ -1,44 +1,32 @@
-import { normalizeRole } from "./auth/authorization";
-
-export type Role = "super_owner" | "master_admin" | "admin" | "frontliner" | "teknisi";
-
-export const ROLE_LABEL: Record<Role, string> = {
-  super_owner: "Super Owner",
-  master_admin: "Master Admin",
-  admin: "Admin",
-  frontliner: "Frontliner",
-  teknisi: "Teknisi",
-};
-
-export const MENU_ACCESS: Record<string, Role[]> = {
-  dashboard: ["super_owner", "master_admin", "admin", "frontliner", "teknisi"],
-  servis: ["super_owner", "master_admin", "admin", "frontliner", "teknisi"],
-  sparepart: ["super_owner", "master_admin", "admin"], // Hanya Admin per request
-  inventory: ["super_owner", "master_admin", "admin"], // alias lama — hapus setelah migrasi route selesai
-  penjualan: ["super_owner", "master_admin", "admin", "frontliner"],
-  harga_jual: ["super_owner", "master_admin", "admin"],
-  customer: ["super_owner", "master_admin", "admin", "frontliner"],
-  karyawan: ["super_owner", "master_admin", "admin"],
-  cabang: ["super_owner", "master_admin", "admin"],
-  keuangan_transaksi: ["super_owner", "master_admin", "admin"],
-  keuangan_arus_kas: ["super_owner", "master_admin", "admin"],
-  laporan_servis: ["super_owner", "master_admin", "admin"],
-  laporan_keuangan: ["super_owner", "master_admin", "admin"],
-  laporan_performa: ["super_owner", "master_admin", "admin"],
-  laporan_performa_teknisi: ["super_owner", "master_admin", "admin"],
-  laporan_penjualan: ["super_owner", "master_admin", "admin"],
-  pengaturan: ["super_owner", "master_admin", "admin"],
-  pengaturan_general: ["super_owner", "master_admin", "admin"],
-  pengaturan_kategori: ["super_owner", "master_admin", "admin"],
-  pengaturan_tampilan: ["super_owner", "master_admin", "admin", "frontliner", "teknisi"],
-  pengaturan_lokalisasi: ["super_owner", "master_admin", "admin", "frontliner", "teknisi"],
-  pengaturan_subscription: ["super_owner", "master_admin", "admin"],
-  pengaturan_usage: ["super_owner", "master_admin", "admin"],
-};
-
-export function canAccess(role: string | null | undefined, menu: string) {
-  const normalizedRole = normalizeRole(role);
-  if (!normalizedRole) return false;
-  const allowedRoles = MENU_ACCESS[menu]?.map((allowedRole) => normalizeRole(allowedRole));
-  return allowedRoles?.includes(normalizedRole) ?? false;
-}
+/**
+ * Shim kompatibilitas.
+ *
+ * Dulunya file ini adalah sumber hak akses ketiga (setelah `NAV_GROUPS` di
+ * app-shell dan `GROUPS` di pengaturan/layout), dengan `MENU_ACCESS` berisi 24
+ * kunci yang tidak pernah dipakai untuk memfilter sidebar. Masalah terbesarnya:
+ * nilainya `"teknisi"` sementara kolom `employees.role` berisi `TECHNICIAN`,
+ * sehingga `canAccess("TECHNICIAN", …)` mengembalikan `false` untuk setiap
+ * kunci — termasuk `dashboard` dan `servis`.
+ *
+ * Sekarang semua aturan ada di `src/lib/nav/manifest.ts`. File ini hanya
+ * meneruskan, supaya sepuluh server action yang mengimpor dari
+ * `@/lib/rbac` tidak perlu diubah sekaligus.
+ */
+export {
+  APP_ROLE,
+  CAPABILITY_KEYS,
+  NAV_ENTRIES,
+  canAccess,
+  canWrite,
+  entriesFor,
+  entryForHref,
+  entryForMenuKey,
+  isAppRole,
+  navFor,
+  normalizeAppRole,
+  surfaceFor,
+  type AppRole,
+  type NavEntry,
+  type NavGroup,
+  type Surface,
+} from "./nav/manifest";

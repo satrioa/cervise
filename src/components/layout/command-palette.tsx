@@ -2,23 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import {
-  LayoutDashboard,
-  Wrench,
-  Users,
-  UserCog,
-  Wallet,
-  BarChart3,
-  Plus,
-  LogOut,
-  Package,
-  Building2,
-  Receipt,
-  ArrowLeftRight,
-  UserCheck,
-  ShieldIcon,
-  ScrollTextIcon,
-} from "lucide-react";
+import { Plus, LogOut } from "lucide-react";
 import {
   Command,
   CommandDialog,
@@ -37,13 +21,21 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { GROUP_LABEL_KEY, canAccess, navFor, type AppRole } from "@/lib/nav/manifest";
 
 type Props = {
   open: boolean;
   onOpenChange: (v: boolean) => void;
+  role: string;
 };
 
-export function CerviseCommandPalette({ open, onOpenChange }: Props) {
+/**
+ * Daftar item navigasi diambil dari manifest, bukan ditulis manual di sini.
+ * Sebelumnya setiap role — termasuk FRONTLINER dan TEKNICIAN — melihat
+ * Karyawan, Cabang, Audit Log, dan Laporan Keuangan; memilih salah satunya
+ * berakhir dengan server action yang melempar error.
+ */
+export function CerviseCommandPalette({ open, onOpenChange, role }: Props) {
   const router = useRouter();
   const [showNewServis, setShowNewServis] = useState(false);
 
@@ -57,6 +49,8 @@ export function CerviseCommandPalette({ open, onOpenChange }: Props) {
     setTimeout(() => setShowNewServis(true), 150);
   };
 
+  const blocks = navFor(role, "legacy");
+
   return (
     <>
       <CommandDialog open={open} onOpenChange={onOpenChange}>
@@ -66,82 +60,43 @@ export function CerviseCommandPalette({ open, onOpenChange }: Props) {
             <CommandList>
               <CommandEmpty>Tidak ada hasil.</CommandEmpty>
 
-              <CommandGroup>
-                <CommandGroupLabel>Navigasi</CommandGroupLabel>
-                <CommandItem value="dashboard" onClick={() => navigate("/app")}>
-                  <LayoutDashboard className="size-4" /> Dashboard
-                  <CommandShortcut>⌘D</CommandShortcut>
-                </CommandItem>
-              </CommandGroup>
+              {blocks.map((block, index) => {
+                const groupLabel = GROUP_LABEL_KEY[block.group] ?? "Menu";
+                return (
+                  <CommandGroup key={block.group}>
+                    {index > 0 ? null : (
+                      <CommandGroupLabel>{groupLabel}</CommandGroupLabel>
+                    )}
+                    {block.entries.map((entry) => {
+                      const Icon = entry.icon;
+                      return (
+                        <CommandItem
+                          key={entry.href}
+                          value={`${entry.key} ${entry.href} ${entry.label}`}
+                          onClick={() => navigate(entry.href)}
+                        >
+                          <Icon className="size-4" />
+                          {entry.label}
+                          {entry.href === "/app" ? <CommandShortcut>⌘D</CommandShortcut> : null}
+                        </CommandItem>
+                      );
+                    })}
+                  </CommandGroup>
+                );
+              })}
 
-              <CommandGroup>
-                <CommandGroupLabel>Operasional</CommandGroupLabel>
-                <CommandItem value="servis" onClick={() => navigate("/app/servis")}>
-                  <Wrench className="size-4" /> Servis
-                </CommandItem>
-                <CommandItem value="sparepart inventory" onClick={() => navigate("/app/inventori")}>
-                  <Package className="size-4" /> Sparepart
-                </CommandItem>
-              </CommandGroup>
-
-              <CommandGroup>
-                <CommandGroupLabel>Manajemen</CommandGroupLabel>
-                <CommandItem value="inventori" onClick={() => navigate("/app/inventori")}>
-                  <Package className="size-4" /> Inventori
-                </CommandItem>
-                <CommandItem value="customer" onClick={() => navigate("/app/customer")}>
-                  <Users className="size-4" /> Customer
-                </CommandItem>
-                <CommandItem value="karyawan" onClick={() => navigate("/app/karyawan")}>
-                  <UserCog className="size-4" /> Karyawan
-                </CommandItem>
-                <CommandItem value="cabang" onClick={() => navigate("/app/cabang")}>
-                  <Building2 className="size-4" /> Cabang
-                </CommandItem>
-              </CommandGroup>
-
-              <CommandGroup>
-                <CommandGroupLabel>Keuangan</CommandGroupLabel>
-                <CommandItem value="transaksi" onClick={() => navigate("/app/keuangan/transaksi")}>
-                  <Receipt className="size-4" /> Transaksi
-                </CommandItem>
-                <CommandItem value="arus-kas" onClick={() => navigate("/app/keuangan/arus-kas")}>
-                  <ArrowLeftRight className="size-4" /> Arus Kas
-                </CommandItem>
-              </CommandGroup>
-
-              <CommandGroup>
-                <CommandGroupLabel>Laporan</CommandGroupLabel>
-                <CommandItem value="laporan-servis" onClick={() => navigate("/app/laporan/servis")}>
-                  <Wrench className="size-4" /> Laporan Servis
-                </CommandItem>
-                <CommandItem value="laporan-keuangan" onClick={() => navigate("/app/laporan/keuangan")}>
-                  <Wallet className="size-4" /> Laporan Keuangan
-                </CommandItem>
-                <CommandItem value="performa" onClick={() => navigate("/app/laporan/performa")}>
-                  <UserCheck className="size-4" /> Performa Teknisi
-                </CommandItem>
-              </CommandGroup>
-
-              <CommandGroup>
-                <CommandGroupLabel>Layanan</CommandGroupLabel>
-                <CommandItem value="audit-log" onClick={() => navigate("/app/audit-log")}>
-                  <ShieldIcon className="size-4" /> Audit Log
-                </CommandItem>
-                <CommandItem value="garansi" onClick={() => navigate("/app/garansi")}>
-                  <ScrollTextIcon className="size-4" /> Garansi
-                </CommandItem>
-              </CommandGroup>
-
-              <CommandSeparator />
-
-              <CommandGroup>
-                <CommandGroupLabel>Aksi</CommandGroupLabel>
-                <CommandItem value="tambah-servis" onClick={handleNewServis}>
-                  <Plus className="size-4" /> Tambah Servis Baru
-                  <CommandShortcut>⌘N</CommandShortcut>
-                </CommandItem>
-              </CommandGroup>
+              {canAccess(role as AppRole, "/app/servis") ? (
+                <>
+                  <CommandSeparator />
+                  <CommandGroup>
+                    <CommandGroupLabel>Aksi</CommandGroupLabel>
+                    <CommandItem value="tambah servis baru" onClick={handleNewServis}>
+                      <Plus className="size-4" /> Tambah Servis Baru
+                      <CommandShortcut>⌘N</CommandShortcut>
+                    </CommandItem>
+                  </CommandGroup>
+                </>
+              ) : null}
 
               <CommandSeparator />
 

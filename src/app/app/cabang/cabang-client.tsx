@@ -20,7 +20,13 @@ type BranchItem = {
   intensif_target_count?: number;
 };
 
-export function CabangClient({ branches }: { branches: any[] }) {
+/**
+ * `canManage` datang dari route guard di `page.tsx`. ADMIN bernilai false:
+ * RLS `branches_update` sudah mencabut ADMIN, jadi tombol tambah dan drawer
+ * kelola disembunyikan — menawarkan aksi yang pasti ditolak RLS hanya
+ * menghasilkan kesalahan tanpa penjelasan.
+ */
+export function CabangClient({ branches, canManage = true }: { branches: any[]; canManage?: boolean }) {
   const [open, setOpen] = useState(false);
   const [selected, setSelected] = useState<any | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -33,11 +39,19 @@ export function CabangClient({ branches }: { branches: any[] }) {
 
   return (
     <>
-      <BranchCards branches={branches} onKelola={(b) => { setSelected(b); setDrawerOpen(true); }} />
-      <div className="mt-3">
-        <CreateCabangCardButton onClick={() => setOpen(true)} />
-      </div>
-      <CreateCabangDialog open={open} onOpenChange={setOpen} onCreated={handleCreated} />
+      <BranchCards
+        branches={branches}
+        canManage={canManage}
+        onKelola={(b: any) => { setSelected(b); setDrawerOpen(true); }}
+      />
+      {canManage ? (
+        <>
+          <div className="mt-3">
+            <CreateCabangCardButton onClick={() => setOpen(true)} />
+          </div>
+          <CreateCabangDialog open={open} onOpenChange={setOpen} onCreated={handleCreated} />
+        </>
+      ) : null}
       <CabangDrawer branch={selected} open={drawerOpen} onOpenChange={setDrawerOpen} />
     </>
   );
