@@ -6,7 +6,7 @@ import { Menu } from "lucide-react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { CommandPaletteProvider, CommandSearchTrigger } from "@/components/layout/command-palette-provider";
-import { CompactSidebar } from "@/components/layout/compact-sidebar";
+import { CompactSidebar, COMPACT_RAIL_WIDTH } from "@/components/layout/compact-sidebar";
 import { BranchProvider } from "@/lib/branch-context";
 import { TenantProvider } from "@/lib/tenant-context";
 import { LocaleProvider } from "@/lib/localization-context";
@@ -80,7 +80,10 @@ function CompactShellInner({
   }, [needsCashSession]);
 
   return (
-    <div className="flex h-svh w-full overflow-hidden bg-background text-foreground lg:grid lg:grid-cols-[256px_1fr]">
+    <div
+      className="flex h-svh w-full overflow-hidden bg-background text-foreground lg:grid"
+      style={{ gridTemplateColumns: `lg ${COMPACT_RAIL_WIDTH} 1fr` }}
+    >
       <aside className="hidden h-svh shrink-0 flex-col border-r border-border/60 bg-foreground/[0.02] lg:flex">
         <CompactSidebar
           role={actor.role}
@@ -95,7 +98,7 @@ function CompactShellInner({
             <SheetTrigger render={<Button variant="ghost" size="icon" className="size-8 lg:hidden" />}>
               <Menu className="size-5" />
             </SheetTrigger>
-            <SheetContent side="left" className="flex w-[280px] flex-col p-0">
+            <SheetContent side="left" className="flex w-[132px] flex-col p-0">
               <SheetHeader className="sr-only">
                 <SheetTitle>Menu Cervise</SheetTitle>
               </SheetHeader>
@@ -104,6 +107,7 @@ function CompactShellInner({
                 fullName={actor.fullName}
                 avatarUrl={actor.avatarUrl}
                 onNavigate={() => setOpen(false)}
+                showLabels
               />
             </SheetContent>
           </Sheet>
