@@ -15,13 +15,8 @@ export type ServiceMessageInput = {
   complaint: string | null;
   trackingCode: string | null;
   status: string | null;
-  siteOrigin: string;
-  /**
-   * Disimpan supaya pemanggil boleh mengirim data teknisi apa adanya, tapi
-   * tidak dipakai builder mana pun: status hanya dikirim ke customer, dan
-   * pesan ke teknisi tidak perlu memuat namanya sendiri.
-   */
-  teknisiName?: string | null;
+  /** Bisa null: task berikutnya membacanya dari env yang belum terkonfigurasi. */
+  siteOrigin: string | null;
 };
 
 /** Nilai yang siap ditampilkan: null kalau kosong, string kalau isi. */
@@ -63,7 +58,7 @@ function trimOrigin(origin: string | null | undefined): string {
  * segmen kosong. Garis miring ganda di tetapkan di sini, bukan hanya di pemanggil.
  */
 export function publicLacakUrl(
-  siteOrigin: string,
+  siteOrigin: string | null | undefined,
   tenantSlug: string | null,
   trackingCode: string | null,
 ): string {
@@ -75,7 +70,10 @@ export function publicLacakUrl(
 }
 
 /** Tautan internal untuk teknisi. String kosong kalau tidak bisa disusun. */
-function internalServisUrl(siteOrigin: string, serviceId: string): string {
+function internalServisUrl(
+  siteOrigin: string | null | undefined,
+  serviceId: string,
+): string {
   const origin = trimOrigin(siteOrigin);
   const id = present(serviceId);
   if (!origin || !id) return "";
