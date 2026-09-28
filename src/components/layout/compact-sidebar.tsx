@@ -1,12 +1,15 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
+import { useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { LogOut, Settings } from "lucide-react";
 import { useTenant } from "@/lib/tenant-context";
 import { useBranch } from "@/lib/branch-context";
 import { createClient } from "@/lib/supabase/client";
 import { IdentityAvatar } from "@/components/identity-avatar";
+import { initialsOf } from "@/lib/photos";
 import { GROUP_LABEL_KEY, navFor, type NavEntry } from "@/lib/nav/manifest";
 import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
@@ -73,6 +76,7 @@ export function CompactSidebar({
   const tenantName =
     tenants.find((tenant) => tenant.id === activeOrgId)?.name ??
     (tenants.length === 1 ? tenants[0]?.name : null);
+  const tenantLogo = tenants.find((tenant) => tenant.id === activeOrgId)?.logoUrl ?? null;
 
   const blocks = navFor(role, "compact")
     .filter((block) => (COMPACT_GROUPS as readonly string[]).includes(block.group))
@@ -87,12 +91,11 @@ export function CompactSidebar({
           logo, jadi keduanya pindah ke sini. Ini yang menggantikan baris
           "Tenant assigned" dan baris info cabang yang diminta hilang. */}
       <div className="flex justify-center px-2 pt-3.5 pb-2.5">
-        <span
+        <TenantLogo
+          logoUrl={tenantLogo}
+          name={tenantName}
           title={[tenantName, branch.label].filter(Boolean).join(" · ") || "Cervise"}
-          className="flex size-8 cursor-default items-center justify-center rounded-lg bg-primary text-sm text-primary-foreground"
-        >
-          C
-        </span>
+        />
       </div>
 
       <nav className="flex flex-1 flex-col items-center gap-0.5 overflow-y-auto scrollbar-none px-2 pb-2">
@@ -143,6 +146,56 @@ export function CompactSidebar({
         <LogoutButton />
       </div>
     </>
+  );
+}
+
+/**
+ * Logo tenant di kepala rail.
+ *
+ * Dipakai `next/image`, bukan `IdentityAvatar`, karena bentuknya persegi
+ * (rounded-lg) untuk logo — `IdentityAvatar` hardcode `rounded-full` yang
+ * memang benar untuk foto orang tapi terlihat salah untuk logo perusahaan.
+ *
+ * Kalau tenant belum mengunggah logo, jatuh ke inisial nama tenant, sama
+ * seperti `IdentityAvatar` melakukan untuk foto orang. Tidak ada panggilan ke
+ * layanan avatar pihak ketiga.
+ */
+function TenantLogo({
+  logoUrl,
+  name,
+  title,
+  className,
+}: {
+  logoUrl: string | null;
+  name: string | null;
+  title: string;
+  className?: string;
+}) {
+  const [failed, setFailed] = useState(false);
+  const showLogo = Boolean(logoUrl) && !failed;
+
+  return (
+    <span
+      title={title}
+      className={cn(
+        "relative flex shrink-0 cursor-default items-center justify-center overflow-hidden rounded-lg bg-muted font-medium text-muted-foreground",
+        className ?? "size-8 text-xs",
+      )}
+    >
+      {showLogo ? (
+        <Image
+          src={logoUrl as string}
+          alt={name ?? "Logo tenant"}
+          fill
+          sizes="32px"
+          unoptimized
+          onError={() => setFailed(true)}
+          className="object-contain"
+        />
+      ) : (
+        initialsOf(name ?? "C")
+      )}
+    </span>
   );
 }
 
