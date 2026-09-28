@@ -108,4 +108,55 @@ describe("sendFonnteWA", () => {
     expect((error as FonnteError).reason).toBe("invalid target");
     expect((error as FonnteError).retryable).toBe(false);
   });
+
+  it("marks a rejected token as not retryable", async () => {
+    // Token Fonnte dipakai bersama semua tenant, jadi token kedaluwarsa
+    // menghentikan SEMUA pesan. Mengulangnya hanya membuang kuota.
+    process.env.FONNTE_TOKEN = "test-token";
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(new Response("", { status: 401 })),
+    );
+
+    const error = await sendFonnteWA("628123456789", "Halo").catch(
+      (err: unknown) => err,
+    );
+    expect((error as FonnteError).reason).toBe("HTTP 401");
+    expect((error as FonnteError).retryable).toBe(false);
+  });
+
+  it("keeps server errors and rate limits retryable", async () => {
+    process.env.FONNTE_TOKEN = "test-token";
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(new Response("", { status: 503 })),
+    );
+    expect(
+      await sendFonnteWA("628123456789", "Halo").catch((e: unknown) => e),
+    ).toMatchObject({ retryable: true });
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(new Response("", { status: 429 })),
+    );
+    expect(
+      await sendFonnteWA("628123456789", "Halo").catch((e: unknown) => e),
+    ).toMatchObject({ retryable: true });
+  });
+
+  it("sends the country code when one is given", async () => {
+    process.env.FONNTE_TOKEN = "test-token";
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ status: true }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await sendFonnteWA("6281234567890", "Halo", "62");
+
+    const body = (fetchMock.mock.calls[0][1] as RequestInit).body as URLSearchParams;
+    expect(body.get("countryCode")).toBe("62");
+  });
 });

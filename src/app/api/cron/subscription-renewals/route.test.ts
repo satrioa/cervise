@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { FonnteError } from "@/lib/fonnte";
 import { GET } from "./route";
 
 const { mocks } = vi.hoisted(() => {
@@ -90,7 +91,13 @@ const { mocks } = vi.hoisted(() => {
 });
 
 vi.mock("@/lib/cron-auth", () => ({ isAuthorizedCronRequest: mocks.isAuthorizedCronRequest }));
-vi.mock("@/lib/fonnte", () => ({ sendFonnteWA: mocks.sendFonnteWA }));
+// FonnteError sengaja TIDAK dimock: route memakai `instanceof FonnteError`
+// untuk membedakan galat permanen dari sementara, jadi kelasnya harus
+// identitas yang sama dengan yang dipakai route.
+vi.mock("@/lib/fonnte", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/fonnte")>()),
+  sendFonnteWA: mocks.sendFonnteWA,
+}));
 vi.mock("@/lib/supabase/admin", () => ({ createAdminClient: () => mocks.admin }));
 vi.mock("@/lib/billing/renewal", () => ({
   buildRenewalWhatsAppMessage: () => "message",
@@ -135,6 +142,38 @@ describe("subscription renewal cron", () => {
     mocks.sendFonnteWA.mockImplementation(async (phone: string) => {
       mocks.events.push(`send:${phone}`);
       if (phone === "0811") throw new Error("fonnte down");
+      return { skip: false };
+    });
+
+    const response = await GET(request());
+    const body = await response.json();
+
+    expect(body).toEqual({ sent: 1, skipped: 0, failed: 1 });
+    expect(mocks.claimed.has("inv-1")).toBe(false);
+    expect(mocks.claimed.has("inv-2")).toBe(true);
+  });
+
+  it("keeps the claim when fonnte reports a permanent failure", async () => {
+    mocks.sendFonnteWA.mockImplementation(async (phone: string) => {
+      mocks.events.push(`send:${phone}`);
+      if (phone === "0811") throw new FonnteError("invalid target", false);
+      return { skip: false };
+    });
+
+    const response = await GET(request());
+    const body = await response.json();
+
+    // Nomor yang ditolak Fonnte tidak akan berubah, jadi klaim ditahan:
+    // run berikutnya tidak akan memanggil Fonnte lagi untuk invoice ini.
+    expect(body).toEqual({ sent: 1, skipped: 0, failed: 1 });
+    expect(mocks.claimed.has("inv-1")).toBe(true);
+    expect(mocks.claimed.has("inv-2")).toBe(true);
+  });
+
+  it("releases the claim when fonnte reports a retryable failure", async () => {
+    mocks.sendFonnteWA.mockImplementation(async (phone: string) => {
+      mocks.events.push(`send:${phone}`);
+      if (phone === "0811") throw new FonnteError("insufficient quota", true);
       return { skip: false };
     });
 

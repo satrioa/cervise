@@ -20,17 +20,31 @@ export class FonnteError extends Error {
   }
 }
 
-// Alasan yang tidak akan berubah kalau dikirim ulang. Selain daftar ini,
-// apa pun dianggap sementara: kehabisan kuota, jaringan, HTTP 5xx.
+// Alasan yang tidak akan berubah kalau dikirim ulang: nomor tidak valid,
+// parameter salah, token ditolak. Selain daftar ini, apa pun dianggap
+// sementara: kehabisan kuota, jaringan, HTTP 5xx, 429.
 const PERMANENT_REASONS = [
   "invalid target",
   "invalid parameter",
   "invalid country code",
+  "token invalid",
+  "token expired",
+  "unauthorized",
+  "forbidden",
 ];
 
 function isPermanentReason(reason: string): boolean {
   const normalized = reason.trim().toLowerCase();
   return PERMANENT_REASONS.some((candidate) => normalized.includes(candidate));
+}
+
+// Tanpa alasan dari body, kode HTTP yang jadi penentu. 429 dan 5xx pasti
+// sementara. 4xx lainnya permanen: token salah atau permintaan tidak valid
+// tidak akan berubah kalau dikirim ulang.
+function isPermanentStatus(status: number): boolean {
+  if (status >= 500) return false;
+  if (status === 429) return false;
+  return status >= 400;
 }
 
 export async function sendFonnteWA(
@@ -60,11 +74,13 @@ export async function sendFonnteWA(
   }
 
   if (!res.ok || payload.status === false) {
-    const reason =
-      typeof payload.reason === "string" && payload.reason
-        ? payload.reason
-        : `HTTP ${res.status}`;
-    throw new FonnteError(reason, !isPermanentReason(reason));
+    const bodyReason =
+      typeof payload.reason === "string" && payload.reason ? payload.reason : null;
+    const reason = bodyReason ?? `HTTP ${res.status}`;
+    const permanent = bodyReason
+      ? isPermanentReason(bodyReason)
+      : isPermanentStatus(res.status);
+    throw new FonnteError(reason, !permanent);
   }
 
   return { skip: false, status: true, detail: payload };

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { buildRenewalWhatsAppMessage, buildWhatsAppUrl } from "@/lib/billing/renewal";
 import { isAuthorizedCronRequest } from "@/lib/cron-auth";
-import { sendFonnteWA } from "@/lib/fonnte";
+import { FonnteError, sendFonnteWA } from "@/lib/fonnte";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export const runtime = "nodejs";
@@ -127,7 +127,16 @@ export async function GET(request: Request) {
         }
 
         sent += 1;
-      } catch {
+      } catch (error) {
+        // Galat permanen (nomor ditolak, token kedaluwarsa) tidak akan
+        // berubah kalau dikirim ulang. Klaim sengaja ditahan supaya run
+        // berikutnya tidak memanggil Fonnte lagi untuk invoice yang sama -
+        // kalau dilepas, satu nomor rusak berarti satu panggilan per jam
+        // ke API berbayar, selamanya.
+        if (error instanceof FonnteError && !error.retryable) {
+          failed += 1;
+          continue;
+        }
         await releaseClaim();
         failed += 1;
       }
