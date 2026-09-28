@@ -264,7 +264,7 @@ if (!res.ok || payload?.status === false) {
   // Hanya alasan dari Fonnte yang bisa menyalahkan pesan. Tanpa alasan, kita
   // tidak tahu apakah nomornya salah atau tokennya yang kedaluwarsa.
   const messageScoped = bodyReason ? isPermanentReason(bodyReason) : false;
-  throw new FonnteError(reason, !messageScoped, messageScoped ? "message" : "infrastructure");
+  throw new FonnteError(reason, messageScoped ? "message" : "infrastructure");
 }
 ```
 
