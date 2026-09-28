@@ -11,40 +11,41 @@ export type FonnteSendResult =
 export class FonnteError extends Error {
   readonly reason: string;
   readonly retryable: boolean;
+  /**
+   * `message` = nomor atau isi pesannya yang salah, jadi mengulangnya tidak
+   * akan pernah berhasil. `infrastructure` = Fonnte atau tokennya yang bermasalah,
+   * jadi pesannya sendiri masih layak dicoba begitu masalahnya beres.
+   *
+   * Bedanya penting karena satu token dipakai semua tenant: saat token
+   * kedaluwarsa, Fonnte membalas 401 untuk setiap pesan sekaligus. Kalau itu
+   * diperlakukan permanen, satu rotasi token membuang semua notifikasi tanpa
+   * jejak.
+   */
+  readonly scope: "message" | "infrastructure";
 
-  constructor(reason: string, retryable: boolean) {
+  constructor(reason: string, retryable: boolean, scope: "message" | "infrastructure") {
     super(`Fonnte gagal: ${reason}`);
     this.name = "FonnteError";
     this.reason = reason;
     this.retryable = retryable;
+    this.scope = scope;
   }
 }
 
-// Alasan yang tidak akan berubah kalau dikirim ulang: nomor tidak valid,
-// parameter salah, token ditolak. Selain daftar ini, apa pun dianggap
-// sementara: kehabisan kuota, jaringan, HTTP 5xx, 429.
+// Alasan yang menunjuk ke nomor atau isi pesan, jadi mengulangnya tidak akan
+// pernah berhasil. Selain daftar ini, apa pun dianggap sementara:
+// kehabisan kuota, jaringan, HTTP 5xx, 429.
 const PERMANENT_REASONS = [
   "invalid target",
   "invalid parameter",
   "invalid country code",
-  "token invalid",
-  "token expired",
-  "unauthorized",
-  "forbidden",
+  "target not valid",
+  "message too long",
 ];
 
 function isPermanentReason(reason: string): boolean {
   const normalized = reason.trim().toLowerCase();
   return PERMANENT_REASONS.some((candidate) => normalized.includes(candidate));
-}
-
-// Tanpa alasan dari body, kode HTTP yang jadi penentu. 429 dan 5xx pasti
-// sementara. 4xx lainnya permanen: token salah atau permintaan tidak valid
-// tidak akan berubah kalau dikirim ulang.
-function isPermanentStatus(status: number): boolean {
-  if (status >= 500) return false;
-  if (status === 429) return false;
-  return status >= 400;
 }
 
 export async function sendFonnteWA(
@@ -77,12 +78,15 @@ export async function sendFonnteWA(
     const bodyReason =
       typeof payload.reason === "string" && payload.reason ? payload.reason : null;
     const reason = bodyReason ?? `HTTP ${res.status}`;
-    // Keduanya diperiksa, bukan salah satu. Alasan dari body/html yang tak
-    // terdaftar tetap harus ikut, kalau tidak maka HTTP 400 dengan alasan
-    // aneh akan dianggap sementara padahal permintaannya tidak valid.
-    const permanent = (bodyReason ? isPermanentReason(bodyReason) : false)
-      || isPermanentStatus(res.status);
-    throw new FonnteError(reason, !permanent);
+
+    // Hanya alasan dari body yang bisa membuat kegagalan jadi message-scoped.
+    // Status 4xx sendirian tidak cukup: tanpa alasan Fonnte yang dikenal kita
+    // tidak tahu itu soal nomor atau soal token, jadi diperlakukan infrastruktur
+    // dan pesannya dicoba lagi nanti, bukan dibuang permanen. 5xx dan 429
+    // jelas sementara, jadi tidak pernah message-scoped juga.
+    const messageScoped = bodyReason ? isPermanentReason(bodyReason) : false;
+
+    throw new FonnteError(reason, !messageScoped, messageScoped ? "message" : "infrastructure");
   }
 
   return { skip: false, status: true, detail: payload };

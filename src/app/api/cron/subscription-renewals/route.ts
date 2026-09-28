@@ -128,12 +128,11 @@ export async function GET(request: Request) {
 
         sent += 1;
       } catch (error) {
-        // Galat permanen (nomor ditolak, token kedaluwarsa) tidak akan
-        // berubah kalau dikirim ulang. Klaim sengaja ditahan supaya run
-        // berikutnya tidak memanggil Fonnte lagi untuk invoice yang sama -
-        // kalau dilepas, satu nomor rusak berarti satu panggilan per jam
-        // ke API berbayar, selamanya.
-        if (error instanceof FonnteError && !error.retryable) {
+        // Nomor yang memang salah tidak akan pernah berhasil, jadi klaim ditahan
+        // supaya tidak dipanggil ulang tiap jam. Token kedaluwarsa atau masalah
+        // Fonnte lain scope-nya infrastruktur: pesannya masih layak, jadi klaim
+        // dilepas dan dicoba lagi di run berikutnya.
+        if (error instanceof FonnteError && error.scope === "message") {
           failed += 1;
           continue;
         }

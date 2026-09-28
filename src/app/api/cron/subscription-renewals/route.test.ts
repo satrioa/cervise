@@ -153,10 +153,12 @@ describe("subscription renewal cron", () => {
     expect(mocks.claimed.has("inv-2")).toBe(true);
   });
 
-  it("keeps the claim when fonnte reports a permanent failure", async () => {
+  it("keeps the claim when fonnte reports a message-scoped failure", async () => {
     mocks.sendFonnteWA.mockImplementation(async (phone: string) => {
       mocks.events.push(`send:${phone}`);
-      if (phone === "0811") throw new FonnteError("invalid target", false);
+      if (phone === "0811") {
+        throw new FonnteError("invalid target", false, "message");
+      }
       return { skip: false };
     });
 
@@ -170,16 +172,20 @@ describe("subscription renewal cron", () => {
     expect(mocks.claimed.has("inv-2")).toBe(true);
   });
 
-  it("releases the claim when fonnte reports a retryable failure", async () => {
+  it("releases the claim when fonnte reports an infrastructure failure", async () => {
     mocks.sendFonnteWA.mockImplementation(async (phone: string) => {
       mocks.events.push(`send:${phone}`);
-      if (phone === "0811") throw new FonnteError("insufficient quota", true);
+      if (phone === "0811") {
+        throw new FonnteError("HTTP 401", true, "infrastructure");
+      }
       return { skip: false };
     });
 
     const response = await GET(request());
     const body = await response.json();
 
+    // Token kedaluwarsa: pesannya masih layak, jadi klaim dilepas dan
+    // invoice dicoba lagi setelah token diperbaiki.
     expect(body).toEqual({ sent: 1, skipped: 0, failed: 1 });
     expect(mocks.claimed.has("inv-1")).toBe(false);
     expect(mocks.claimed.has("inv-2")).toBe(true);

@@ -90,7 +90,7 @@ describe("sendFonnteWA", () => {
     expect((error as FonnteError).retryable).toBe(true);
   });
 
-  it("marks an invalid target as not retryable", async () => {
+  it("treats a rejected target as a permanent message failure", async () => {
     process.env.FONNTE_TOKEN = "test-token";
     vi.stubGlobal(
       "fetch",
@@ -107,11 +107,13 @@ describe("sendFonnteWA", () => {
     );
     expect((error as FonnteError).reason).toBe("invalid target");
     expect((error as FonnteError).retryable).toBe(false);
+    expect((error as FonnteError).scope).toBe("message");
   });
 
-  it("marks a rejected token as not retryable", async () => {
-    // Token Fonnte dipakai bersama semua tenant, jadi token kedaluwarsa
-    // menghentikan SEMUA pesan. Mengulangnya hanya membuang kuota.
+  it("keeps a rejected token retryable, because the message itself is fine", async () => {
+    // Satu token dipakai semua tenant, jadi token kedaluwarsa membalas 401
+    // untuk setiap pesan sekaligus. Kalau itu jadi terminal, satu rotasi token
+    // membuang semua notifikasi tanpa jejak. Pesannya sendiri masih layak.
     process.env.FONNTE_TOKEN = "test-token";
     vi.stubGlobal(
       "fetch",
@@ -122,31 +124,11 @@ describe("sendFonnteWA", () => {
       (err: unknown) => err,
     );
     expect((error as FonnteError).reason).toBe("HTTP 401");
-    expect((error as FonnteError).retryable).toBe(false);
+    expect((error as FonnteError).retryable).toBe(true);
+    expect((error as FonnteError).scope).toBe("infrastructure");
   });
 
-  it("keeps server errors and rate limits retryable", async () => {
-    process.env.FONNTE_TOKEN = "test-token";
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockResolvedValue(new Response("", { status: 503 })),
-    );
-    expect(
-      await sendFonnteWA("628123456789", "Halo").catch((e: unknown) => e),
-    ).toMatchObject({ retryable: true });
-
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockResolvedValue(new Response("", { status: 429 })),
-    );
-    expect(
-      await sendFonnteWA("628123456789", "Halo").catch((e: unknown) => e),
-    ).toMatchObject({ retryable: true });
-  });
-
-  it("marks a 400 with an unlisted reason as not retryable", async () => {
-    // Fonnte membalas alasan sendiri, dan daftar PERMANENT_REASONS tidak
-    // mungkin lengkap. Status 4xx menutupi yang terlewat.
+  it("classifies an unlisted Fonnte reason as infrastructure, not a bad number", async () => {
     process.env.FONNTE_TOKEN = "test-token";
     vi.stubGlobal(
       "fetch",
@@ -160,8 +142,27 @@ describe("sendFonnteWA", () => {
     const error = await sendFonnteWA("628123456789", "Halo").catch(
       (err: unknown) => err,
     );
-    expect((error as FonnteError).reason).toBe("pesan melebihi batas");
-    expect((error as FonnteError).retryable).toBe(false);
+    expect((error as FonnteError).retryable).toBe(true);
+    expect((error as FonnteError).scope).toBe("infrastructure");
+  });
+
+  it("keeps server errors and rate limits retryable", async () => {
+    process.env.FONNTE_TOKEN = "test-token";
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(new Response("", { status: 503 })),
+    );
+    expect(
+      await sendFonnteWA("628123456789", "Halo").catch((e: unknown) => e),
+    ).toMatchObject({ retryable: true, scope: "infrastructure" });
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(new Response("", { status: 429 })),
+    );
+    expect(
+      await sendFonnteWA("628123456789", "Halo").catch((e: unknown) => e),
+    ).toMatchObject({ retryable: true, scope: "infrastructure" });
   });
 
   it("sends the country code when one is given", async () => {
