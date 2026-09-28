@@ -1194,7 +1194,7 @@ Teks pesan. Fungsi murni tanpa I/O supaya bisa diuji tanpa database maupun jarin
 **Interfaces:**
 - Produces:
   - `type ServiceMessageInput` dengan field: `storeName`, `tenantSlug`, `serviceId`, `serviceNumber`, `device`, `complaint`, `trackingCode`, `status`, `siteOrigin`. `teknisiName` TIDAK ada: pesan teknisi dikirim ke teknisinya, jadi menamacari orang itu sia-sia.
-  - `publicLacakUrl(siteOrigin: string, tenantSlug: string | null, trackingCode: string | null): string`
+  - `publicLacakUrl(siteOrigin: string | null, tenantSlug: string | null, trackingCode: string | null): string`
   - `buildCustomerCreatedMessage(input: ServiceMessageInput): string`
   - `buildTechnicianCreatedMessage(input: ServiceMessageInput): string`
   - `buildCustomerStatusMessage(input: ServiceMessageInput): string`
@@ -1253,8 +1253,8 @@ describe("publicLacakUrl", () => {
   it("tidak melempar saat origin belum dikonfigurasi", () => {
     // siteOrigin datang dari env di task berikutnya. Kalau env itu kosong,
     // pemanggil harus dapat string kosong, bukan TypeError di dalam worker.
-    expect(publicLacakUrl(null as unknown as string, "servisin", "F5FB0DFCB6")).toBe("");
-    expect(publicLacakUrl(undefined as unknown as string, "servisin", "F5FB0DFCB6")).toBe("");
+    expect(publicLacakUrl(null, "servisin", "F5FB0DFCB6")).toBe("");
+    expect(publicLacakUrl(undefined, "servisin", "F5FB0DFCB6")).toBe("");
   });
 });
 
@@ -1367,7 +1367,9 @@ Buat `src/lib/notifications/service-message.ts`:
 // sehingga bisa diuji langsung dan dipakai dari mana saja.
 //
 // Tidak ada fallback fiktif. Field yang kosong berarti barisnya dihilangkan,
-// bukan diisi teks karangan, mengikuti print-templates.tsx.
+// bukan diisi teks karangan, mengikuti print-templates.tsx. Karena itu tidak
+// ada baris "No. Servis: " tanpa isi: baris berlabel hanya dibuat kalau
+// nilainya ada.
 
 export type ServiceMessageInput = {
   storeName: string;
@@ -1378,66 +1380,120 @@ export type ServiceMessageInput = {
   complaint: string | null;
   trackingCode: string | null;
   status: string | null;
-  siteOrigin: string;
+  /** Bisa null: task berikutnya membacanya dari env yang belum terkonfigurasi. */
+  siteOrigin: string | null;
 };
 
-function joinLines(lines: (string | null | undefined)[]): string {
-  return lines.filter((line): line is string => Boolean(line && line.trim())).join("\n");
+/** Nilai yang siap ditampilkan: null kalau kosong, string kalau isi. */
+function present(value: string | null | undefined): string | null {
+  const trimmed = (value ?? "").trim();
+  return trimmed ? trimmed : null;
 }
 
+function joinLines(lines: (string | null | undefined)[]): string {
+  return lines
+    .map((line) => (line ?? "").trim())
+    .filter((line) => line.length > 0)
+    .join("\n");
+}
+
+/** "No. Servis : x" -> "No. Servis: x". Kolom rata hanya enak dibaca di kode. */
 function label(text: string): string {
-  // "No. Servis : ..." -> "No. Servis: ..."
   return text.replace(/\s+:\s+/, ": ");
 }
 
-function trimOrigin(origin: string): string {
-  return origin.trim().replace(/\/+$/, "");
+/** Baris berlabel, atau null kalau nilainya kosong. */
+function field(name: string, value: string | null | undefined): string | null {
+  const shown = present(value);
+  return shown === null ? null : label(`${name} : ${shown}`);
 }
 
+/**
+ * Asal situs tanpa garis miring di ujung. Menahan null/undefined juga supaya
+ * origin yang belum terkonfigurasi di environment melempar tautan kosong,
+ * bukan membuat worker pengiriman mati.
+ */
+function trimOrigin(origin: string | null | undefined): string {
+  return (present(origin) ?? "").replace(/\/+$/, "");
+}
+
+/**
+ * Tautan halaman lacak publik. Mengembalikan string kosong kalau ada satu saja
+ * bagian yang tidak ada, supaya tidak pernah terkirim tautan yang berakhir di
+ * segmen kosong. Garis miring ganda di tetapkan di sini, bukan hanya di pemanggil.
+ */
 export function publicLacakUrl(
-  siteOrigin: string,
+  siteOrigin: string | null | undefined,
   tenantSlug: string | null,
   trackingCode: string | null,
 ): string {
-  if (!siteOrigin || !tenantSlug || !trackingCode) return "";
-  return `${trimOrigin(siteOrigin)}/${tenantSlug}/lacak/${trackingCode}`;
+  const origin = trimOrigin(siteOrigin);
+  const slug = present(tenantSlug);
+  const code = present(trackingCode);
+  if (!origin || !slug || !code) return "";
+  return `${origin}/${slug}/lacak/${code}`;
 }
 
-function internalServisUrl(siteOrigin: string, serviceId: string): string {
-  return `${trimOrigin(siteOrigin)}/app/servis/${serviceId}`;
+/** Tautan internal untuk teknisi. String kosong kalau tidak bisa disusun. */
+function internalServisUrl(
+  siteOrigin: string | null | undefined,
+  serviceId: string,
+): string {
+  const origin = trimOrigin(siteOrigin);
+  const id = present(serviceId);
+  if (!origin || !id) return "";
+  return `${origin}/app/servis/${id}`;
+}
+
+/**
+ * Nomor servis sebagai penanda, atau nama perangkat kalau nomornya belum ada.
+ * Nomor servis tidak selalu terisi untuk servis lama.
+ */
+function serviceRef(input: ServiceMessageInput): string | null {
+  return present(input.serviceNumber) ?? present(input.device);
+}
+
+/**
+ * Baris judul. Nama toko tidak pernah dikarang kalau kosong: pemisah " - "
+ * ikut hilang supaya tidak ada baris yang diawali tanda hubung tanpa isi.
+ */
+function heading(storeName: string | null | undefined, text: string): string {
+  const name = present(storeName);
+  return name ? `${name} - ${text}` : text;
 }
 
 export function buildCustomerCreatedMessage(input: ServiceMessageInput): string {
+  const lacakUrl = publicLacakUrl(input.siteOrigin, input.tenantSlug, input.trackingCode);
   return joinLines([
-    `${input.storeName} - Servis diterima`,
-    label(`No. Servis : ${input.serviceNumber ?? ""}`),
-    label(`Perangkat  : ${input.device}`),
-    input.complaint ? label(`Keluhan    : ${input.complaint}`) : null,
-    input.trackingCode ? label(`Kode cek   : ${input.trackingCode}`) : null,
-    publicLacakUrl(input.siteOrigin, input.tenantSlug, input.trackingCode)
-      ? `Cek status : ${publicLacakUrl(input.siteOrigin, input.tenantSlug, input.trackingCode)}`
-      : null,
+    heading(input.storeName, "Servis diterima"),
+    field("No. Servis", input.serviceNumber),
+    field("Perangkat", input.device),
+    field("Keluhan", input.complaint),
+    field("Kode cek", input.trackingCode),
+    field("Cek status", lacakUrl),
   ]);
 }
 
 export function buildCustomerStatusMessage(input: ServiceMessageInput): string {
+  const lacakUrl = publicLacakUrl(input.siteOrigin, input.tenantSlug, input.trackingCode);
+  const ref = serviceRef(input);
   return joinLines([
-    `${input.storeName} - Status servis ${input.serviceNumber ?? input.device}`,
-    label(`Perangkat  : ${input.device}`),
-    label(`Status     : ${input.status ?? ""}`),
-    input.trackingCode ? label(`Kode cek   : ${input.trackingCode}`) : null,
-    publicLacakUrl(input.siteOrigin, input.tenantSlug, input.trackingCode)
-      ? `Cek status : ${publicLacakUrl(input.siteOrigin, input.tenantSlug, input.trackingCode)}`
-      : null,
+    ref
+      ? heading(input.storeName, `Status servis ${ref}`)
+      : heading(input.storeName, "Status servis"),
+    field("Perangkat", input.device),
+    field("Status", input.status),
+    field("Kode cek", input.trackingCode),
+    field("Cek status", lacakUrl),
   ]);
 }
 
 export function buildTechnicianCreatedMessage(input: ServiceMessageInput): string {
   return joinLines([
-    `${input.storeName} - Servis baru masuk`,
-    input.serviceNumber ?? input.device,
-    input.complaint ? `Keluhan: ${input.complaint}` : null,
-    `Buka: ${internalServisUrl(input.siteOrigin, input.serviceId)}`,
+    heading(input.storeName, "Servis baru masuk"),
+    serviceRef(input),
+    field("Keluhan", input.complaint),
+    field("Buka", internalServisUrl(input.siteOrigin, input.serviceId)),
   ]);
 }
 ```
