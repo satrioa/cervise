@@ -1,42 +1,24 @@
-import { searchProductsForSale } from "@/app/app/penjualan/actions";
+import { getInventori } from "@/app/app/inventori/actions";
 import { InventoriClient } from "./inventori-client";
 import { InventoriHeaderActions } from "@/components/inventori/inventori-header-actions";
 import { PageHeader } from "@/components/layout/page-header";
 
 export default async function InventoriPage() {
-  let products: Awaited<ReturnType<typeof searchProductsForSale>> = [];
-  try {
-    products = await searchProductsForSale("");
-  } catch {
-    products = [];
-  }
-
-  // group by parent_key or name slug
-  const grouped = new Map<string, typeof products>();
-  for (const p of products) {
-    const key = (p as any).parent_key || p.name.toLowerCase().replace(/[^a-z0-9]+/g, "-");
-    if (!grouped.has(key)) grouped.set(key, []);
-    grouped.get(key)!.push(p);
-  }
-
-  const groups = Array.from(grouped.entries()).map(([key, items]) => {
-    const name = items[0].name;
-    const totalStok = items.reduce((a, b) => a + (b.stock_qty ?? 0), 0);
-    const baru = items.filter((i) => (i as any).variant_type === "BARU");
-    const bekas = items.filter((i) => (i as any).variant_type === "BEKAS");
-    return { key, name, items, totalStok, baru, bekas };
-  });
+  // Query khusus inventori: seluruh katalog cabang aktif, bukan hasil pencarian
+  // POS yang dipangkas 40 baris. Pengelompokan induk/varian ada di
+  // lib/operational/inventori.ts supaya bisa diuji, bukan dihitung inline.
+  const { groups, summary, truncated } = await getInventori();
 
   return (
     <div className="min-h-svh bg-background text-foreground">
       <PageHeader
         title="Inventori"
         titleClassName="font-heading text-2xl"
-        description={`${groups.length} produk induk · ${products.length} varian (Baru ${products.filter((p) => (p as any).variant_type === "BARU").length} · Bekas ${products.filter((p) => (p as any).variant_type === "BEKAS").length})`}
+        description={`${summary.groups} produk induk · ${summary.varian} varian (Baru ${summary.baru} · Bekas ${summary.bekas})`}
         actions={<InventoriHeaderActions />}
       />
       <main className="mx-auto max-w-6xl px-6 py-6">
-        <InventoriClient groups={groups} />
+        <InventoriClient groups={groups} summary={summary} truncated={truncated} />
       </main>
     </div>
   );
