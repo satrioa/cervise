@@ -5,13 +5,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { slugify } from "@/lib/tenant-slug";
-
-function normalizePhone(value: string) {
-  let digits = value.trim().replace(/\D/g, "");
-  if (digits.startsWith("0")) digits = `62${digits.slice(1)}`;
-  else if (digits.startsWith("8")) digits = `62${digits}`;
-  return digits;
-}
+import { normalizePhone62 } from "@/lib/phone";
 
 export async function completeOnboarding(opts: {
   tenantName: string;
@@ -47,7 +41,7 @@ export async function completeOnboarding(opts: {
     throw new Error("Slug tenant tidak valid");
   }
 
-  const phone = normalizePhone(opts.telepon ?? "");
+  const phone = normalizePhone62(opts.telepon) ?? "";
   const branchName = opts.branchName.trim() || "Cabang Pusat";
   const branchCity = opts.alamat?.trim() || null;
   let slug = baseSlug;
