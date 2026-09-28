@@ -116,6 +116,58 @@ Tambahkan dua test baru di `src/lib/fonnte.test.ts`, di dalam `describe("sendFon
     expect((error as FonnteError).reason).toBe("invalid target");
     expect((error as FonnteError).retryable).toBe(false);
   });
+
+  it("marks a rejected token as not retryable", async () => {
+    // Token Fonnte dipakai bersama semua tenant, jadi token kedaluwarsa
+    // menghentikan SEMUA pesan. Mengulangnya hanya membuang kuota.
+    process.env.FONNTE_TOKEN = "test-token";
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(new Response("", { status: 401 })),
+    );
+
+    const error = await sendFonnteWA("628123456789", "Halo").catch(
+      (err: unknown) => err,
+    );
+    expect((error as FonnteError).reason).toBe("HTTP 401");
+    expect((error as FonnteError).retryable).toBe(false);
+  });
+
+  it("keeps server errors and rate limits retryable", async () => {
+    process.env.FONNTE_TOKEN = "test-token";
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(new Response("", { status: 503 })),
+    );
+    expect(
+      await sendFonnteWA("628123456789", "Halo").catch((e: unknown) => e),
+    ).toMatchObject({ retryable: true });
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(new Response("", { status: 429 })),
+    );
+    expect(
+      await sendFonnteWA("628123456789", "Halo").catch((e: unknown) => e),
+    ).toMatchObject({ retryable: true });
+  });
+
+  it("sends the country code when one is given", async () => {
+    process.env.FONNTE_TOKEN = "test-token";
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ status: true }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await sendFonnteWA("6281234567890", "Halo", "62");
+
+    const body = (fetchMock.mock.calls[0][1] as RequestInit).body as URLSearchParams;
+    expect(body.get("countryCode")).toBe("62");
+  });
+});
 ```
 
 Ubah juga import di baris pertama file dari:
@@ -162,17 +214,31 @@ export class FonnteError extends Error {
   }
 }
 
-// Alasan yang tidak akan berubah kalau dikirim ulang. Selain daftar ini,
-// apa pun dianggap sementara: kehabisan kuota, jaringan, HTTP 5xx.
+// Alasan yang tidak akan berubah kalau dikirim ulang: nomor tidak valid,
+// parameter salah, token ditolak. Selain daftar ini, apa pun dianggap
+// sementara: kehabisan kuota, jaringan, HTTP 5xx, 429.
 const PERMANENT_REASONS = [
   "invalid target",
   "invalid parameter",
   "invalid country code",
+  "token invalid",
+  "token expired",
+  "unauthorized",
+  "forbidden",
 ];
 
 function isPermanentReason(reason: string): boolean {
   const normalized = reason.trim().toLowerCase();
   return PERMANENT_REASONS.some((candidate) => normalized.includes(candidate));
+}
+
+// Tanpa alasan dari body, kode HTTP yang jadi penentu. 429 dan 5xx pasti
+// sementara. 4xx lainnya permanen: token salah atau permintaan tidak valid
+// tidak akan berubah kalau dikirim ulang.
+function isPermanentStatus(status: number): boolean {
+  if (status >= 500) return false;
+  if (status === 429) return false;
+  return status >= 400;
 }
 
 export async function sendFonnteWA(
@@ -202,11 +268,13 @@ export async function sendFonnteWA(
   }
 
   if (!res.ok || payload.status === false) {
-    const reason =
-      typeof payload.reason === "string" && payload.reason
-        ? payload.reason
-        : `HTTP ${res.status}`;
-    throw new FonnteError(reason, !isPermanentReason(reason));
+    const bodyReason =
+      typeof payload.reason === "string" && payload.reason ? payload.reason : null;
+    const reason = bodyReason ?? `HTTP ${res.status}`;
+    const permanent = bodyReason
+      ? isPermanentReason(bodyReason)
+      : isPermanentStatus(res.status);
+    throw new FonnteError(reason, !permanent);
   }
 
   return { skip: false, status: true, detail: payload };
@@ -260,7 +328,7 @@ Dan ganti test "throws when Fonnte rejects the request":
 - [ ] **Step 5: Jalankan test, harus lulus**
 
 Run: `npm test -- src/lib/fonnte.test.ts`
-Expected: PASS — 5 test.
+Expected: PASS — 8 test.
 
 - [ ] **Step 6: Commit**
 

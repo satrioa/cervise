@@ -259,12 +259,18 @@ Kode sekarang hanya mengecek `res.ok`, sehingga kehabisan kuota dilaporkan sukse
 ```ts
 const payload = await res.json();
 if (!res.ok || payload?.status === false) {
-  throw new FonnteError(payload?.reason ?? `HTTP ${res.status}`, payload);
+  const bodyReason = typeof payload?.reason === "string" ? payload.reason : null;
+  const reason = bodyReason ?? `HTTP ${res.status}`;
+  // Alasan dari body kalau ada; kalau tidak, kode HTTP yang menentukan.
+  // 429 dan 5xx sementara, 4xx lain permanen.
+  const permanent = bodyReason
+    ? isPermanentReason(bodyReason)
+    : isPermanentStatus(res.status);
+  throw new FonnteError(reason, !permanent);
 }
 ```
 
-Klasifikasi error: `insufficient quota` dan error jaringan bersifat retryable;
-`invalid target` permanen dan tidak di-retry.
+| `insufficient quota` dan error jaringan → retryable; `invalid target` dan penolakan token → permanen, tidak di-retry.
 
 ## 12. Pengujian
 
