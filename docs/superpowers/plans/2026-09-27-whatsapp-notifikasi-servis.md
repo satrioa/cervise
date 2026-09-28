@@ -137,6 +137,9 @@ Tambahkan dua test baru di `src/lib/fonnte.test.ts`, di dalam `describe("sendFon
   });
 
   it("classifies an unlisted Fonnte reason as infrastructure, not a bad number", async () => {
+    // Fonnte membalas alasannya sendiri, dan daftar PERMANENT_REASONS tidak
+    // mungkin lengkap. Yang tidak disebut apa pun dianggap masalah Fonnte,
+    // bukan masalah nomor, jadi pesannya dicoba lagi.
     process.env.FONNTE_TOKEN = "test-token";
     vi.stubGlobal(
       "fetch",
@@ -247,9 +250,14 @@ export class FonnteError extends Error {
   }
 }
 
+// Status HTTP tanpa alasan Fonnte tidak pernah bisa dipastikan itu soal nomor
+// atau soal token, jadi tidak dipakai untuk memutuskan terminal. Yang menentukan
+// hanya alasan Fonnte sendiri: kalau Fonnte menyebut alasannya, itu soal pesan;
+// kalau tidak, itu soal infrastruktur dan pesannya masih layak dicoba.
+
 // Alasan yang menunjuk ke nomor atau isi pesan, jadi mengulangnya tidak akan
 // pernah berhasil. Selain daftar ini, apa pun dianggap sementara:
-// kehabisan kuota, jaringan, HTTP 5xx, 429.
+// kehabisan kuota, jaringan, HTTP 5xx, 429, penolakan token.
 const PERMANENT_REASONS = [
   "invalid target",
   "invalid parameter",
@@ -261,15 +269,6 @@ const PERMANENT_REASONS = [
 function isPermanentReason(reason: string): boolean {
   const normalized = reason.trim().toLowerCase();
   return PERMANENT_REASONS.some((candidate) => normalized.includes(candidate));
-}
-
-// Status 4xx tanpa alasan Fonnte yang dikenal. Karena tidak diketahui apakah
-// itu soal nomor atau soal token, dianggap infrastruktur: pesan dicoba lagi
-// nanti, bukan dibuang permanen.
-function isPermanentStatus(status: number): boolean {
-  if (status >= 500) return false;
-  if (status === 429) return false;
-  return status >= 400;
 }
 
 export async function sendFonnteWA(
@@ -303,11 +302,10 @@ export async function sendFonnteWA(
       typeof payload.reason === "string" && payload.reason ? payload.reason : null;
     const reason = bodyReason ?? `HTTP ${res.status}`;
 
-    // Keduanya diperiksa, bukan salah satu. Alasan dari body yang tak terdaftar
-    // tetap harus ikut, kalau tidak maka HTTP 400 dengan alasan aneh akan
-    // dianggap suatu masalah pesan padahal bisa jadi soal token.
-    const messageScoped = (bodyReason ? isPermanentReason(bodyReason) : false)
-      || (!bodyReason && isPermanentStatus(res.status));
+    // Hanya alasan dari Fonnte yang bisa memvonisi pesan. Tanpa alasan, kita
+    // tidak tahu apakah nomornya salah atau tokennya yang kedaluwarsa, dan
+    // mengulanginya lebih aman daripada membuang notifikasi.
+    const messageScoped = bodyReason ? isPermanentReason(bodyReason) : false;
 
     throw new FonnteError(reason, !messageScoped, messageScoped ? "message" : "infrastructure");
   }

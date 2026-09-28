@@ -261,10 +261,9 @@ const payload = await res.json();
 if (!res.ok || payload?.status === false) {
   const bodyReason = typeof payload?.reason === "string" ? payload.reason : null;
   const reason = bodyReason ?? `HTTP ${res.status}`;
-  // Hanya nomor atau isi pesan yang salah yang permanen. Token kedaluwarsa atau
-  // masalah Fonnte lain dicoba lagi nanti, karena pesannya masih layak.
-  const messageScoped = (bodyReason ? isPermanentReason(bodyReason) : false)
-    || (!bodyReason && isPermanentStatus(res.status));
+  // Hanya alasan dari Fonnte yang bisa memvonisi pesan. Tanpa alasan, kita
+  // tidak tahu apakah nomornya salah atau tokennya yang kedaluwarsa.
+  const messageScoped = bodyReason ? isPermanentReason(bodyReason) : false;
   throw new FonnteError(reason, !messageScoped, messageScoped ? "message" : "infrastructure");
 }
 ```
@@ -275,6 +274,10 @@ dari kegagalan infrastruktur. Pemakai harus memutuskan terminal berdasarkan `sco
 bukan `retryable`: satu token dipakai bersama semua tenant, jadi token kedaluwarsa
 membalas 401 untuk setiap pesan sekaligus, dan memperlakukannya terminal akan membuang
 semua notifikasi tanpa jejak saat token itu diputar.
+
+Kalau Fonnte tidak menyebutkan alasannya, kegagalannya dianggap infrastruktur, bukan
+soal nomor. Alasannya, tanpa alasan kita tidak bisa membedakan nomor yang salah dari
+token yang kedaluwarsa, dan mengulanginya lebih aman daripada membuang notifikasi.
 
 | `insufficient quota` dan error jaringan → retryable; `invalid target` dan parameter yang salah → permanen dan tidak di-retry; penolakan token (401/403) → dicoba lagi nanti, bukan terminal, karena pesannya sendiri masih layak.
 
