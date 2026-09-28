@@ -2843,3 +2843,66 @@ git commit -m "chore: lint fixes from the notification work"
 ```
 
 Lewati langkah ini kalau `git status` bersih.
+
+## Task 12: Trigger perpindahan teknisi (migration baru)
+
+Task ini ditambahkan setelah review Task 8. Migration Task 7 sudah live, jadi ini
+migrasi baru dengan bentuk kunci yang berbeda -- bukan edit dari Task 7.
+
+**Masalahnya.** Trigger yang ada hanya `after update of status`, jadi perubahan
+`cervise_services.teknisi_id` tidak menyalakan apa pun. Kalau servis dibuat untuk
+teknisi A lalu dipindah ke B setelah notifikasi `servis_created:technician` sudah
+dikirim, B tidak pernah diberi tahu, dan A sudah diberi tahu tentang pekerjaan
+yang sekarang bukan miliknya.
+
+**Dua bagian, dan kalau hanya salah satu yang dikerjakan, perbaikannya terlihat
+berhasil tapi tidak mengubah apa pun:**
+
+1. Trigger `after update of teknisi_id` dengan penjaga
+   `new.teknisi_id is distinct from old.teknisi_id`, dan hanya kalau
+   `new.teknisi_id is not null`. Perpindahan ke NULL berarti teknisi dilepas, bukan
+   replaced, dan itu tidak boleh mengirim pesan.
+2. **Kunci dedupe yang BARU.** Kunci lama
+   `'servis:'||id||':created:technician'` sudah terpakai saat insert, dengan
+   `on conflict (dedupe_key) do nothing`. Trigger baru yang memakai kunci lama akan
+   DILEWATI DIAM-DIAM. Bentuk baru, di mana `:created:` diganti oleh
+   `:assigned:` dan ditambahkan id teknisi supaya perpindahan A -> B -> A tetap
+   dihitung sebagai dua peristiwa berbeda:
+
+   ```
+   'servis:' || new.id::text || ':assigned:' || new.teknisi_id::text || ':technician'
+   ```
+
+  Yang membawa id teknisi memastikan A -> B -> A menghasilkan dua pesan, bukan satu.
+   Tanpa itu, pekerjaan yang kembali ke A setelah ke B tidak akan pernah
+   memberitahu A.
+
+**Yang tidak boleh ikut berubah.** `to_kind` tetap `technician`, `event` tetap
+`servis_created` (pembuat pesan dan konteks "pesanan masuk" sudah benar untuk
+kasus ini), dan `branch_id`/`servis_id` diambil dari `new` seperti trigger lain.
+Jangan menambahkan baris customer di sini: customer sudah diberi tahu saat
+insert dan tidak ada hubungannya dengan siapa teknisinya.
+
+**Verifikasi, dengan rollback** seperti Task 7 Step 6:
+
+```sql
+-- count 2 setelah insert, jadi trigger baru tidak menyala di insert
+-- count 3 setelah A -> B
+-- count 3 setelah B -> A  (kunci A sama, jadi tidak menyala)
+-- count 4 setelah A -> B lagi
+```
+
+`B -> A -> B` harus menghasilkan 4 baris: kunci pertama A dipakai sekali, kunci B
+dipakai sekali, jadi tiga perpindahan menghasilkan tiga baris baru. Kalau tidak,
+kuncinya tidak membedakan arah perpindahan -- tulis ulang bentuknya.
+
+**Test statis** baru di `src/lib/auth/notification-outbox-migration.test.ts`:
+assert trigger name, `after update of teknisi_id`, `is distinct from`,
+`is not null`, dan secara khusus **assert kunci baru tidak memuat
+`:created:technician:`** di dalam fungsi enqueue -- karena itulah kegagalan diam
+yang paling mungkin terjadi kalau task ini dikerjakan setengah.
+
+Nomor migration: pakai `20260925300000` atau lebih besar. Sesi lain sedang
+mengambil nomor berikutnya secara aktif; cek `Get-ChildItem
+supabase/migrations` sebelum menulis, dan kalau bentrok ambil nomor yang jauh
+dalam lebih besar, bukan yang berikutnya.
