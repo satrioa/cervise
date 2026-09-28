@@ -261,7 +261,7 @@ const payload = await res.json();
 if (!res.ok || payload?.status === false) {
   const bodyReason = typeof payload?.reason === "string" ? payload.reason : null;
   const reason = bodyReason ?? `HTTP ${res.status}`;
-  // Hanya alasan dari Fonnte yang bisa memvonisi pesan. Tanpa alasan, kita
+  // Hanya alasan dari Fonnte yang bisa menyalahkan pesan. Tanpa alasan, kita
   // tidak tahu apakah nomornya salah atau tokennya yang kedaluwarsa.
   const messageScoped = bodyReason ? isPermanentReason(bodyReason) : false;
   throw new FonnteError(reason, !messageScoped, messageScoped ? "message" : "infrastructure");
@@ -288,7 +288,7 @@ token yang kedaluwarsa, dan mengulanginya lebih aman daripada membuang notifikas
 | `src/lib/phone.test.ts` | `08...`, `8...`, `62...`, `+62...` jadi satu bentuk kanonik; tolak huruf, terlalu pendek atau panjang, `0` di tengah; `null` lolos |
 | `src/lib/auth/profile-phone-migration.test.ts` | CHECK ada; grant self-service tidak berubah; tidak ada kolom phone di `employees` |
 | `src/lib/auth/notification-outbox-migration.test.ts` | RLS aktif tanpa policy; revoke anon dan authenticated; grant service_role; `servis_id` tanpa FK cascade; index dedupe unik; kedua trigger ada; signature trigger mengecek suppress GUC |
-| `src/lib/fonnte.test.ts` | body `status: false` dianggap gagal; kuota retryable; `invalid target` permanen |
+| `src/lib/fonnte.test.ts` | body `status: false` dianggap gagal; `invalid target` ber-`scope: "message"`; 401 dan alasan tak terdaftar ber-`scope: "infrastructure"`; 429 dan 5xx tetap retryable; `countryCode` benar-benar sampai ke wire |
 | `src/lib/notifications/service-message.test.ts` | nama toko selalu ada; tidak ada `undefined`; garansi dari data; URL memakai origin yang diteruskan |
 | `src/lib/notifications/dispatcher.test.ts` | dedupe; claim tidak dobel; backoff; `skipped` tanpa retry; teknisi nonaktif dilewati; cap per run |
 | `src/app/app/karyawan/actions.test.ts` | teknisi tanpa nomor ditolak; admin boleh kosong; nomor tersimpan kanonik |

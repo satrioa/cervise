@@ -228,7 +228,8 @@ export type FonnteSendResult =
 
 export class FonnteError extends Error {
   readonly reason: string;
-  readonly retryable: boolean;
+  readonly scope: "message" | "infrastructure";
+
   /**
    * `message` = nomor atau isi pesannya yang salah, jadi mengulangnya tidak
    * akan pernah berhasil. `infrastructure` = Fonnte atau tokennya yang bermasalah,
@@ -238,15 +239,18 @@ export class FonnteError extends Error {
    * kedaluwarsa, Fonnte membalas 401 untuk setiap pesan sekaligus. Kalau itu
    * diperlakukan permanen, satu rotasi token membuang semua notifikasi tanpa
    * jejak.
+   *
+   * `retryable` tidak jadi parameter: ia diturunkan dari `scope`, supaya tidak
+   * mungkin ada error yang sekaligusterminal tapi terbaca retryable.
    */
-  readonly scope: "message" | "infrastructure";
+  readonly retryable: boolean;
 
-  constructor(reason: string, retryable: boolean, scope: "message" | "infrastructure") {
+  constructor(reason: string, scope: "message" | "infrastructure") {
     super(`Fonnte gagal: ${reason}`);
     this.name = "FonnteError";
     this.reason = reason;
-    this.retryable = retryable;
     this.scope = scope;
+    this.retryable = scope !== "message";
   }
 }
 
@@ -302,12 +306,12 @@ export async function sendFonnteWA(
       typeof payload.reason === "string" && payload.reason ? payload.reason : null;
     const reason = bodyReason ?? `HTTP ${res.status}`;
 
-    // Hanya alasan dari Fonnte yang bisa memvonisi pesan. Tanpa alasan, kita
+    // Hanya alasan dari Fonnte yang bisa menyalahkan pesan. Tanpa alasan, kita
     // tidak tahu apakah nomornya salah atau tokennya yang kedaluwarsa, dan
     // mengulanginya lebih aman daripada membuang notifikasi.
     const messageScoped = bodyReason ? isPermanentReason(bodyReason) : false;
 
-    throw new FonnteError(reason, !messageScoped, messageScoped ? "message" : "infrastructure");
+    throw new FonnteError(reason, messageScoped ? "message" : "infrastructure");
   }
 
   return { skip: false, status: true, detail: payload };
@@ -1909,7 +1913,7 @@ describe("dispatchPendingNotifications", () => {
     state.servis = [SERVIS];
     state.customers = [{ id: "c1", phone: "628123456789" }];
     mocks.sendFonnteWA.mockRejectedValue(
-      new FakeFonnteError("insufficient quota", true, "infrastructure"),
+      new FakeFonnteError("insufficient quota", "infrastructure"),
     );
 
     const now = new Date("2026-09-27T10:00:00.000Z");
@@ -1930,7 +1934,7 @@ describe("dispatchPendingNotifications", () => {
     state.servis = [SERVIS];
     state.customers = [{ id: "c1", phone: "628123456789" }];
     mocks.sendFonnteWA.mockRejectedValue(
-      new FakeFonnteError("HTTP 401", true, "infrastructure"),
+      new FakeFonnteError("HTTP 401", "infrastructure"),
     );
 
     const result = await dispatchPendingNotifications({ siteOrigin: "https://app.cervise.id" });
@@ -1945,7 +1949,7 @@ describe("dispatchPendingNotifications", () => {
     state.servis = [SERVIS];
     state.customers = [{ id: "c1", phone: "628123456789" }];
     mocks.sendFonnteWA.mockRejectedValue(
-      new FakeFonnteError("insufficient quota", true, "infrastructure"),
+      new FakeFonnteError("insufficient quota", "infrastructure"),
     );
 
     const result = await dispatchPendingNotifications({ siteOrigin: "https://app.cervise.id" });
@@ -1959,7 +1963,7 @@ describe("dispatchPendingNotifications", () => {
     state.servis = [SERVIS];
     state.customers = [{ id: "c1", phone: "628123456789" }];
     mocks.sendFonnteWA.mockRejectedValue(
-      new FakeFonnteError("invalid target", false, "message"),
+      new FakeFonnteError("invalid target", "message"),
     );
 
     const result = await dispatchPendingNotifications({ siteOrigin: "https://app.cervise.id" });
