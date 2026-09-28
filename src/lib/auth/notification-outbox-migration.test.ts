@@ -22,7 +22,13 @@ describe("outbox notifikasi servis migration", () => {
 
   it("tidak memberi foreign key ke servis supaya riwayat tidak hilang", () => {
     expect(flat).toContain("servis_id uuid");
-    expect(flat).not.toContain("servis_id uuid not null references");
+    // Regex, bukan string.servis_id uuid not null references cuma menangkap
+    // versi NOT NULL; rewrites nullable seperti
+    // "servis_id uuid references public.cervise_services(id) on delete cascade"
+    // lolos dari bentuk itu dan diam-diam mengembalikan data loss yang tabel ini
+    // ada untuk cegah: cervise_service_logs memakai on delete cascade, jadi
+    // menghapus servis menghancurkan riwayatnya.
+    expect(flat).not.toMatch(/servis_id[^,]*references/);
   });
 
   it("membuat index antrean pending", () => {
@@ -34,7 +40,13 @@ describe("outbox notifikasi servis migration", () => {
     expect(flat).toContain("alter table public.cervise_notification_outbox enable row level security");
     expect(flat).toContain("revoke all on public.cervise_notification_outbox from anon");
     expect(flat).toContain("revoke all on public.cervise_notification_outbox from authenticated");
-    expect(flat).toContain("to service_role");
+    // Literal utuh, bukan substring "service_role": grant fungsi sudah memuat
+    // kata itu, jadi menghapus grant tabel seluruhnya akan tetap hijau di sini
+    // sementara dispatcher, satu-satunya konsumen, kehilangan semua akses ke
+    // antrean.
+    expect(flat).toContain(
+      "grant select, insert, update, delete on public.cervise_notification_outbox to service_role",
+    );
     // Tidak boleh ada policy: tanpa policy, hanya service_role yang bisa.
     expect(flat).not.toContain("create policy");
   });
@@ -70,13 +82,25 @@ describe("outbox notifikasi servis migration", () => {
   it("menyediakan klaim atomik untuk dispatcher", () => {
     expect(flat).toContain("create or replace function public.claim_service_notifications");
     expect(flat).toContain("for update skip locked");
-    expect(flat).toContain("set attempts = o.attempts + 1");
+    // Sewa, bukan penghitung: klaim menggeser next_attempt_at supaya baris yang
+    // ditinggalkan (worker mati, kontainer dibunuh di 60s) tidak langsung
+    // diambil lagi oleh tick cron berikutnya. attempts milik dispatcher, yang
+    // dinaikkan hanya saat benar-benar mengirim; kalau klaim ikut menaikkan,
+    // MAX_ATTEMPTS = 4 hanya jadi sekitar 2 kiriman nyata.
+    expect(flat).toContain("set next_attempt_at = now() + interval '2 minutes'");
+    expect(flat).not.toContain("set attempts = o.attempts + 1");
   });
 
-  it("tidak mengubah hak akses tabel lain", () => {
+  it("tidak menyentuh hak akses di luar baris grant/revoke", () => {
     // Setiap baris grant/revoke hanya boleh menyasar outbox atau salah satu
-    // funksinya. Kalau file ini diam-diam melonggarkan tabel lain, baris itu
+    // funksinya; kalau file ini diam-diam melonggarkan tabel lain, baris itu
     // tidak akan punya target yang diizinkan di sini.
+    //
+    // Cakupan assertion ini lebih sempit dari judul lamanya. Filter
+    // /^(grant|revoke)\b/i hanya melihat baris yang diawali grant/revoke, jadi
+    // perubahan privilege di dalam blok do $$, alter default privileges, atau
+    // alter table ... owner to tidak akan tertangkap. Yang terbukti di sini
+    // hanya tidak ada baris privilege yang menyasar objek di luar daftar ini.
     const targets = [
       "public.cervise_notification_outbox",
       "claim_service_notifications",
