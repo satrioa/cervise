@@ -2883,19 +2883,32 @@ kasus ini), dan `branch_id`/`servis_id` diambil dari `new` seperti trigger lain.
 Jangan menambahkan baris customer di sini: customer sudah diberi tahu saat
 insert dan tidak ada hubungannya dengan siapa teknisinya.
 
-**Verifikasi, dengan rollback** seperti Task 7 Step 6:
+**Verifikasi, dengan rollback** seperti Task 7 Step 6. Ekspektasi yang benar,
+setelah koreksi: satu `servis_id`, servis dibuat dengan teknisi A.
 
 ```sql
--- count 2 setelah insert, jadi trigger baru tidak menyala di insert
+-- count 2 setelah insert (customer + teknisi A)
 -- count 3 setelah A -> B
--- count 3 setelah B -> A  (kunci A sama, jadi tidak menyala)
--- count 4 setelah A -> B lagi
+-- count 4 setelah B -> A
+-- count 4 setelah A -> B LAGI  <-- TIDAK naik
 ```
 
-`B -> A -> B` harus menghasilkan 4 baris: kunci pertama A dipakai sekali, kunci B
-dipakai sekali, jadi tiga perpindahan menghasilkan tiga baris baru. Kalau tidak,
-kuncinya tidak membedakan arah perpindahan -- tulis ulang bentuknya.
+Baris keempat **tidak** naik, dan itu benar, bukan cacat: kunci `assigned:B`
+sudah terpakai dari perpindahan pertama, jadi `on conflict do nothing`
+menahannya. Notifikasi ulang ke teknisi yang sama tentang pekerjaan yang sama
+itu derau, bukan informasi. Kalau nanti memang dibutuhkan notifikasi setiap
+kali, kuncinya harus memuat stempel waktu -- tapi itu menghapus idempotensi
+yang jadi alasan trigger memakai `on conflict do nothing` sama sekali. Tradeoff
+itu pilihan produk, bukan detail SQL, dan untuk sekarang konfirmasi ulang
+dianggap derau.
 
+`B -> A -> B` menghasilkan 4 baris: `created:A` (dari insert), `assigned:B`,
+`assigned:A`, lalu `assigned:B` lagi yang ditolak. Kalau penghitungannya tidak
+seperti itu, kuncinya tidak membedakan arah perpindahan -- tulis ulang
+bentuknya.
+
+Nomor migration: `20260925310000`. Sesi lain baru saja mengambil
+`20260925300000_add_tenant_owner.sql`, jadi jangan pakai 300000.
 **Test statis** baru di `src/lib/auth/notification-outbox-migration.test.ts`:
 assert trigger name, `after update of teknisi_id`, `is distinct from`,
 `is not null`, dan secara khusus **assert kunci baru tidak memuat
