@@ -485,8 +485,10 @@ describe("validatePhone", () => {
   });
 
   it("menguji batas 24 karakter tepat di batasnya", () => {
-    // Batas karakter harus diuji tepat di batasnya. Kalau cap dihapus, test
-    // ini tetap hijau karena nomor tersebut juga gagal cek jumlah digit.
+    // Batas karakter harus diuji tepat di batasnya, dan nomornya harus lolos
+    // SEMUA cek lain, supaya test ini benar-benar hanya menguji cap. Bungkus
+    // ` -----` di akhir itu wajib: pada 24 karakter dengan maksimal 15 digit,
+    // minimal 9 karakter harus tanda baca. Jangan dirapikan jadi nomor natural.
     // 24 karakter dengan 13 digit. Padding tanda baca dipaksakan: pada 24
     // karakter dengan maksimal 15 digit, minimal 9 karakter harus tanda baca.
     const at24 = "0812 3456 78 (012) -----";
@@ -522,12 +524,14 @@ Expected: FAIL — tidak bisa resolve `./phone`.
 // Aturan nomor telepon yang dipakai bersama: form karyawan, edit profil,
 // dan pengiriman WhatsApp.
 //
-// Dua tempat lain masih punya versinya sendiri dan SENGAJA dibiarkan:
+// Beberapa tempat lain masih punya versinya sendiri dan SENGAJA dibiarkan.
 // - src/lib/auth/account-input.ts:92-98 menyimpan input mentah apa adanya, jadi
 //   profiles.phone bisa berisi `0812 3456 7890`. Aturan di sini tidak boleh
 //   berubah jadi bentuk kanonik, atau penulisan itu ikut gagal.
 // - src/lib/operational/customer-list.ts punya fungsi bernama mirip untuk
 //   tampilan saja, dan sengaja tidak menolak input lawas.
+// - src/app/app/customer/actions.ts dan src/lib/platform/validation.ts punya
+//   batas digit sendiri, 10-15, dan batas itu yang diikuti modul ini.
 //
 // Yang ditetapkan di sini adalah bentuk kanonik untuk DISIMPAN dan DIKIRIM.
 
