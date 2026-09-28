@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 import { CommandSearchTrigger } from "./command-palette-provider";
+import { ThemeToggle } from "./theme-toggle";
 
 export type PageHeaderProps = {
   title: ReactNode;
@@ -47,7 +48,8 @@ export function PageHeader({
           <h1 className={cn("truncate font-heading text-xl", titleClassName)}>{title}</h1>
           {description ? <p className="mt-0.5 truncate text-sm text-muted-foreground">{description}</p> : null}
         </div>
-        <div className="shrink-0">
+        <div className="flex shrink-0 items-center gap-1.5">
+          <ThemeToggle />
           <CommandSearchTrigger />
         </div>
       </div>

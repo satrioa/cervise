@@ -37,7 +37,11 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
       suppressHydrationWarning
     >
       <body className="min-h-full flex flex-col">
-        <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false} storageKey="cervise-theme-light" disableTransitionOnChange={false}>
+        {/* enableSystem wajib true supaya opsi "Sistem" di ThemeToggle benar-benar
+            mengikuti prefers-color-scheme; dengan false, pilihan itu diam-diam
+            diabaikan. defaultTheme "system" juga menghormati setelan OS dari
+            kunjungan pertama, tanpa memaksa light. */}
+        <ThemeProvider attribute="class" defaultTheme="system" enableSystem storageKey="cervise-theme" disableTransitionOnChange={false}>
           <NextIntlClientProvider messages={messages}>{children}</NextIntlClientProvider>
           <Toaster richColors position="top-right" />
         </ThemeProvider>
