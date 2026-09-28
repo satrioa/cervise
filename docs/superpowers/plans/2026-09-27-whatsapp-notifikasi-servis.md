@@ -1193,7 +1193,7 @@ Teks pesan. Fungsi murni tanpa I/O supaya bisa diuji tanpa database maupun jarin
 
 **Interfaces:**
 - Produces:
-  - `type ServiceMessageInput` dengan field: `storeName`, `tenantSlug`, `serviceId`, `serviceNumber`, `device`, `complaint`, `trackingCode`, `status`, `teknisiName`, `siteOrigin`
+  - `type ServiceMessageInput` dengan field: `storeName`, `tenantSlug`, `serviceId`, `serviceNumber`, `device`, `complaint`, `trackingCode`, `status`, `siteOrigin`. `teknisiName` TIDAK ada: pesan teknisi dikirim ke teknisinya, jadi menamacari orang itu sia-sia.
   - `publicLacakUrl(siteOrigin: string, tenantSlug: string | null, trackingCode: string | null): string`
   - `buildCustomerCreatedMessage(input: ServiceMessageInput): string`
   - `buildTechnicianCreatedMessage(input: ServiceMessageInput): string`
