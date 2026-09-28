@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getActiveTenant } from "@/lib/supabase/actor";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { publicPhotoUrl } from "@/lib/photos";
+import { passwordResetRedirectUrl } from "@/lib/auth/redirect-url";
 import { revalidatePath } from "next/cache";
 
 export async function getProfileInitial() {
@@ -119,7 +120,11 @@ export async function requestPasswordReset(email: string) {
   const accountEmail = auth.user.email?.trim().toLowerCase() ?? "";
   if (!accountEmail || requestedEmail !== accountEmail) throw new Error("Email tidak sesuai dengan akun");
   const { error } = await supabase.auth.resetPasswordForEmail(accountEmail, {
-    redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL ?? ""}/login`,
+    // Absolute URL ke route milik app ini. Versi lama memakai
+    // `${process.env.NEXT_PUBLIC_SITE_URL ?? ""}/login`; env itu tidak pernah
+    // didefinisikan, jadi targetnya jadi "/login" - URL relatif yang ditolak
+    // Supabase, dan user tidak pernah sampai ke form ganti password.
+    redirectTo: await passwordResetRedirectUrl(),
   });
   if (error) throw new Error(error.message);
   return { ok: true };

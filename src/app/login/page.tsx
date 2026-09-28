@@ -2,7 +2,7 @@
 
 import { type FormEvent, useState } from "react";
 import { EyeIcon, EyeOffIcon } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardPanel } from "@/components/ui/card";
@@ -14,6 +14,11 @@ import { getPostLoginDestination } from "./actions";
 import { toast } from "sonner";
 
 export default function LoginPage() {
+  // Params ini dipakai /update-password setelah password berhasil diganti, dan
+  // oleh middleware saat akses ditolak. Tanpa ini user melihat form login tanpa
+  // penjelasan kenapa mereka tiba-tiba harus login lagi.
+  const notice = usePasswordNotice();
+
   return (
     <div className="relative flex min-h-svh items-center justify-center bg-background px-4 py-12 text-foreground">
       <PageBackdrop />
@@ -26,6 +31,18 @@ export default function LoginPage() {
               <p className="text-muted-foreground text-sm">Servis HP · 1 user 1 cabang</p>
             </div>
           </CardHeader>
+          {notice ? (
+            <p
+              role="status"
+              className={
+                notice.kind === "success"
+                  ? "mt-5 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-700"
+                  : "mt-5 rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive"
+              }
+            >
+              {notice.message}
+            </p>
+          ) : null}
           <CardPanel className="mt-6 flex flex-col gap-5 p-0">
             <SignInForm />
             <FooterLinks />
@@ -34,6 +51,17 @@ export default function LoginPage() {
       </div>
     </div>
   );
+}
+
+function usePasswordNotice() {
+  const searchParams = useSearchParams();
+  if (searchParams.get("password") === "updated") {
+    return { kind: "success" as const, message: "Password berhasil diganti. Silakan masuk." };
+  }
+  if (searchParams.get("error") === "access_denied") {
+    return { kind: "error" as const, message: "Link reset password tidak valid atau sudah kedaluwarsa." };
+  }
+  return null;
 }
 
 function PageBackdrop() {

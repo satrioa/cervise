@@ -6,6 +6,7 @@ import { getActiveTenant, type Actor } from "@/lib/supabase/actor";
 import { isEmployeeTargetInOrganization, isManagerRole } from "@/lib/auth/authorization";
 import { canAccess } from "@/lib/rbac";
 import { generateTempPassword } from "@/lib/auth/password";
+import { passwordResetRedirectUrl } from "@/lib/auth/redirect-url";
 import { EMPLOYEE_TO_PROFILE_ROLE, canManageEmployees } from "@/lib/auth/account-input";
 import { publicPhotoUrl } from "@/lib/photos";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -313,13 +314,23 @@ export async function resetKaryawanPassword(profileId: string) {
     email = (data.user as any)?.email ?? null;
   }
   if (!email) throw new Error("Email tidak ditemukan");
-  // use anon client reset (sends email)
-  const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: `${process.env.NEXT_PUBLIC_SUPABASE_URL}/auth/callback` } as any);
-  // fallback: admin invite
+
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    // Absolute URL ke route milik app ini. Versi lama menulis
+    // `${NEXT_PUBLIC_SUPABASE_URL}/auth/callback`, yang mengarah ke domain
+    // Supabase, bukan ke Cervise - user klik link-nya dan mendarat di Supabase.
+    redirectTo: await passwordResetRedirectUrl(),
+  });
+
+  // Dulu ada fallback ke admin.generateLink() ketika resetPasswordForEmail
+  // gagal. generateLink hanya membuat link di server dan TIDAK mengirim email,
+  // lalu fungsi ini tetap return ok:true - jadi user melihat "reset terkirim"
+  // padahal tidak ada email yang pernah keluar. Sekarang error-nya
+  // diteruskan apa adanya supaya tidak ada janji yang tidak ditepati.
   if (error) {
-    const { error: aErr } = await createAdminClient().auth.admin.generateLink({ type: "recovery", email } as any);
-    if (aErr) throw new Error(aErr.message);
+    throw new Error(`Gagal mengirim email reset password: ${error.message}`);
   }
+
   return { ok: true as const, email };
 }
 
