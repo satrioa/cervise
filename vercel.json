@@ -3,6 +3,10 @@
     {
       "path": "/api/cron/subscription-renewals",
       "schedule": "5 * * * *"
+    },
+    {
+      "path": "/api/cron/service-notifications",
+      "schedule": "*/5 * * * *"
     }
   ]
 }
