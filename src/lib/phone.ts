@@ -1,6 +1,14 @@
 // Aturan nomor telepon yang dipakai bersama: form karyawan, edit profil,
-// dan pengiriman WhatsApp. Sempat terduplikasi di onboarding (normalisasi)
-// dan account-input (validasi), sekarang hanya di sini.
+// dan pengiriman WhatsApp.
+//
+// Dua tempat lain masih punya versinya sendiri dan SENGAJA dibiarkan:
+// - src/lib/auth/account-input.ts:92-98 menyimpan input mentah apa adanya, jadi
+//   profiles.phone bisa berisi `0812 3456 7890`. Aturan di sini tidak boleh
+//   berubah jadi bentuk kanonik, atau penulisan itu ikut gagal.
+// - src/lib/operational/customer-list.ts punya fungsi bernama mirip untuk
+//   tampilan saja, dan sengaja tidak menolak input lawas.
+//
+// Yang ditetapkan di sini adalah bentuk kanonik untuk DISIMPAN dan DIKIRIM.
 
 /**
  * Mengubah apa pun yang diketik orang menjadi bentuk kanonik `62...`.
@@ -19,8 +27,11 @@ export function normalizePhone62(raw: string | null | undefined): string | null 
     return null;
   }
 
-  // 62 + 7..12 digit subscriber. Di luar itu nomor domestic yang salah ketik.
-  if (digits.length < 9 || digits.length > 14) return null;
+  // 10-15 digit, mengikuti batas yang dipakai src/app/app/customer/actions.ts.
+  // Batas itu longgar dengan sengaja: nomor yang ditolak di sini berarti
+  // pelanggan tidak menerima notifikasi sama sekali, sedangkan nomor yang
+  // kelewat longgar hanya ditolak Fonnte dan tercatat di log.
+  if (digits.length < 10 || digits.length > 15) return null;
   return digits;
 }
 
