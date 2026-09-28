@@ -35,6 +35,7 @@ import { toPrintData, renderJetHtml, renderDotMatrixHtml, renderThermalHtml, typ
 import { cn } from "@/lib/utils";
 import { SparepartPickDialog, CancelSparepartDialog } from "@/components/servis/sparepart-dialogs";
 import { PageHeader } from "@/components/layout/page-header";
+import { Skeleton } from "@/components/ui/skeleton";
 import { DOT_COLOR, STAGES, StageTrack, stageIndex, type Stage } from "@/lib/operational/stage-track";
 import { servisLabel } from "@/lib/operational/servis-list";
 
@@ -79,6 +80,76 @@ function PaymentBadge({ status }: { status: PaymentStatus }) {
     <Badge variant={cfg.variant} size="sm" className="font-medium whitespace-nowrap">
       {cfg.label}
     </Badge>
+  );
+}
+
+/**
+ * Placeholder selama data servis dimuat. Previously a text "Memuat data
+ * servis..." which shifted the whole page down when it disappeared. The
+ * skeleton mirrors the geometry of the view that will replace it, so the
+ * layout does not jump.
+ */
+function ServisTableSkeleton({ view }: { view: "table" | "kanban" }) {
+  if (view === "kanban") {
+    return (
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-8">
+        {STAGES.map((stage) => (
+          <div key={stage.key} className="flex flex-col gap-2">
+            <div className="flex items-center justify-between gap-2">
+              <Skeleton className="h-4 w-24" />
+              <Skeleton className="size-5 rounded-md" />
+            </div>
+            <div className="flex min-h-[320px] flex-col gap-2 rounded-xl border bg-card p-2">
+              {Array.from({ length: 2 }).map((_, cardIndex) => (
+                <div key={cardIndex} className="flex flex-col gap-2 rounded-lg border bg-background p-3">
+                  <Skeleton className="h-3 w-20" />
+                  <Skeleton className="h-4 w-full" />
+                  <Skeleton className="h-3 w-4/5" />
+                  <div className="flex items-center justify-between pt-0.5">
+                    <Skeleton className="h-3 w-16" />
+                    <Skeleton className="h-5 w-20 rounded-full" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  // Column widths mirror the real table: checkbox, Servis, Device, Status,
+  // Teknisi, Pembayaran, Harga.
+  return (
+    <div className="overflow-hidden rounded-xl border">
+      <div className="flex items-center gap-4 border-b bg-muted/30 px-4 py-2.5">
+        <Skeleton className="size-4 shrink-0 rounded" />
+        <Skeleton className="h-3 w-24 shrink-0" />
+        <Skeleton className="h-3 w-28 flex-1" />
+        <Skeleton className="h-3 w-20 shrink-0" />
+        <Skeleton className="h-3 w-20 shrink-0" />
+        <Skeleton className="h-3 w-16 shrink-0" />
+        <Skeleton className="h-3 w-20 shrink-0" />
+      </div>
+      {Array.from({ length: 8 }).map((_, rowIndex) => (
+        <div
+          key={rowIndex}
+          className="flex items-center gap-4 border-b px-4 py-3 last:border-b-0"
+        >
+          <Skeleton className="size-4 shrink-0 rounded" />
+          <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+            <Skeleton className="h-3 w-28" />
+            <Skeleton className="h-3 w-36" />
+            <Skeleton className="h-2.5 w-20" />
+          </div>
+          <Skeleton className="h-4 w-28 shrink-0" />
+          <Skeleton className="h-5 w-20 shrink-0 rounded-full" />
+          <Skeleton className="h-3 w-16 shrink-0" />
+          <Skeleton className="h-6 w-16 shrink-0 rounded-full" />
+          <Skeleton className="h-4 w-24 shrink-0" />
+        </div>
+      ))}
+    </div>
   );
 }
 
@@ -624,7 +695,7 @@ export default function ServisPage() {
           </div>
         ) : null}
         {servisLoading && servisData.length === 0 ? (
-          <div className="py-16 text-center text-sm text-muted-foreground">Memuat data servis…</div>
+          <ServisTableSkeleton view={view} />
         ) : null}
         {!servisLoading && !servisError && servisData.length === 0 ? (
           <div className="py-16 text-center">
