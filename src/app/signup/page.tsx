@@ -1,6 +1,6 @@
 "use client";
 
-import { type FormEvent, useMemo, useState } from "react";
+import { type FormEvent, useState } from "react";
 import { CheckIcon, EyeIcon, EyeOffIcon } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -12,24 +12,30 @@ import { Input } from "@/components/ui/input";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
+import { PasswordStrength, type PasswordRule } from "@/components/interior/password-strength";
+import { meetsPasswordLength, MIN_PASSWORD_LENGTH } from "@/lib/auth/password-policy";
 import { toast } from "sonner";
 import { signupAction } from "./actions";
 
-type Strength = "empty" | "weak" | "ok" | "strong";
-function computeStrength(password: string): Strength {
-  if (!password) return "empty";
-  const hasDigit = /\d/.test(password);
-  const hasSymbol = /[^\w\s]/.test(password);
-  if (password.length >= 12 || (password.length >= 8 && hasDigit && hasSymbol)) return "strong";
-  if (password.length >= 8 && (hasDigit || hasSymbol)) return "ok";
-  return "weak";
-}
-const STRENGTH_META: Record<Strength, { label: string; segments: number; color: string; text: string }> = {
-  empty: { label: "", segments: 0, color: "bg-border", text: "text-muted-foreground" },
-  weak: { label: "Lemah", segments: 1, color: "bg-amber-500", text: "text-amber-600 dark:text-amber-400" },
-  ok: { label: "Cukup", segments: 2, color: "bg-sky-500", text: "text-sky-600 dark:text-sky-400" },
-  strong: { label: "Kuat", segments: 3, color: "bg-emerald-500", text: "text-emerald-600 dark:text-emerald-400" },
-};
+/**
+ * Aturan dan label didefinisikan di luar komponen, bukan inline di JSX.
+ * usePasswordStrength menghitung state-nya di dalam useMemo dengan `rules` dan
+ * `labels` sebagai dependensi. Array yang dibuat inline akan mendapat identitas
+ * baru tiap render, jadi memo tidak pernah kena cache dan animasi meter
+ * berkedip ulang setiap kali user mengetik.
+ */
+const SIGNUP_RULES: readonly PasswordRule[] = [
+  { id: "length", label: `Minimal ${MIN_PASSWORD_LENGTH} karakter`, test: (v) => meetsPasswordLength(v) },
+  { id: "case", label: "Huruf besar dan huruf kecil", test: (v) => /[a-z]/.test(v) && /[A-Z]/.test(v) },
+  { id: "digit", label: "Mengandung angka", test: (v) => /\d/.test(v) },
+  { id: "symbol", label: "Mengandung simbol", test: (v) => /[!-/:-@[-`{-~]/.test(v) },
+];
+
+/**
+ * Lima label untuk skor 0..4 (jumlah aturan = 4, jadi indeks tertinggi adalah 4).
+ * Urutannya penting: komponen memakai labels[min(score, labels.length - 1)].
+ */
+const STRENGTH_LABELS = ["Kosong", "Lemah", "Cukup", "Kuat", "Sangat kuat"] as const;
 
 export default function SignupPage() {
   const router = useRouter();
@@ -39,9 +45,13 @@ export default function SignupPage() {
   const [reveal, setReveal] = useState(false);
   const [terms, setTerms] = useState(false);
   const [pending, setPending] = useState(false);
-  const strength = useMemo(() => computeStrength(password), [password]);
-  const meta = STRENGTH_META[strength];
-  const canSubmit = terms && name.trim() !== "" && email.trim() !== "" && password !== "";
+
+  // Gate memakai aturan yang sama dengan server (minimal 8 karakter), bukan
+  // "semua aturan terpenuhi". Aturan sisanya shown purely sebagai saran -
+  // kalau tombol ikut terkunci sampai semua terpenuhi, form ini akan
+  //amins Advertises a policy that signupAction tidak punya.
+  const canSubmit =
+    terms && name.trim() !== "" && email.trim() !== "" && meetsPasswordLength(password);
 
   const onSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -86,17 +96,28 @@ export default function SignupPage() {
               <Field>
                 <FieldLabel htmlFor="signup-password">Password</FieldLabel>
                 <InputGroup>
-                  <InputGroupInput id="signup-password" type={reveal ? "text" : "password"} required placeholder="Minimal 8 karakter" autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} nativeInput />
+                  <InputGroupInput id="signup-password" type={reveal ? "text" : "password"} required placeholder={`Minimal ${MIN_PASSWORD_LENGTH} karakter`} autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} nativeInput />
                   <InputGroupAddon align="inline-end">
-                    <button type="button" onClick={() => setReveal((v) => !v)} aria-label={reveal ? "Hide" : "Show"} className="cursor-pointer rounded p-1 text-muted-foreground hover:text-foreground">
+                    <button type="button" onClick={() => setReveal((v) => !v)} aria-label={reveal ? "Sembunyikan password" : "Tampilkan password"} className="cursor-pointer rounded p-1 text-muted-foreground hover:text-foreground">
                       {reveal ? <EyeOffIcon className="size-4" /> : <EyeIcon className="size-4" />}
                     </button>
                   </InputGroupAddon>
                 </InputGroup>
-                <div className="mt-1 flex items-center gap-2">
-                  <div className="flex flex-1 gap-1">{[0, 1, 2].map((i) => (<div key={i} className={`h-1.5 flex-1 rounded-full ${i < meta.segments ? meta.color : "bg-border"}`} />))}</div>
-                  <span className={`min-w-[3.5rem] text-right font-mono text-[10px] uppercase tracking-[0.2em] ${meta.text}`}>{meta.label}</span>
-                </div>
+                {password ? (
+                  <div className="mt-3">
+                    <PasswordStrength
+                      value={password}
+                      rules={SIGNUP_RULES}
+                      labels={STRENGTH_LABELS}
+                      meterLabel="Kekuatan password"
+                      guessableLabel="Pola yang sering ditebak"
+                    />
+                    <p className="mt-3 text-xs text-muted-foreground">
+                      Syarat wajib: minimal {MIN_PASSWORD_LENGTH} karakter. Sisanya membuat password jauh lebih
+                      sulit ditebak.
+                    </p>
+                  </div>
+                ) : null}
               </Field>
               <div className="flex items-start gap-2.5">
                 <Checkbox id="signup-terms" checked={terms} onCheckedChange={(v) => setTerms(v === true)} className="mt-0.5" />

@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { checkProjectRef } from "@/lib/supabase/env-check";
+import { meetsPasswordLength, MIN_PASSWORD_LENGTH } from "@/lib/auth/password-policy";
 
 export async function signupAction(input: { name: string; email: string; password: string }) {
   const name = input.name.trim();
@@ -10,7 +11,9 @@ export async function signupAction(input: { name: string; email: string; passwor
   const password = input.password;
   if (!name) throw new Error("Nama wajib");
   if (!email || !email.includes("@")) throw new Error("Email tidak valid");
-  if (!password || password.length < 8) throw new Error("Password minimal 8 karakter");
+  if (!password || !meetsPasswordLength(password)) {
+    throw new Error(`Password minimal ${MIN_PASSWORD_LENGTH} karakter`);
+  }
 
   // Validasi kecocokan project hanya bisa dilakukan untuk key JWT legacy.
   // Key baru (sb_secret_...) tidak memuat project ref, jadi results.matches
