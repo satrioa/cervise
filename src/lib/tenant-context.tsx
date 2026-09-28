@@ -19,6 +19,18 @@ type TenantContextValue = {
   activeOrgId: string | null;
   setActiveOrg: (id: string) => void;
   loading: boolean;
+  /**
+   * Apakah user ini staff platform (ada di `platform_admins`).
+   *
+   * Dipakai untuk menyembunyikan entry point ke /owner. Sebelumnya tombol
+   * "Buat Tenant Baru" dirender untuk semua user tenant, jadi MASTER_ADMIN
+   * biasa (= owner tenant, bukan staff Cervise) mengkliknya lalu dihantarkan
+   * ke layar login oleh requirePlatformAdmin - padahal dia sedang login.
+   *
+   * False sampai query selesai, supaya tombol tidak berkedip muncul untuk
+   * semua orang lalu hilang.
+   */
+  isPlatformAdmin: boolean;
 };
 
 const TenantContext = React.createContext<TenantContextValue | null>(null);
@@ -34,12 +46,27 @@ export function TenantProvider({ children, fixedOrganizationId = null }: { child
   const [tenants, setTenants] = React.useState<Tenant[]>([]);
   const [activeOrgId, setActiveOrgIdState] = React.useState<string | null>(null);
   const [loading, setLoading] = React.useState(true);
+  const [isPlatformAdmin, setIsPlatformAdmin] = React.useState(false);
 
   React.useEffect(() => {
     const supabase = createClient();
     const load = async () => {
       const { data: auth } = await supabase.auth.getUser();
       if (!auth.user) { setLoading(false); return; }
+
+      // Hanya baris milik user sendiri yang boleh dibaca policy
+      // platform_admins_select, jadi user yang bukan staff platform mendapat 0
+      // baris - bukan error. Query ini jalan di client, sekali per sesi, di
+      // effect yang sama dengan dua query tenant di bawah; tidak menambah
+      // query di server hot path getActiveTenant().
+      const { data: platformAdmin } = await supabase
+        .from("platform_admins")
+        .select("profile_id")
+        .eq("profile_id", auth.user.id)
+        .eq("is_active", true)
+        .maybeSingle();
+      setIsPlatformAdmin(Boolean(platformAdmin));
+
       const { data: emps } = await supabase.from("employees").select("organization_id").eq("profile_id", auth.user.id).eq("is_active", true);
       const employeeOrganizationIds = [...new Set((emps ?? []).map((employee: { organization_id: string }) => employee.organization_id).filter(Boolean))] as string[];
       const orgIds: string[] = [];
@@ -113,7 +140,10 @@ export function TenantProvider({ children, fixedOrganizationId = null }: { child
     }
   }, [fixedOrganizationId]);
 
-  const value = React.useMemo(() => ({ tenants, activeOrgId, setActiveOrg, loading }), [tenants, activeOrgId, setActiveOrg, loading]);
+  const value = React.useMemo(
+    () => ({ tenants, activeOrgId, setActiveOrg, loading, isPlatformAdmin }),
+    [tenants, activeOrgId, setActiveOrg, loading, isPlatformAdmin],
+  );
   return <TenantContext.Provider value={value}>{children}</TenantContext.Provider>;
 }
 

@@ -28,7 +28,17 @@ export async function requirePlatformAdmin(): Promise<PlatformActor> {
   }
 
   if (!admin) {
-    redirect("/login?error=platform-admin-required");
+    // Dua kondisi harus dibedakan. Dulu keduanya diarahkan ke /login, sehingga
+    // MASTER_ADMIN tenant yang sedang aktif - bukan staff platform - melihat
+    // layar login dan mengira sesinya habis, padahal dia tetap login dan
+    // aksesnya ke /owner memang memang tidak ada.
+    //
+    // Kalau memang belum login, /login + next adalah yang benar.
+    // Kalau sudah login, kembalikan dia ke app-nya dengan alasan yang jelas.
+    if (auth.user) {
+      redirect("/app?error=platform-admin-required");
+    }
+    redirect("/login?next=/owner");
   }
 
   return {

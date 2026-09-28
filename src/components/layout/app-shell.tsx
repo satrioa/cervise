@@ -61,7 +61,7 @@ function roleLabel(role: string) {
 
 function TenantSwitcher({ canSwitchTenant: canSwitchTenantValue }: { canSwitchTenant: boolean }) {
   const router = useRouter();
-  const { tenants, activeOrgId, setActiveOrg, loading } = useTenant();
+  const { tenants, activeOrgId, setActiveOrg, loading, isPlatformAdmin } = useTenant();
   if (loading) {
     return (
       <div className="w-full px-3.5 py-3 text-xs text-muted-foreground">
@@ -73,7 +73,9 @@ function TenantSwitcher({ canSwitchTenant: canSwitchTenantValue }: { canSwitchTe
     return (
       <div className="w-full px-3.5 py-3">
         <div className="text-sm font-medium">Belum ada Tenant</div>
-        <div className="text-xs text-muted-foreground">Buat tenant di /owner</div>
+        {isPlatformAdmin ? (
+          <div className="text-xs text-muted-foreground">Buat tenant di /owner</div>
+        ) : null}
       </div>
     );
   }
@@ -107,8 +109,14 @@ function TenantSwitcher({ canSwitchTenant: canSwitchTenantValue }: { canSwitchTe
       accounts={accounts}
       value={activeOrgId}
       onValueChange={setActiveOrg}
-      onManage={() => router.push("/owner/new")}
-      manageLabel="Buat Tenant Baru"
+      // Hanya staff platform yang boleh membuat tenant dari sini. Tombol ini
+      // dulu selalu dirender, jadi MASTER_ADMIN biasa (pemilik tenant, bukan
+      // staff Cervise) mengkliknya dan dihantarkan ke layar login - padahal
+      // session-nya masih hidup. onManage opsional di MultipleAccounts, jadi
+      // tidak meneruskannya sudah cukup untuk menyembunyikan tombol.
+      {...(isPlatformAdmin
+        ? { onManage: () => router.push("/owner/new"), manageLabel: "Buat Tenant Baru" }
+        : {})}
       bare
     />
   );

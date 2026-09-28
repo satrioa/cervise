@@ -1,6 +1,8 @@
 import { redirect } from "next/navigation";
+import { Suspense } from "react";
 import { AppShell } from "@/components/layout/app-shell";
 import { CompactShell } from "@/components/layout/compact-shell";
+import { QueryErrorToast } from "@/components/layout/query-error-toast";
 import { getTenantAccessRedirect } from "@/lib/auth/authorization";
 import { getActiveTenant, TenantAccessError } from "@/lib/supabase/actor";
 import { surfaceFor } from "@/lib/nav/manifest";
@@ -27,9 +29,22 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     avatarUrl: actor.avatarUrl,
   };
 
-  if (surfaceFor(actor.role) === "compact") {
-    return <CompactShell actor={shellActor}>{children}</CompactShell>;
-  }
+  const shell =
+    surfaceFor(actor.role) === "compact" ? (
+      <CompactShell actor={shellActor}>{children}</CompactShell>
+    ) : (
+      <AppShell actor={shellActor}>{children}</AppShell>
+    );
 
-  return <AppShell actor={shellActor}>{children}</AppShell>;
+  return (
+    <>
+      {/* useSearchParams butuh Suspense boundary, dan tanpa itu seluruh layout
+          ini akan dipaksa jadi dynamic render. Boundary-nya sempit: hanya
+          komponen kecil ini, bukan isi halaman. */}
+      <Suspense fallback={null}>
+        <QueryErrorToast />
+      </Suspense>
+      {shell}
+    </>
+  );
 }
