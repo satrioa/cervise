@@ -10,7 +10,8 @@ export type FonnteSendResult =
 
 export class FonnteError extends Error {
   readonly reason: string;
-  readonly retryable: boolean;
+  readonly scope: "message" | "infrastructure";
+
   /**
    * `message` = nomor atau isi pesannya yang salah, jadi mengulangnya tidak
    * akan pernah berhasil. `infrastructure` = Fonnte atau tokennya yang bermasalah,
@@ -20,21 +21,29 @@ export class FonnteError extends Error {
    * kedaluwarsa, Fonnte membalas 401 untuk setiap pesan sekaligus. Kalau itu
    * diperlakukan permanen, satu rotasi token membuang semua notifikasi tanpa
    * jejak.
+   *
+   * `retryable` tidak jadi parameter: ia diturunkan dari `scope`, supaya tidak
+   * mungkin ada error yang sekaligus terminal tapi terbaca retryable.
    */
-  readonly scope: "message" | "infrastructure";
+  readonly retryable: boolean;
 
-  constructor(reason: string, retryable: boolean, scope: "message" | "infrastructure") {
+  constructor(reason: string, scope: "message" | "infrastructure") {
     super(`Fonnte gagal: ${reason}`);
     this.name = "FonnteError";
     this.reason = reason;
-    this.retryable = retryable;
     this.scope = scope;
+    this.retryable = scope !== "message";
   }
 }
 
+// Status HTTP tanpa alasan Fonnte tidak pernah bisa dipastikan itu soal nomor
+// atau soal token, jadi tidak dipakai untuk memutuskan terminal. Yang menentukan
+// hanya alasan Fonnte sendiri: kalau Fonnte menyebut alasannya, itu soal pesan;
+// kalau tidak, itu soal infrastruktur dan pesannya masih layak dicoba.
+
 // Alasan yang menunjuk ke nomor atau isi pesan, jadi mengulangnya tidak akan
 // pernah berhasil. Selain daftar ini, apa pun dianggap sementara:
-// kehabisan kuota, jaringan, HTTP 5xx, 429.
+// kehabisan kuota, jaringan, HTTP 5xx, 429, penolakan token.
 const PERMANENT_REASONS = [
   "invalid target",
   "invalid parameter",
@@ -79,14 +88,12 @@ export async function sendFonnteWA(
       typeof payload.reason === "string" && payload.reason ? payload.reason : null;
     const reason = bodyReason ?? `HTTP ${res.status}`;
 
-    // Hanya alasan dari body yang bisa membuat kegagalan jadi message-scoped.
-    // Status 4xx sendirian tidak cukup: tanpa alasan Fonnte yang dikenal kita
-    // tidak tahu itu soal nomor atau soal token, jadi diperlakukan infrastruktur
-    // dan pesannya dicoba lagi nanti, bukan dibuang permanen. 5xx dan 429
-    // jelas sementara, jadi tidak pernah message-scoped juga.
+    // Hanya alasan dari Fonnte yang bisa menyalahkan pesan. Tanpa alasan, kita
+    // tidak tahu apakah nomornya salah atau tokennya yang kedaluwarsa, dan
+    // mengulanginya lebih aman daripada membuang notifikasi.
     const messageScoped = bodyReason ? isPermanentReason(bodyReason) : false;
 
-    throw new FonnteError(reason, !messageScoped, messageScoped ? "message" : "infrastructure");
+    throw new FonnteError(reason, messageScoped ? "message" : "infrastructure");
   }
 
   return { skip: false, status: true, detail: payload };

@@ -157,7 +157,7 @@ describe("subscription renewal cron", () => {
     mocks.sendFonnteWA.mockImplementation(async (phone: string) => {
       mocks.events.push(`send:${phone}`);
       if (phone === "0811") {
-        throw new FonnteError("invalid target", false, "message");
+        throw new FonnteError("invalid target", "message");
       }
       return { skip: false };
     });
@@ -176,7 +176,7 @@ describe("subscription renewal cron", () => {
     mocks.sendFonnteWA.mockImplementation(async (phone: string) => {
       mocks.events.push(`send:${phone}`);
       if (phone === "0811") {
-        throw new FonnteError("HTTP 401", true, "infrastructure");
+        throw new FonnteError("HTTP 401", "infrastructure");
       }
       return { skip: false };
     });

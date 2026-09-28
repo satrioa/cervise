@@ -129,6 +129,9 @@ describe("sendFonnteWA", () => {
   });
 
   it("classifies an unlisted Fonnte reason as infrastructure, not a bad number", async () => {
+    // Fonnte membalas alasannya sendiri, dan daftar PERMANENT_REASONS tidak
+    // mungkin lengkap. Yang tidak disebut apa pun dianggap masalah Fonnte,
+    // bukan masalah nomor, jadi pesannya dicoba lagi.
     process.env.FONNTE_TOKEN = "test-token";
     vi.stubGlobal(
       "fetch",
