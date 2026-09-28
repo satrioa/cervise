@@ -9,6 +9,7 @@ import type { TenantAccessErrorCode } from "@/lib/auth/authorization";
 import { publicPhotoUrl } from "@/lib/photos";
 import { canManageEmployees } from "@/lib/auth/account-input";
 import { resolveTargetOrganization } from "@/lib/supabase/org-resolution";
+import { isTenantOwner } from "@/lib/tenant-slug";
 
 export class TenantAccessError extends Error {
   readonly code: TenantAccessErrorCode;
@@ -43,6 +44,15 @@ export type Actor = {
   branchId: string | null;
   employeeId: string;
   role: string;
+  /**
+   * Apakah user ini pemilik tenant yang tercatat di
+   * organizations.owner_profile_id.
+   *
+   * BUKAN "apakah dia MASTER_ADMIN". Hak operasional dan kepemilikan
+   * adalah dua hal terpisah: orang yang mengurus kerja harian sebuah toko
+   * belum tentu yang membayar paketnya, dan sebaliknya.
+   */
+  isOwner: boolean;
   /** Identitas akun, untuk sidebar dan header. Boleh null kalau belum diisi. */
   fullName: string | null;
   avatarUrl: string | null;
@@ -116,7 +126,10 @@ export async function getActiveTenant(): Promise<Actor> {
 
   const { data: organization, error: organizationError } = await supabase
     .from("organizations")
-    .select("status")
+    // owner_profile_id ikut diambil pada select yang sudah ada, bukan query
+    // terpisah: baris ini sudah dibaca untuk cek status, menambah satu kolom
+    // tidak menambah pekerjaan database.
+    .select("status, owner_profile_id")
     .eq("id", targetOrgId)
     .maybeSingle();
   if (organizationError) throw new TenantAccessError("lookup_failed", organizationError.message);
@@ -180,6 +193,15 @@ export async function getActiveTenant(): Promise<Actor> {
     branchId: (actorRow.branch_id as string | null) ?? null,
     employeeId: actorRow.id as string,
     role: (actorRow.role as string) ?? "TECHNICIAN",
+    // Apakah user ini pemilik tenant yang tercatat, bukan sekadar admin
+    // operasional. Sumbernya organizations.owner_profile_id, bukan
+    // employees.role: MASTER_ADMIN berarti mengelola operasional, yang lain
+    // berarti bertanggung jawab atas tagihan. Keduanya bisa ada pada satu
+    // orang, tapi tidak boleh saling disamakan.
+    isOwner: isTenantOwner(
+      organization.owner_profile_id as string | null,
+      auth.user.id,
+    ),
     fullName: (profile.full_name as string | null) ?? null,
     // Path dari database tidak pernah dipakai mentah: divalidasi bentuknya dulu
     // supaya nilai yang tersuntik tidak bisa mengubah host URL.
