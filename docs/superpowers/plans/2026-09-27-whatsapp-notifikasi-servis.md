@@ -797,20 +797,20 @@ Buat `supabase/migrations/20260925210000_profile_phone_validation.sql`:
 -- digit. validatePhone() di src/lib/phone.ts melakukan keduanya, tapi kolom ini
 -- tidak bisa, karena validatePhone() mengembalikan nomor yang sudah
 -- dinormalisasi untuk disimpan, sementara kolom ini menerima input mentah apa
--- adanya. Tiga jalur sudah memanggil validatePhone() sebelum menulis: createKaryawan
--- dan updateKaryawan di src/app/app/karyawan/actions.ts, serta updateProfile di
--- src/app/app/pengaturan/profil/actions.ts. Jalur keempat masih menyimpan input
--- mentah: createMasterAdmin lewat validateMasterAdminInput di
--- src/lib/auth/account-input.ts, yang konstanta panjang dan kelas karakternya
--- sama dengan constraint ini, jadi keamanannya tetap aman, hanya bentuk
--- kanoniknya yang belum seragam. Sampai keempat jalur seragam, bentuk kanonik
--- tidak bisa dijadikan syarat kolom.
+-- adanya. Keempat jalur tulis yang lewat server action sekarang memanggil
+-- validatePhone() sebelum menulis, jadi bentuk kanoniknya seragam:
+-- createKaryawan dan updateKaryawan di src/app/app/karyawan/actions.ts,
+-- updateProfile di src/app/app/pengaturan/profil/actions.ts, dan
+-- createMasterAdmin di src/app/app/pengaturan/master-admin-actions.ts.
+-- Yang masih bisa menulis input mentah adalah PATCH langsung ke
+-- /rest/v1/profiles lewat grant self-service di paragraf pertama, yang tidak
+-- melewati server action sama sekali.
 --
 -- PENTING: kalau suatu saat constraint ini ditulis ^62[0-9]+$, penulisan nomor
 -- dari form karyawan akan gagal dan berubah dari pesan galat yang ramah jadi
--- error database. src/lib/auth/account-input.ts:108 juga menyimpan input mentah
--- apa adanya, jadi profiles.phone bisa berisi `0812 3456 7890` atau
--- +62 812-3456-7890, dan keduanya harus tetap diterima.
+-- error database. profiles.phone juga masih bisa berisi `0812 3456 7890` atau
+-- +62 812-3456-7890, karena PATCH lewat grant self-service tidak melewati
+-- validatePhone, dan kedua bentuk itu harus tetap diterima.
 --
 -- Saat migration ini ditulis, 0 baris profiles.phone terisi di database live,
 -- jadi constraint bisa langsung divalidasi tanpa membersihkan data lebih dulu
