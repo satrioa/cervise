@@ -694,6 +694,18 @@ export default function ServisPage() {
             {servisError}
           </div>
         ) : null}
+        {view === "table" && (
+          <div className="relative -mx-1">
+            <div className="overflow-x-auto scrollbar-none pb-3 px-1 mx-auto w-fit max-w-full [mask-image:linear-gradient(to_right,transparent,black_12px,black_calc(100%-12px),transparent)]">
+              <JellyRadio items={jellyItems} defaultValue="Semua" onChange={(v: string) => setFilter(v)} chipColor="#e4e4e7" activeColor="#18181b" textColor="#18181b" activeTextColor="#f5f5f5" size="md" gap={8} radius={18} />
+            </div>
+          </div>
+        )}
+        {/* Skeleton dan pesan kosong sengaja ada DI BAWAH filter status.
+            Keduanya dulu dirender sebelum JellyRadio, jadi begitu data masuk
+            posisinya melompat ke bawah - filter-nya bergeser ke atas saat
+            sedang memuat, lalu turun lagi setelah selesai. Di mode kanban
+            tidak ada radio, jadi keduanya tetap elemen pertama. */}
         {servisLoading && servisData.length === 0 ? (
           <ServisTableSkeleton view={view} />
         ) : null}
@@ -703,13 +715,6 @@ export default function ServisPage() {
             <p className="mt-1 text-sm text-muted-foreground">Tambahkan servis pertama untuk cabang ini.</p>
           </div>
         ) : null}
-        {view === "table" && (
-          <div className="relative -mx-1">
-            <div className="overflow-x-auto scrollbar-none pb-3 px-1 mx-auto w-fit max-w-full [mask-image:linear-gradient(to_right,transparent,black_12px,black_calc(100%-12px),transparent)]">
-              <JellyRadio items={jellyItems} defaultValue="Semua" onChange={(v: string) => setFilter(v)} chipColor="#e4e4e7" activeColor="#18181b" textColor="#18181b" activeTextColor="#f5f5f5" size="md" gap={8} radius={18} />
-            </div>
-          </div>
-        )}
         {servisData.length > 0 && (view === "table" ? (
           <Table variant="card" className="mt-2">
             <TableHeader>
