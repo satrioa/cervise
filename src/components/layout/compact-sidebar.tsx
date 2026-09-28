@@ -256,7 +256,14 @@ function CompactNavLink({
             : "text-muted-foreground hover:bg-foreground/[0.05] hover:text-foreground",
         )}
       >
-        <Icon className={cn("size-[18px] shrink-0", active ? "opacity-100" : "opacity-70")} />
+        <Icon
+          // `fill="currentColor"` hanya di rail compact. Ikon Lucide secara
+          // default hanya garis; di rail setipis ini garis 2px kehilangan
+          // detail dan ikon jadi samar, terutama saat tidak aktif. Mengisi
+          // path membuat siluetnya tegas di 18px.
+          fill="currentColor"
+          className={cn("size-[18px] shrink-0", active ? "opacity-100" : "opacity-70")}
+        />
         {showLabel ? (
           // Tiga baris, bukan dua. Di rail 60px dengan padding px-1 hanya
           // 52px yang tersisa, dan "Analitik Servis" butuh tiga baris

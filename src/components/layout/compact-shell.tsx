@@ -7,6 +7,8 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/co
 import { Button } from "@/components/ui/button";
 import { CommandPaletteProvider, CommandSearchTrigger } from "@/components/layout/command-palette-provider";
 import { CompactSidebar, COMPACT_GRID_TEMPLATE } from "@/components/layout/compact-sidebar";
+import { ThemeToggle } from "@/components/layout/theme-toggle";
+import { ShellChromeProvider } from "@/components/layout/shell-chrome";
 import { BranchProvider } from "@/lib/branch-context";
 import { TenantProvider } from "@/lib/tenant-context";
 import { LocaleProvider } from "@/lib/localization-context";
@@ -41,7 +43,13 @@ export function CompactShell({ children, actor }: { children: ReactNode; actor: 
       <TenantProvider fixedOrganizationId={actor.orgId}>
         <BranchProvider fixedBranchId={actor.branchId ?? "unassigned"}>
           <CommandPaletteProvider role={actor.role}>
-            <CompactShellInner actor={actor}>{children}</CompactShellInner>
+            {/* Header shell Compact sudah membawa search dan tombol tema, jadi
+                PageHeader di dalamnya harus melompat keduanya. Tanpa provider
+                ini, halaman Servis, Customer, dan Inventori menampilkan dua
+                header bertumpuk untuk TEKNICIAN dan FRONTLINER. */}
+            <ShellChromeProvider value>
+              <CompactShellInner actor={actor}>{children}</CompactShellInner>
+            </ShellChromeProvider>
           </CommandPaletteProvider>
         </BranchProvider>
       </TenantProvider>
@@ -112,15 +120,14 @@ function CompactShellInner({
             </SheetContent>
           </Sheet>
 
-          <div className="flex items-center gap-2 lg:hidden">
-            <span className="flex size-7 items-center justify-center rounded-md bg-primary text-sm text-primary-foreground">
-              C
-            </span>
-            <span className="font-semibold text-sm">Cervise</span>
-          </div>
-
-          <div className="ml-auto w-full max-w-[200px]">
-            <CommandSearchTrigger className="w-full" />
+          {/* Search dan tema diletakkan di shell, bukan di PageHeader, supaya
+              CompactShell punya satu header saja. Shell legacy tidak merender
+              header, jadi PageHeader tetap membawa keduanya di sana. */}
+          <div className="ml-auto flex items-center gap-1.5">
+            <ThemeToggle />
+            <div className="w-full max-w-[200px]">
+              <CommandSearchTrigger className="w-full" />
+            </div>
           </div>
         </header>
 

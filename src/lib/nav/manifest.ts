@@ -1,5 +1,5 @@
 import {
-  LayoutDashboard,
+  House,
   Wrench,
   ShoppingCart,
   Package,
@@ -86,7 +86,10 @@ export const NAV_ENTRIES: NavEntry[] = [
     href: "/app",
     key: "dashboard",
     label: "Dashboard",
-    icon: LayoutDashboard,
+    // `House`, bukan `LayoutDashboard`: yang di rail compact adalah isi konten
+    // halaman, dan grid dasbor membingungkan di sana. `House` juga terbaca
+    // benar di sidebar legacy yang penuh ikon modul.
+    icon: House,
     group: "dashboard",
     roles: ALL,
     // "compact" ada supaya entri ini muncul di sidebar rail TEKNICIAN dan
