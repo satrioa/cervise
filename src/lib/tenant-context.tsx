@@ -46,11 +46,13 @@ export function TenantProvider({ children, fixedOrganizationId = null }: { child
       if (fixedOrganizationId && employeeOrganizationIds.includes(fixedOrganizationId)) {
         orgIds.push(fixedOrganizationId);
       } else if (!fixedOrganizationId) {
+        // Hanya tenant yang punya baris employees untuk user ini. Dulu tenant
+        // yang dibuat user (created_by) ikut ditambahkan - padahal user
+        // tersebut belum tentu punya akses ke sana. Akibatnya switcher
+        // menampilkan tenant yang dipilih selalu memuat data tenant lain,
+        // karena getActiveTenant mengganti org yang tidak bisa diakses dengan
+        // assignment pertama tanpa memberitahu.
         orgIds.push(...employeeOrganizationIds);
-        const { data: owned } = await supabase.from("organizations").select("id, name, paket, slug").eq("created_by", auth.user.id);
-        for (const organization of (owned ?? []) as { id: string }[]) {
-          if (!orgIds.includes(organization.id)) orgIds.push(organization.id);
-        }
       }
       if (orgIds.length === 0) { setLoading(false); return; }
       const { data: orgs } = await supabase.from("organizations").select("id, name, paket, slug, logo_url").in("id", orgIds);

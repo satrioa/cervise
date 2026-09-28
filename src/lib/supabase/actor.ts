@@ -8,6 +8,7 @@ import {
 import type { TenantAccessErrorCode } from "@/lib/auth/authorization";
 import { publicPhotoUrl } from "@/lib/photos";
 import { canManageEmployees } from "@/lib/auth/account-input";
+import { resolveTargetOrganization } from "@/lib/supabase/org-resolution";
 
 export class TenantAccessError extends Error {
   readonly code: TenantAccessErrorCode;
@@ -87,8 +88,19 @@ export async function getActiveTenant(): Promise<Actor> {
   if (emps.length > 1 && !hasValidTargetOrg) {
     throw new TenantAccessError("assignment_required", "Pilih tenant terlebih dahulu");
   }
-  if (!targetOrgId || !hasValidTargetOrg) {
-    targetOrgId = emps[0].organization_id;
+
+  // Resolusi org dipusatkan di resolveTargetOrganization supaya aturannya bisa
+  // diuji. Perbedaan penting dari versi lama: ketika cookie menunjuk tenant yang
+  // tidak punya assignment untuk user ini, hasilnya ditandai usedFallback -
+  // sebelumnya orgId diganti diam-diam sehingga switcher menampilkan satu
+  // tenant sementara seluruh data berasal dari tenant lain.
+  const resolution = resolveTargetOrganization(targetOrgId, emps);
+  if (!resolution) throw new TenantAccessError("tenant_not_found", "Tenant not found — buat tenant dulu di /owner");
+  targetOrgId = resolution.organizationId;
+  if (resolution.usedFallback && resolution.requestedOrgId) {
+    console.warn(
+      `tenant tidak bisa diakses, memakai assignment pertama: ${resolution.requestedOrgId}`,
+    );
   }
 
   const actorRow = emps.find((employee) => employee.organization_id === targetOrgId) as EmployeeRow;

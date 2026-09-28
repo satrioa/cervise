@@ -1,9 +1,27 @@
 export type ServisStage = "Masuk" | "Diagnosa" | "Menunggu Konfirmasi" | "Menunggu Sparepart" | "Dikerjakan" | "Selesai" | "Sudah Diambil" | "Batal";
 export type ServisPaymentStatus = "Lunas" | "DP" | "Belum dibayar";
 
+/**
+ * Label yang ditampilkan ke pengguna untuk sebuah servis.
+ *
+ * Nomor servis (SRV-2026-0001) yang dipakai, bukan UUID dari kolom id. Tabel
+ * sempat merender {item.id} mentah sehingga pengguna melihat
+ * "211bd56f-0845-48f5-..." di kolom "Servis". UUID tetap jadi cadangan untuk
+ * data lama yang belum punya service_number, dipotong 8 karakter supaya tetap
+ * terbaca.
+ */
+export function servisLabel(item: { id: string; serviceNumber?: string | null }): string {
+  // String kosong harus diperlakukan sama dengan null. Kalau hanya memakai
+  // ??, baris dengan service_number yang kosong akan menampilkan kolom kosong,
+  // bukan id pendek.
+  const serviceNumber = item.serviceNumber?.trim();
+  return serviceNumber ? serviceNumber : item.id.slice(0, 8).toUpperCase();
+}
+
 export type ServisServiceInput = {
   id: string;
   service_number: string | null;
+  tracking_code: string | null;
   device: string;
   complaint: string | null;
   status: string;
@@ -16,6 +34,7 @@ export type ServisServiceInput = {
 export type ServisListRow = {
   id: string;
   serviceNumber: string | null;
+  trackingCode: string | null;
   device: string;
   customer: string;
   price: number;
@@ -48,6 +67,7 @@ export function mapServisListRows(input: {
     return {
       id: service.id,
       serviceNumber: service.service_number ?? null,
+      trackingCode: service.tracking_code ? service.tracking_code.toUpperCase() : null,
       device: service.device,
       customer: `${customer?.name ?? "Tanpa nama"} · ${customer?.phone ?? "—"}`,
       price: Number(service.price ?? 0),
