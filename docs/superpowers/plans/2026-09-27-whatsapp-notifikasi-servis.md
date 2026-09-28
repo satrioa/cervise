@@ -1598,7 +1598,14 @@ describe("outbox notifikasi servis migration", () => {
   it("menyediakan klaim atomik untuk dispatcher", () => {
     expect(flat).toContain("create or replace function public.claim_service_notifications");
     expect(flat).toContain("for update skip locked");
-    expect(flat).toContain("set attempts = o.attempts + 1");
+    // Lease, bukan penambah attempts. Baris yang diklaim lalu ditinggalkan worker
+    // (crash, container mati saat kirim) akan punya next_attempt_at di masa depan,
+    // jadi tidak langsung diklaim ulang di run cron berikutnya tanpa backoff.
+    expect(flat).toContain("set next_attempt_at = now() + interval '2 minutes'");
+    // attempts milik dispatcher, bukan claim. Kalau claim yang menaikkan, setiap
+    // percobaan dihitung dua kali dan batas 4 percobaan jadi ~
+    // 2 pengiriman sungguhan.
+    expect(flat).not.toMatch(/set\s+attempts\s*=/);
   });
 
   it("tidak mengubah hak akses tabel lain", () => {
@@ -1607,8 +1614,10 @@ describe("outbox notifikasi servis migration", () => {
       .map((line) => line.trim())
       .filter((line) => /^(grant|revoke)\b/i.test(line));
     for (const line of privilegeLines) {
-      expect(line).toContain("public.cervise_notification_outbox");
-      expect(line).toContain("claim_service_notifications");
+      // Grant fungsi tidak pernah menyebut nama tabel, jadi menuntut keduanya
+      // sekaligus tidak bisa dipenuhi. Yang penting: setiap baris menyasar
+      // entitas yang memang diizinkan.
+      expect(line).toMatch(/public\.cervise_notification_outbox|claim_service_notifications|cervise_set_notification_suppression/);
     }
   });
 });
@@ -1659,9 +1668,21 @@ create index if not exists cervise_notification_outbox_pending_idx
   on public.cervise_notification_outbox (next_attempt_at)
   where state = 'pending';
 
--- Dispatcher mengklaim baris yang sudah due dalam satu statement, lalu
--- menaikkan attempts. SKIP LOCKED membuat dua worker yang jalan bersamaan
--- tidak pernah mengambil baris yang sama, tanpa perlu koordinator eksternal.
+-- Dispatcher mengklaim baris yang sudah due dalam satu statement.
+-- SKIP LOCKED membuat dua worker yang jalan bersamaan tidak pernah mengambil
+-- baris yang sama, tanpa perlu koordinator eksternal.
+--
+-- Claim juga memasang lease: next_attempt_at digeser ke masa depan. Tanpa itu,
+-- baris yang sudah diklaim lalu ditinggalkan worker (crash, container mati di
+-- tengah kirim) tetap state='pending' dengan next_attempt_at yang sudah lewat,
+-- sehingga langsung diklaim ulang di tick cron berikutnya tanpa backoff --
+-- dan Fonnte yang lambat akan dipanggil berulang sampai baris itu jadi
+-- 'failed' permanen. 2 menit di bawah interval cron 5 menit, jadi baris yang
+-- ditinggalkan coba lagi di tick berikutnya, bukan dua tick kemudian.
+--
+-- attempts SENGAJA tidak dinaikkan di sini. Satu fakta, satu penulis: dispatcher
+-- yang menghitung percobaan, jadi batas MAX_ATTEMPTS berarti jumlah pengiriman
+-- sungguhan. Kalau claim yang menaikkan, setiap percobaan terhitung dua kali.
 create or replace function public.claim_service_notifications(p_limit integer)
 returns setof public.cervise_notification_outbox
 language plpgsql
@@ -1671,7 +1692,7 @@ as $$
 begin
   return query
   update public.cervise_notification_outbox o
-     set attempts = o.attempts + 1
+     set next_attempt_at = now() + interval '2 minutes'
    where o.id in (
      select id
        from public.cervise_notification_outbox
@@ -1807,15 +1828,17 @@ select has_table_privilege('anon', 'public.cervise_notification_outbox', 'select
 
 Expected: `anon_read = false`, `auth_read = false`, `svc_insert = true`, dan dua trigger terlisting.
 
-Lalu pastikan klaim benar-benar mengunci baris dan menaikkan `attempts`:
+Lalu pastikan lease claim bekerja:
 
 ```sql
 select count(*) as claimed from public.claim_service_notifications(3);
 select count(*) as claimed_again from public.claim_service_notifications(3);
-select attempts, state from public.cervise_notification_outbox order by created_at desc limit 3;
+select attempts, state, next_attempt_at > now() as leased from public.cervise_notification_outbox order by created_at desc limit 3;
 ```
 
-Expected: `claimed` lebih besar dari 0, `claimed_again = 0`, dan `attempts` naik. Kalau `claimed_again` sama dengan `claimed`, `for update skip locked` tidak bekerja dan klaim harus ditinjau.
+Expected: `claimed` lebih besar dari 0, `claimed_again = 0`, `attempts` tetap 0, dan `leased = true` untuk baris yang barusan diklaim.
+
+TENTANG `claimed_again = 0`: ini **bukan** bukti `skip locked` bekerja. Baris yang sudah diklaim kini punya `next_attempt_at` di masa depan, jadi tidak memenuhi `next_attempt_at <= now()` dan tidak terambil untuk alasan yang salah. Pembuktian `skip locked` yang sebenarnya butuh dua sesi database konkuren yang memanggil RPC bersamaan -- tidak bisa dilakukan dari satu skrip. Klaim bahwa `skip locked sudah terbukti` dari hasil ini salah; kalau itu perlu dibuktikan, jalankan dua sesi lewat `supabase` CLI atau psql terpisah dan catat hasilnya.
 
 - [ ] **Step 6: Uji trigger langsung dengan rollback**
 
@@ -2045,6 +2068,8 @@ describe("dispatchPendingNotifications", () => {
       "62",
     );
     expect(state.patches[0].patch).toMatchObject({ state: "sent", last_error: null });
+// Kolom ini harus terisi, kalau tidak rekonsiliasi sisi provider mustahil.
+expect(state.patches[0].patch).toHaveProperty("provider_message_id");
   });
 
   it("mengirim pesan status ke customer", async () => {
@@ -2370,8 +2395,13 @@ export async function dispatchPendingNotifications(
   const result: DispatchResult = { sent: 0, skipped: 0, failed: 0 };
   const admin = createAdminClient();
 
-  // Klaim dalam satu statement; attempts naik di database sehingga worker lain
-  // tidak mengambil baris yang sama.
+  // Klaim dalam satu statement. `skip locked` mencegah dua worker mengambil baris
+  // yang sama, dan lease next_attempt_at mencegah baris yang ditinggalkan worker
+  // (crash sebelum patch) langsung diklaim ulang tanpa backoff.
+  //
+  // attempts TIDAK dinaikkan RPC -- row.attempts di bawah masih nilai sebelum
+  // percobaan ini, jadi +1 di sini menghitung pengiriman sungguhan dan
+  // MAX_ATTEMPTS = 4 berarti 4 percobaan, bukan 2.
   const { data, error } = await admin.rpc("claim_service_notifications", { p_limit: limit });
   if (error || !data || data.length === 0) return result;
 
@@ -2460,9 +2490,27 @@ export async function dispatchPendingNotifications(
         result.skipped += 1;
         continue;
       }
+
+      // Wajib menulis provider_message_id. Kolomnya sudah dibuat di Task 7
+      // supaya ID pesan Fonnte tersimpan, tapi patch 'sent' di bawah tidak
+      // pernah mengisinya -- kolom itu akan selamanya NULL dan rekonsiliasi
+      // sisi provider jadi mustahil. Fonnte membalas { detail: { id } }, jadi
+      // ambil dari situ dengan fallback null kalau bentuknya berbeda; jangan
+      // gagalkan pengiriman hanya karena ID tidak terbaca.
+      const providerMessageId =
+        typeof (response.detail as { detail?: { id?: unknown } } | undefined)?.detail?.id ===
+        "string" || typeof (response.detail as { detail?: { id?: unknown } } | undefined)?.detail?.id === "number"
+          ? String((response.detail as { detail: { id: string | number } }).detail.id)
+          : null;
+
       await admin
         .from("cervise_notification_outbox")
-        .update({ state: "sent", sent_at: new Date().toISOString(), last_error: null })
+        .update({
+          state: "sent",
+          sent_at: new Date().toISOString(),
+          last_error: null,
+          provider_message_id: providerMessageId,
+        })
         .eq("id", row.id);
       result.sent += 1;
     } catch (error) {
