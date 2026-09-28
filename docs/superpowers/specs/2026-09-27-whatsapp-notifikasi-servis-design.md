@@ -261,16 +261,22 @@ const payload = await res.json();
 if (!res.ok || payload?.status === false) {
   const bodyReason = typeof payload?.reason === "string" ? payload.reason : null;
   const reason = bodyReason ?? `HTTP ${res.status}`;
-  // Alasan dari body kalau ada; kalau tidak, kode HTTP yang menentukan.
-  // 429 dan 5xx sementara, 4xx lain permanen.
-  const permanent = bodyReason
-    ? isPermanentReason(bodyReason)
-    : isPermanentStatus(res.status);
-  throw new FonnteError(reason, !permanent);
+  // Hanya nomor atau isi pesan yang salah yang permanen. Token kedaluwarsa atau
+  // masalah Fonnte lain dicoba lagi nanti, karena pesannya masih layak.
+  const messageScoped = (bodyReason ? isPermanentReason(bodyReason) : false)
+    || (!bodyReason && isPermanentStatus(res.status));
+  throw new FonnteError(reason, !messageScoped, messageScoped ? "message" : "infrastructure");
 }
 ```
 
-| `insufficient quota` dan error jaringan → retryable; `invalid target` dan penolakan token → permanen, tidak di-retry.
+`FonnteError` membawa tiga hal: `reason` untuk disimpan di `last_error`, `retryable`
+untuk keputusan retry, dan `scope` untuk membedakan kegagalan yang memang soal pesan
+dari kegagalan infrastruktur. Pemakai harus memutuskan terminal berdasarkan `scope`,
+bukan `retryable`: satu token dipakai bersama semua tenant, jadi token kedaluwarsa
+membalas 401 untuk setiap pesan sekaligus, dan memperlakukannya terminal akan membuang
+semua notifikasi tanpa jejak saat token itu diputar.
+
+| `insufficient quota` dan error jaringan → retryable; `invalid target` dan parameter yang salah → permanen dan tidak di-retry; penolakan token (401/403) → dicoba lagi nanti, bukan terminal, karena pesannya sendiri masih layak.
 
 ## 12. Pengujian
 

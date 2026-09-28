@@ -98,7 +98,7 @@ Tambahkan dua test baru di `src/lib/fonnte.test.ts`, di dalam `describe("sendFon
     expect((error as FonnteError).retryable).toBe(true);
   });
 
-  it("marks an invalid target as not retryable", async () => {
+  it("treats a rejected target as a permanent message failure", async () => {
     process.env.FONNTE_TOKEN = "test-token";
     vi.stubGlobal(
       "fetch",
@@ -115,11 +115,13 @@ Tambahkan dua test baru di `src/lib/fonnte.test.ts`, di dalam `describe("sendFon
     );
     expect((error as FonnteError).reason).toBe("invalid target");
     expect((error as FonnteError).retryable).toBe(false);
+    expect((error as FonnteError).scope).toBe("message");
   });
 
-  it("marks a rejected token as not retryable", async () => {
-    // Token Fonnte dipakai bersama semua tenant, jadi token kedaluwarsa
-    // menghentikan SEMUA pesan. Mengulangnya hanya membuang kuota.
+  it("keeps a rejected token retryable, because the message itself is fine", async () => {
+    // Satu token dipakai semua tenant, jadi token kedaluwarsa membalas 401
+    // untuk setiap pesan sekaligus. Kalau itu jadi terminal, satu rotasi token
+    // membuang semua notifikasi tanpa jejak. Pesannya sendiri masih layak.
     process.env.FONNTE_TOKEN = "test-token";
     vi.stubGlobal(
       "fetch",
@@ -130,31 +132,11 @@ Tambahkan dua test baru di `src/lib/fonnte.test.ts`, di dalam `describe("sendFon
       (err: unknown) => err,
     );
     expect((error as FonnteError).reason).toBe("HTTP 401");
-    expect((error as FonnteError).retryable).toBe(false);
+    expect((error as FonnteError).retryable).toBe(true);
+    expect((error as FonnteError).scope).toBe("infrastructure");
   });
 
-  it("keeps server errors and rate limits retryable", async () => {
-    process.env.FONNTE_TOKEN = "test-token";
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockResolvedValue(new Response("", { status: 503 })),
-    );
-    expect(
-      await sendFonnteWA("628123456789", "Halo").catch((e: unknown) => e),
-    ).toMatchObject({ retryable: true });
-
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockResolvedValue(new Response("", { status: 429 })),
-    );
-    expect(
-      await sendFonnteWA("628123456789", "Halo").catch((e: unknown) => e),
-    ).toMatchObject({ retryable: true });
-  });
-
-  it("marks a 400 with an unlisted reason as not retryable", async () => {
-    // Fonnte membalas alasan sendiri, dan daftar PERMANENT_REASONS tidak
-    // mungkin lengkap. Status 4xx menutupi yang terlewat.
+  it("classifies an unlisted Fonnte reason as infrastructure, not a bad number", async () => {
     process.env.FONNTE_TOKEN = "test-token";
     vi.stubGlobal(
       "fetch",
@@ -168,8 +150,27 @@ Tambahkan dua test baru di `src/lib/fonnte.test.ts`, di dalam `describe("sendFon
     const error = await sendFonnteWA("628123456789", "Halo").catch(
       (err: unknown) => err,
     );
-    expect((error as FonnteError).reason).toBe("pesan melebihi batas");
-    expect((error as FonnteError).retryable).toBe(false);
+    expect((error as FonnteError).retryable).toBe(true);
+    expect((error as FonnteError).scope).toBe("infrastructure");
+  });
+
+  it("keeps server errors and rate limits retryable", async () => {
+    process.env.FONNTE_TOKEN = "test-token";
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(new Response("", { status: 503 })),
+    );
+    expect(
+      await sendFonnteWA("628123456789", "Halo").catch((e: unknown) => e),
+    ).toMatchObject({ retryable: true, scope: "infrastructure" });
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(new Response("", { status: 429 })),
+    );
+    expect(
+      await sendFonnteWA("628123456789", "Halo").catch((e: unknown) => e),
+    ).toMatchObject({ retryable: true, scope: "infrastructure" });
   });
 
   it("sends the country code when one is given", async () => {
@@ -225,26 +226,36 @@ export type FonnteSendResult =
 export class FonnteError extends Error {
   readonly reason: string;
   readonly retryable: boolean;
+  /**
+   * `message` = nomor atau isi pesannya yang salah, jadi mengulangnya tidak
+   * akan pernah berhasil. `infrastructure` = Fonnte atau tokennya yang bermasalah,
+   * jadi pesannya sendiri masih layak dicoba begitu masalahnya beres.
+   *
+   * Bedanya penting karena satu token dipakai semua tenant: saat token
+   * kedaluwarsa, Fonnte membalas 401 untuk setiap pesan sekaligus. Kalau itu
+   * diperlakukan permanen, satu rotasi token membuang semua notifikasi tanpa
+   * jejak.
+   */
+  readonly scope: "message" | "infrastructure";
 
-  constructor(reason: string, retryable: boolean) {
+  constructor(reason: string, retryable: boolean, scope: "message" | "infrastructure") {
     super(`Fonnte gagal: ${reason}`);
     this.name = "FonnteError";
     this.reason = reason;
     this.retryable = retryable;
+    this.scope = scope;
   }
 }
 
-// Alasan yang tidak akan berubah kalau dikirim ulang: nomor tidak valid,
-// parameter salah, token ditolak. Selain daftar ini, apa pun dianggap
-// sementara: kehabisan kuota, jaringan, HTTP 5xx, 429.
+// Alasan yang menunjuk ke nomor atau isi pesan, jadi mengulangnya tidak akan
+// pernah berhasil. Selain daftar ini, apa pun dianggap sementara:
+// kehabisan kuota, jaringan, HTTP 5xx, 429.
 const PERMANENT_REASONS = [
   "invalid target",
   "invalid parameter",
   "invalid country code",
-  "token invalid",
-  "token expired",
-  "unauthorized",
-  "forbidden",
+  "target not valid",
+  "message too long",
 ];
 
 function isPermanentReason(reason: string): boolean {
@@ -252,9 +263,9 @@ function isPermanentReason(reason: string): boolean {
   return PERMANENT_REASONS.some((candidate) => normalized.includes(candidate));
 }
 
-// Tanpa alasan dari body, kode HTTP yang jadi penentu. 429 dan 5xx pasti
-// sementara. 4xx lainnya permanen: token salah atau permintaan tidak valid
-// tidak akan berubah kalau dikirim ulang.
+// Status 4xx tanpa alasan Fonnte yang dikenal. Karena tidak diketahui apakah
+// itu soal nomor atau soal token, dianggap infrastruktur: pesan dicoba lagi
+// nanti, bukan dibuang permanen.
 function isPermanentStatus(status: number): boolean {
   if (status >= 500) return false;
   if (status === 429) return false;
@@ -291,12 +302,14 @@ export async function sendFonnteWA(
     const bodyReason =
       typeof payload.reason === "string" && payload.reason ? payload.reason : null;
     const reason = bodyReason ?? `HTTP ${res.status}`;
-    // Keduanya diperiksa, bukan salah satu. Alasan dari body/html yang tak
-    // terdaftar tetap harus ikut, kalau tidak maka HTTP 400 dengan alasan
-    // aneh akan dianggap sementara padahal permintaannya tidak valid.
-    const permanent = (bodyReason ? isPermanentReason(bodyReason) : false)
-      || isPermanentStatus(res.status);
-    throw new FonnteError(reason, !permanent);
+
+    // Keduanya diperiksa, bukan salah satu. Alasan dari body yang tak terdaftar
+    // tetap harus ikut, kalau tidak maka HTTP 400 dengan alasan aneh akan
+    // dianggap suatu masalah pesan padahal bisa jadi soal token.
+    const messageScoped = (bodyReason ? isPermanentReason(bodyReason) : false)
+      || (!bodyReason && isPermanentStatus(res.status));
+
+    throw new FonnteError(reason, !messageScoped, messageScoped ? "message" : "infrastructure");
   }
 
   return { skip: false, status: true, detail: payload };
@@ -347,15 +360,51 @@ Dan ganti test "throws when Fonnte rejects the request":
   });
 ```
 
-- [ ] **Step 5: Jalankan test, harus lulus**
+- [ ] **Step 5: Perbarui route cron langganan agar tidak membuang pesan secara permanen**
+
+`src/app/api/cron/subscription-renewals/route.ts` memakai `sendFonnteWA` dan selama ini
+menganggap setiap kegagalan berarti "coba lagi nanti". Sekarang Fonnte bisa melaporkan
+nomor yang memang salah, dan mengulanginya tiap jam adalah satu panggilan API berbayar
+per invoice selamanya.
+
+Di blok `catch` pada loop pengiriman, sebelum `releaseClaim()` yang sudah ada, tambahkan:
+
+```ts
+    } catch (error) {
+      // Nomor yang memang salah tidak akan pernah berhasil, jadi klaim ditahan
+      // supaya tidak dipanggil ulang tiap jam. Token kedaluwarsa atau masalah
+      // Fonnte lain scope-nya infrastruktur: pesannya masih layak, jadi klaim
+      // dilepas dan dicoba lagi di run berikutnya.
+      if (error instanceof FonnteError && error.scope === "message") {
+        failed += 1;
+        continue;
+      }
+      await releaseClaim();
+      failed += 1;
+    }
+```
+
+Baca file route-nya lebih dulu. Kalau try/catch ini ternyata bukan pernyataan terakhir
+dalam loop, `continue` akan melewati kode setelahnya — dalam kasus itu ganti dengan
+struktur `if / else` supaya tidak ada efek samping yang terlewat.
+
+Tambahkan dua test di `src/app/api/cron/subscription-renewals/route.test.ts` yang
+membuktikan kedua cabang, dan perlebar mock `@/lib/fonnte` yang ada memakai
+`importOriginal` supaya `FonnteError` yang dipakai test adalah kelas yang sama dengan yang
+dipakai route — kalau tidak, `instanceof` selalu false dan kedua test-nya jadi hampa.
+
+- [ ] **Step 6: Jalankan test, harus lulus**
 
 Run: `npm test -- src/lib/fonnte.test.ts`
 Expected: PASS — 9 test.
 
-- [ ] **Step 6: Commit**
+Run: `npm test -- src/app/api/cron/subscription-renewals/route.test.ts`
+Expected: PASS.
+
+- [ ] **Step 7: Commit**
 
 ```bash
-git add src/lib/fonnte.ts src/lib/fonnte.test.ts
+git add src/lib/fonnte.ts src/lib/fonnte.test.ts src/app/api/cron/subscription-renewals/route.ts src/app/api/cron/subscription-renewals/route.test.ts
 git commit -m "fix: fonnte reports HTTP 200 with status false as a failure"
 ```
 
@@ -1625,10 +1674,12 @@ const { mocks, state } = vi.hoisted(() => {
 class FakeFonnteError extends Error {
   retryable: boolean;
   reason: string;
-  constructor(reason: string, retryable: boolean) {
+  scope: "message" | "infrastructure";
+  constructor(reason: string, retryable: boolean, scope: "message" | "infrastructure") {
     super(`Fonnte gagal: ${reason}`);
     this.reason = reason;
     this.retryable = retryable;
+    this.scope = scope;
   }
 }
 
@@ -1859,7 +1910,9 @@ describe("dispatchPendingNotifications", () => {
     state.claimed = [row({ attempts: 1 })];
     state.servis = [SERVIS];
     state.customers = [{ id: "c1", phone: "628123456789" }];
-    mocks.sendFonnteWA.mockRejectedValue(new FakeFonnteError("insufficient quota", true));
+    mocks.sendFonnteWA.mockRejectedValue(
+      new FakeFonnteError("insufficient quota", true, "infrastructure"),
+    );
 
     const now = new Date("2026-09-27T10:00:00.000Z");
     const result = await dispatchPendingNotifications({ siteOrigin: "https://app.cervise.id", now });
@@ -1871,11 +1924,31 @@ describe("dispatchPendingNotifications", () => {
     expect(new Date(patch.next_attempt_at as string).getTime()).toBeGreaterThan(now.getTime());
   });
 
+  it("menunda dengan backoff saat token ditolak, bukan membuang pesan", async () => {
+    // Satu token dipakai semua tenant, jadi token kedaluwarsa membalas 401 untuk
+    // setiap pesan sekaligus. Kalau ini jadi terminal, satu rotasi token
+    // membuang semua notifikasi tanpa jejak. Pesannya sendiri masih layak.
+    state.claimed = [row({ attempts: 1 })];
+    state.servis = [SERVIS];
+    state.customers = [{ id: "c1", phone: "628123456789" }];
+    mocks.sendFonnteWA.mockRejectedValue(
+      new FakeFonnteError("HTTP 401", true, "infrastructure"),
+    );
+
+    const result = await dispatchPendingNotifications({ siteOrigin: "https://app.cervise.id" });
+
+    expect(result.failed).toBe(1);
+    expect(state.patches[0].patch.state).toBe("pending");
+    expect(state.patches[0].patch.last_error).toBe("HTTP 401");
+  });
+
   it("berhenti retry setelah empat percobaan", async () => {
     state.claimed = [row({ attempts: 4 })];
     state.servis = [SERVIS];
     state.customers = [{ id: "c1", phone: "628123456789" }];
-    mocks.sendFonnteWA.mockRejectedValue(new FakeFonnteError("insufficient quota", true));
+    mocks.sendFonnteWA.mockRejectedValue(
+      new FakeFonnteError("insufficient quota", true, "infrastructure"),
+    );
 
     const result = await dispatchPendingNotifications({ siteOrigin: "https://app.cervise.id" });
 
@@ -1883,11 +1956,13 @@ describe("dispatchPendingNotifications", () => {
     expect(state.patches[0].patch).toMatchObject({ state: "failed" });
   });
 
-  it("tidak mengulang error yang permanen", async () => {
+  it("tidak mengulang error yang memang soal pesan", async () => {
     state.claimed = [row({ attempts: 1 })];
     state.servis = [SERVIS];
     state.customers = [{ id: "c1", phone: "628123456789" }];
-    mocks.sendFonnteWA.mockRejectedValue(new FakeFonnteError("invalid target", false));
+    mocks.sendFonnteWA.mockRejectedValue(
+      new FakeFonnteError("invalid target", false, "message"),
+    );
 
     const result = await dispatchPendingNotifications({ siteOrigin: "https://app.cervise.id" });
 
@@ -2148,11 +2223,14 @@ export async function dispatchPendingNotifications(
         .eq("id", row.id);
       result.sent += 1;
     } catch (error) {
-      const retryable = error instanceof FonnteError ? error.retryable : true;
       const reason = error instanceof FonnteError ? error.reason : String(error);
       const attempts = row.attempts + 1;
+      // Hanya kegagalan yang memang soal nomor atau isi pesan yang terminal.
+      // Token kedaluwarsa atau Fonnte sedang erred scope-nya infrastruktur:
+      // pesannya masih layak, jadi dicoba lagi sampai anggaran habis.
+      const terminal = error instanceof FonnteError && error.scope === "message";
 
-      if (!retryable || attempts >= MAX_ATTEMPTS) {
+      if (terminal || attempts >= MAX_ATTEMPTS) {
         await admin
           .from("cervise_notification_outbox")
           .update({ state: "failed", last_error: reason })
@@ -2180,7 +2258,7 @@ export async function dispatchPendingNotifications(
 - [ ] **Step 4: Jalankan test, harus lulus**
 
 Run: `npm test -- src/lib/notifications/dispatcher.test.ts`
-Expected: PASS — 14 test.
+Expected: PASS — 15 test.
 
 Kalau ada test yang gagal, perbaiki kode produksi, bukan test-nya. Kalau memang tidak realistis untuk disebut gagal, tulis ulang assertion-nya agar describes perilakunya, bukan bentuk pemanggilan database.
 
