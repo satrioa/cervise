@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { sendFonnteWA } from "./fonnte";
+import { FonnteError, sendFonnteWA } from "./fonnte";
 
 const originalToken = process.env.FONNTE_TOKEN;
 
@@ -36,7 +36,11 @@ describe("sendFonnteWA", () => {
 
     await expect(
       sendFonnteWA("6281234567890", "Halo Kak"),
-    ).resolves.toEqual({ status: true });
+    ).resolves.toEqual({
+      skip: false,
+      status: true,
+      detail: { status: true },
+    });
 
     expect(fetchMock).toHaveBeenCalledWith(
       "https://api.fonnte.com/send",
@@ -52,7 +56,7 @@ describe("sendFonnteWA", () => {
     expect(body.get("message")).toBe("Halo Kak");
   });
 
-  it("throws when Fonnte rejects the request", async () => {
+  it("throws when Fonnte returns a non-2xx response", async () => {
     process.env.FONNTE_TOKEN = "test-token";
     vi.stubGlobal(
       "fetch",
@@ -62,7 +66,46 @@ describe("sendFonnteWA", () => {
     );
 
     await expect(sendFonnteWA("6281234567890", "Halo")).rejects.toThrow(
-      "Fonnte request failed",
+      "Fonnte gagal: HTTP 500",
     );
+  });
+
+  it("treats HTTP 200 with status false as a failure", async () => {
+    process.env.FONNTE_TOKEN = "test-token";
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({ status: false, reason: "insufficient quota" }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        ),
+      ),
+    );
+
+    const error = await sendFonnteWA("6281234567890", "Halo").catch(
+      (err: unknown) => err,
+    );
+    expect(error).toBeInstanceOf(FonnteError);
+    expect((error as FonnteError).reason).toBe("insufficient quota");
+    expect((error as FonnteError).retryable).toBe(true);
+  });
+
+  it("marks an invalid target as not retryable", async () => {
+    process.env.FONNTE_TOKEN = "test-token";
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({ status: false, reason: "invalid target" }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        ),
+      ),
+    );
+
+    const error = await sendFonnteWA("0812", "Halo").catch(
+      (err: unknown) => err,
+    );
+    expect((error as FonnteError).reason).toBe("invalid target");
+    expect((error as FonnteError).retryable).toBe(false);
   });
 });
