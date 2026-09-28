@@ -45,11 +45,29 @@ const COMPACT_GROUPS = ["dashboard", "operasional", "laporan", "keuangan"] as co
 /**
  * Lebar rail untuk `grid-template-columns`.
  *
- * 74px, diukur dari DevTools. Cukup untuk kotak ikon di atas label di bawahnya:
- * padding 8px per sisi menyisakan 58px, dan label dua baris seperti
- * "Analitik Servis" masih terbaca.
+ * 70px, diminta langsung. Padding nav memakai px-1 (4px per sisi) sehingga
+ * 62px tersisa untuk isi item -- cukup untuk ikon 18px dan label "Analistik"
+ * satu kata pada text-[9px].
  */
-export const COMPACT_RAIL_WIDTH = "74px";
+export const COMPACT_RAIL_WIDTH = "70px";
+
+/**
+ * Template kolom grid shell: rail tetap, sisanya untuk konten.
+ *
+ * Rail HARUS panjang tetap (`70px`), bukan `auto` dan bukan pecahan. Dengan
+ * `auto`, kolom ikut menyerap sisa ruang — jadi rail melebar persis saat
+ * main pane melebar.
+ *
+ * Kolom kedua `minmax(0, 1fr)`, bukan `1fr`. `1fr` punya batas bawah otomatis
+ * sebesar min-content, jadi tabel atau teks panjang di konten bisa mendorong
+ * grid melebihi lebar layar dan membuat halaman bisa di-scroll horizontal.
+ * `minmax(0, 1fr)` mengizinkan kolom menyusut ke nol.
+ *
+ * Tidak ada prefix `lg` di sini. Prefix breakpoint (`lg:`) hanya berlaku di
+ * nama kelas Tailwind; di inline style `lg` hanya token tak dikenal, dan
+ * browser membuang seluruh deklarasi lalu membiarkan kolom fallback ke `auto`.
+ */
+export const COMPACT_GRID_TEMPLATE = `${COMPACT_RAIL_WIDTH} minmax(0, 1fr)`;
 
 export type CompactSidebarProps = {
   role: string;
@@ -93,7 +111,7 @@ export function CompactSidebar({
       {/* Di rail sempit tidak ada tempat untuk nama tenant dan cabang di bawah
           logo, jadi keduanya pindah ke sini. Ini yang menggantikan baris
           "Tenant assigned" dan baris info cabang yang diminta hilang. */}
-      <div className="flex justify-center px-2 pt-3.5 pb-2.5">
+      <div className="flex justify-center px-1 pt-3 pb-2">
         <TenantLogo
           logoUrl={tenantLogo}
           name={tenantName}
@@ -101,7 +119,7 @@ export function CompactSidebar({
         />
       </div>
 
-      <nav className="flex flex-1 flex-col items-center gap-0.5 overflow-y-auto scrollbar-none px-2 pb-2">
+      <nav className="flex flex-1 flex-col items-center gap-0.5 overflow-y-auto scrollbar-none px-1 pb-2">
         {blocks.map((block) => (
           <div key={block.group} className="flex w-full flex-col items-center gap-0.5">
             {/* Pemisah antar group menggantikan label yang tidak muat di rail sempit. */}
@@ -121,7 +139,7 @@ export function CompactSidebar({
         ))}
       </nav>
 
-      <div className="flex flex-col items-center gap-0.5 border-t border-border/60 px-2 py-2">
+      <div className="flex flex-col items-center gap-0.5 border-t border-border/60 px-1 py-1.5">
         <Link
           href="/app/pengaturan/profil"
           aria-label="Profil"
@@ -232,7 +250,7 @@ function CompactNavLink({
           // Ukuran tetap, bukan `aspect-square`: di rail sempit kotak
           // kuadrat ikut melebar dan tiap item jadi setinggi lebar rail.
           "flex w-full items-center justify-center rounded-lg transition-colors",
-          showLabel ? "flex-col gap-1 py-1.5" : "h-11",
+          showLabel ? "flex-col gap-0.5 py-1.5" : "h-11",
           active
             ? "bg-foreground/[0.08] text-foreground"
             : "text-muted-foreground hover:bg-foreground/[0.05] hover:text-foreground",
@@ -240,10 +258,11 @@ function CompactNavLink({
       >
         <Icon className={cn("size-[18px] shrink-0", active ? "opacity-100" : "opacity-70")} />
         {showLabel ? (
-          // `leading-tight` + dua baris: "Analitik Servis" tidak muat satu baris
-          // di rail 74px, dan memotongnya jadi "Analitik S..." lebih buruk
-          // daripada membungkus.
-          <span className="line-clamp-2 max-w-full px-0.5 text-center text-[10px] leading-tight">
+          // Tiga baris, bukan dua. Di rail 60px dengan padding px-1 hanya
+          // 52px yang tersisa, dan "Analitik Servis" butuh tiga baris
+          // ("Analitik / Servis" pada dua baris masih terpotong). Font
+          // diturunkan ke 9px supaya "Analitik" muat satu baris utuh.
+          <span className="line-clamp-3 max-w-full text-center text-[9px] leading-[1.15]">
             {label}
           </span>
         ) : (
