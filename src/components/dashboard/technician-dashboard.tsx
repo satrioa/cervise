@@ -15,6 +15,8 @@ import {
   XIcon,
 } from "lucide-react";
 import { CandyShortcut, CANDY_TONES } from "./candy-shortcut";
+import { LinkedMentionChips, MentionPicker } from "./mention-picker";
+import { addTodoMentions, getTodoMentions, type MentionInput, type TodoMention } from "@/app/app/actions/todo-mentions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
@@ -184,6 +186,10 @@ function TodoCard() {
   const [due, setDue] = useState("");
   const [composing, setComposing] = useState(false);
   const [editing, setEditing] = useState<string | null>(null);
+  // Mention yang dipilih tapi belum disimpan. Dipisah dari `mentionsByTodo`
+  // supaya membatalkan composer tidak mengubah catatan yang sudah tersimpan.
+  const [pendingMentions, setPendingMentions] = useState<MentionInput[]>([]);
+  const [mentionsByTodo, setMentionsByTodo] = useState<Record<string, TodoMention[]>>({});
 
   const loading = !loaded;
 
@@ -192,8 +198,26 @@ function TodoCard() {
     getMyTodos()
       .then((result) => {
         if (cancelled) return;
-        if (result.ok) setTodos(result.data);
-        else toast.error(result.error);
+        if (!result.ok) {
+          toast.error(result.error);
+          return;
+        }
+        setTodos(result.data);
+        // Mention dimuat terpisah dan setelah daftar tugas, supaya satu
+        // catatan tanpa mention tidak membuat seluruh daftar gagal tampil.
+        if (result.data.length === 0) return;
+        getTodoMentions(result.data.map((t) => t.id)).then((m) => {
+          if (cancelled) return;
+          if (!m.ok) {
+            toast.error(m.error);
+            return;
+          }
+          const grouped: Record<string, TodoMention[]> = {};
+          for (const mention of m.data) {
+            (grouped[mention.todoId] ??= []).push(mention);
+          }
+          setMentionsByTodo(grouped);
+        });
       })
       .finally(() => {
         if (!cancelled) setLoaded(true);
@@ -214,7 +238,21 @@ function TodoCard() {
     setTodos((prev) => [result.data, ...prev]);
     setDraft("");
     setDue("");
+    setPendingMentions([]);
     setComposing(false);
+
+    // Mention disimpan setelah task-nya ada, karena `todo_id`-nya harus
+    // sudah benar. Kalau gagal, task tetap tampil -- catatan tanpa
+    // reference lebih baik daripada task yang hilang.
+    if (pendingMentions.length > 0) {
+      const added = await addTodoMentions({ todoId: result.data.id, mentions: pendingMentions });
+      if (!added.ok) {
+        toast.error(`Tugas tersimpan, tapi mention gagal: ${added.error}`);
+        return;
+      }
+      const loaded = await getTodoMentions([result.data.id]);
+      if (loaded.ok) setMentionsByTodo((prev) => ({ ...prev, [result.data.id]: loaded.data }));
+    }
   };
 
   const onToggle = async (todo: StaffTodo) => {
@@ -238,6 +276,13 @@ function TodoCard() {
   const onDelete = async (todo: StaffTodo) => {
     const previous = todos;
     setTodos((prev) => prev.filter((t) => t.id !== todo.id));
+    // Mention ikut hilang dari state: cascade di database sudah membersihkannya,
+    // jadi membiarkannya akan menampilkan chip untuk catatan yang sudah hilang.
+    setMentionsByTodo((prev) => {
+      const next = { ...prev };
+      delete next[todo.id];
+      return next;
+    });
     const result = await deleteTodo({ id: todo.id });
     if (!result.ok) {
       setTodos(previous);
@@ -274,31 +319,47 @@ function TodoCard() {
       }
     >
       {composing ? (
-        <div className="mt-3 flex flex-wrap items-center gap-2">
-          <Input
-            autoFocus
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") void submitDraft();
-              if (e.key === "Escape") setComposing(false);
-            }}
-            placeholder="Contoh: Cek IMEI modul kamera"
-            className="h-8 min-w-0 flex-1"
-          />
-          <Input
-            type="date"
-            value={due}
-            onChange={(e) => setDue(e.target.value)}
-            className="h-8 w-36"
-            aria-label="Tenggat"
-          />
-          <Button size="sm" className="h-8" onClick={submitDraft}>
-            Simpan
-          </Button>
-          <Button variant="ghost" size="icon-sm" className="h-8" onClick={() => setComposing(false)}>
-            <XIcon />
-          </Button>
+        <div className="mt-3 flex flex-col gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <Input
+              autoFocus
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              onKeyDown={(e) => {
+                // Enter di kolom teks selalu menyimpan. Kolom pencarian
+                // mention punya aturan sendiri: Enter memilih kandidat yang
+                // terbuka, dan tidak pernah menyimpan. Kalau Enter di kolom
+                // teks ikut bergantung pada daftar mention, teknisi yang
+                // sudah memilih mention akan merasa Enter-nya mati.
+                if (e.key === "Enter") void submitDraft();
+                if (e.key === "Escape") setComposing(false);
+              }}
+              placeholder="Contoh: Cek IMEI modul kamera"
+              className="h-8 min-w-0 flex-1"
+            />
+            <Input
+              type="date"
+              value={due}
+              onChange={(e) => setDue(e.target.value)}
+              className="h-8 w-36"
+              aria-label="Tenggat"
+            />
+            <Button size="sm" className="h-8" onClick={submitDraft}>
+              Simpan
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              className="h-8"
+              onClick={() => {
+                setComposing(false);
+                setPendingMentions([]);
+              }}
+            >
+              <XIcon />
+            </Button>
+          </div>
+          <MentionPicker mentions={pendingMentions} onChange={setPendingMentions} />
         </div>
       ) : null}
 
@@ -315,14 +376,14 @@ function TodoCard() {
             return (
               <li
                 key={todo.id}
-                className="group flex items-center gap-3 rounded-md px-2 py-2 transition-colors hover:bg-foreground/[0.03]"
+                className="group flex items-start gap-3 rounded-md px-2 py-2 transition-colors hover:bg-foreground/[0.03]"
               >
                 <button
                   type="button"
                   onClick={() => onToggle(todo)}
                   aria-label={isDone ? "Tandai belum selesai" : "Tandai selesai"}
                   className={cn(
-                    "flex size-5 shrink-0 items-center justify-center rounded-full border transition-colors",
+                    "mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full border transition-colors",
                     isDone
                       ? "border-foreground/30 bg-foreground/10 text-foreground"
                       : "border-foreground/30 text-transparent hover:bg-foreground/[0.06]",
@@ -331,31 +392,36 @@ function TodoCard() {
                   {isDone ? <CheckIcon className="size-3" /> : <CircleIcon className="size-3" />}
                 </button>
 
-                {editing === todo.id ? (
-                  <Input
-                    autoFocus
-                    defaultValue={todo.title}
-                    onBlur={(e) => onRename(todo, e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") e.currentTarget.blur();
-                      if (e.key === "Escape") setEditing(null);
-                    }}
-                    className="h-7 flex-1 text-sm"
-                  />
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => setEditing(todo.id)}
-                    className={cn(
-                      "min-w-0 flex-1 truncate text-left text-sm",
-                      isDone && "text-muted-foreground line-through",
-                    )}
-                  >
-                    {todo.title}
-                  </button>
-                )}
+                {/* `min-w-0 flex-1` membungkus teks dan chip, jadi chip yang
+                    panjang membuat teks membungkus, bukan membuat baris melebar
+                    melewati container. */}                <div className="min-w-0 flex-1">
+                  {editing === todo.id ? (
+                    <Input
+                      autoFocus
+                      defaultValue={todo.title}
+                      onBlur={(e) => onRename(todo, e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") e.currentTarget.blur();
+                        if (e.key === "Escape") setEditing(null);
+                      }}
+                      className="h-7 w-full text-sm"
+                    />
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setEditing(todo.id)}
+                      className={cn(
+                        "block w-full truncate text-left text-sm",
+                        isDone && "text-muted-foreground line-through",
+                      )}
+                    >
+                      {todo.title}
+                    </button>
+                  )}
+                  <LinkedMentionChips mentions={mentionsByTodo[todo.id] ?? []} />
+                </div>
 
-                <span className="w-20 shrink-0 text-right font-mono text-[10px] text-muted-foreground/70 uppercase tracking-[0.2em]">
+                <span className="mt-1 w-20 shrink-0 text-right font-mono text-[10px] text-muted-foreground/70 uppercase tracking-[0.2em]">
                   {dueLabel(todo.dueAt)}
                 </span>
 
@@ -363,7 +429,7 @@ function TodoCard() {
                   type="button"
                   onClick={() => onDelete(todo)}
                   aria-label="Hapus tugas"
-                  className="shrink-0 rounded p-1 text-muted-foreground opacity-0 transition-opacity hover:text-destructive focus-visible:opacity-100 group-hover:opacity-100"
+                  className="mt-0.5 shrink-0 rounded p-1 text-muted-foreground opacity-0 transition-opacity hover:text-destructive focus-visible:opacity-100 group-hover:opacity-100"
                 >
                   <XIcon className="size-3.5" />
                 </button>
