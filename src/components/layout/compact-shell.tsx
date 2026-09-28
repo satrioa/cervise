@@ -98,7 +98,7 @@ function CompactShellInner({
             <SheetTrigger render={<Button variant="ghost" size="icon" className="size-8 lg:hidden" />}>
               <Menu className="size-5" />
             </SheetTrigger>
-            <SheetContent side="left" className="flex w-[132px] flex-col p-0">
+            <SheetContent side="left" className="flex w-[104px] flex-col p-0">
               <SheetHeader className="sr-only">
                 <SheetTitle>Menu Cervise</SheetTitle>
               </SheetHeader>
