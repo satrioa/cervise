@@ -48,6 +48,7 @@ create index if not exists organizations_owner_profile_id_idx
 create or replace function public.set_tenant_owner_on_insert()
 returns trigger
 language plpgsql
+set search_path = public
 as $$
 begin
   if new.owner_profile_id is null and new.created_by is not null then
@@ -83,7 +84,16 @@ as $$
   );
 $$;
 
-revoke all on function public.is_tenant_owner(uuid, uuid) from public;
+-- ACL-nya harus eksplisit, bukan cuma "revoke from public".
+--
+-- Supabase memasang default privilege yang memberi EXECUTE ke anon dan
+-- authenticated untuk fungsi baru di schema public. Revoke dari public tidak
+-- cukup: grant eksplisit ke anon tetap ada, sehingga siapa pun tanpa login
+-- bisa memanggil fungsi ini dan menebak profil mana yang memiliki tenant
+-- mana. Fungsisekarang jadi satu-satunya helper yang membocorkan itu, jadi
+-- ACL-nya harus dikunci eksplisit seperti is_tenant_member.
+revoke execute on function public.is_tenant_owner(uuid, uuid) from public, anon, authenticated;
+grant execute on function public.is_tenant_owner(uuid, uuid) to authenticated, service_role;
 
 -- Pemilik harus tetap bisa membaca tenant-nya sendiri, termasuk kalau
 -- employees row-nya nanti hilang karena dia dinonaktifkan sebagai admin -

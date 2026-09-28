@@ -49,12 +49,34 @@ describe("migration owner_profile_id", () => {
     expect(sql).toMatch(/if new\.owner_profile_id is null and new\.created_by is not null then/);
   });
 
+  it("trigger punya search_path terkunci, bukan role mutable", () => {
+    // Tanpa ini advisor keamanan menandai function_search_path_mutable: search_path
+    // yang bisa berubah per role memungkinkan objek berbahaya disisipkan di
+    // depan resolusi nama.
+    const triggerFn = sql.slice(sql.indexOf("create or replace function public.set_tenant_owner_on_insert"));
+    expect(triggerFn.slice(0, 260)).toMatch(/set search_path = public/);
+  });
+
   it("menyediakan helper is_tenant_owner untuk RLS", () => {
     expect(sql).toContain("create or replace function public.is_tenant_owner(");
     expect(sql).toMatch(/owner_profile_id = check_user_id/);
     // security definer + search_path terkunci, mengikuti pola has_tenant_role.
     expect(sql).toMatch(/security definer\s+set search_path = public/);
-    expect(sql).toContain("revoke all on function public.is_tenant_owner");
+  });
+
+  it("mengunci ACL: authenticated boleh, anon tidak", () => {
+    // Supabase memberi EXECUTE ke anon untuk fungsi baru di schema public.
+    // "revoke from public" saja tidak cukup karena grant eksplisit ke anon
+    // tetap ada - tanpa ini, siapa pun tanpa login bisa menebak profil mana
+    // yang memiliki tenant mana.
+    expect(sql).toMatch(
+      /revoke execute on function public\.is_tenant_owner\(uuid, uuid\) from public, anon, authenticated/,
+    );
+    expect(sql).toMatch(
+      /grant execute on function public\.is_tenant_owner\(uuid, uuid\) to authenticated, service_role/,
+    );
+    // Bentuk lama hanya "revoke all ... from public" dan tidak menutup anon.
+    expect(sql).not.toMatch(/revoke all on function public\.is_tenant_owner/);
   });
 
   it("policy select tetap memberi akses kepada semua jalur yang sudah ada", () => {
