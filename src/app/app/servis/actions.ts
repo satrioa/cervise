@@ -56,7 +56,7 @@ export async function getServisList(): Promise<ServisListRow[]> {
   const { supabase, branchId } = await getBranchAndUser();
   const { data: services, error: servicesError } = await supabase
     .from("cervise_services")
-    .select("id, service_number, device, complaint, status, price, customer_id, teknisi_id, created_at")
+    .select("id, service_number, tracking_code, device, complaint, status, price, customer_id, teknisi_id, created_at")
     .eq("branch_id", branchId)
     .order("created_at", { ascending: false })
     .limit(500);
@@ -64,6 +64,7 @@ export async function getServisList(): Promise<ServisListRow[]> {
   const serviceRows = (services ?? []) as {
     id: string;
     service_number: string | null;
+    tracking_code: string | null;
     device: string;
     complaint: string | null;
     status: string;
@@ -546,7 +547,7 @@ export async function getServisDetail(id: string) {
   const { data, error } = await supabase
     .from("cervise_services")
     .select(
-      "id, branch_id, service_number, device, complaint, status, price, price_estimasi, garansi_until, created_at, merk, tipe, imei1, imei2, kerusakan, kelengkapan, password_type, password_value, garansi_value, garansi_unit, kondisi_awal, customer_id, teknisi_id, created_by, cervise_customers(id, name, phone, address)"
+      "id, branch_id, service_number, tracking_code, device, complaint, status, price, price_estimasi, garansi_until, created_at, merk, tipe, imei1, imei2, kerusakan, kelengkapan, password_type, password_value, garansi_value, garansi_unit, kondisi_awal, customer_id, teknisi_id, created_by, cervise_customers(id, name, phone, address)"
     )
     .eq("id", id)
     .eq("branch_id", branchId)

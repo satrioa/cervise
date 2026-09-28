@@ -2,7 +2,7 @@
 
 import { format } from "date-fns";
 
-type PrintData = {
+export type PrintData = {
   /**
    * `name` = brand (organizations.name). Kontak opsional: Cetak/struk tidak
    * boleh menampilkan alamat/telepon fiktif bila data cabang belum diisi.
@@ -29,6 +29,10 @@ type PrintData = {
     tanggalTerima?: string;
     passwordType?: string;
     passwordValue?: string;
+    /** Kode cek publik yang dicetak pelanggan di struk. */
+    trackingCode?: string;
+    /** Slug tenant, dipakai menyusun URL halaman lacak publik. */
+    tenantSlug?: string | null;
   };
   customer: { name: string; phone: string };
   admin: string;
@@ -38,6 +42,24 @@ type PrintData = {
 
 /** Placeholder for genuinely absent data. Never substitute invented values. */
 const EM_DASH = "\u2014";
+
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+/**
+ * Kode cek publik dicetak apa adanya di struk: pelanggan mengetiknya di
+ * halaman lacak untuk melihat status + garansi tanpa akun.
+ */
+export function trackingCodeLine(code: string | undefined): string {
+  if (!code) return "";
+  return escapeHtml(code);
+}
 
 function text(value: unknown): string {
   if (value === null || value === undefined) return EM_DASH;
@@ -97,7 +119,36 @@ export type PrintContext = {
   address?: string | null;
   phone?: string | null;
   website?: string | null;
+  tenantSlug?: string | null;
 };
+
+/** URL halaman lacak publik, dicetak kecil di struk. */
+export function publicTrackingUrl(slug: string | null | undefined, code: string | null | undefined, origin?: string | null): string {
+  const host = origin || (typeof window !== "undefined" ? window.location.origin : "");
+  if (!slug || !code) return "";
+  return `${host}/${slug}/lacak/${code}`;
+}
+
+/**
+ * Alamat halaman lacak. Struk dicetak dari browser aplikasi, jadi origin
+ * aplikasi selalu benar dan tidak ada domain yang dipatok di kode. Website
+ * tenant dipakai sebagai override hanya bila suatu saat diisi manual.
+ */
+export function publicTrackingPath(website: string | null | undefined, slug: string | null | undefined): string {
+  if (!slug) return "";
+  const host = website?.trim()
+    ? website.trim().replace(/\/+$/, "")
+    : typeof window !== "undefined"
+      ? window.location.origin
+      : "";
+  if (!host) return "";
+  return `${host}/${slug}/lacak`;
+}
+
+function trackingPathLine(website: string | null | undefined, slug: string | null | undefined, code: string | undefined): string {
+  if (!code) return "";
+  return publicTrackingPath(website, slug);
+}
 
 export function toPrintData(servis: any, context: PrintContext, detail?: any): PrintData {
   // Prefer detail (ServisDetail) when available: the list row is a summary.
@@ -158,6 +209,14 @@ export function toPrintData(servis: any, context: PrintContext, detail?: any): P
       // Ditampilkan sebagai POLA hanya bila record benar-benar tipe POLA.
       passwordType: s?.password_type || undefined,
       passwordValue: s?.password_value || undefined,
+      // Fallback ke baris list: bulk print tetap punya kode walau fetch
+      // detail gagal, dan mapper list sudah menormalkan ke huruf besar.
+      trackingCode: s?.tracking_code
+        ? text(String(s.tracking_code)).toUpperCase()
+        : servis?.trackingCode
+          ? String(servis.trackingCode).toUpperCase()
+          : undefined,
+      tenantSlug: context.tenantSlug ?? null,
     },
     customer: { name: text(customerName).toUpperCase(), phone: text(customerPhoneRaw) },
     admin: text(adminName),
@@ -298,6 +357,7 @@ export function renderJetHtml(data: PrintData): string {
   </div>
   <div class="total-row"><span class="total">Total &nbsp; ${formatEn(service.price)}</span></div>
   <div class="checks"><span>Cek Service</span><span>Cek Garansi</span></div>
+  ${service.trackingCode ? `<div class="row bullet"><span class="label">Kode cek</span><span class="colon">:</span><span class="val" style="font-family:ui-monospace,monospace; letter-spacing:.04em;">${trackingCodeLine(service.trackingCode)}</span></div>${trackingPathLine(branch.website, service.tenantSlug, service.trackingCode) ? `<div class="row"><span class="label" style="font-size:6.5pt;">Cek status</span><span class="colon">:</span><span class="val" style="font-size:6.5pt;">${escapeHtml(trackingPathLine(branch.website, service.tenantSlug, service.trackingCode))}</span></div>` : ""}` : ""}
   ${service.passwordType === "POLA" ? `<div class="pola"><h3>POLA</h3><div class="pola-grid">${polaSvg}${renderPolaDotsHtml(service.passwordValue)}</div></div>` : ""}
   <div class="catatan"><h3>Catatan :</h3><ol><li>Garansi service 2 Minggu, berlaku barang sudah diambil.</li><li>Slip ini wajib dibawa ketika akan mengambil service.</li><li>Garansi berlaku pada kerusakan yang sama.</li><li>Cek kembali barang service anda saat penyerahan.</li></ol></div>
   <div class="sigs"><div class="sig"><div class="role">Konsumen</div><div class="name">( ${customer.name} )</div></div><div class="sig"><div class="role">Admin</div><div class="name">( ${admin} )</div></div></div>
@@ -346,6 +406,7 @@ export function renderDotMatrixHtml(data: PrintData): string {
     <dt>Tanggal terima :</dt><dd>${service.tanggalTerima}</dd>
   </dl>
   <div style="text-align:center; font-size:11px; margin:6px 0;">Cek Service &nbsp;&nbsp; Cek Garansi</div>
+  ${service.trackingCode ? `<div style="text-align:center; font-size:12px; letter-spacing:.06em; margin:0 0 6px;">KODE CEK: ${trackingCodeLine(service.trackingCode)}</div>${trackingPathLine(branch.website, service.tenantSlug, service.trackingCode) ? `<div style="text-align:center; font-size:9px; margin:0 0 6px;">Cek status: ${escapeHtml(trackingPathLine(branch.website, service.tenantSlug, service.trackingCode))}</div>` : ""}` : ""}
   <hr class="dashed">
   <div class="meta-2col"><span>Imei 1 /SN : ${service.imei1}</span><span>Invoice : ${invoiceNo}</span></div>
   <div class="meta-2col"><span>Imei 2 /SN : ${service.imei2}</span><span>Tanggal Service : ${service.date}</span></div>
@@ -412,6 +473,7 @@ export function renderThermalHtml(data: PrintData): string {
   <div class="row bold"><span>Total</span><span>${formatEn(service.price)}</span></div>
   <hr class="sep">
   <div class="center bold">###CEK SERVICE DAN GARANSI###</div>
+  ${service.trackingCode ? `<div class="center bold" style="letter-spacing:.08em;">KODE: ${trackingCodeLine(service.trackingCode)}</div>${trackingPathLine(branch.website, service.tenantSlug, service.trackingCode) ? `<div class="center" style="font-size:9px; margin-top:2px; word-break:break-all;">Cek status: ${escapeHtml(trackingPathLine(branch.website, service.tenantSlug, service.trackingCode))}</div>` : ""}` : ""}
   <hr class="sep">
   <div class="row center" style="justify-content:center; gap:16px;"><span>Service</span><span>Cek Garansi</span></div>
   <hr class="sep">

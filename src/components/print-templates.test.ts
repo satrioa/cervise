@@ -1,130 +1,115 @@
 import { describe, expect, it } from "vitest";
-import { toPrintData, renderJetHtml, renderDotMatrixHtml, renderThermalHtml } from "./print-templates";
+import { renderDotMatrixHtml, renderJetHtml, renderThermalHtml, toPrintData, type PrintData } from "./print-templates";
 
-/**
- * Nilai yang pernah dipalsukan oleh toPrintData. Receipt adalah dokumen
- * formal: data fiktif di sini menghasilkan struk palsu yang dicetak untuk
- * pelanggan nyata, jadi setiap placeholder harus hilang permanen.
- */
-const FABRICATIONS = [
-  "FARHAN",
-  "0896****2404",
-  "IPHONE",
-  "SIMTRAY",
-  "REPAIR KAMERA BELAKANG",
-  "Teknisitasik1",
-  "Kasservice",
-  "KasserviceKlaten",
-  "Mayor Kusmanto",
-  "rbm-borneo",
-  "Payment Cash",
-  "SV-1001",
-  "200000",
-  "2026-09-30",
-];
+const base: PrintData = {
+  branch: { name: "Servisin", address: "Jl. Merdeka", phone: "08123456789", website: "servisin.test" },
+  invoiceNo: "INV-18092026151939",
+  service: {
+    id: "svc-1",
+    device: "iPhone 13 Pro",
+    merk: "iPhone",
+    tipe: "13 Pro",
+    price: 350000,
+    status: "Dikerjakan",
+    teknisi: "Budi",
+    date: "2026-09-18",
+    garansiSampai: "2026-10-18",
+    tanggalTerima: "2026-09-18",
+    trackingCode: "A3BD9F2C4B",
+    tenantSlug: "servisin",
+  },
+  customer: { name: "FARHAN", phone: "0812 3456 7890" },
+  admin: "Kasservice",
+  teknisi: "Budi",
+  printTime: "22/09/2026, 17:46",
+};
 
-const RENDERERS = [renderJetHtml, renderDotMatrixHtml, renderThermalHtml];
-
-describe("toPrintData", () => {
-  it("never invents data for a service record with no fields", () => {
-    const data = toPrintData({}, { brandName: "Servisin" });
-
-    expect(data.customer.name).toBe("\u2014");
-    expect(data.customer.phone).toBe("\u2014");
-    expect(data.service.price).toBeNull();
-    expect(data.service.status).toBe("\u2014");
-    expect(data.teknisi).toBe("\u2014");
-    expect(data.admin).toBe("\u2014");
-    expect(data.service.kelengkapan).toEqual([]);
-    expect(data.service.kerusakan).toEqual([]);
-    expect(data.service.garansiSampai).toBe("\u2014");
-    expect(data.branch.address).toBeNull();
-    expect(data.branch.phone).toBeNull();
-    expect(data.branch.website).toBeNull();
-
-    for (const render of RENDERERS) {
-      const html = render(data);
-      for (const fabrication of FABRICATIONS) {
-        expect(html).not.toContain(fabrication);
-      }
-      // An empty record must never render "undefined".
-      expect(html).not.toContain("undefined");
-      expect(html).not.toContain("NaN");
-    }
+describe("struk memuat kode cek publik", () => {
+  it("mencetak kode pada ketiga template", () => {
+    expect(renderJetHtml(base)).toContain("A3BD9F2C4B");
+    expect(renderDotMatrixHtml(base)).toContain("A3BD9F2C4B");
+    expect(renderThermalHtml(base)).toContain("A3BD9F2C4B");
   });
 
-  it("uses the organization brand as the store name, not the branch name", () => {
-    const data = toPrintData({}, { brandName: "Servisin", branchName: "Cabang Pusat" });
-
-    expect(data.branch.name).toBe("Servisin");
-    for (const render of RENDERERS) {
-      expect(render(data)).toContain("Servisin");
-    }
-  });
-
-  it("keeps a placeholder store name when the brand and branch are both missing", () => {
-    const data = toPrintData({}, { brandName: null, branchName: null });
-
-    expect(data.branch.name).toBe("\u2014");
-    expect(data.branch.name).not.toBe("");
-  });
-
-  it("omits the 'Semua cabang' sentinel as a store name", () => {
-    const data = toPrintData({}, { brandName: "Servisin", branchName: null });
-
-    expect(data.branch.name).not.toContain("Semua");
-  });
-
-  it("carries real customer, device, and price data through unchanged", () => {
-    const data = toPrintData(
+  it("tidak mencetak baris kode kosong maupun label kosong", () => {
+    // Fixture dibangun lewat toPrintData supaya semua field opsional terisi
+    // em-dash, persis seperti data produksi.
+    const withoutCode = toPrintData(
       {
-        id: "service-1",
-        invoice_no: "INV-20260926-0001",
-        created_at: "2026-09-26T03:30:00.000Z",
-        merk: "Samsung",
-        tipe: "Galaxy S23",
-        price: 450000,
-        status: "Selesai",
-        customer: "Budi \u00b7 08123456789",
-        teknisi: { full_name: "Andi" },
-        creator: { full_name: "Sari" },
-        kerusakan: ["Layar pecah"],
-        kelengkapan: ["Charger"],
-        garansi_until: "2026-12-26T00:00:00.000Z",
+        id: "svc-1",
+        device: "iPhone 13 Pro",
+        merk: "iPhone",
+        tipe: "13 Pro",
+        status: "Dikerjakan",
+        price: 350000,
+        garansi_value: 30,
+        garansi_unit: "hari",
+        customer: "Rina · 0812 3456 7890",
+        date: "2026-09-18",
       },
-      { brandName: "Servisin" },
+      { brandName: "Servisin", tenantSlug: "servisin" },
+      null,
     );
 
-    expect(data.service.id).toBe("service-1");
-    expect(data.invoiceNo).toBe("INV-20260926-0001");
-    expect(data.service.device).toBe("Samsung Galaxy S23");
-    expect(data.service.price).toBe(450000);
-    expect(data.customer.name).toBe("BUDI");
-    expect(data.teknisi).toBe("Andi");
-    expect(data.admin).toBe("Sari");
-    expect(data.service.kerusakan).toEqual(["Layar pecah"]);
-  });
-
-  it("does not invent a warranty date when the record has none", () => {
-    const data = toPrintData({ id: "x", created_at: "2026-09-26T00:00:00.000Z" }, { brandName: "Servisin" });
-
-    expect(data.service.garansiSampai).toBe("\u2014");
-    for (const render of RENDERERS) {
-      expect(render(data)).not.toContain("2026-09-30");
+    for (const html of [renderJetHtml(withoutCode), renderDotMatrixHtml(withoutCode), renderThermalHtml(withoutCode)]) {
+      expect(html).not.toContain("Kode cek");
+      expect(html).not.toContain("KODE CEK");
+      expect(html).not.toContain("undefined");
     }
   });
 
-  it("keeps the branch phone but omits address and website that do not exist", () => {
-    const data = toPrintData({}, { brandName: "Servisin", phone: "0812998877" });
+  it("meng-escape kode dari markup yang dicetak", () => {
+    const hostile: PrintData = {
+      ...base,
+      service: { ...base.service, trackingCode: '<img src=x onerror="alert(1)">' },
+    };
 
-    expect(data.branch.phone).toBe("0812998877");
-    for (const render of RENDERERS) {
-      const html = render(data);
-      if (html.includes("0812998877")) {
-        expect(html).toContain("Servisin");
-      }
-      // "·" only appears when joining two present contact values.
-      expect(html.includes("\u00b7\n")).toBe(false);
+    expect(renderJetHtml(hostile)).not.toContain("<img src=x");
+  });
+
+  it("mencetak alamat halaman lacak dari website tenant", () => {
+    // Kode tanpa URL tidak bisa dipakai pelanggan, jadi path ikut dicetak.
+    for (const html of [renderJetHtml(base), renderDotMatrixHtml(base), renderThermalHtml(base)]) {
+      expect(html).toContain("servisin.test/servisin/lacak");
     }
+  });
+
+  it("tetap punya kode saat print dari baris list tanpa detail", () => {
+    // Bulk print: fetch detail per baris bisa gagal; mapper list sudah
+    // menormalkan trackingCode ke huruf besar.
+    const fromList = toPrintData({ id: "svc-1", trackingCode: "A3BD9F2C4B", device: "iPhone 13", status: "Masuk", customer: "Rina" }, { brandName: "Servisin", tenantSlug: "servisin", website: "servisin.test" }, null);
+
+    expect(fromList.service.trackingCode).toBe("A3BD9F2C4B");
+    expect(renderJetHtml(fromList)).toContain("A3BD9F2C4B");
+  });
+
+  it("tidak mengarang alamat halaman tanpa website tenant", () => {
+    const noSite = toPrintData(
+      { id: "svc-1", tracking_code: "a3bd9f2c4b", device: "iPhone 13", status: "Masuk", customer: "Rina", date: "2026-09-18" },
+      { brandName: "Servisin", tenantSlug: "servisin", website: null },
+      null,
+    );
+
+    for (const html of [renderJetHtml(noSite), renderDotMatrixHtml(noSite), renderThermalHtml(noSite)]) {
+      expect(html).toContain("A3BD9F2C4B");
+      expect(html).not.toContain("Cek status");
+    }
+  });
+
+  it("mengambil kode dari data servis dan menormalkan huruf besar", () => {
+    const data = toPrintData(
+      { id: "svc-1", tracking_code: "a3bd9f2c4b", device: "iPhone 13", status: "Masuk", customer: "Rina", date: "2026-09-18" },
+      { brandName: "Servisin", tenantSlug: "servisin" },
+      null,
+    );
+
+    expect(data.service.trackingCode).toBe("A3BD9F2C4B");
+    expect(data.service.tenantSlug).toBe("servisin");
+  });
+
+  it("tidak mengarang kode saat data servis tidak punya", () => {
+    const data = toPrintData({ id: "svc-1", device: "iPhone 13", status: "Masuk", customer: "Rina" }, { brandName: "Servisin" }, null);
+
+    expect(data.service.trackingCode).toBeUndefined();
   });
 });

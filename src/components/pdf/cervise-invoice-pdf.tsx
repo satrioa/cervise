@@ -3,33 +3,13 @@
 
 import { Document, Page, Text, View, StyleSheet } from "@formepdf/react";
 
-type PrintData = {
-  branch: { name: string; address: string; phone: string; website: string };
-  invoiceNo: string;
-  service: {
-    id: string;
-    device: string;
-    merk?: string;
-    tipe?: string;
-    imei1?: string;
-    imei2?: string;
-    kelengkapan?: string[];
-    kerusakan?: string[];
-    deskripsi?: string;
-    sparepart?: string;
-    price: number;
-    status: string;
-    teknisi: string;
-    complaint?: string;
-    date: string;
-    garansiSampai?: string;
-    tanggalTerima?: string;
-  };
-  customer: { name: string; phone: string };
-  admin: string;
-  teknisi: string;
-  printTime: string;
-};
+type PrintData = import("@/components/print-templates").PrintData;
+
+/** Disalin lokal supaya file PDF tidak menarik seluruh template HTML ke bundle. */
+function publicTrackingPath(website: string | null | undefined, slug: string | null | undefined): string {
+  if (!website || !slug) return "";
+  return `${website.trim().replace(/\/+$/, "")}/${slug}/lacak`;
+}
 
 function formatEn(price: number): string {
   return new Intl.NumberFormat("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(price);
@@ -319,6 +299,18 @@ export function CerviseJetPdf({ data }: { data: PrintData }) {
           <Text style={styles.checkBox}>Cek Service</Text>
           <Text style={styles.checkBox}>Cek Garansi</Text>
         </View>
+
+        {data.service.trackingCode ? (
+          <View style={{ marginTop: 4, alignItems: "center" }}>
+            <Text style={{ fontSize: 7, letterSpacing: 1 }}>KODE CEK</Text>
+            <Text style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2 }}>{data.service.trackingCode}</Text>
+            {publicTrackingPath(data.branch.website, data.service.tenantSlug) ? (
+              <Text style={{ fontSize: 6, color: "#6b7280", marginTop: 2 }}>
+                Cek status: {publicTrackingPath(data.branch.website, data.service.tenantSlug)}
+              </Text>
+            ) : null}
+          </View>
+        ) : null}
 
         {(data.service as any).passwordType === "POLA" && (
           <View style={{ marginTop: 6 }}>

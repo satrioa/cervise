@@ -18,6 +18,8 @@ import { GaransiField } from "@/components/servis/garansi-field";
 import { useBranch } from "@/lib/branch-context";
 import { extendGaransi, getGaransiList } from "@/app/app/garansi/actions";
 import { PageHeader } from "@/components/layout/page-header";
+import { garansiMeta } from "@/lib/operational/garansi-meta";
+import { toDays } from "@/lib/operational/garansi-list";
 
 type GaransiRow = {
   id: string;
@@ -31,30 +33,6 @@ type GaransiRow = {
   cabang: string;
   status: string;
 };
-
-function toDays(value: number, unit: string): number {
-  if (unit === "hari") return value;
-  if (unit === "bulan") return value * 30;
-  if (unit === "tahun") return value * 365;
-  return value;
-}
-
-function garansiMeta(row: GaransiRow) {
-  if (!row.garansiUntil) {
-    return { state: "belum_aktif" as const, pct: 0, daysLeft: null as number | null, total: toDays(row.garansiValue, row.garansiUnit) };
-  }
-  const total = toDays(row.garansiValue, row.garansiUnit) || 90;
-  const until = new Date(row.garansiUntil);
-  until.setHours(23, 59, 59, 999);
-  const now = new Date();
-  now.setHours(0, 0, 0, 0);
-  const daysLeft = Math.ceil((until.getTime() - now.getTime()) / 86400000);
-  const pct = Math.max(0, Math.min(100, Math.round((daysLeft / total) * 100)));
-  if (daysLeft < 0) return { state: "expired" as const, pct: 0, daysLeft, total };
-  if (daysLeft <= 7) return { state: "segera_habis" as const, pct, daysLeft, total };
-  if (daysLeft <= 14) return { state: "warning" as const, pct, daysLeft, total };
-  return { state: "aktif" as const, pct, daysLeft, total };
-}
 
 export default function GaransiPage() {
   const { branch } = useBranch();

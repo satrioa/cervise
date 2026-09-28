@@ -2,20 +2,7 @@
 
 import { useState, useMemo, useEffect } from "react";
 import { formatCurrencyPlain, formatNumberPlain } from "@/lib/format";
-import {
-  CheckIcon,
-  CircleDotIcon,
-  PackageIcon,
-  TruckIcon,
-  WrenchIcon,
-  ClockIcon,
-  SearchIcon,
-  CalendarIcon,
-  XIcon,
-  TableIcon,
-  LayoutGridIcon,
-  BanIcon,
-} from "lucide-react";
+import { SearchIcon, CalendarIcon, XIcon, TableIcon, LayoutGridIcon } from "lucide-react";
 import { format } from "date-fns";
 import { id as localeId } from "date-fns/locale";
 import { toast } from "sonner";
@@ -48,32 +35,8 @@ import { toPrintData, renderJetHtml, renderDotMatrixHtml, renderThermalHtml, typ
 import { cn } from "@/lib/utils";
 import { SparepartPickDialog, CancelSparepartDialog } from "@/components/servis/sparepart-dialogs";
 import { PageHeader } from "@/components/layout/page-header";
-
-type Stage = "Masuk" | "Diagnosa" | "Menunggu Konfirmasi" | "Menunggu Sparepart" | "Dikerjakan" | "Selesai" | "Sudah Diambil" | "Batal";
-
-const STAGES: { key: Stage; label: string; icon: typeof CheckIcon }[] = [
-  { key: "Masuk", label: "Masuk", icon: CircleDotIcon },
-  { key: "Diagnosa", label: "Diagnosa", icon: SearchIcon },
-  { key: "Menunggu Konfirmasi", label: "Konfirmasi", icon: ClockIcon },
-  { key: "Menunggu Sparepart", label: "Sparepart", icon: PackageIcon },
-  { key: "Dikerjakan", label: "Dikerjakan", icon: WrenchIcon },
-  { key: "Selesai", label: "Selesai", icon: CheckIcon },
-  { key: "Sudah Diambil", label: "Diambil", icon: TruckIcon },
-  { key: "Batal", label: "Batal", icon: BanIcon },
-];
-
-const stageIndex = (s: Stage) => STAGES.findIndex((x) => x.key === s);
-
-const DOT_COLOR: Record<Stage, string> = {
-  Masuk: "bg-zinc-400",
-  Diagnosa: "bg-amber-500",
-  "Menunggu Konfirmasi": "bg-orange-500",
-  "Menunggu Sparepart": "bg-yellow-500",
-  Dikerjakan: "bg-blue-500",
-  Selesai: "bg-emerald-500",
-  "Sudah Diambil": "bg-violet-500",
-  Batal: "bg-red-500",
-};
+import { DOT_COLOR, STAGES, StageTrack, stageIndex, type Stage } from "@/lib/operational/stage-track";
+import { servisLabel } from "@/lib/operational/servis-list";
 
 type PaymentStatus = "Lunas" | "DP" | "Belum dibayar";
 
@@ -90,10 +53,6 @@ type ServisItem = {
   payment?: PaymentStatus;
   paidAmount?: number;
 };
-
-function servisLabel(item: { id: string; serviceNumber?: string | null }) {
-  return item.serviceNumber ?? item.id.slice(0, 8).toUpperCase();
-}
 
 function getPaymentStatus(item: ServisItem): PaymentStatus {
   if (item.payment) return item.payment;
@@ -177,8 +136,9 @@ export default function ServisPage() {
       brandName: activeTenant?.name ?? null,
       branchName: branch.id === "all" ? null : branch.label,
       phone: branch.phone ?? null,
+      tenantSlug: activeTenant?.slug ?? null,
     }),
-    [activeTenant?.name, branch.id, branch.label, branch.phone],
+    [activeTenant?.name, activeTenant?.slug, branch.id, branch.label, branch.phone],
   );
   const [kanbanValue, setKanbanValue] = useState<Record<string, ServisItem[]>>({});
 
@@ -698,13 +658,13 @@ export default function ServisPage() {
                   <TableRow className="cursor-context-menu hover:bg-muted/40" data-state={selectedIds.has(r.id) ? "selected" : undefined}>
                     <TableCell>
                       <Checkbox
-                        aria-label={`Select ${r.id}`}
+                        aria-label={`Select ${servisLabel(r)}`}
                         checked={selectedIds.has(r.id)}
                         onCheckedChange={(v) => toggleOne(r.id, !!v)}
                         onClick={(e) => e.stopPropagation()}
                       />
                     </TableCell>
-                    <TableCell><div className="font-mono text-xs">{r.id}</div><div className="text-muted-foreground text-xs">{r.customer}</div><div className="text-muted-foreground text-[11px]">{format(new Date(r.date), "d MMM yyyy", { locale: localeId })}</div></TableCell>
+                    <TableCell><div className="font-mono text-xs">{servisLabel(r)}</div><div className="text-muted-foreground text-xs">{r.customer}</div><div className="text-muted-foreground text-[11px]">{format(new Date(r.date), "d MMM yyyy", { locale: localeId })}</div></TableCell>
                     <TableCell className="font-medium max-w-[220px] truncate">{r.device}</TableCell>
                     <TableCell><StageTrack stage={r.status} /></TableCell>
                     <TableCell className="font-mono text-xs text-muted-foreground">{r.teknisi}</TableCell>
@@ -1073,10 +1033,10 @@ export default function ServisPage() {
           <DialogPrimitive.Backdrop className="fixed inset-0 z-50 bg-black/20 backdrop-blur-sm" />
           <DialogPrimitive.Popup className="fixed left-1/2 top-1/2 z-50 w-[95vw] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-xl border bg-background p-6 shadow-lg">
             <DialogPrimitive.Title className="font-semibold">Hapus {selectedCount} Servis?</DialogPrimitive.Title>
-            <DialogPrimitive.Description className="text-sm text-muted-foreground">Tindakan tidak bisa dibatalkan. Daftar ID:</DialogPrimitive.Description>
+            <DialogPrimitive.Description className="text-sm text-muted-foreground">Tindakan tidak bisa dibatalkan. Daftar nomor servis:</DialogPrimitive.Description>
             <div className="mt-3 max-h-32 overflow-y-auto rounded border bg-muted/30 p-2 font-mono text-xs">
               {selectedData.map((s) => (
-                <div key={s.id}>{s.id} · {s.device}</div>
+                <div key={s.id}>{servisLabel(s)} · {s.device}</div>
               ))}
             </div>
             <div className="mt-4 flex justify-end gap-2">
@@ -1111,25 +1071,6 @@ export default function ServisPage() {
           setPendingBatal(null);
         }}
       />
-    </div>
-  );
-}
-
-function StageTrack({ stage }: { stage: Stage }) {
-  const idx = stageIndex(stage);
-  return (
-    <div className="flex items-center gap-1">
-      {STAGES.map((s, i) => {
-        const Icon = s.icon;
-        const reached = i <= idx;
-        const current = i === idx;
-        return (
-          <div key={s.key} className="flex items-center gap-1">
-            <div className={"flex size-5 items-center justify-center rounded-full border text-[10px] " + (current ? "border-primary bg-primary text-primary-foreground" : reached ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" : "border-border bg-muted text-muted-foreground/60")} aria-label={s.label} title={s.label}><Icon className="size-3" /></div>
-            {i < STAGES.length - 1 ? <div className={"h-px w-2 " + (i < idx ? "bg-emerald-500/40" : "bg-border")} /> : null}
-          </div>
-        );
-      })}
     </div>
   );
 }
