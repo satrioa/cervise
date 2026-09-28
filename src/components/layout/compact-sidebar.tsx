@@ -46,10 +46,22 @@ const COMPACT_GROUPS = ["dashboard", "operasional", "laporan", "keuangan"] as co
  * Lebar rail untuk `grid-template-columns`.
  *
  * 70px, diminta langsung. Padding nav memakai px-1 (4px per sisi) sehingga
- * 62px tersisa untuk isi item -- cukup untuk ikon 18px dan label "Analistik"
+ * 62px tersisa untuk isi item -- cukup untuk ikon 18px dan label "Analitik"
  * satu kata pada text-[9px].
  */
 export const COMPACT_RAIL_WIDTH = "70px";
+
+/**
+ * Ukuran ikon rail compact, dalam px.
+ *
+ * 18px. Semua ikon di rail ini -- item navigasi, pengaturan, dan keluar --
+ * memakai konstanta yang sama, supaya tidak ada ikon yang tertinggal ukuran
+ * lama kalau satu komponen diubah.
+ */
+export const COMPACT_ICON_SIZE = 18;
+
+/** Kelas Tailwind ikon rail compact, diturunkan dari `COMPACT_ICON_SIZE`. */
+export const COMPACT_ICON_CLASS = `size-[${COMPACT_ICON_SIZE}px]`;
 
 /**
  * Template kolom grid shell: rail tetap, sisanya untuk konten.
@@ -119,7 +131,20 @@ export function CompactSidebar({
         />
       </div>
 
-      <nav className="flex flex-1 flex-col items-center gap-0.5 overflow-y-auto scrollbar-none px-1 pb-2">
+      {/*
+        Menu di tengah vertikal: rail compact hanya dipakai TEKNISIAN dan
+        FRONTLINER (lihat `compactRoles` di nav/manifest), dan dua role itu
+        punya sedikit item, jadi nuclek di atas terlihat tidak seimbang --
+        banyak ruang kosong di bawah tapi tidak ada di atas.
+
+        `safe` itu wajib, bukan hiasan. `nav` ini `overflow-y-auto`, jadi kalau
+        memakai `justify-center` biasa, saat item melebihi tinggi viewport
+        (label tiga baris di rail sempit, atau jendela pendek) flex memusatkan
+        content sehingga bagian ATAS keluar dari area scroll dan tidak bisa
+        dijangkau user. `justify-center-safe` mundur ke `start` begitu content
+        mulai meluber, jadi halaman atasnya tetap bisa dilihat.
+      */}
+      <nav className="flex flex-1 flex-col items-center justify-center-safe gap-0.5 overflow-y-auto scrollbar-none px-1 pb-2">
         {blocks.map((block) => (
           <div key={block.group} className="flex w-full flex-col items-center gap-0.5">
             {/* Pemisah antar group menggantikan label yang tidak muat di rail sempit. */}
@@ -162,7 +187,7 @@ export function CompactSidebar({
             pathname.startsWith("/app/pengaturan") && "text-foreground",
           )}
         >
-          <Settings className="size-[18px]" />
+          <Settings className={COMPACT_ICON_CLASS} />
         </Link>
         <LogoutButton />
       </div>
@@ -262,7 +287,7 @@ function CompactNavLink({
           // detail dan ikon jadi samar, terutama saat tidak aktif. Mengisi
           // path membuat siluetnya tegas di 18px.
           fill="currentColor"
-          className={cn("size-[18px] shrink-0", active ? "opacity-100" : "opacity-70")}
+          className={cn(COMPACT_ICON_CLASS, "shrink-0", active ? "opacity-100" : "opacity-70")}
         />
         {showLabel ? (
           // Tiga baris, bukan dua. Di rail 60px dengan padding px-1 hanya
@@ -295,7 +320,7 @@ function LogoutButton() {
       title="Keluar"
       className="flex size-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-foreground/[0.04] hover:text-foreground"
     >
-      <LogOut className="size-[18px]" />
+      <LogOut className={COMPACT_ICON_CLASS} />
     </button>
   );
 }

@@ -9,8 +9,8 @@ import { CommandPaletteProvider, CommandSearchTrigger } from "@/components/layou
 import { CompactSidebar, COMPACT_GRID_TEMPLATE } from "@/components/layout/compact-sidebar";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
 import { ShellChromeProvider } from "@/components/layout/shell-chrome";
-import { BranchProvider } from "@/lib/branch-context";
-import { TenantProvider } from "@/lib/tenant-context";
+import { BranchProvider, useBranch } from "@/lib/branch-context";
+import { TenantProvider, useTenant } from "@/lib/tenant-context";
 import { LocaleProvider } from "@/lib/localization-context";
 import { normalizeAppRole } from "@/lib/nav/manifest";
 import { OpeningBalanceDialog } from "@/components/cash/opening-balance-dialog";
@@ -54,6 +54,37 @@ export function CompactShell({ children, actor }: { children: ReactNode; actor: 
         </BranchProvider>
       </TenantProvider>
     </LocaleProvider>
+  );
+}
+
+/**
+ * Nama tenant dan cabang untuk header shell compact.
+ *
+ * Rail 70px tidak muat nama, jadi identitas ini tampil di header. Sumbernya
+ * context yang sama dengan sidebar, bukan dari actor: `TenantProvider` dan
+ * `BranchProvider` sudah mengunci org dan cabang untuk role non-MASTER_ADMIN,
+ * jadi teknisi dan frontliner hanya punya satu tenant dan satu cabang.
+ */
+function TenantBranchLabel() {
+  const { tenants, activeOrgId } = useTenant();
+  const { branch } = useBranch();
+
+  const tenantName =
+    tenants.find((tenant) => tenant.id === activeOrgId)?.name ??
+    (tenants.length === 1 ? tenants[0]?.name : null);
+  const branchName = branch?.label ?? null;
+
+  if (!tenantName && !branchName) return null;
+
+  return (
+    <div className="hidden min-w-0 flex-col items-start leading-tight lg:flex">
+      {tenantName ? (
+        <span className="max-w-[22ch] truncate text-sm font-semibold">{tenantName}</span>
+      ) : null}
+      {branchName ? (
+        <span className="max-w-[22ch] truncate text-xs text-muted-foreground">{branchName}</span>
+      ) : null}
+    </div>
   );
 }
 
@@ -119,6 +150,8 @@ function CompactShellInner({
               />
             </SheetContent>
           </Sheet>
+
+          <TenantBranchLabel />
 
           {/* Search dan tema diletakkan di shell, bukan di PageHeader, supaya
               CompactShell punya satu header saja. Shell legacy tidak merender

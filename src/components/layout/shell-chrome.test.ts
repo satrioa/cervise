@@ -37,6 +37,14 @@ describe("shell chrome", () => {
     expect(compactShell).toMatch(/ThemeToggle/);
   });
 
+  it("header CompactShell menampilkan nama tenant dan cabang", () => {
+    // Rail 70px tidak muat nama, jadi identitas tenant pindah ke header.
+    // Tanpa ini, teknisi dan frontliner tidak tahu sedang bekerja untuk
+    // tenant dan cabang mana.
+    expect(compactShell).toMatch(/useTenant/);
+    expect(compactShell).toMatch(/useBranch/);
+  });
+
   it("sidebar compact memakai ikon fill, sidebar legacy tetap garis", () => {
     const compactSidebar = read("src/components/layout/compact-sidebar.tsx");
     expect(compactSidebar).toMatch(/fill="currentColor"/);
