@@ -36,7 +36,16 @@ import {
  */
 
 const MAX_ATTEMPTS = 4;
-const BACKOFF_MINUTES = [1, 5, 30, 120];
+// Anak tangga PERCobaan ke-1..ke-3, karena percobaan ke-4 sudah terminal.
+// Indeks ke-3 (120 menit) tidak pernah dipakai: MAX_ATTEMPTS = 4 menghentikan
+// baris di attempts = 4, jadi hanya 2, 5, dan 30 yang dijangkau. Menyingkirkan
+// entri mati lebih baik daripada membiarkannya, karena pembaca kode lain akan
+// menghitung anak tangga dari konstanta ini.
+// Anak tangga pertama TIDAK boleh lebih pendek dari 2 menit, yaitu lease yang
+// dipasang claim. Retry yang lebih cepat dari lease sendiri memendekkan lease
+// itu sendiri: baris bisa terambil pada tick yang sama dengan tick yang baru
+// melepaskannya, dan dua konstanta jadi berbeda pendapat soal jarak minimum.
+const BACKOFF_MINUTES = [2, 5, 30, 120];
 const DEFAULT_LIMIT = 25;
 const COUNTRY_CODE = "62";
 
@@ -395,9 +404,25 @@ export async function dispatchPendingNotifications(
       // bertambah. Kembalikan nol juga akan menutupi antrean yang menumpuk
       // selama Fonnte mati, jadi tetap dihitung dan terlihat di log cron.
       if (response.skip) {
+        // Fonnte belum dikonfigurasi. Baris TIDAK boleh jadi 'skipped': state itu
+        // terminal (claim hanya mengambil state = 'pending') dan dedupe_key-nya
+        // sudah terpakai di enqueue dengan on conflict do nothing, jadi tidak ada
+        // jalan lagi untuk memunculkannya. Tick cron pertama di lingkungan yang
+        // lupa memasang FONNTE_TOKEN akan menghapus seluruh antrean secara
+        // permanen, dan memasang token belakangan tidak memulihkan apa pun.
+        //
+        // Jadi baris tetap pending, dijadwalkan ulang 30 menit, dan tetap
+        // dihitung sebagai skipped di hasil run ini. skipped di sini berarti
+        // "tidak dikirim pada run ini", bukan "selesai" -- dua makna itu berbeda
+        // dan mencampurkannya yang dulu menghancurkan antrean. Kalau token
+        // dipasang, baris ini dikirim sendiri tanpa campur tangan.
         const { error: patchError } = await admin
           .from("cervise_notification_outbox")
-          .update({ state: "skipped", last_error: "fonnte_not_configured" })
+          .update({
+            state: "pending",
+            last_error: "fonnte_not_configured",
+            next_attempt_at: new Date(now.getTime() + 30 * 60 * 1000).toISOString(),
+          })
           .eq("id", row.id);
         if (patchError) throw new Error(`Patch baris ${row.id} gagal: ${patchError.message}`);
         result.skipped += 1;
@@ -425,15 +450,23 @@ export async function dispatchPendingNotifications(
         throw new Error(`Patch baris ${row.id} gagal: ${patchError.message}`);
       }
       result.sent += 1;
-    } catch {
+    } catch (error) {
       // Baris ini tidak bisa dicatat, dan penyebabnya sengaja tidak dicoba
       // disimpan di sini: patch-nya sendiri yang gagal, jadi patch kedua hanya
       // akan gagal lagi, dan `last_error` yang ditulis sembarangan lebih buruk
       // daripada tidak menulis apa-apa.
       //
-      // Barisnya masih pending di bawah lease, jadi akan dicoba lagi pada tick
-      // berikutnya -- dan itu memang jalur pemulihan untuk worker yang tumbang
-      // di tengah jalan. Yang penting: baris lain tetap jalan.
+      // Tapi dibuang dari log bukan berarti boleh hilang. Tujuan modul ini
+      // membuat kegagalan terlihat, dan di sinilah satu-satunya tempat error
+      // masih ada di tangan -- kalau dibuang, jejak masalahnya tinggal angka
+      // `failed` yang naik tanpa sebab. Barisnya masih pending di bawah lease,
+      // jadi akan dicoba lagi pada tick berikutnya -- dan itu memang jalur
+      // pemulihan untuk worker yang tumbang di tengah jalan. Yang penting:
+      // baris lain tetap jalan.
+      console.error(
+        `[dispatcher] baris ${row.id} (${row.event}/${row.to_kind}) gagal dicatat:`,
+        error,
+      );
       result.failed += 1;
     }
   }

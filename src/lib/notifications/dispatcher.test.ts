@@ -694,7 +694,7 @@ describe("dispatchPendingNotifications", () => {
   });
 
   describe("Fonnte belum dikonfigurasi", () => {
-    it("menandai dilewati dan tidak menambah attempts", async () => {
+    it("menunda baris, tidak menghapusnya, dan tidak menambah attempts", async () => {
       // `skip` berarti FONNTE_TOKEN belum ada: keadaan yang disengaja, bukan
       // error. Tidak ada permintaan yang keluar, jadi tidak ada percobaan kirim
       // yang perlu dihitung.
@@ -705,10 +705,38 @@ describe("dispatchPendingNotifications", () => {
 
       const result = await dispatchPendingNotifications({ siteOrigin: ORIGIN });
 
+      // Penghitung `skipped` tetap berarti satu hal saja: tidak dikirim pada run
+      // ini karena Fonnte belum dikonfigurasi.
       expect(result).toEqual({ sent: 0, skipped: 1, failed: 0 });
       const patch = patchFor("o1");
-      expect(patch).toMatchObject({ state: "skipped", last_error: "fonnte_not_configured" });
+      expect(patch).toMatchObject({
+        state: "pending",
+        last_error: "fonnte_not_configured",
+      });
       expect(patch).not.toHaveProperty("attempts");
+    });
+
+    it("tidak pernah menulis state terminal untuk Fonnte yang belum dikonfigurasi", async () => {
+      // Regression guard untuk kehilangan data yang tidak bisa dipulihkan.
+      // 'skipped' tidak akan pernah dipilih lagi oleh claim (yang hanya
+      // mengambil state = 'pending') dan dedupe_key-nya sudah terpakai di
+      // enqueue dengan on conflict do nothing -- jadi satu tick tanpa
+      // FONNTE_TOKEN akan menghapus antrean secara permanen, dan memasang
+      // token belakangan tidak memulihkan apa pun.
+      state.claimed = [row({ attempts: 0 })];
+      state.servis = [SERVIS];
+      state.customers = [{ id: "c1", phone: "628123456789" }];
+      mocks.sendFonnteWA.mockResolvedValue({ skip: true });
+
+      await dispatchPendingNotifications({ siteOrigin: ORIGIN });
+
+      const patch = patchFor("o1");
+      expect(patch.state).not.toBe("skipped");
+      expect(patch.state).not.toBe("failed");
+      // Dan harus ada jadwal ulang, kalau tidak barisnya due terus-menerus.
+      expect(new Date(patch.next_attempt_at as string).getTime()).toBeGreaterThan(
+        Date.now() + 60_000,
+      );
     });
   });
 
