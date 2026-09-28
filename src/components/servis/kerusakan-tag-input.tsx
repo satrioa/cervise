@@ -1,9 +1,24 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { Badge } from "@/components/ui/badge";
 import { XIcon } from "lucide-react";
 import { searchTags } from "@/app/app/servis/actions";
+
+/**
+ * Transisi mengikuti komponen @smoothui/animated-tags: blur + spring + layout.
+ *
+ * Yang dipinjam hanya bagian ANIMASI. Perilaku inputnya tetap milik komponen
+ * ini - mengetik, blur, Tab, Enter, koma, panah, Backspace, batas 5 tag, dan
+ * saran dari database. Versi smoothui hanya bisa diklik dari daftar tag yang
+ * sudah ditentukan di awal, jadi memakainya sebagai pengganti akan
+ * menghilangkan kemampuan mengetik kerusakan yang belum pernah tercatat.
+ */
+const CHIP_ENTER = { filter: "blur(4px)", opacity: 0, y: 20 } as const;
+const CHIP_SETTLED = { filter: "blur(0px)", opacity: 1, y: 0 } as const;
+const SPRING = { bounce: 0, duration: 0.25, type: "spring" as const };
+const INSTANT = { duration: 0 } as const;
 
 type Props = {
   value: string[];
@@ -11,6 +26,7 @@ type Props = {
 };
 
 export function KerusakanTagInput({ value, onChange }: Props) {
+  const reduceMotion = useReducedMotion();
   const [input, setInput] = useState("");
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [focused, setFocused] = useState(false);
@@ -62,14 +78,34 @@ export function KerusakanTagInput({ value, onChange }: Props) {
           el?.focus();
         }}
       >
-        {value.map((v) => (
-          <Badge key={v} variant="secondary" className="gap-1 pr-1 shrink-0">
-            {v}
-            <button type="button" onClick={() => onChange(value.filter((x) => x !== v))} className="rounded p-0.5 hover:bg-foreground/10">
-              <XIcon className="size-3" />
-            </button>
-          </Badge>
-        ))}
+        {/*
+          initial={false} supaya chip yang sudah ada saat komponen pertama kali
+          render tidak ikut Flying in dari bawah - animasi hanya untuk tag yang
+          benar-benar ditambah atau dihapus setelahnya.
+        */}
+        <AnimatePresence initial={false}>
+          {value.map((v) => (
+            <motion.div
+              key={v}
+              layout
+              initial={reduceMotion ? { opacity: 1 } : CHIP_ENTER}
+              animate={reduceMotion ? { opacity: 1 } : CHIP_SETTLED}
+              exit={reduceMotion ? { opacity: 0, transition: INSTANT } : CHIP_ENTER}
+              transition={reduceMotion ? INSTANT : SPRING}
+            >
+              <Badge variant="secondary" className="shrink-0 gap-1 pr-1">
+                {v}
+                <button
+                  type="button"
+                  onClick={() => onChange(value.filter((x) => x !== v))}
+                  className="rounded p-0.5 hover:bg-foreground/10"
+                >
+                  <XIcon className="size-3" />
+                </button>
+              </Badge>
+            </motion.div>
+          ))}
+        </AnimatePresence>
         <div className="relative flex-1 min-w-[120px]">
           {showGhost && (
             <span
@@ -134,24 +170,31 @@ export function KerusakanTagInput({ value, onChange }: Props) {
       </div>
 
       {focused && suggestions.length > 0 && (
-        <div className="absolute z-20 mt-1.5 w-full rounded-lg border bg-popover shadow-lg p-1 max-h-48 overflow-auto">
-          {suggestions.map((s, idx) => {
-            const isActive = idx === highlight;
-            return (
-              <button
-                key={s}
-                type="button"
-                onMouseDown={(e) => {
-                  e.preventDefault();
-                  add(s);
-                }}
-                onMouseEnter={() => setHighlight(idx)}
-                className={`w-full text-left rounded-md px-2.5 py-1.5 text-sm ${isActive ? "bg-accent text-accent-foreground" : "hover:bg-accent"}`}
-              >
-                {s}
-              </button>
-            );
-          })}
+        <div className="absolute z-20 mt-1.5 w-full rounded-lg border bg-popover p-1 shadow-lg max-h-48 overflow-auto">
+          <AnimatePresence initial={false}>
+            {suggestions.map((s, idx) => {
+              const isActive = idx === highlight;
+              return (
+                <motion.button
+                  key={s}
+                  type="button"
+                  layout
+                  initial={reduceMotion ? { opacity: 1 } : { opacity: 0, y: -8 }}
+                  animate={reduceMotion ? { opacity: 1 } : { opacity: 1, y: 0 }}
+                  exit={reduceMotion ? { opacity: 0, transition: INSTANT } : { opacity: 0, y: -8 }}
+                  transition={reduceMotion ? INSTANT : SPRING}
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    add(s);
+                  }}
+                  onMouseEnter={() => setHighlight(idx)}
+                  className={`w-full rounded-md px-2.5 py-1.5 text-left text-sm ${isActive ? "bg-accent text-accent-foreground" : "hover:bg-accent"}`}
+                >
+                  {s}
+                </motion.button>
+              );
+            })}
+          </AnimatePresence>
         </div>
       )}
     </div>
