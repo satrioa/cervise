@@ -43,7 +43,8 @@ export default async function KaryawanPage({ searchParams }: { searchParams: Pro
 
   const exportRows: ExportKaryawanRow[] = filtered.map((k) => ({
     name: k.fullName,
-    email: k.email ?? k.phone ?? "—",
+    email: k.email ?? "—",
+    phone: k.phone ?? "—",
     cabang: k.branchName ?? "—",
     role: ROLES.find((r) => r.value === k.role)?.label ?? k.role,
     statusAktif: k.isActive ? "Aktif" : "Nonaktif",

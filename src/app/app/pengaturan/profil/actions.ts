@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getActiveTenant } from "@/lib/supabase/actor";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { publicPhotoUrl } from "@/lib/photos";
+import { validatePhone } from "@/lib/phone";
 import { passwordResetRedirectUrl } from "@/lib/auth/redirect-url";
 import { revalidatePath } from "next/cache";
 
@@ -68,7 +69,13 @@ export async function updateProfile(data: { fullName: string; phone: string; bra
   if (!fullName) throw new Error("Nama wajib");
   if (fullName.length > 80) throw new Error("Nama maksimal 80 karakter");
 
-  const phone = data.phone.trim() || null;
+  // Karyawan boleh mengganti nomornya sendiri, jadi path ini tidak mewajibkan
+  // nomor - hanya memastikannya masuk database dalam bentuk kanonik. Tanpa
+  // validasi di sini, constraint profiles_phone_charset muncul sebagai error
+  // mentah dari database.
+  const phoneCheck = validatePhone(data.phone);
+  if (!phoneCheck.ok) throw new Error(phoneCheck.error);
+  const phone = phoneCheck.value;
   const { data: emp } = await supabase
     .from("employees")
     .select("id, branch_id, role, organization_id")

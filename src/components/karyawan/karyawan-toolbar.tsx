@@ -33,6 +33,7 @@ const STATUS_OPTIONS = [
 const KARYAWAN_EXPORT_FIELDS: ExportField[] = [
   { id: "name", label: "Nama", default: true },
   { id: "email", label: "Email", default: true },
+  { id: "phone", label: "Telepon", default: true },
   { id: "cabang", label: "Cabang", default: true },
   { id: "role", label: "Role", default: true },
   { id: "statusAktif", label: "Status", default: false },

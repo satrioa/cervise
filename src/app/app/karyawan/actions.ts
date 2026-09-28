@@ -9,6 +9,7 @@ import { generateTempPassword } from "@/lib/auth/password";
 import { passwordResetRedirectUrl } from "@/lib/auth/redirect-url";
 import { EMPLOYEE_TO_PROFILE_ROLE, canManageEmployees } from "@/lib/auth/account-input";
 import { publicPhotoUrl } from "@/lib/photos";
+import { validatePhone } from "@/lib/phone";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 type BranchUser = { supabase: Actor["supabase"]; userId: string; employeeId: string; organizationId: string; branchId: string; role: string };
@@ -105,6 +106,13 @@ export async function createKaryawan(input: CreateKaryawanInput): Promise<{ empl
   const targetRole = input.role.trim().toUpperCase();
   if (!fullName) throw new Error("Nama wajib");
   if (!email || !email.includes("@")) throw new Error("Email tidak valid");
+  // Nomor teknisi adalah satu-satunya bahan notifikasi ke teknisi, jadi
+  // diwajibkan hanya untuk role itu. Admin dan Frontliner boleh tanpa nomor.
+  const phoneCheck = validatePhone(input.phone);
+  if (!phoneCheck.ok) throw new Error(phoneCheck.error);
+  if (targetRole === "TECHNICIAN" && !phoneCheck.value) {
+    throw new Error("Nomor WhatsApp wajib diisi untuk teknisi.");
+  }
   if (!input.branchId) throw new Error("Cabang wajib");
   if (!["MASTER_ADMIN", "ADMIN", "FRONTLINER", "TECHNICIAN"].includes(targetRole)) throw new Error("Role tidak valid");
   const { data: branch } = await supabase
@@ -137,7 +145,7 @@ export async function createKaryawan(input: CreateKaryawanInput): Promise<{ empl
   const profilePatch = {
     id: uid,
     full_name: fullName,
-    phone: input.phone?.trim() || null,
+    phone: phoneCheck.value,
     email,
     role: profileRole,
   };
@@ -182,6 +190,13 @@ export async function updateKaryawan(input: UpdateKaryawanInput) {
   if (!input.branchId) throw new Error("Cabang wajib");
   if (!["MASTER_ADMIN", "ADMIN", "FRONTLINER", "TECHNICIAN"].includes(targetRole)) throw new Error("Role tidak valid");
   if (email && !email.includes("@")) throw new Error("Email tidak valid");
+  // Sama seperti createKaryawan, dan dicek sebelum tiga tulisan di bawah
+  // dimulai supaya penolakan tidak meninggalkan tabel setengah berubah.
+  const phoneCheck = validatePhone(input.phone);
+  if (!phoneCheck.ok) throw new Error(phoneCheck.error);
+  if (targetRole === "TECHNICIAN" && !phoneCheck.value) {
+    throw new Error("Nomor WhatsApp wajib diisi untuk teknisi.");
+  }
 
   const { data: employee } = await supabase
     .from("employees")
@@ -264,7 +279,7 @@ export async function updateKaryawan(input: UpdateKaryawanInput) {
 
   const profilePatch: Record<string, unknown> = {
     full_name: fullName,
-    phone: input.phone?.trim() || null,
+    phone: phoneCheck.value,
   };
   if (email) profilePatch.email = email;
   // profiles.role tidak disentuh sama sekali sebelumnya, jadi mengubah peran

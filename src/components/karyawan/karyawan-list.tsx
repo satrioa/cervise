@@ -130,7 +130,10 @@ export function KaryawanList({ rows, branches }: { rows: KaryawanRow[]; branches
                           <span className="font-medium">{m.fullName}</span>
                           {!m.isActive && <Badge variant="outline" size="sm" className="font-mono text-[9px] uppercase tracking-wider">nonaktif</Badge>}
                         </div>
-                        <div className="text-muted-foreground text-xs">{m.email ?? m.phone ?? "—"}</div>
+                        <div className="text-muted-foreground text-xs">{m.email ?? "—"}</div>
+                        <div className="text-muted-foreground text-xs">
+                          {m.phone ?? (m.role === "TECHNICIAN" ? <Badge variant="outline" size="sm" className="text-[9px] uppercase tracking-wider">belum ada nomor</Badge> : "—")}
+                        </div>
                       </div>
                     </div>
                   </TableCell>

@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectItem, SelectPopup, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { createKaryawan, updateKaryawan, getKaryawanBranches } from "@/app/app/karyawan/actions";
+import { validatePhone } from "@/lib/phone";
 
 type Editing = { profileId: string; employeeId: string; fullName: string; email: string | null; phone: string | null; role: string; branchId: string | null } | null;
 
@@ -63,6 +64,13 @@ export function KaryawanFormDialog({ open, onOpenChange, editing, onDone }: { op
     if (!n) { toast.error("Nama wajib"); return; }
     if (!e || !e.includes("@")) { toast.error("Email tidak valid"); return; }
     if (!branchId) { toast.error("Cabang wajib"); return; }
+    // Server yang menegakkan; cek di sini supaya admin tahu sebelum satu
+    // putaran request. Role selain teknisi tetap boleh tanpa nomor.
+    if (role === "TECHNICIAN") {
+      const phoneCheck = validatePhone(phone);
+      if (!phoneCheck.ok) { toast.error(phoneCheck.error); return; }
+      if (!phoneCheck.value) { toast.error("Nomor WhatsApp wajib untuk teknisi"); return; }
+    }
     setSaving(true);
     try {
       if (isEdit && editing) {
@@ -88,7 +96,7 @@ export function KaryawanFormDialog({ open, onOpenChange, editing, onDone }: { op
         <div className="grid gap-4 py-2">
           <div className="grid gap-1.5"><Label>Nama lengkap *</Label><Input value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="Budi Santoso" /></div>
           <div className="grid gap-1.5"><Label>Email *</Label><Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="budi@cervise.id" /></div>
-          <div className="grid gap-1.5"><Label>Telepon</Label><Input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="0812xxxx (opsional)" /></div>
+          <div className="grid gap-1.5"><Label>Telepon{role === "TECHNICIAN" ? " *" : ""}</Label><Input value={phone} onChange={(e) => setPhone(e.target.value)} inputMode="tel" autoComplete="tel" placeholder={role === "TECHNICIAN" ? "0812xxxx (wajib)" : "0812xxxx (opsional)"} /></div>
           <div className="grid grid-cols-2 gap-3">
             <div className="grid gap-1.5"><Label>Role</Label><Select items={ROLES} value={role} onValueChange={(v) => setRole(v ?? "TECHNICIAN")}><SelectTrigger><SelectValue /></SelectTrigger><SelectPopup>{ROLES.map((r) => <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>)}</SelectPopup></Select></div>
             <div className="grid gap-1.5"><Label>Cabang</Label><Select items={branchOptions} value={branchId} onValueChange={(v) => setBranchId(v ?? "")}><SelectTrigger><SelectValue placeholder="Pilih cabang" /></SelectTrigger><SelectPopup>{branches.map((b) => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}</SelectPopup></Select></div>

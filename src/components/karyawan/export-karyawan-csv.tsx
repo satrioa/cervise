@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 export interface ExportKaryawanRow {
   name: string;
   email: string;
+  phone: string;
   cabang: string;
   role: string;
   statusAktif: string;
@@ -19,9 +20,9 @@ function csvCell(v: string) {
 
 export function ExportKaryawanCsv({ rows }: { rows: ExportKaryawanRow[] }) {
   const handleExport = () => {
-    const header = ["Nama", "Email", "Cabang", "Role", "Status", "Terakhir aktif"];
+    const header = ["Nama", "Email", "Telepon", "Cabang", "Role", "Status", "Terakhir aktif"];
     const lines = rows.map((r) =>
-      [r.name, r.email, r.cabang, r.role, r.statusAktif, r.terakhirAktif].map(csvCell).join(";")
+      [r.name, r.email, r.phone, r.cabang, r.role, r.statusAktif, r.terakhirAktif].map(csvCell).join(";")
     );
     const csv = "\uFEFF" + [header.join(";"), ...lines].join("\n");
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
