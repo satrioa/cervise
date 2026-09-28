@@ -4,14 +4,13 @@ import { useState, useEffect } from "react";
 import { formatCurrencyPlain, formatNumberPlain } from "@/lib/format";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Calendar } from "@/components/ui/calendar";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { DownloadIcon, CalendarIcon } from "lucide-react";
+import { DownloadIcon } from "lucide-react";
 import { format } from "date-fns";
 import { id as localeId } from "date-fns/locale";
 import { PageHeader } from "@/components/layout/page-header";
+import { DateRangeFilter } from "@/components/date-range-filter";
 import { getLaporanServis } from "@/app/app/laporan/servis/actions";
 import { toLocalDateString } from "@/lib/operational/garansi-list";
 import type { LaporanServis as LaporanServisReport, ServisDetailRow } from "@/lib/operational/laporan-servis";
@@ -114,20 +113,15 @@ export default function LaporanServisPage() {
         description={`Harian & Bulanan · kas_date (tanggal servis masuk) · ${cabangLabel} · ${teknisiLabel}`}
         filters={
           <>
-            <Popover>
-              <PopoverTrigger render={<Button variant="outline" size="sm" className="h-8 w-auto shrink-0 justify-start font-normal" />}>
-                <CalendarIcon className="size-4 opacity-60" />
-                {from ? format(from, "d MMM yyyy", { locale: localeId }) : "Tanggal awal"}
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={from} onSelect={setFrom} /></PopoverContent>
-            </Popover>
-            <Popover>
-              <PopoverTrigger render={<Button variant="outline" size="sm" className="h-8 w-auto shrink-0 justify-start font-normal" />}>
-                <CalendarIcon className="size-4 opacity-60" />
-                {to ? format(to, "d MMM yyyy", { locale: localeId }) : "Tanggal akhir"}
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={to} onSelect={setTo} /></PopoverContent>
-            </Popover>
+            <DateRangeFilter
+              value={{ from, to }}
+              onChange={(range) => {
+                setFrom(range.from);
+                setTo(range.to);
+              }}
+              className="h-8"
+              resultLabel={report ? `${report.services.length} servis` : undefined}
+            />
             <Select value={cabang} onValueChange={(v) => setCabang((v as string) ?? "all")}>
               <SelectTrigger size="sm" className="shrink-0"><SelectValue placeholder="Semua cabang" /></SelectTrigger>
               <SelectContent>

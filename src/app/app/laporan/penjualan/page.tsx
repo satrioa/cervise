@@ -3,14 +3,13 @@
 import { useEffect, useState } from "react";
 import { formatCurrencyPlain, formatNumberPlain } from "@/lib/format";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Calendar } from "@/components/ui/calendar";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { CalendarIcon, DownloadIcon } from "lucide-react";
+import { DownloadIcon } from "lucide-react";
 import { format } from "date-fns";
 import { id as localeId } from "date-fns/locale";
 import { PageHeader } from "@/components/layout/page-header";
+import { DateRangeFilter } from "@/components/date-range-filter";
 import { getLaporanPenjualan } from "@/app/app/laporan/penjualan/actions";
 import { toLocalDateString } from "@/lib/operational/garansi-list";
 import type { LaporanPenjualan as SalesReport, SaleDetailRow } from "@/lib/operational/laporan-penjualan";
@@ -83,10 +82,15 @@ export default function LaporanPenjualanPage() {
         titleClassName="font-heading text-2xl"
         description="Harian & Bulanan · terpisah dari Servis · stok per cabang"
         filters={
-          <>
-            <Popover><PopoverTrigger render={<Button variant="outline" size="sm" className="h-8 w-auto shrink-0 justify-start font-normal" />}><CalendarIcon className="size-4 opacity-60" />{from ? format(from, "d MMM yyyy", { locale: localeId }) : "Tanggal awal"}</PopoverTrigger><PopoverContent className="w-auto p-0"><Calendar mode="single" selected={from} onSelect={setFrom} /></PopoverContent></Popover>
-            <Popover><PopoverTrigger render={<Button variant="outline" size="sm" className="h-8 w-auto shrink-0 justify-start font-normal" />}><CalendarIcon className="size-4 opacity-60" />{to ? format(to, "d MMM yyyy", { locale: localeId }) : "Tanggal akhir"}</PopoverTrigger><PopoverContent className="w-auto p-0"><Calendar mode="single" selected={to} onSelect={setTo} /></PopoverContent></Popover>
-          </>
+          <DateRangeFilter
+            value={{ from, to }}
+            onChange={(range) => {
+              setFrom(range.from);
+              setTo(range.to);
+            }}
+            className="h-8"
+            resultLabel={report ? `${report.sales.length} penjualan` : undefined}
+          />
         }
       />
       <main className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-10 py-8 space-y-8">
