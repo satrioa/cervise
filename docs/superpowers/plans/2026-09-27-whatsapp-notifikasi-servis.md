@@ -533,7 +533,24 @@ Expected: FAIL — tidak bisa resolve `./phone`.
 // - src/app/app/customer/actions.ts dan src/lib/platform/validation.ts punya
 //   batas digit sendiri, 10-15, dan batas itu yang diikuti modul ini.
 //
+// Dua konstanta di bawah ini adalah satu-satunya sumber kebenaran untuk kelas
+// karakter dan batas panjang. Migration 20260925210000 meng-import pola yang
+// sama lewat test penjaganya, jadi constraint database dan validasi aplikasi
+// tidak bisa berbeda diam-diam. Jangan menyalin literal regex-nya ke tempat
+// lain: dua salinan akan perlahan berbeda.
+//
 // Yang ditetapkan di sini adalah bentuk kanonik untuk DISIMPAN dan DIKIRIM.
+
+/**
+ * Kelas karakter dan batas panjang yang BOLEH ada di kolom profiles.phone.
+ * Diekspor supaya test penjaga migration
+ * 20260925210000_profile_phone_validation.sql bisa membangun assertion-nya
+ * dari konstanta ini, bukan dari salinan literal. Tanpa itu, salah ketik di
+ * satu sisi akan lolos semua test, tapi constraint database dan aplikasi
+ * tidak akan cocok — persis kegagalan yang task ini untuk mencegahnya.
+ */
+export const PHONE_INPUT_PATTERN = "^[0-9+\\-\\s()]+$";
+export const PHONE_MAX_LENGTH = 24;
 
 /**
  * Mengubah apa pun yang diketik orang menjadi bentuk kanonik `62...`.
@@ -566,18 +583,21 @@ export type PhoneValidation =
 
 /**
  * Validasi untuk form. Kosong itu sah, karena tidak semua role butuh nomor.
- * Aturan panjang dan karakter ikut migration `profiles_phone_charset`, supaya
- * penolakan di aplikasi dan di database tidak berbeda.
+ * Kelas karakter dan batas panjang sengaja SAMA dengan yang ditegakkan
+ * constraint `profiles_phone_charset`, supaya penolakan di aplikasi dan di
+ * database tidak berbeda. Yang tidak sama: fungsi ini juga menormalkan ke
+ * `62...` dan menegakkan 10-15 digit, sedangkan constraint database tidak
+ * keduanya, karena `account-input.ts:108` masih menyimpan input mentah.
  */
 export function validatePhone(raw: string | null | undefined): PhoneValidation {
   const trimmed = (raw ?? "").trim();
   if (trimmed === "") return { ok: true, value: null };
 
-  if (trimmed.length > 24) {
+  if (trimmed.length > PHONE_MAX_LENGTH) {
     return { ok: false, error: "Nomor telepon terlalu panjang." };
   }
 
-  if (!/^[0-9+\-\s()]+$/.test(trimmed)) {
+  if (!new RegExp(PHONE_INPUT_PATTERN).test(trimmed)) {
     return {
       ok: false,
       error: "Nomor telepon hanya boleh berisi angka, spasi, dan + - ( ) .",
@@ -676,46 +696,76 @@ Kondisi live sudah dicek: **0 baris** `profiles.phone` terisi, jadi constraint b
 Buat `src/lib/auth/profile-phone-migration.test.ts`:
 
 ```ts
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
-const sql = readFileSync(
-  join(
-    process.cwd(),
-    "supabase",
-    "migrations",
-    "20260925210000_profile_phone_validation.sql",
-  ),
-  "utf8",
+import { PHONE_INPUT_PATTERN, PHONE_MAX_LENGTH } from "@/lib/phone";
+
+const migrationPath = join(
+  process.cwd(),
+  "supabase",
+  "migrations",
+  "20260925210000_profile_phone_validation.sql",
 );
 
-const flat = sql.replace(/\s+/g, " ").toLowerCase();
+const sql = readFileSync(migrationPath, "utf8");
+
+// Migration dibaca dua kali. `flat` termasuk comment, dipakai untuk memeriksa
+// comment-nya jujur. `ddl` membuang baris comment, dipakai untuk memeriksa
+// DDL-nya benar.
+//
+// Guard harus menguji `ddl`. Kalau menguji `flat`, comment yang benar saja
+// bisa membuat assertion gagal, dan DDL yang dihapus tetap lolos selama
+// comment-nya masih mengutip DDL itu.
+const ddl = sql
+  .replace(/--.*$/gm, "")
+  .replace(/\s+/g, " ")
+  .toLowerCase();
 
 describe("profile phone validation migration", () => {
-  it("menegakkan format nomor di database", () => {
-    expect(flat).toContain("add constraint profiles_phone_charset");
-    expect(flat).toContain("length(phone) <= 24");
-    expect(flat).toContain("phone ~ '^[0-9+\\-\\s()]+$'");
+  it("migration-nya ada", () => {
+    expect(existsSync(migrationPath)).toBe(true);
   });
 
-  it("membiarkan nomor kosong tetap sah", () => {
-    expect(flat).toContain("phone is null or");
+  it("menegakkan format nomor di database", () => {
+    expect(ddl).toContain("add constraint profiles_phone_charset");
+    expect(ddl).toContain("phone is null or");
+  });
+
+  it("memakai kelas karakter dan batas panjang yang sama dengan aplikasi", () => {
+    // Expectation dibangun dari konstanta aplikasi, bukan dari salinan literal.
+    // Kalau salah ketik di salah satu sisi, test ini gagal — itulah satu-satunya
+    // yang menjaga constraint dan validatePhone tetap sama.
+    expect(ddl).toContain(`phone ~ '${PHONE_INPUT_PATTERN}'`);
+    expect(ddl).toContain(`length(phone) <= ${PHONE_MAX_LENGTH} and`);
+  });
+
+  it("tidak ikut menegakkan bentuk kanonik", () => {
+    // account-input.ts:108 menyimpan input mentah, jadi constraint yang menuntut
+    // `^62[0-9]+$` akan menggagalkan penulisan nomor dari form karyawan.
+    expect(ddl).not.toContain("^62");
   });
 
   it("tidak menambah kolom nomor ke employees", () => {
-    expect(flat).not.toContain("alter table public.employees");
+    expect(ddl).not.toContain("alter table public.employees");
   });
 
-  it("tidak mengubah grant self-service", () => {
-    expect(flat).not.toContain("grant");
-    expect(flat).not.toContain("revoke");
+  it("tidak mengubah hak akses", () => {
+    expect(ddl).not.toContain("grant");
+    expect(ddl).not.toContain("revoke");
   });
 
-  it("tidak menyentuh tabel lain", () => {
-    expect(flat).not.toContain("create policy");
-    expect(flat).not.toContain("drop policy");
-    expect(flat).not.toContain("create table");
+  it("tidak menyentuh tabel atau policy lain", () => {
+    expect(ddl).not.toContain("create policy");
+    expect(ddl).not.toContain("drop policy");
+    expect(ddl).not.toContain("create table");
+  });
+
+  it("tidak menghapus data untuk lolos dari constraint", () => {
+    expect(ddl).not.toContain("delete");
+    expect(ddl).not.toContain("update ");
+    expect(ddl).not.toContain("not valid");
   });
 });
 ```
@@ -756,7 +806,7 @@ alter table public.profiles
 - [ ] **Step 4: Jalankan test, harus lulus**
 
 Run: `npm test -- src/lib/auth/profile-phone-migration.test.ts`
-Expected: PASS — 5 test.
+Expected: PASS — 8 test.
 
 - [ ] **Step 5: Apply migration, lalu selaraskan versinya**
 
@@ -782,7 +832,7 @@ Expected: satu baris, definisi memuat `length(phone) <= 24`.
 - [ ] **Step 6: Commit**
 
 ```bash
-git add supabase/migrations/20260925210000_profile_phone_validation.sql src/lib/auth/profile-phone-migration.test.ts
+git add supabase/migrations/20260925210000_profile_phone_validation.sql src/lib/auth/profile-phone-migration.test.ts src/lib/phone.ts
 git commit -m "feat: enforce phone format on profiles in the database"
 ```
 
