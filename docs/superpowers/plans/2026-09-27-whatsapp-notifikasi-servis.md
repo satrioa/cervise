@@ -21,7 +21,7 @@
 - Nama toko selalu ada di setiap pesan, karena pengirim adalah nomor platform, bukan nomor toko.
 - Dedupe: `servis:<id>:<event>[:<to_status>]:<to_kind>`, dengan `on conflict (dedupe_key) do nothing`.
 - Setelah setiap `apply_migration`, versi di `supabase_migrations.schema_migrations` harus di-update ke versi nama file, karena `apply_migration` mencatat versi timestamp.
-- Nomori migrasi: `20260925190000_profile_phone_validation`, lalu `20260925200000_service_notification_outbox`.
+- Nomori migrasi: `20260925210000_profile_phone_validation`, lalu `20260925220000_service_notification_outbox`.
 - Bahasa comment dan pesan mengikuti repo: Indonesia.
 
 ## Review Focus
@@ -40,7 +40,7 @@ Lima kelas input berikut tidak diuji eksplisit oleh spec, tapi paling mungkin me
 |---|---|
 | `src/lib/fonnte.ts` | Klien Fonnte. Membedakan gagal dan sukses meski HTTP 200. |
 | `src/lib/phone.ts` | Normalisasi, validasi, dan bentuk target Fonnte untuk nomor telepon. |
-| `supabase/migrations/20260925190000_profile_phone_validation.sql` | CHECK constraint format nomor. |
+| `supabase/migrations/20260925210000_profile_phone_validation.sql` | CHECK constraint format nomor. |
 | `src/lib/auth/profile-phone-migration.test.ts` | Penjaga statis migration A. |
 | `src/app/app/karyawan/actions.ts` | Validasi server-side: nomor wajib untuk teknisi. |
 | `src/components/karyawan/karyawan-form-dialog.tsx` | Validasi client-side + atribut input telepon. |
@@ -50,7 +50,7 @@ Lima kelas input berikut tidak diuji eksplisit oleh spec, tapi paling mungkin me
 | `src/lib/notifications/service-message.ts` | Membangun teks pesan. Murni, tanpa I/O. |
 | `src/lib/notifications/dispatcher.ts` | Resolve penerima, kirim, kelola state dan retry. |
 | `src/app/api/cron/service-notifications/route.ts` | Endpoint cron. |
-| `supabase/migrations/20260925200000_service_notification_outbox.sql` | Tabel outbox, trigger, RPC suppressor. |
+| `supabase/migrations/20260925220000_service_notification_outbox.sql` | Tabel outbox, trigger, RPC suppressor. |
 | `src/lib/auth/notification-outbox-migration.test.ts` | Penjaga statis migration B. |
 | `scripts/seed-demo-data.mjs` | Memperriktifkan trigger saat seed. |
 
@@ -431,7 +431,7 @@ Expected: PASS — 9 test.
 
 - [ ] **Step 5: Pakai helper ini di onboarding, hapus duplikatnya**
 
-Di `src/app/onboarding/actions.ts`, hapus fungsi `normalizePhone` lokal:
+Di `src/app/onboarding/actions.ts` ada tepat satu pemanggilan, di baris 50. Hapus fungsi `normalizePhone` lokal:
 
 ```ts
 function normalizePhone(value: string) {
@@ -448,18 +448,24 @@ Tambahkan import di bagian atas file:
 import { normalizePhone62 } from "@/lib/phone";
 ```
 
-Lalu ganti setiap pemanggilan `normalizePhone(...)` dengan:
+Lalu ganti baris 50:
 
 ```ts
-normalizePhone62(...) ?? ""
+  const phone = normalizePhone(opts.telepon ?? "");
 ```
+
+menjadi:
+
+```ts
+  const phone = normalizePhone62(opts.telepon) ?? "";
+```
+
+`?? ""` wajib: `normalizePhone` lama selalu mengembalikan string, sedangkan `normalizePhone62` mengembalikan `null` untuk input yang tidak masuk akal. Nilai lama untuk `"0812"` adalah `"62"`, sedangkan yang baru `null`; di sini keduanya tidak dipakai sebagai nomor telepon yang valid, jadi perilakunya tidak berubah.
 
 - [ ] **Step 6: Pastikan typecheck dan test hijau**
 
 Run: `npm run typecheck && npm test -- src/lib/phone.test.ts`
-Expected: typecheck bersih, 9 test PASS.
-
-Kalau `normalizePhone62` dipakai di tempat yang butuh `string` dan kompilator complained, tambahkan `?? ""` di titik pemanggilan itu, bukan mengubah tipe helper.
+Expected: typecheck bersih, 8 test PASS.
 
 - [ ] **Step 7: Commit**
 
@@ -477,7 +483,7 @@ Validasi di server action bisa dilewati `PATCH /rest/v1/profiles` langsung, kare
 Kondisi live sudah dicek: **0 baris** `profiles.phone` terisi, jadi constraint bisa langsung divalidasi tanpa `NOT VALID`.
 
 **Files:**
-- Create: `supabase/migrations/20260925190000_profile_phone_validation.sql`
+- Create: `supabase/migrations/20260925210000_profile_phone_validation.sql`
 - Test: `src/lib/auth/profile-phone-migration.test.ts`
 
 **Interfaces:**
@@ -497,7 +503,7 @@ const sql = readFileSync(
     process.cwd(),
     "supabase",
     "migrations",
-    "20260925190000_profile_phone_validation.sql",
+    "20260925210000_profile_phone_validation.sql",
   ),
   "utf8",
 );
@@ -539,7 +545,7 @@ Expected: FAIL — `ENOENT`, file migration belum ada.
 
 - [ ] **Step 3: Tulis migration**
 
-Buat `supabase/migrations/20260925190000_profile_phone_validation.sql`:
+Buat `supabase/migrations/20260925210000_profile_phone_validation.sql`:
 
 ```sql
 -- Validasi nomor telepon di level database.
@@ -569,9 +575,9 @@ Apply lewat MCP Supabase dengan nama `profile_phone_validation` dan isi file di 
 
 ```sql
 update supabase_migrations.schema_migrations
-   set version = '20260925190000'
+   set version = '20260925210000'
  where name = 'profile_phone_validation'
-   and version <> '20260925190000';
+   and version <> '20260925210000';
 ```
 
 Lalu verifikasi:
@@ -587,7 +593,7 @@ Expected: satu baris, definisi memuat `length(phone) <= 24`.
 - [ ] **Step 6: Commit**
 
 ```bash
-git add supabase/migrations/20260925190000_profile_phone_validation.sql src/lib/auth/profile-phone-migration.test.ts
+git add supabase/migrations/20260925210000_profile_phone_validation.sql src/lib/auth/profile-phone-migration.test.ts
 git commit -m "feat: enforce phone format on profiles in the database"
 ```
 
@@ -1113,7 +1119,7 @@ export function buildTechnicianCreatedMessage(input: ServiceMessageInput): strin
 - [ ] **Step 4: Jalankan test, harus lulus**
 
 Run: `npm test -- src/lib/notifications/service-message.test.ts`
-Expected: PASS — 9 test.
+Expected: PASS — 6 test.
 
 - [ ] **Step 5: Commit**
 
@@ -1131,7 +1137,7 @@ Ini bagian yang menutup semua jalur penulisan status. Ada **empat** jalur, dan g
 Trigger hanya menulis metadata. Isi pesan dirakit di aplikasi, karena URL halaman lacak membutuhkan origin yang tidak diketahui database.
 
 **Files:**
-- Create: `supabase/migrations/20260925200000_service_notification_outbox.sql`
+- Create: `supabase/migrations/20260925220000_service_notification_outbox.sql`
 - Test: `src/lib/auth/notification-outbox-migration.test.ts`
 
 **Interfaces:**
@@ -1155,7 +1161,7 @@ const sql = readFileSync(
     process.cwd(),
     "supabase",
     "migrations",
-    "20260925200000_service_notification_outbox.sql",
+    "20260925220000_service_notification_outbox.sql",
   ),
   "utf8",
 );
@@ -1233,7 +1239,7 @@ Expected: FAIL — `ENOENT`, file migration belum ada.
 
 - [ ] **Step 3: Tulis migration**
 
-Buat `supabase/migrations/20260925200000_service_notification_outbox.sql`:
+Buat `supabase/migrations/20260925220000_service_notification_outbox.sql`:
 
 ```sql
 -- Antrean notifikasi WhatsApp untuk servis.
@@ -1389,7 +1395,7 @@ grant select, insert, update, delete on public.cervise_notification_outbox to se
 - [ ] **Step 4: Jalankan test, harus lulus**
 
 Run: `npm test -- src/lib/auth/notification-outbox-migration.test.ts`
-Expected: PASS — 10 test.
+Expected: PASS — 9 test.
 
 - [ ] **Step 5: Apply migration, lalu selaraskan versinya**
 
@@ -1397,9 +1403,9 @@ Apply lewat MCP Supabase dengan nama `service_notification_outbox`. Lalu:
 
 ```sql
 update supabase_migrations.schema_migrations
-   set version = '20260925200000'
+   set version = '20260925220000'
  where name = 'service_notification_outbox'
-   and version <> '20260925200000';
+   and version <> '20260925220000';
 ```
 
 Verifikasi trigger terpasang dan privilege benar:
@@ -1472,7 +1478,7 @@ Expected di notice: `2` setelah insert, `3` setelah `Selesai`, tetap `3` setelah
 - [ ] **Step 7: Commit**
 
 ```bash
-git add supabase/migrations/20260925200000_service_notification_outbox.sql src/lib/auth/notification-outbox-migration.test.ts
+git add supabase/migrations/20260925220000_service_notification_outbox.sql src/lib/auth/notification-outbox-migration.test.ts
 git commit -m "feat: notification outbox and status triggers for services"
 ```
 
@@ -1526,21 +1532,13 @@ const { mocks, state } = vi.hoisted(() => {
   };
 });
 
-class RetryableError extends Error {
-  retryable = true;
+class FakeFonnteError extends Error {
+  retryable: boolean;
   reason: string;
-  constructor(reason: string) {
+  constructor(reason: string, retryable: boolean) {
     super(`Fonnte gagal: ${reason}`);
     this.reason = reason;
-  }
-}
-
-class PermanentError extends Error {
-  retryable = false;
-  reason: string;
-  constructor(reason: string) {
-    super(`Fonnte gagal: ${reason}`);
-    this.reason = reason;
+    this.retryable = retryable;
   }
 }
 
@@ -1548,9 +1546,13 @@ vi.mock("@/lib/supabase/admin", () => ({
   createAdminClient: mocks.createAdminClient,
 }));
 
+// Dispatcher memeriksa `error instanceof FonnteError`. Kalau kelas yang di-mock
+// berbeda dari kelas yang dipakai di test, instanceof selalu false dan error
+// yang sebenarnya permanen akan ikut di-retry. Karena itu hanya ada satu
+// kelas, dengan flag retryable.
 vi.mock("@/lib/fonnte", () => ({
   sendFonnteWA: mocks.sendFonnteWA,
-  FonnteError: RetryableError,
+  FonnteError: FakeFonnteError,
 }));
 
 import { dispatchPendingNotifications } from "./dispatcher";
@@ -1767,7 +1769,7 @@ describe("dispatchPendingNotifications", () => {
     state.claimed = [row({ attempts: 1 })];
     state.servis = [SERVIS];
     state.customers = [{ id: "c1", phone: "628123456789" }];
-    mocks.sendFonnteWA.mockRejectedValue(new RetryableError("insufficient quota"));
+    mocks.sendFonnteWA.mockRejectedValue(new FakeFonnteError("insufficient quota", true));
 
     const now = new Date("2026-09-27T10:00:00.000Z");
     const result = await dispatchPendingNotifications({ siteOrigin: "https://app.cervise.id", now });
@@ -1783,7 +1785,7 @@ describe("dispatchPendingNotifications", () => {
     state.claimed = [row({ attempts: 4 })];
     state.servis = [SERVIS];
     state.customers = [{ id: "c1", phone: "628123456789" }];
-    mocks.sendFonnteWA.mockRejectedValue(new RetryableError("insufficient quota"));
+    mocks.sendFonnteWA.mockRejectedValue(new FakeFonnteError("insufficient quota", true));
 
     const result = await dispatchPendingNotifications({ siteOrigin: "https://app.cervise.id" });
 
@@ -1795,7 +1797,7 @@ describe("dispatchPendingNotifications", () => {
     state.claimed = [row({ attempts: 1 })];
     state.servis = [SERVIS];
     state.customers = [{ id: "c1", phone: "628123456789" }];
-    mocks.sendFonnteWA.mockRejectedValue(new PermanentError("invalid target"));
+    mocks.sendFonnteWA.mockRejectedValue(new FakeFonnteError("invalid target", false));
 
     const result = await dispatchPendingNotifications({ siteOrigin: "https://app.cervise.id" });
 
@@ -2088,7 +2090,7 @@ export async function dispatchPendingNotifications(
 - [ ] **Step 4: Jalankan test, harus lulus**
 
 Run: `npm test -- src/lib/notifications/dispatcher.test.ts`
-Expected: PASS — 15 test.
+Expected: PASS — 14 test.
 
 Kalau ada test yang gagal, perbaiki kode produksi, bukan test-nya. Kalau memang tidak realistis untuk disebut gagal, tulis ulang assertion-nya agar describes perilakunya, bukan bentuk pemanggilan database.
 
@@ -2361,7 +2363,7 @@ select version, name
  order by version;
 ```
 
-Expected: versi `20260925190000` dan `20260925200000`.
+Expected: versi `20260925210000` dan `20260925220000`.
 
 - [ ] **Step 7: cek apakah ada pesan yang tertinggal di `skipped`**
 
