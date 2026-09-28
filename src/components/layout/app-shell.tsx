@@ -2,24 +2,12 @@
 
 import {
   ChevronsUpDown,
-  LayoutDashboard,
   Settings,
-  Users,
-  UserCog,
-  Wallet,
   Wrench,
   LogOut,
-  Package,
-  Building2,
-  Receipt,
-  ArrowLeftRight,
-  UserCheck,
-  ShieldIcon,
-  ScrollTextIcon,
   PlusIcon,
   HomeIcon,
-  ShoppingCart,
-  ShoppingBag,
+  Package,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -32,7 +20,7 @@ import { CommandPaletteProvider } from "@/components/layout/command-palette-prov
 import { BranchProvider, useBranch } from "@/lib/branch-context";
 import { TenantProvider, useTenant } from "@/lib/tenant-context";
 import { TrialCard } from "@/components/layout/trial-card";
-import { canAccess } from "@/lib/rbac";
+import { GROUP_LABEL_KEY, canAccess, navFor } from "@/lib/nav/manifest";
 import { LocaleProvider } from "@/lib/localization-context";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { MultipleAccounts, type AccountOption } from "@/components/uitripled/multiple-accounts-shadcnui";
@@ -42,100 +30,12 @@ import { CheckIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { canSwitchBranch, canSwitchTenant } from "@/lib/auth/access";
 
-export type NavItem = {
-  label: string;
-  href: string;
-  icon: React.ComponentType<{ className?: string }>;
-  badge?: number;
+export const ROLE_LABEL: Record<string, string> = {
+  MASTER_ADMIN: "Master Admin",
+  ADMIN: "Admin",
+  FRONTLINER: "Frontliner",
+  TECHNICIAN: "Technician",
 };
-
-export type NavGroup = {
-  label?: string;
-  items: NavItem[];
-};
-
-export const NAV_GROUPS: NavGroup[] = [
-  { items: [{ label: "Dashboard", href: "/app", icon: LayoutDashboard }] },
-  {
-    label: "Operasional",
-    items: [
-      { label: "Servis", href: "/app/servis", icon: Wrench },
-      { label: "Penjualan", href: "/app/penjualan", icon: ShoppingCart },
-    ],
-  },
-  {
-    label: "Manajemen",
-    items: [
-      { label: "Inventori", href: "/app/inventori", icon: Package },
-      { label: "Customer", href: "/app/customer", icon: Users },
-      { label: "Karyawan", href: "/app/karyawan", icon: UserCog },
-      { label: "Cabang", href: "/app/cabang", icon: Building2 },
-    ],
-  },
-  {
-    label: "Keuangan",
-    items: [
-      { label: "Transaksi", href: "/app/keuangan/transaksi", icon: Receipt },
-      { label: "Arus Kas", href: "/app/keuangan/arus-kas", icon: ArrowLeftRight },
-    ],
-  },
-  {
-    label: "Laporan",
-    items: [
-      { label: "Servis", href: "/app/laporan/servis", icon: Wrench },
-      { label: "Keuangan", href: "/app/laporan/keuangan", icon: Wallet },
-      { label: "Performa Teknisi", href: "/app/laporan/performa", icon: UserCheck },
-      { label: "Penjualan", href: "/app/laporan/penjualan", icon: ShoppingCart },
-    ],
-  },
-  {
-    label: "Layanan",
-    items: [
-      { label: "Audit Log", href: "/app/audit-log", icon: ShieldIcon },
-      { label: "Garansi", href: "/app/garansi", icon: ScrollTextIcon },
-      { label: "Pengaturan Sistem", href: "/app/pengaturan", icon: Settings },
-    ],
-  },
-];
-
-// flat for mobile bottom nav
-export const FLAT_NAV = NAV_GROUPS.flatMap((g) => g.items);
-
-function groupTranslationKey(label?: string): string | null {
-  switch (label) {
-    case "Operasional":
-      return "groups.operational";
-    case "Manajemen":
-      return "groups.management";
-    case "Keuangan":
-      return "groups.finance";
-    case "Laporan":
-      return "groups.reports";
-    case "Layanan":
-      return "groups.services";
-    default:
-      return null;
-  }
-}
-function navItemKey(item: NavItem): string {
-  if (item.href === "/app") return "items.dashboard";
-  if (item.href === "/app/servis") return "items.service";
-  if (item.href === "/app/penjualan") return "items.sales";
-  if (item.href === "/app/inventori") return "items.inventory";
-  if (item.href === "/app/customer") return "items.customer";
-  if (item.href === "/app/karyawan") return "items.employee";
-  if (item.href === "/app/cabang") return "items.branch";
-  if (item.href === "/app/keuangan/transaksi") return "items.transaction";
-  if (item.href === "/app/keuangan/arus-kas") return "items.cashflow";
-  if (item.href === "/app/laporan/servis") return "items.reportService";
-  if (item.href === "/app/laporan/keuangan") return "items.reportFinance";
-  if (item.href === "/app/laporan/performa") return "items.reportPerformance";
-  if (item.href === "/app/laporan/penjualan") return "items.reportSales";
-  if (item.href === "/app/audit-log") return "items.auditLog";
-  if (item.href === "/app/garansi") return "items.warranty";
-  if (item.href === "/app/pengaturan") return "items.settings";
-  return item.label;
-}
 
 const BRANCH_TONES = [
   "from-emerald-500/20 to-teal-500/10",
@@ -156,13 +56,7 @@ function branchLetter(label: string) {
 }
 
 function roleLabel(role: string) {
-  const labels: Record<string, string> = {
-    MASTER_ADMIN: "Master Admin",
-    ADMIN: "Admin",
-    FRONTLINER: "Frontliner",
-    TECHNICIAN: "Technician",
-  };
-  return labels[role.toUpperCase()] ?? role;
+  return ROLE_LABEL[role.toUpperCase()] ?? role;
 }
 
 function TenantSwitcher({ canSwitchTenant: canSwitchTenantValue }: { canSwitchTenant: boolean }) {
@@ -334,43 +228,47 @@ function SidebarContent({
       </div>
 
       <nav className="mt-3 flex-1 overflow-y-auto scrollbar-none px-2 pb-2">
-        {NAV_GROUPS.map((group) => (
-          <div key={group.label ?? "dashboard"} className="mt-3 first:mt-1">
-            {group.label && (() => {
-              const k = groupTranslationKey(group.label);
-              return <SectionLabel>{k ? t(k) : group.label}</SectionLabel>;
-            })()}
-            <ul className="flex flex-col gap-0.5">
-              {group.items.map((item) => {
-                const active = pathname === item.href || (item.href !== "/app" && pathname.startsWith(item.href));
-                const key = navItemKey(item);
-                const label = key.startsWith("items.") ? t(key) : item.label;
-                const badge = item.href === "/app/servis" ? (activeServisCount ?? 0) : (item.badge ?? 0);
-                return (
-                  <li key={item.href}>
-                    <Link
-                      href={item.href}
-                      onClick={onNavigate}
-                      className={`flex w-full items-center justify-between gap-2 rounded-md px-2 py-2 text-sm transition-colors ${
-                        active ? "bg-foreground/[0.06] font-medium text-foreground" : "text-muted-foreground hover:bg-foreground/[0.03] hover:text-foreground"
-                      }`}
-                    >
-                      <span className="flex items-center gap-2.5">
-                        <item.icon className="size-4 opacity-70" />
-                        {label}
-                      </span>
-                      {badge ? (
-                        <Badge variant="secondary" className="rounded-full px-1.5 py-0 text-[10px]">
-                          {badge}
-                        </Badge>
-                      ) : null}
-                    </Link>
-                  </li>
-                );
-              })}
-            </ul>
-          </div>
-        ))}
+        {navFor(role, "legacy").map((block) => {
+          const groupKey = GROUP_LABEL_KEY[block.group];
+          return (
+            <div key={block.group} className="mt-3 first:mt-1">
+              {groupKey ? <SectionLabel>{t(groupKey)}</SectionLabel> : null}
+              <ul className="flex flex-col gap-0.5">
+                {block.entries.map((entry) => {
+                  const active =
+                    pathname === entry.href ||
+                    (entry.href !== "/app" && pathname.startsWith(entry.href));
+                  const label = t(`items.${entry.key}`);
+                  const badge = entry.href === "/app/servis" ? (activeServisCount ?? 0) : 0;
+                  const Icon = entry.icon;
+                  return (
+                    <li key={entry.href}>
+                      <Link
+                        href={entry.href}
+                        onClick={onNavigate}
+                        className={`flex w-full items-center justify-between gap-2 rounded-md px-2 py-2 text-sm transition-colors ${
+                          active
+                            ? "bg-foreground/[0.06] font-medium text-foreground"
+                            : "text-muted-foreground hover:bg-foreground/[0.03] hover:text-foreground"
+                        }`}
+                      >
+                        <span className="flex items-center gap-2.5">
+                          <Icon className="size-4 opacity-70" />
+                          {label}
+                        </span>
+                        {badge ? (
+                          <Badge variant="secondary" className="rounded-full px-1.5 py-0 text-[10px]">
+                            {badge}
+                          </Badge>
+                        ) : null}
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          );
+        })}
       </nav>
 
       {/* Trial card — live dari tenant_subscriptions; sembunyi bila bukan trial */}
@@ -428,6 +326,20 @@ const BOTTOM_TABS: BottomTab[] = [
   { key: "lainnya", label: "Lainnya", icon: Settings },
 ];
 
+/**
+ * Tab yang punya `href` hanya dirender bila role boleh membukanya. Tanpa ini
+ * bottom-nav akan menampilkan tautan yang sidebar menyembunyikan.
+ * `/app/servis/baru` adalah halaman anak, bukan entri manifest, jadi
+ * kelayakannya mengikuti `/app/servis`.
+ */
+function bottomTabsForRole(role: string): BottomTab[] {
+  return BOTTOM_TABS.filter((tab) => {
+    if (tab.key === "lainnya") return true;
+    if (tab.key === "create") return canAccess(role, "/app/servis");
+    return canAccess(role, tab.href ?? "");
+  });
+}
+
 function bottomTabKey(key: string): string {
   switch (key) {
     case "dashboard":
@@ -444,13 +356,14 @@ function bottomTabKey(key: string): string {
       return key;
   }
 }
-function CerviseBottomNav({ pathname }: { pathname: string }) {
+function CerviseBottomNav({ pathname, role }: { pathname: string; role: string }) {
   const [sheetOpen, setSheetOpen] = useState(false);
   const t = useTranslations("nav");
+  const tabs = bottomTabsForRole(role);
   return (
     <>
       <nav className="h-[72px] border-t border-border/60 bg-background flex items-stretch justify-around relative shrink-0 sticky bottom-0 z-30 lg:hidden safe-area-pb">
-        {BOTTOM_TABS.map((tab) => {
+        {tabs.map((tab) => {
           const isActive = tab.href ? pathname === tab.href || (tab.href !== "/app" && pathname.startsWith(tab.href)) : false;
           const isCenter = !!tab.isCenter;
           const label = t(bottomTabKey(tab.key));
@@ -509,16 +422,22 @@ function CerviseBottomNav({ pathname }: { pathname: string }) {
       <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
         <SheetContent side="bottom" className="h-auto">
           <div className="grid grid-cols-3 gap-2 pt-2 pb-6">
-            {FLAT_NAV.map((item) => {
-              const k = navItemKey(item);
-              const lab = k.startsWith("items.") ? t(k) : item.label;
-              return (
-                <Link key={item.href} href={item.href} onClick={() => setSheetOpen(false)} className="flex flex-col items-center gap-2 rounded-lg border p-3 text-xs">
-                  <item.icon className="size-5" />
-                  {lab}
-                </Link>
-              );
-            })}
+            {navFor(role, "legacy").map((block) =>
+              block.entries.map((entry) => {
+                const Icon = entry.icon;
+                return (
+                  <Link
+                    key={entry.href}
+                    href={entry.href}
+                    onClick={() => setSheetOpen(false)}
+                    className="flex flex-col items-center gap-2 rounded-lg border p-3 text-xs"
+                  >
+                    <Icon className="size-5" />
+                    {t(`items.${entry.key}`)}
+                  </Link>
+                );
+              }),
+            )}
           </div>
         </SheetContent>
       </Sheet>
@@ -584,7 +503,7 @@ function AppShellInner({ children, actor }: { children: React.ReactNode; actor: 
         <div className="lg:hidden sticky top-0 z-40 flex h-16 shrink-0 items-center justify-between border-b border-border/60 bg-background px-3">
           <Sheet open={open} onOpenChange={setOpen}>
             <SheetTrigger render={<Button variant="ghost" size="icon" className="size-8" />}>
-              <LayoutDashboard className="size-5" />
+              <Wrench className="size-5" />
             </SheetTrigger>
             <SheetContent side="left" className="w-[280px] p-0 flex flex-col">
               <SheetHeader className="sr-only">
@@ -627,7 +546,7 @@ function AppShellInner({ children, actor }: { children: React.ReactNode; actor: 
           />
         </div>
 
-        <CerviseBottomNav pathname={pathname} />
+        <CerviseBottomNav pathname={pathname} role={actor.role} />
       </div>
     </div>
   );
@@ -638,7 +557,7 @@ export function AppShell({ children, actor }: { children: React.ReactNode; actor
     <LocaleProvider>
       <TenantProvider fixedOrganizationId={actor.role.toUpperCase() === "MASTER_ADMIN" ? null : actor.orgId}>
         <BranchProvider fixedBranchId={actor.role.toUpperCase() === "MASTER_ADMIN" ? null : actor.branchId ?? "unassigned"}>
-          <CommandPaletteProvider>
+          <CommandPaletteProvider role={actor.role}>
             <AppShellInner actor={actor}>{children}</AppShellInner>
           </CommandPaletteProvider>
         </BranchProvider>

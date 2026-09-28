@@ -35,7 +35,12 @@ function statusFor(b: BranchItem): "ok" | "warn" | "off" {
 const STATUS_LABEL: Record<string, string> = { ok: "Aktif", warn: "Perlu perhatian", off: "Nonaktif" };
 const STATUS_DOT: Record<string, string> = { ok: "bg-emerald-500", warn: "bg-amber-500", off: "bg-muted-foreground/40" };
 
-export function BranchCards({ branches, onKelola }: { branches: BranchItem[]; onKelola?: (b: BranchItem) => void }) {
+/**
+ * `canManage` false untuk ADMIN: RLS `branches_update` sudah mencabut ADMIN,
+ * jadi switch aktif/nonaktif dan tombol Kelola disembunyikan — keduanya akan
+ * ditolak RLS tanpa pesan yang bisa dipahami pengguna.
+ */
+export function BranchCards({ branches, onKelola, canManage = true }: { branches: BranchItem[]; onKelola?: (b: BranchItem) => void; canManage?: boolean }) {
   const router = useRouter();
   const [items, setItems] = useState(branches);
   const [confirm, setConfirm] = useState<BranchItem | null>(null);
@@ -122,14 +127,18 @@ export function BranchCards({ branches, onKelola }: { branches: BranchItem[]; on
                   </div>
                 </div>
                 <div className="flex flex-col items-end gap-2">
-                  <div className="flex flex-col items-end gap-1">
-                    <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Aktif</span>
-                    <Switch checked={enabled} disabled={saving} onCheckedChange={(v) => handleToggle(b, Boolean(v))} />
-                  </div>
-                  <Button variant="ghost" size="xs" className="text-muted-foreground" onClick={() => onKelola?.(b)}>
-                    Kelola
-                    <ChevronRightIcon />
-                  </Button>
+                  {canManage ? (
+                    <>
+                      <div className="flex flex-col items-end gap-1">
+                        <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Aktif</span>
+                        <Switch checked={enabled} disabled={saving} onCheckedChange={(v) => handleToggle(b, Boolean(v))} />
+                      </div>
+                      <Button variant="ghost" size="xs" className="text-muted-foreground" onClick={() => onKelola?.(b)}>
+                        Kelola
+                        <ChevronRightIcon />
+                      </Button>
+                    </>
+                  ) : null}
                 </div>
               </div>
             </Card>

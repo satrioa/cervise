@@ -7,21 +7,22 @@ import {
 } from "./account-input";
 
 describe("canManageEmployees", () => {
-  // employees_insert / employees_update hanya mengizinkan MASTER_ADMIN. Gate
-  // aplikasi yang lebih longgar dari itu hanya menghasilkan penolakan RLS
-  // tanpa pesan, jadi gate harus persis mengikuti database.
-  it("allows only MASTER_ADMIN", () => {
+  // Policy di 20260925220000_add_role_scoped_policies.sql mengizinkan
+  // MASTER_ADMIN untuk seluruh tenant dan ADMIN — tetapi ADMIN hanya untuk
+  // baris dengan branch_id yang sama dengan cabangnya. Batas per-cabang itu
+  // ditegakkan RLS; gate di sini cukup memeriksa role.
+  it("allows MASTER_ADMIN and ADMIN", () => {
     expect(canManageEmployees(EMPLOYEE_ROLE.MASTER_ADMIN)).toBe(true);
+    expect(canManageEmployees(EMPLOYEE_ROLE.ADMIN)).toBe(true);
   });
 
-  it("rejects ADMIN even though canAccess(pengaturan_general) allows it", () => {
-    expect(canManageEmployees(EMPLOYEE_ROLE.ADMIN)).toBe(false);
+  it("rejects FRONTLINER and TECHNICIAN", () => {
     expect(canManageEmployees(EMPLOYEE_ROLE.FRONTLINER)).toBe(false);
     expect(canManageEmployees(EMPLOYEE_ROLE.TECHNICIAN)).toBe(false);
   });
 
-  it("rejects missing and lowercase roles", () => {
-    for (const value of [null, undefined, "", "  ", "admin", "teknisi", "super_owner"]) {
+  it("rejects missing and unknown roles", () => {
+    for (const value of [null, undefined, "", "  ", "super_owner"]) {
       expect(canManageEmployees(value)).toBe(false);
     }
   });
@@ -29,6 +30,14 @@ describe("canManageEmployees", () => {
   it("is case tolerant so a legacy lowercase role still resolves", () => {
     expect(canManageEmployees("master_admin")).toBe(true);
     expect(canManageEmployees("Master_Admin")).toBe(true);
+    expect(canManageEmployees("admin")).toBe(true);
+  });
+
+  // profiles.role masih huruf kecil ("teknisi"), jadi bentuk itu tidak boleh
+  // ikut diterima — hanya employee role yang berlaku untuk gate ini.
+  it("rejects the profiles.role spelling", () => {
+    expect(canManageEmployees("teknisi")).toBe(false);
+    expect(canManageEmployees("frontliner")).toBe(false);
   });
 });
 
