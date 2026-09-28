@@ -197,6 +197,19 @@ create trigger cervise_services_notify_status
 -- dipinjol connection pool akan membawa saklarnya ke pemanggil berikutnya.
 -- Karena itu pemanggil WAJIB memanggil fungsi ini lagi dengan p_on = false di
 -- dalam finally, apa pun hasil akhirnya.
+--
+-- PENTING -- fungsi ini hanya berguna dari klien SQL yang menyambung persisten
+-- (psql, session pooler, SQL editor). Melalui PostgREST -- yang dipakai klien
+-- Supabase -- TIDAK bisa dipakai untuk menekan trigger di permintaan
+-- berikutnya: set_config menempel di satu koneksi, sedangkan permintaan
+-- berikutnya dilayani koneksi lain dari pool, jadi current_setting sudah NULL
+-- lagi. Diuji terhadap database ini: diset di satu permintaan, dibaca di
+-- permintaan berikutnya, hasilnya NULL.
+--
+-- Seed script karena itu menghapus baris outbox-nya sendiri setelah insert,
+-- bukan memakai fungsi ini. Fungsi ini dipertahankan karena suppression di
+-- dalam satu transaksi (misalnya blok DO untuk pengujian) tetap bekerja, tapi
+-- jangan andalkan untuk apa pun yang lintas permintaan HTTP.
 create or replace function public.cervise_set_notification_suppression(p_on boolean)
 returns void
 language plpgsql

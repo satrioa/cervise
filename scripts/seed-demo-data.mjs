@@ -309,6 +309,36 @@ async function seed() {
   }
   console.log(`Servis   : ${serviceIds.length}`);
 
+  // Baris notifikasi yang baru saja dibuat trigger untuk servis-servis di atas
+  // DIHAPUS, bukan dicegah.
+  //
+  // Brief-aslinya memakai RPC `cervise_set_notification_suppression(true)`
+  // sebelum loop dan `false` sesudahnya. Itu tidak akan bekerja di sini, dan
+  // sudah dibuktikan: `set_config(..., is_local => false)` bersifat level SESI,
+  // sedangkan setiap `.rpc()` dan `.insert()` dari klien Supabase adalah
+  // permintaan HTTP terpisah yang dilayani PostgREST dari connection pool.
+  // Saklarnya menempel di koneksi yang kebetulan dipakai permintaan itu, dan
+  // permintaan berikutnya dapat memakai koneksi lain -- jadi pada panggilan
+  // berikutnya `current_setting('cervise.suppress_notifications', true)`
+  // sudah NULL lagi. Diuji langsung terhadap database: set di satu panggilan,
+  // dibaca di panggilan berikutnya, hasilnya NULL.
+  //
+  // Menghapus setelah menyisipkan adalah satu-satunya pendekatan yang benar-benar
+  // berhasil lewat PostgREST. Sisa jendela balapan antara insert dan delete
+  // hanya bisa diexploitasi cron yang kebetulan jalan di detik yang sama --
+  // dan baris yang bocor itu akan kembali jadi `pending` setelah Dispatcher
+  // gagal, jadi tidak pernah hilang diam-diam.
+  const seededServiceIds = serviceIds.map((s) => s.id);
+  if (seededServiceIds.length > 0) {
+    const { error: purgeError } = await supabase
+      .from("cervise_notification_outbox")
+      .delete()
+      .in("servis_id", seededServiceIds);
+    if (purgeError) {
+      throw new Error(`hapus notifikasi seed: ${purgeError.message}`);
+    }
+  }
+
   // usage_count dihitung ulang dari servis yang benar-benar memakai tag.
   for (const name of TAGS) {
     const used = SERVICES.filter((s) => s.tags.includes(name)).length;
@@ -448,17 +478,30 @@ async function clean() {
   const ids = JSON.parse(readFileSync(IDS_FILE, "utf8"));
 
   // Urutan dibalik sesuai ketergantungan foreign key.
+  //
+  // `cervise_notification_outbox` SENGAJA tidak punya foreign key ke
+  // `cervise_services` -- riwayatnya harus tetap ada walau servisnya dihapus.
+  // Konsekuensinya di sini: menghapus servis TIDAK ikut menghapus baris
+  // notifikasi, jadi kalau tidak dihapus eksplisit, outbox akan menumpuk baris
+  // yatim yang Dispatcher lalu klaim dan tandai `failed` (servis_not_found)
+  // setiap lima menit. Dihapus eksplisit, dan tidak menjadi masalah karena
+  // key-nya `services` memang milik seed ini.
   for (const [table, key] of [
     ["cervise_sales_items", "salesItems"],
     ["cervise_sales", "sales"],
     ["finance_tx", "financeTx"],
+    ["cervise_notification_outbox", "services"],
     ["cervise_services", "services"],
     ["cervise_customers", "customers"],
     ["cervise_products", "products"],
   ]) {
     const values = ids[key] ?? [];
     if (values.length === 0) continue;
-    const { error } = await supabase.from(table).delete().in("id", values);
+    const query =
+      table === "cervise_notification_outbox"
+        ? supabase.from(table).delete().in("servis_id", values)
+        : supabase.from(table).delete().in("id", values);
+    const { error } = await query;
     console.log(`${table}: ${error ? `GAGAL ${error.message}` : `${values.length} dihapus`}`);
   }
   console.log("Kategori / kelengkapan / tag sengaja tidak dihapus - dipakai fitur lain.");
