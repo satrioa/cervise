@@ -487,7 +487,9 @@ describe("validatePhone", () => {
   it("menguji batas 24 karakter tepat di batasnya", () => {
     // Batas karakter harus diuji tepat di batasnya. Kalau cap dihapus, test
     // ini tetap hijau karena nomor tersebut juga gagal cek jumlah digit.
-    const at24 = "0812 3456 7890 1234 56";
+    // 24 karakter dengan 13 digit. Padding tanda baca dipaksakan: pada 24
+    // karakter dengan maksimal 15 digit, minimal 9 karakter harus tanda baca.
+    const at24 = "0812 3456 78 (012) -----";
     expect(at24).toHaveLength(24);
     expect(validatePhone(at24).ok).toBe(true);
 
