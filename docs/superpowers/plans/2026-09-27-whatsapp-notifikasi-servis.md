@@ -606,7 +606,7 @@ menjadi:
 - [ ] **Step 6: Pastikan typecheck dan test hijau**
 
 Run: `npm run typecheck && npm test -- src/lib/phone.test.ts`
-Expected: typecheck bersih, 8 test PASS.
+Expected: typecheck bersih, 7 test PASS.
 
 - [ ] **Step 7: Commit**
 
