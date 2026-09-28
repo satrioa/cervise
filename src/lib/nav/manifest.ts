@@ -89,9 +89,11 @@ export const NAV_ENTRIES: NavEntry[] = [
     icon: LayoutDashboard,
     group: "dashboard",
     roles: ALL,
-    surface: ["legacy"],
-    // TEKNICIAN dan FRONTLINER memakai shell compact. Menambah role ketiga
-    // cukup menambah satu nilai di sini.
+    // "compact" ada supaya entri ini muncul di sidebar rail TEKNICIAN dan
+    // FRONTLINER. Yang menentukan shell TIDAK field ini, melainkan
+    // `compactRoles` di bawah -- kalau surface yang menentukan, MASTER_ADMIN
+    // dan ADMIN ikut dapat CompactShell.
+    surface: ["legacy", "compact"],
     compactRoles: ["TECHNICIAN", "FRONTLINER"],
     menuKeys: ["dashboard"],
   },
@@ -384,21 +386,19 @@ export function canWrite(role: string | null | undefined, key: string): boolean 
 }
 
 /**
- * Shell yang dipakai role ini, ditentukan oleh entri `/app`.
+ * Shell yang dipakai role ini, ditentukan oleh entri manifest untuk `/app`.
  *
- * Dua kondisi diperiksa berurutan:
- *   1. `compactRoles` menyertakan role ini — halaman dipakai bersama tetapi
- *      shell-nya berbeda per role (kasus `/app`).
- *   2. `surface` entri memuat `"compact"` — seluruh role di entri itu memakai
- *      shell compact.
+ * Yang menentukan hanya `compactRoles`. Field `surface` sengaja tidak dipakai
+ * di sini: entri `/app` ada di kedua surface supaya bisa muncul di sidebar
+ * rail sekaligus di sidebar manajer, dan kalau `surface` ikut menentukan,
+ * MASTER_ADMIN dan ADMIN ikut dapat CompactShell.
  */
 export function surfaceFor(role: string | null | undefined): Surface {
   const normalized = normalizeAppRole(role);
   const dashboard = entryForHref("/app");
   if (!normalized || !dashboard) return "legacy";
   if (!dashboard.roles.includes(normalized)) return "legacy";
-  if (dashboard.compactRoles?.includes(normalized)) return "compact";
-  return dashboard.surface.includes("compact") ? "compact" : "legacy";
+  return dashboard.compactRoles?.includes(normalized) ? "compact" : "legacy";
 }
 
 export type NavGroupBlock = { group: NavGroup; entries: NavEntry[] };

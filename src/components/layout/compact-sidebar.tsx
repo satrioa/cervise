@@ -36,21 +36,20 @@ import { cn } from "@/lib/utils";
  * terhadapnya.
  */
 
-const COMPACT_GROUPS = ["operasional", "laporan", "keuangan"] as const;
+/**
+ * Grup yang dirender di rail compact. `dashboard` masuk supaya teknisi dan
+ * frontliner bisa kembali ke dashboard tanpa tombol khusus.
+ */
+const COMPACT_GROUPS = ["dashboard", "operasional", "laporan", "keuangan"] as const;
 
 /**
  * Lebar rail untuk `grid-template-columns`.
  *
- * Dipakai `clamp()`, bukan angka tetap. Rail 72px yang lama tetap — yang
- * berubah hanya proporsinya terhadap layar: saat board kanban digeser
- * horizontal, konten melebar dan rail terlihat jauh lebih kecil. Angka tetap
- * tidak pernah menangkap perasaan itu, karena pixel-nya sendiri tidak bergerak.
- *
- * Rentang 56px-72px dipilih supaya dua hal tetap berlaku di layar mana pun:
- *   - 56px masih memuat item dengan padding 8px per sisi.
- *   - Di bawah 56px, ikon mulai terasa sempit untuk disentuh.
+ * 74px, diukur dari DevTools. Cukup untuk kotak ikon di atas label di bawahnya:
+ * padding 8px per sisi menyisakan 58px, dan label dua baris seperti
+ * "Analitik Servis" masih terbaca.
  */
-export const COMPACT_RAIL_WIDTH = "clamp(56px, 4.2vw, 72px)";
+export const COMPACT_RAIL_WIDTH = "74px";
 
 export type CompactSidebarProps = {
   role: string;
@@ -60,9 +59,8 @@ export type CompactSidebarProps = {
   /**
    * Tampilkan nama menu di bawah ikon.
    *
-   * Di desktop label tidak dipakai — rail tidak memuatnya, dan `title`
-   * sudah cukup. Di sheet mobile label wajib: perangkat sentuh tidak punya
-   * hover, jadi tooltip native tidak akan pernah terlihat.
+   * Default true: rail 74px cukup untuk label dua baris, dan label di bawah
+   * ikon lebih terbaca daripada tooltip yang hanya muncul saat hover.
    */
   showLabels?: boolean;
 };
@@ -72,7 +70,7 @@ export function CompactSidebar({
   fullName,
   avatarUrl,
   onNavigate,
-  showLabels = false,
+  showLabels = true,
 }: CompactSidebarProps) {
   const pathname = usePathname();
   const { tenants, activeOrgId } = useTenant();
@@ -229,15 +227,10 @@ function CompactNavLink({
         href={entry.href}
         onClick={onNavigate}
         aria-current={active ? "page" : undefined}
-        // Rail sempit hanya muat icon, jadi label dipindah ke `title`. Di sheet
-        // mobile label ikut ditampilkan karena perangkat sentuh tidak punya
-        // hover — tooltip native tidak akan pernah terlihat.
         title={showLabel ? undefined : label}
         className={cn(
           // Ukuran tetap, bukan `aspect-square`: di rail sempit kotak
           // kuadrat ikut melebar dan tiap item jadi setinggi lebar rail.
-          // 48px masih di atas ambang target sentuh, dan seluruh rail jadi
-          // muat layar tanpa scroll.
           "flex w-full items-center justify-center rounded-lg transition-colors",
           showLabel ? "flex-col gap-1 py-1.5" : "h-11",
           active
@@ -247,7 +240,10 @@ function CompactNavLink({
       >
         <Icon className={cn("size-[18px] shrink-0", active ? "opacity-100" : "opacity-70")} />
         {showLabel ? (
-          <span className="max-w-full truncate px-1 text-center text-[11px] leading-tight">
+          // `leading-tight` + dua baris: "Analitik Servis" tidak muat satu baris
+          // di rail 74px, dan memotongnya jadi "Analitik S..." lebih buruk
+          // daripada membungkus.
+          <span className="line-clamp-2 max-w-full px-0.5 text-center text-[10px] leading-tight">
             {label}
           </span>
         ) : (

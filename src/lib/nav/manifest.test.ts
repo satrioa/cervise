@@ -276,8 +276,9 @@ describe("menu per role", () => {
     }
   });
 
-  it("TEKNICIAN melihat 7 entri di sidebar compact, urut group operasi → laporan → layanan", () => {
+  it("TEKNICIAN melihat 7 entri di sidebar compact, urut dashboard → operasi → laporan → layanan", () => {
     expect(sidebarHrefsFor("TECHNICIAN", COMPACT)).toEqual([
+      "/app",
       "/app/servis",
       "/app/inventori",
       "/app/kategori-sparepart",
@@ -391,10 +392,25 @@ describe("pemilihan shell", () => {
     expect(surfaceFor("ADMIN")).toBe(LEGACY);
   });
 
-  it("entri /app tetap punya surface legacy sebagai default", () => {
+  it("entri /app ada di kedua surface, tapi shell ditentukan compactRoles", () => {
     const dashboard = entryForHref("/app");
     expect(dashboard).toBeDefined();
+    // `surface` hanya mengatur kemunculan di sidebar. Kalau `surface` ikut
+    // menentukan shell, MASTER_ADMIN dan ADMIN akan ikut dapat CompactShell
+    // begitu "compact" ditambahkan untuk link Dashboard di rail.
     expect(dashboard?.surface).toContain(LEGACY);
+    expect(dashboard?.surface).toContain(COMPACT);
+  });
+
+  it("hanya compactRoles yang menentukan shell, bukan surface", () => {
+    // Setiap role yang punya compactRoles harus dapat compact; sisanya legacy
+    // walau `/app` ada di surface compact.
+    for (const role of APP_ROLE) {
+      const expected = entryForHref("/app")?.compactRoles?.includes(role)
+        ? COMPACT
+        : LEGACY;
+      expect(surfaceFor(role), role).toBe(expected);
+    }
   });
 
   it("compactRoles hanya berisi role yang juga ada di roles", () => {
