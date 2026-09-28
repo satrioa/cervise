@@ -169,3 +169,79 @@ describe("buildLaporanPenjualan", () => {
     expect(JSON.stringify(input)).toBe(before);
   });
 });
+
+describe("baris dengan tanggal kas tidak valid", () => {
+  // dahulunya monthKey = dayKey.slice(0, 7) dijalankan SEBELUM
+  // `if (!dayKey) continue`, jadi kas_date null melempar TypeError dan
+  // menjatuhkan seluruh laporan - bukan hanya baris itu.
+  //
+  // Kontrak yang dipilih: baris seperti ini TETAP dihitung di ringkasan
+  // (uangnya nyata dan tidak boleh hilang dari omzet) tapi TIDAK dikelompokkan
+  // ke bucket harian/bulanan mana pun, karena tidak ada tanggal yang bisa
+  // dipertanggungjawabkan.
+  it("tidak melempar dan tetap menghitung ringkasan", () => {
+    const result = buildLaporanPenjualan({
+      sales: [
+        sale({ kas_date: null as unknown as string }),
+        sale({ id: "s2", kas_date: "2026-09-24", total: 250_000, subtotal: 250_000, paid: 250_000 }),
+      ],
+      branches,
+      now: NOW,
+    });
+
+    expect(result.harian.map((g) => g.key)).toEqual(["2026-09-24"]);
+    expect(result.summary.count).toBe(2);
+    expect(result.summary.omzet).toBe(100_000 + 250_000);
+  });
+
+  it("tidak mengarang bucket untuk tanggal kosong atau salah tipe", () => {
+    const result = buildLaporanPenjualan({
+      sales: [
+        sale({ kas_date: "" }),
+        sale({ id: "s2", kas_date: "  " }),
+        sale({ id: "s3", kas_date: 20260924 as unknown as string }),
+        sale({ id: "s4", kas_date: "2026-09-25" }),
+      ],
+      branches,
+      now: NOW,
+    });
+
+    expect(result.harian.map((g) => g.key)).toEqual(["2026-09-25"]);
+    expect(result.bulanan.map((g) => g.key)).toEqual(["2026-09"]);
+    expect(result.harian[0].count).toBe(1);
+  });
+
+  // Tanpa normalisasi, "2026-9-3" akan menjadi bucket key yang berbeda dari
+  // "2026-09-03" untuk hari yang sama, sehingga satu hari terpecah dua.
+  it("menolak tanggal yang tidak berbentuk YYYY-MM-DD", () => {
+    const result = buildLaporanPenjualan({
+      sales: [sale({ kas_date: "2026-9-3" }), sale({ id: "s2", kas_date: "23/09/2026" })],
+      branches,
+      now: NOW,
+    });
+
+    expect(result.harian).toHaveLength(0);
+    expect(result.bulanan).toHaveLength(0);
+  });
+
+  it("tetap mengelompokkan tanggal yang sudah rapi dengan benar", () => {
+    const result = buildLaporanPenjualan({
+      sales: [
+        sale({ kas_date: "2026-09-23" }),
+        sale({ id: "s2", kas_date: "2026-09-23" }),
+        sale({ id: "s3", kas_date: "2026-10-01" }),
+      ],
+      branches,
+      now: NOW,
+    });
+
+    expect(result.harian.map((g) => g.key)).toEqual(["2026-10-01", "2026-09-23"]);
+    expect(result.harian[1].count).toBe(2);
+    expect(result.bulanan.map((g) => g.key)).toEqual(["2026-10", "2026-09"]);
+  });
+
+  it("mengabaikan spasi di sekeliling tanggal", () => {
+    const result = buildLaporanPenjualan({ sales: [sale({ kas_date: " 2026-09-23 " })], branches, now: NOW });
+    expect(result.harian.map((g) => g.key)).toEqual(["2026-09-23"]);
+  });
+});
