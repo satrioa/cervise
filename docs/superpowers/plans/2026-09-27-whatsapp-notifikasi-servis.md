@@ -2841,7 +2841,7 @@ database sudah berbeda, dan keduanya jangan dibandingkan. Yang dicek di sini
 adalah **namanya**, bukan versinya -- kalau `service_notification_outbox` tidak
 ada di daftar, itu yang salah.
 
-- [ ] **Step 7: cek apakah ada pesan yang tertinggal di `skipped`**
+- [x] **Step 7: cek apakah ada pesan yang tertinggal di `skipped`**
 
 ```sql
 select state, last_error, count(*)
@@ -2852,7 +2852,7 @@ select state, last_error, count(*)
 
 Expected sebelum cron pertama jalan: semua `pending`, atau `skipped` dengan `last_error = 'no_phone'` untuk teknisi yang belum punya nomor. Kalau muncul `failed`, investigate sebelum mengaktifkan cron.
 
-- [ ] **Step 8: Commit kalau ada perbaikan**
+- [x] **Step 8: Commit kalau ada perbaikan**
 
 ```bash
 git add -A
