@@ -384,20 +384,30 @@ describe("menu per role", () => {
 });
 
 describe("pemilihan shell", () => {
-  it("semua role masih legacy di spec ini", () => {
-    for (const role of APP_ROLE) {
-      expect(surfaceFor(role)).toBe(LEGACY);
+  it("TEKNICIAN memakai compact, role lain tetap legacy", () => {
+    expect(surfaceFor("TECHNICIAN")).toBe(COMPACT);
+    expect(surfaceFor("MASTER_ADMIN")).toBe(LEGACY);
+    expect(surfaceFor("ADMIN")).toBe(LEGACY);
+    // FRONTLINER menyusul di Spec 3.
+    expect(surfaceFor("FRONTLINER")).toBe(LEGACY);
+  });
+
+  it("entri /app tetap punya surface legacy sebagai default", () => {
+    const dashboard = entryForHref("/app");
+    expect(dashboard).toBeDefined();
+    expect(dashboard?.surface).toContain(LEGACY);
+  });
+
+  it("compactRoles hanya berisi role yang juga ada di roles", () => {
+    for (const entry of NAV_ENTRIES) {
+      for (const role of entry.compactRoles ?? []) {
+        expect(entry.roles, `${entry.href} / ${role}`).toContain(role);
+      }
     }
   });
 
   it("role yang tidak dikenal dapat legacy, bukan compact", () => {
     expect(surfaceFor("super_owner")).toBe(LEGACY);
     expect(surfaceFor(null)).toBe(LEGACY);
-  });
-
-  it("entri /app selalu punya surface legacy", () => {
-    const dashboard = entryForHref("/app");
-    expect(dashboard).toBeDefined();
-    expect(dashboard?.surface).toContain(LEGACY);
   });
 });

@@ -119,7 +119,7 @@ export function buildAttentionQueue(
     let reason: AttentionReason | null = null;
     let priority: AttentionPriority = "tinggi";
     let hours = 0;
-    let since = service.updated_at;
+    const since = service.updated_at;
 
     if (service.status === "Masuk") {
       if (hoursBetween(since, now) < thresholds.untouchedHours) continue;

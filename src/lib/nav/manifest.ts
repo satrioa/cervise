@@ -67,6 +67,14 @@ export type NavEntry = {
   readOnly?: AppRole[];
   /** Kunci kapabilitas tanpa rute, mis. `inventory` untuk `/app/inventori`. */
   menuKeys?: string[];
+  /**
+   * Role yang memakai shell compact, untuk halaman yang juga dipakai role lain.
+   *
+   * Halaman `/app` dipakai semua role tetapi shell-nya berbeda: manajer butuh
+   * sidebar lengkap, teknisi butuh sidebar ringkas. Field ini yang menyatakan
+   * itu. `surface` sendiri tetap per-halaman, bukan per-role.
+   */
+  compactRoles?: AppRole[];
 };
 
 const ALL: AppRole[] = ["MASTER_ADMIN", "ADMIN", "FRONTLINER", "TECHNICIAN"];
@@ -82,6 +90,8 @@ export const NAV_ENTRIES: NavEntry[] = [
     group: "dashboard",
     roles: ALL,
     surface: ["legacy"],
+    // TEKNICIAN memakai shell compact. FRONTLINER menyusul di Spec 3.
+    compactRoles: ["TECHNICIAN"],
     menuKeys: ["dashboard"],
   },
   {
@@ -372,12 +382,21 @@ export function canWrite(role: string | null | undefined, key: string): boolean 
   return entry.roles.includes(normalized);
 }
 
-/** Shell yang dipakai role ini, ditentukan oleh entri `/app`. */
+/**
+ * Shell yang dipakai role ini, ditentukan oleh entri `/app`.
+ *
+ * Dua kondisi diperiksa berurutan:
+ *   1. `compactRoles` menyertakan role ini — halaman dipakai bersama tetapi
+ *      shell-nya berbeda per role (kasus `/app`).
+ *   2. `surface` entri memuat `"compact"` — seluruh role di entri itu memakai
+ *      shell compact.
+ */
 export function surfaceFor(role: string | null | undefined): Surface {
   const normalized = normalizeAppRole(role);
   const dashboard = entryForHref("/app");
   if (!normalized || !dashboard) return "legacy";
   if (!dashboard.roles.includes(normalized)) return "legacy";
+  if (dashboard.compactRoles?.includes(normalized)) return "compact";
   return dashboard.surface.includes("compact") ? "compact" : "legacy";
 }
 

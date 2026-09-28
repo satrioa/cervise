@@ -26,7 +26,7 @@ const PERIOD_LABEL: Record<DashboardPeriod, string> = {
   "90d": "90 hari",
 };
 
-export default function DashboardPage() {
+export default function DashboardOwnerClient() {
   const { branch } = useBranch();
   const [period, setPeriod] = useState<DashboardPeriod>("30d");
   const [openServis, setOpenServis] = useState(false);
