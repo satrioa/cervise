@@ -567,7 +567,7 @@ export type PhoneValidation =
 /**
  * Validasi untuk form. Kosong itu sah, karena tidak semua role butuh nomor.
  * Aturan panjang dan karakter ikut migration `profiles_phone_charset`, supaya
- * penolakan di aplikasi dan di database tidak berbedaiability.
+ * penolakan di aplikasi dan di database tidak berbeda.
  */
 export function validatePhone(raw: string | null | undefined): PhoneValidation {
   const trimmed = (raw ?? "").trim();
