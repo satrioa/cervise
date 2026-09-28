@@ -76,7 +76,7 @@ export default function SignupPage() {
           <CardHeader className="items-center text-center">
             <div className="mb-3 flex justify-center"><div className="flex size-10 items-center justify-center rounded-lg bg-primary text-primary-foreground font-bold">C</div></div>
             <CardTitle className="font-heading text-2xl tracking-tight">Buat akun Cervise</CardTitle>
-            <CardDescription>Coba gratis 14 hari — 1 user 1 cabang</CardDescription>
+            <CardDescription>Coba gratis 14 hari</CardDescription>
           </CardHeader>
           <CardPanel className="flex flex-col gap-5">
             <div className="flex items-center gap-3">

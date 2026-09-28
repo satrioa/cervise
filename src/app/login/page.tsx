@@ -26,10 +26,9 @@ export default function LoginPage() {
         <Card className="p-7">
           <CardHeader className="flex flex-col items-center gap-4 p-0 text-center">
             <BrandMark />
-            <div className="flex flex-col gap-1.5">
-              <h1 className="font-heading text-2xl tracking-tight">Masuk ke Cervise</h1>
-              <p className="text-muted-foreground text-sm">Servis HP · 1 user 1 cabang</p>
-            </div>
+            {/* Subtitle dihapus, jadi wrapper flex-col yang tadinya
+                membungkus judul + subtitle sudah tidak ada gunanya. */}
+            <h1 className="font-heading text-2xl tracking-tight">Masuk ke Cervise</h1>
           </CardHeader>
           {notice ? (
             <p
