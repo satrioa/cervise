@@ -159,15 +159,30 @@ export function SettingsProfileCervise({
         </Section>
       </div>
 
-      <div className="fixed inset-x-0 bottom-0 z-30 border-t border-border/60 bg-background/85 backdrop-blur">
-        <div className="mx-auto flex max-w-3xl items-center justify-between px-8 py-3">
-          <div className="font-mono text-[10px] text-muted-foreground uppercase tracking-[0.3em]">{dirty ? "Unsaved changes" : "All saved"}</div>
-          <div className="flex items-center gap-2">
-            <Button variant="ghost" size="sm" type="button" disabled={!dirty || saving} onClick={handleDiscard}>Discard</Button>
-            <Button size="sm" type="button" disabled={!dirty || saving} onClick={handleSave}>{saving ? "Menyimpan..." : "Save changes"}</Button>
+      {/* Dock action, sama seperti bulk dock di halaman servis: melayang di
+          tengah, bukan melebar penuh. Bentuk yang lama memakai
+          `fixed inset-x-0`, jadi lebarnya ikut seluruh viewport dan menutupi
+          sidebar saat scroll ke bawah.
+
+          Dock ini juga hanya muncul saat ada perubahan yang belum disimpan.
+          sebelumnya bar-nya selalu ada dan menulis "All saved" - sekarang
+          tidak ada perubahan berarti tidak ada yang perlu dikonfirmasi, jadi
+          tidak ada yang memenuhi layar. */}
+      {dirty ? (
+        <div className="fixed bottom-[84px] left-1/2 z-40 flex w-fit max-w-[calc(100vw-16px)] -translate-x-1/2 items-center gap-3 rounded-2xl border bg-background/95 px-3 py-2.5 shadow-2xl shadow-black/15 backdrop-blur-xl supports-[backdrop-filter]:backdrop-blur-xl animate-in slide-in-from-bottom-2 fade-in-0 lg:bottom-6">
+          <div aria-hidden className="absolute -top-1.5 left-1/2 hidden h-1 w-10 -translate-x-1/2 rounded-full bg-foreground/10 lg:block" />
+          <span className="px-1 text-sm font-medium whitespace-nowrap">Ada perubahan</span>
+          <span aria-hidden className="hidden h-4 w-px bg-border/60 sm:block" />
+          <div className="flex items-center gap-1">
+            <Button variant="outline" size="sm" type="button" disabled={saving} onClick={handleDiscard}>
+              Buang
+            </Button>
+            <Button size="sm" type="button" disabled={saving} onClick={handleSave}>
+              {saving ? "Menyimpan..." : "Simpan"}
+            </Button>
           </div>
         </div>
-      </div>
+      ) : null}
     </div>
   );
 }
