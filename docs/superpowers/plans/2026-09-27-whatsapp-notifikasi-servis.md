@@ -1623,12 +1623,12 @@ describe("outbox notifikasi servis migration", () => {
 });
 ```
 
-- [ ] **Step 2: Jalankan test, harus gagal**
+- [x] **Step 2: Jalankan test, harus gagal**
 
 Run: `npm test -- src/lib/auth/notification-outbox-migration.test.ts`
 Expected: FAIL — `ENOENT`, file migration belum ada.
 
-- [ ] **Step 3: Tulis migration**
+- [x] **Step 3: Tulis migration**
 
 Buat `supabase/migrations/20260925290000_service_notification_outbox.sql`:
 
@@ -1795,12 +1795,12 @@ revoke all on public.cervise_notification_outbox from authenticated;
 grant select, insert, update, delete on public.cervise_notification_outbox to service_role;
 ```
 
-- [ ] **Step 4: Jalankan test, harus lulus**
+- [x] **Step 4: Jalankan test, harus lulus**
 
 Run: `npm test -- src/lib/auth/notification-outbox-migration.test.ts`
 Expected: PASS — 9 test.
 
-- [ ] **Step 5: Apply migration, lalu selaraskan versinya**
+- [x] **Step 5: Apply migration, lalu selaraskan versinya**
 
 Apply lewat MCP Supabase dengan nama `service_notification_outbox`. Lalu:
 
@@ -1840,7 +1840,7 @@ Expected: `claimed` lebih besar dari 0, `claimed_again = 0`, `attempts` tetap 0,
 
 TENTANG `claimed_again = 0`: ini **bukan** bukti `skip locked` bekerja. Baris yang sudah diklaim kini punya `next_attempt_at` di masa depan, jadi tidak memenuhi `next_attempt_at <= now()` dan tidak terambil untuk alasan yang salah. Pembuktian `skip locked` yang sebenarnya butuh dua sesi database konkuren yang memanggil RPC bersamaan -- tidak bisa dilakukan dari satu skrip. Klaim bahwa `skip locked sudah terbukti` dari hasil ini salah; kalau itu perlu dibuktikan, jalankan dua sesi lewat `supabase` CLI atau psql terpisah dan catat hasilnya.
 
-- [ ] **Step 6: Uji trigger langsung dengan rollback**
+- [x] **Step 6: Uji trigger langsung dengan rollback**
 
 Jalankan SQL ini. `raise exception` di akhir sengaja membatalkan transaksi, jadi tidak ada data yang tertinggal:
 
@@ -1880,7 +1880,7 @@ $$;
 
 Expected di notice: `2` setelah insert, `3` setelah `Selesai`, tetap `3` setelah rework. Pertanyaan `3` menjalankan `raise exception` yang memunculkan error HTTP, itu yang diharapkan.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add supabase/migrations/20260925290000_service_notification_outbox.sql src/lib/auth/notification-outbox-migration.test.ts
