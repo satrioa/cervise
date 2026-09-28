@@ -471,8 +471,32 @@ describe("validatePhone", () => {
     expect(result.ok).toBe(false);
   });
 
+  it("menerima hanya karakter yang boleh ada di nomor", () => {
+    // Hanya kelas karakter penuh yang mengizinkan tanda baca ini. Kalau
+    // karakternya dipersempit jadi angka saja, test ini harus gagal.
+    expect(validatePhone("+62 (812) 3456-7890")).toEqual({
+      ok: true,
+      value: "6281234567890",
+    });
+  });
+
   it("menolak nomor yang terlalu panjang", () => {
     expect(validatePhone("+62 812 3456 7890 1234 5678").ok).toBe(false);
+  });
+
+  it("menguji batas 24 karakter tepat di batasnya", () => {
+    // Batas karakter harus diuji tepat di batasnya. Kalau cap dihapus, test
+    // ini tetap hijau karena nomor tersebut juga gagal cek jumlah digit.
+    const at24 = "0812 3456 7890 1234 56";
+    expect(at24).toHaveLength(24);
+    expect(validatePhone(at24).ok).toBe(true);
+
+    const at25 = `${at24}7`;
+    expect(at25).toHaveLength(25);
+    expect(validatePhone(at25)).toEqual({
+      ok: false,
+      error: "Nomor telepon terlalu panjang.",
+    });
   });
 });
 
@@ -494,8 +518,16 @@ Expected: FAIL — tidak bisa resolve `./phone`.
 
 ```ts
 // Aturan nomor telepon yang dipakai bersama: form karyawan, edit profil,
-// dan pengiriman WhatsApp. Sempat terduplikasi di onboarding (normalisasi)
-// dan account-input (validasi), sekarang hanya di sini.
+// dan pengiriman WhatsApp.
+//
+// Dua tempat lain masih punya versinya sendiri dan SENGAJA dibiarkan:
+// - src/lib/auth/account-input.ts:92-98 menyimpan input mentah apa adanya, jadi
+//   profiles.phone bisa berisi `0812 3456 7890`. Aturan di sini tidak boleh
+//   berubah jadi bentuk kanonik, atau penulisan itu ikut gagal.
+// - src/lib/operational/customer-list.ts punya fungsi bernama mirip untuk
+//   tampilan saja, dan sengaja tidak menolak input lawas.
+//
+// Yang ditetapkan di sini adalah bentuk kanonik untuk DISIMPAN dan DIKIRIM.
 
 /**
  * Mengubah apa pun yang diketik orang menjadi bentuk kanonik `62...`.
@@ -514,8 +546,11 @@ export function normalizePhone62(raw: string | null | undefined): string | null 
     return null;
   }
 
-  // 62 + 7..12 digit subscriber. Di luar itu nomor domestic yang salah ketik.
-  if (digits.length < 9 || digits.length > 14) return null;
+  // 10-15 digit, mengikuti batas yang dipakai src/app/app/customer/actions.ts.
+  // Batas itu longgar dengan sengaja: nomor yang ditolak di sini berarti
+  // pelanggan tidak menerima notifikasi sama sekali, sedangkan nomor yang
+  // kelewat longgar hanya ditolak Fonnte dan tercatat di log.
+  if (digits.length < 10 || digits.length > 15) return null;
   return digits;
 }
 
@@ -606,7 +641,7 @@ menjadi:
 - [ ] **Step 6: Pastikan typecheck dan test hijau**
 
 Run: `npm run typecheck && npm test -- src/lib/phone.test.ts`
-Expected: typecheck bersih, 7 test PASS.
+Expected: typecheck bersih, 9 test PASS.
 
 - [ ] **Step 7: Commit**
 
@@ -699,6 +734,13 @@ Buat `supabase/migrations/20260925210000_profile_phone_validation.sql`:
 --
 -- Grant self-service tidak diubah di sini. Yang hilang adalah validasi, bukan
 -- akses, dan grant itu dikunci oleh src/lib/auth/security-migration.test.ts.
+--
+-- PENTING: constraint ini sengaja hanya mencerminkan KELAS KARAKTER dan batas
+-- panjang, bukan bentuk kanonik. src/lib/auth/account-input.ts:108 masih menyimpan
+-- input mentah apa adanya, jadi profiles.phone bisa berisi `0812 3456 7890` atau
+-- +62 812-3456-7890. Kalau constraintnya ditulis bentuk kanonik ^62[0-9]+$,
+-- penulisan nomor dari form karyawan akan gagal dan berubah dari pesan galat
+-- yang ramah jadi error database.
 
 alter table public.profiles
   add constraint profiles_phone_charset
