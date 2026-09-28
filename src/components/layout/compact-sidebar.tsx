@@ -17,16 +17,16 @@ import { cn } from "@/lib/utils";
 /**
  * Sidebar shell compact untuk TEKNICIAN dan FRONTLINER.
  *
- * Bentuknya rail ikon 72px, bukan daftar dengan label. Alasannya: shell ini
+ * Bentuknya rail ikon, bukan daftar dengan label. Alasannya: shell ini
  * dipakai orang yang sedang bekerja di lapangan dengan satu tangan, jadi
  * targetnya ruang klik yang nyaman tanpa memakan lebar layar. Label pindah
  * ke `title` (tooltip native) supaya nama menu tetap bisa dibaca.
  *
  * Berbeda dari `app-shell.tsx`:
- *   1. Rail 72px dengan item 48px dan ikon 18px, bukan baris `size-4`.
+ *   1. Rail sempit dengan ikon 18px, bukan baris `size-4`.
  *   2. Branch switcher tidak ada. `BranchProvider` sudah mengunci cabang untuk
  *      role non-MASTER_ADMIN; nama tenant dan cabang muncul di tooltip logo.
- *   3. Group dipisahkan garis tipis, bukan label — label tidak muat di 72px.
+ *   3. Group dipisahkan garis tipis, bukan label — label tidak muat di rail.
  *
  * Daftar menu tidak ditulis di sini — `navFor(role, "compact")` yang
  * menentukan, jadi menambah halaman cukup menambah entri di manifest.
@@ -39,13 +39,18 @@ import { cn } from "@/lib/utils";
 const COMPACT_GROUPS = ["operasional", "laporan", "keuangan"] as const;
 
 /**
- * Lebar rail. Dipakai juga oleh `compact-shell.tsx` untuk grid.
+ * Lebar rail untuk `grid-template-columns`.
  *
- * 72px cukup untuk item 48px di tengahnya. Nilai 88px sebelumnya membuat
- * `aspect-square` ikut melebar jadi 88px per item, yang terlalu besar untuk
- * daftar tujuh menu.
+ * Dipakai `clamp()`, bukan angka tetap. Rail 72px yang lama tetap — yang
+ * berubah hanya proporsinya terhadap layar: saat board kanban digeser
+ * horizontal, konten melebar dan rail terlihat jauh lebih kecil. Angka tetap
+ * tidak pernah menangkap perasaan itu, karena pixel-nya sendiri tidak bergerak.
+ *
+ * Rentang 56px-72px dipilih supaya dua hal tetap berlaku di layar mana pun:
+ *   - 56px masih memuat item dengan padding 8px per sisi.
+ *   - Di bawah 56px, ikon mulai terasa sempit untuk disentuh.
  */
-export const COMPACT_RAIL_WIDTH = "72px";
+export const COMPACT_RAIL_WIDTH = "clamp(56px, 4.2vw, 72px)";
 
 export type CompactSidebarProps = {
   role: string;
@@ -55,7 +60,7 @@ export type CompactSidebarProps = {
   /**
    * Tampilkan nama menu di bawah ikon.
    *
-   * Di desktop label tidak dipakai — rail 72px tidak memuatnya, dan `title`
+   * Di desktop label tidak dipakai — rail tidak memuatnya, dan `title`
    * sudah cukup. Di sheet mobile label wajib: perangkat sentuh tidak punya
    * hover, jadi tooltip native tidak akan pernah terlihat.
    */
@@ -87,7 +92,7 @@ export function CompactSidebar({
 
   return (
     <>
-      {/* Di rail 72px tidak ada tempat untuk nama tenant dan cabang di bawah
+      {/* Di rail sempit tidak ada tempat untuk nama tenant dan cabang di bawah
           logo, jadi keduanya pindah ke sini. Ini yang menggantikan baris
           "Tenant assigned" dan baris info cabang yang diminta hilang. */}
       <div className="flex justify-center px-2 pt-3.5 pb-2.5">
@@ -224,7 +229,7 @@ function CompactNavLink({
         href={entry.href}
         onClick={onNavigate}
         aria-current={active ? "page" : undefined}
-        // Rail 72px hanya muat icon, jadi label dipindah ke `title`. Di sheet
+        // Rail sempit hanya muat icon, jadi label dipindah ke `title`. Di sheet
         // mobile label ikut ditampilkan karena perangkat sentuh tidak punya
         // hover — tooltip native tidak akan pernah terlihat.
         title={showLabel ? undefined : label}
