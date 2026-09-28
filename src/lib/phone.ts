@@ -13,6 +13,25 @@
 // Yang ditetapkan di sini adalah bentuk kanonik untuk DISIMPAN dan DIKIRIM.
 
 /**
+ * Kelas karakter dan batas panjang untuk input nomor telepon mentah.
+ *
+ * Dua konstanta ini sengaja diekspor, bukan ditulis inline di dalam
+ * validatePhone, karena migration `profiles_phone_charset` menegakkan dua hal
+ * yang sama persis di database. src/lib/auth/profile-phone-migration.test.ts
+ * membandingkan literal SQL dengan konstanta di sini, jadi kalau salah satu
+ * sisi berubah dan sisi lain tidak, test itu merah. Konkretnya begini:
+ *
+ *   PHONE_INPUT_PATTERN  ->  phone ~ '<pattern>'  di migration itu
+ *   PHONE_MAX_LENGTH     ->  length(phone) <= <length>  di migration itu
+ *
+ * Isinya bentuk MASUK, bukan bentuk tersimpan. Normalisasi ke `62...` ada di
+ * normalizePhone62() dan tidak ditegakkan di database, karena kolom menerima
+ * input mentah apa adanya.
+ */
+export const PHONE_INPUT_PATTERN = "^[0-9+\\-\\s()]+$";
+export const PHONE_MAX_LENGTH = 24;
+
+/**
  * Mengubah apa pun yang diketik orang menjadi bentuk kanonik `62...`.
  * Mengembalikan null kalau nomornya tidak masuk akal, supaya pemanggil
  * bisa membedakan "tidak diisi" dari "diisi dengan tidak valid".
@@ -43,20 +62,22 @@ export type PhoneValidation =
 
 /**
  * Validasi untuk form. Kosong itu sah, karena tidak semua role butuh nomor.
- * Batas panjang dan kelas karakter di sini sengaja sama persis dengan yang
- * ditegakkan constraint `profiles_phone_charset`, yaitu
- * supabase/migrations/20260925210000_profile_phone_validation.sql, supaya
- * penolakan di aplikasi dan di database tidak berbeda.
+ *
+ * Batas panjang dan kelas karakter di sini dibaca dari PHONE_MAX_LENGTH dan
+ * PHONE_INPUT_PATTERN, bukan ditulis ulang, supaya tidak bisa menyimpang dari
+ * constraint `profiles_phone_charset` yang menegakkan dua hal yang sama di
+ * database. Yang tidak ditegakkan database adalah normalisasi ke `62...` dan
+ * batas 10-15 digit, karena keduanya tidak berlaku pada input mentah.
  */
 export function validatePhone(raw: string | null | undefined): PhoneValidation {
   const trimmed = (raw ?? "").trim();
   if (trimmed === "") return { ok: true, value: null };
 
-  if (trimmed.length > 24) {
+  if (trimmed.length > PHONE_MAX_LENGTH) {
     return { ok: false, error: "Nomor telepon terlalu panjang." };
   }
 
-  if (!/^[0-9+\-\s()]+$/.test(trimmed)) {
+  if (!new RegExp(PHONE_INPUT_PATTERN).test(trimmed)) {
     return {
       ok: false,
       error: "Nomor telepon hanya boleh berisi angka, spasi, dan + - ( ) .",
