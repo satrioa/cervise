@@ -31,7 +31,7 @@ export type MentionTarget = {
   sub: string | null;
 };
 
-export type TodoMention = MentionTarget & { mentionId: string; todoId: string };
+export type TodoMention = MentionTarget & { mentionId: string; token: string; todoId: string };
 
 export type MentionResult<T> = { ok: true; data: T } | { ok: false; error: string };
 
@@ -44,6 +44,17 @@ const QUERY_MAX = 80;
 const RESULT_LIMIT = 8;
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * Bentuk token harus sama persis dengan yang diterima check di database.
+ *
+ * Divalidasi ulang di sini supaya mention dengan token aneh ditolak dengan
+ * pesan yang bisa dibaca, bukan dengan pesan Postgres dari constraint yang
+ * menggagalkan seluruh insert sekaligus.
+ */
+function isValidToken(value: unknown): value is string {
+  return typeof value === "string" && /^[0-9a-z]{6,10}$/.test(value);
+}
 
 function cleanQuery(value: unknown): string | null {
   if (typeof value !== "string") return null;
@@ -141,7 +152,7 @@ export async function getTodoMentions(todoIds: string[]): Promise<MentionResult<
     const { data, error } = await supabase
       .from("cervise_todo_mentions")
       .select(
-        "id, todo_id, customer_id, servis_id, customer:cervise_customers(id, name, phone), servis:cervise_services(id, service_number, device)",
+        "id, token, todo_id, customer_id, servis_id, customer:cervise_customers(id, name, phone), servis:cervise_services(id, service_number, device)",
       )
       .in("todo_id", todoIds);
     if (error) return fail(error.message);
@@ -153,6 +164,7 @@ export async function getTodoMentions(todoIds: string[]): Promise<MentionResult<
 
 type MentionRow = {
   id: string;
+  token: string;
   todo_id: string;
   customer_id: string | null;
   servis_id: string | null;
@@ -170,6 +182,7 @@ function flattenMention(row: unknown): TodoMention[] {
     return [
       {
         mentionId: r.id,
+        token: r.token,
         todoId: r.todo_id,
         kind: "customer" as const,
         id: r.customer_id,
@@ -182,6 +195,7 @@ function flattenMention(row: unknown): TodoMention[] {
     return [
       {
         mentionId: r.id,
+        token: r.token,
         todoId: r.todo_id,
         kind: "servis" as const,
         id: r.servis_id,
@@ -193,17 +207,21 @@ function flattenMention(row: unknown): TodoMention[] {
   return [];
 }
 
-export type MentionInput = { kind: MentionKind; id: string };
+export type MentionInput = { kind: MentionKind; id: string; token: string };
 
 /**
  * Tambahkan mention ke catatan milik pengguna ini.
  *
+ * Token dibuat client dan ikut dikirim, supaya judul bisa disusun lengkap
+ * dengan token SEBELUM catatan disimpan. Kalau token dibuat server, penyusunan
+ * judul harus menunggu dua putaran bolak-balik.
+ *
  * Mention yang sama di dua kali tidak menggandakan chip: index unik parsial
- * per kolom menolak baris kembar, dan penolakan itu diperlakukan sebagai
- * keberhasilan. `upsert` dengan `onConflict` tidak dipakai karena PostgREST
- * harus menebak index mana yang dimaksud, dan di sini ada DUA index unik
- * parsial --Mention dengan Kolom Kosong tidak punya pasangan unik yang bisa
- * disebut, jadi tebakannya bisa meleset ke index yang salah.
+ * menolak baris kembar, dan penolakan itu diperlakukan sebagai keberhasilan.
+ * `upsert` dengan `onConflict` tidak dipakai karena PostgREST harus menebak
+ * index mana yang dimaksud, dan di sini ada DUA index unik parsial --
+ * mention dengan kolom kosong tidak punya pasangan unik yang bisa disebut, jadi
+ * tebakannya bisa meleset ke index yang salah.
  */
 export async function addTodoMentions(
   input: { todoId: string; mentions: MentionInput[] },
@@ -213,7 +231,10 @@ export async function addTodoMentions(
 
   const seen = new Set<string>();
   const rows = input.mentions
-    .filter((m) => m && isUuid(m.id) && (m.kind === "customer" || m.kind === "servis"))
+    .filter(
+      (m) =>
+        m && isUuid(m.id) && (m.kind === "customer" || m.kind === "servis") && isValidToken(m.token),
+    )
     .filter((m) => {
       // Mention kembar di payload yang sama akan ditolak index unik dengan
       // error, dan seluruh insert gagal. Buang duplikatnya lebih dulu.
@@ -224,6 +245,7 @@ export async function addTodoMentions(
     })
     .map((m) => ({
       todo_id: input.todoId,
+      token: m.token,
       customer_id: m.kind === "customer" ? m.id : null,
       servis_id: m.kind === "servis" ? m.id : null,
     }));

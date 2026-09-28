@@ -1,6 +1,7 @@
 "use server";
 
 import { getActiveTenant } from "@/lib/supabase/actor";
+import { stripMentionTokens } from "@/lib/operational/mention-tokens";
 
 /**
  * To-Do personal teknisi.
@@ -9,6 +10,13 @@ import { getActiveTenant } from "@/lib/supabase/actor";
  * di policy select maupun write. Pemeriksaan di aplikasi tetap ada sebagai
  * defense lapis kedua dengan alasan berbeda: RLS menolak dengan pesan Postgres
  * yang tidak bisa dibaca pengguna, sedangkan di sini pesannya bisa.
+ *
+ * Judul boleh berisi token mention `{{m:k3f9a}}`. Panjang yang diukur
+ * `cleanTitle` adalah teks yang TERLIHAT, bukan string mentah: check 200
+ * karakter di database dihitung di atas string yang sudah berisi token, jadi
+ * mengukurnya di sini juga akan menolak catatan yang isinya jelas-jelas
+ * pendek. Batas pengaman di database sengaja lebih longgar (600) -- angka itu
+ * hanya penangkap, aturannya di sini.
  */
 
 export type StaffTodo = {
@@ -22,7 +30,9 @@ export type StaffTodo = {
 export type TodoResult<T> = { ok: true; data: T } | { ok: false; error: string };
 
 const TITLE_MIN = 1;
-const TITLE_MAX = 200;
+const TITLE_MAX = 600;
+/** Batas teks yang terlihat pengguna. Batas kasar di bawah hanya pengaman. */
+const TITLE_VISIBLE_MAX = 200;
 
 function fail<T>(error: string): TodoResult<T> {
   return { ok: false, error };
@@ -31,7 +41,9 @@ function fail<T>(error: string): TodoResult<T> {
 function cleanTitle(value: unknown): string | null {
   if (typeof value !== "string") return null;
   const trimmed = value.trim();
-  if (trimmed.length < TITLE_MIN || trimmed.length > TITLE_MAX) return null;
+  if (trimmed.length < TITLE_MIN) return null;
+  if (trimmed.length > TITLE_MAX) return null;
+  if (stripMentionTokens(trimmed).trim().length > TITLE_VISIBLE_MAX) return null;
   return trimmed;
 }
 

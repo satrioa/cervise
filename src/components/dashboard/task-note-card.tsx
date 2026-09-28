@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { CheckIcon, CircleIcon, PlusIcon, XIcon } from "lucide-react";
-import { LinkedMentionChips, MentionPicker } from "./mention-picker";
-import { addTodoMentions, getTodoMentions, type MentionInput, type TodoMention } from "@/app/app/actions/todo-mentions";
+import { MentionComposerInput, NoteWithMentions, type ChipSource } from "./mention-composer-input";
+import { addTodoMentions, getTodoMentions, type TodoMention } from "@/app/app/actions/todo-mentions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
@@ -57,6 +57,8 @@ export function Card({
 // To-Do personal
 // ---------------------------------------------------------------------------
 
+/** Mention di dalam composer, lengkap dengan label untuk chip. */
+type DraftMention = ChipSource;
 export function TaskNoteCard() {
   // `todos` null berarti belum termuat. Dipisah dari `loading` supaya
   // penanganannya tetap bertipe `StaffTodo[]` dan tidak perlu narrowing
@@ -69,7 +71,16 @@ export function TaskNoteCard() {
   const [editing, setEditing] = useState<string | null>(null);
   // Mention yang dipilih tapi belum disimpan. Dipisah dari `mentionsByTodo`
   // supaya membatalkan composer tidak mengubah catatan yang sudah tersimpan.
-  const [pendingMentions, setPendingMentions] = useState<MentionInput[]>([]);
+  //
+  // Chip di dalam editor perlu `label` untuk dirender, tapi `MentionInput` yang
+  // dikirim ke server hanya punya kind/id/token. `draftMentions` menyimpan
+  // bentuk yang lebih lengkap dan dipersempit saat disimpan -- kalau label ikut
+  // dikirim ke server, ada dua sumber kebenaran untuk teks chip.
+  const [draftMentions, setDraftMentions] = useState<DraftMention[]>([]);
+  // Nilai judul yang sedang diedit inline. Terpisah dari `draft` supaya
+  // membuka edit tidak menimpa apa yang diketik di composer yang belum
+  // disimpan.
+  const [editDraft, setEditDraft] = useState("");
   const [mentionsByTodo, setMentionsByTodo] = useState<Record<string, TodoMention[]>>({});
 
   const loading = !loaded;
@@ -119,14 +130,21 @@ export function TaskNoteCard() {
     setTodos((prev) => [result.data, ...prev]);
     setDraft("");
     setDue("");
-    setPendingMentions([]);
+    setDraftMentions([]);
     setComposing(false);
 
     // Mention disimpan setelah task-nya ada, karena `todo_id`-nya harus
     // sudah benar. Kalau gagal, task tetap tampil -- catatan tanpa
     // reference lebih baik daripada task yang hilang.
-    if (pendingMentions.length > 0) {
-      const added = await addTodoMentions({ todoId: result.data.id, mentions: pendingMentions });
+    //
+    // Yang dikirim hanya kind/id/token. `label` sengaja dibuang: yang
+    // ditampilkan di server dibaca ulang dari tabel tujuan, jadi menyimpan
+    // label berarti dua sumber kebenaran untuk teks chip.
+    if (draftMentions.length > 0) {
+      const added = await addTodoMentions({
+        todoId: result.data.id,
+        mentions: draftMentions.map((m) => ({ kind: m.kind, id: m.id, token: m.token })),
+      });
       if (!added.ok) {
         toast.error(`Tugas tersimpan, tapi mention gagal: ${added.error}`);
         return;
@@ -201,23 +219,19 @@ export function TaskNoteCard() {
     >
       {composing ? (
         <div className="mt-3 flex flex-col gap-2">
+          <MentionComposerInput
+            value={draft}
+            onChange={setDraft}
+            mentions={draftMentions}
+            onMentionsChange={setDraftMentions}
+            onEnter={() => void submitDraft()}
+            onEscape={() => {
+              setComposing(false);
+              setDraft("");
+              setDraftMentions([]);
+            }}
+          />
           <div className="flex flex-wrap items-center gap-2">
-            <Input
-              autoFocus
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              onKeyDown={(e) => {
-                // Enter di kolom teks selalu menyimpan. Kolom pencarian
-                // mention punya aturan sendiri: Enter memilih kandidat yang
-                // terbuka, dan tidak pernah menyimpan. Kalau Enter di kolom
-                // teks ikut bergantung pada daftar mention, teknisi yang
-                // sudah memilih mention akan merasa Enter-nya mati.
-                if (e.key === "Enter") void submitDraft();
-                if (e.key === "Escape") setComposing(false);
-              }}
-              placeholder="Contoh: Cek IMEI modul kamera"
-              className="h-8 min-w-0 flex-1"
-            />
             <Input
               type="date"
               value={due}
@@ -234,13 +248,13 @@ export function TaskNoteCard() {
               className="h-8"
               onClick={() => {
                 setComposing(false);
-                setPendingMentions([]);
+                setDraft("");
+                setDraftMentions([]);
               }}
             >
               <XIcon />
             </Button>
           </div>
-          <MentionPicker mentions={pendingMentions} onChange={setPendingMentions} />
         </div>
       ) : null}
 
@@ -275,31 +289,42 @@ export function TaskNoteCard() {
 
                 {/* `min-w-0 flex-1` membungkus teks dan chip, jadi chip yang
                     panjang membuat teks membungkus, bukan membuat baris melebar
-                    melewati container. */}                <div className="min-w-0 flex-1">
+                    melewati container. */}
+                <div className="min-w-0 flex-1">
                   {editing === todo.id ? (
-                    <Input
-                      autoFocus
-                      defaultValue={todo.title}
-                      onBlur={(e) => onRename(todo, e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") e.currentTarget.blur();
-                        if (e.key === "Escape") setEditing(null);
+                    // Edit inline memakai editor yang sama dengan composer.
+                    // Dua implementasi berbeda akan membuat satu jalur bisa
+                    // menyimpan format token yang tidak dibaca jalur lain.
+                    <MentionComposerInput
+                      value={editDraft}
+                      onChange={setEditDraft}
+                      mentions={mentionsByTodo[todo.id] ?? []}
+                      onMentionsChange={() => {}}
+                      onEnter={() => {
+                        void onRename(todo, editDraft);
+                        setEditing(null);
                       }}
-                      className="h-7 w-full text-sm"
+                      onEscape={() => setEditing(null)}
+                      className="h-7 min-h-7 py-0"
                     />
                   ) : (
                     <button
                       type="button"
-                      onClick={() => setEditing(todo.id)}
+                      onClick={() => {
+                        setEditDraft(todo.title);
+                        setEditing(todo.id);
+                      }}
                       className={cn(
-                        "block w-full truncate text-left text-sm",
+                        "block w-full text-left text-sm",
                         isDone && "text-muted-foreground line-through",
                       )}
                     >
-                      {todo.title}
+                      <NoteWithMentions
+                        value={todo.title}
+                        mentions={mentionsByTodo[todo.id] ?? []}
+                      />
                     </button>
                   )}
-                  <LinkedMentionChips mentions={mentionsByTodo[todo.id] ?? []} />
                 </div>
 
                 <span className="mt-1 w-20 shrink-0 text-right font-mono text-[10px] text-muted-foreground/70 uppercase tracking-[0.2em]">
