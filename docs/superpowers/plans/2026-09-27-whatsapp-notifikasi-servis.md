@@ -21,7 +21,7 @@
 - Nama toko selalu ada di setiap pesan, karena pengirim adalah nomor platform, bukan nomor toko.
 - Dedupe: `servis:<id>:<event>[:<to_status>]:<to_kind>`, dengan `on conflict (dedupe_key) do nothing`.
 - Setelah setiap `apply_migration`, versi di `supabase_migrations.schema_migrations` harus di-update ke versi nama file, karena `apply_migration` mencatat versi timestamp.
-- Nomori migrasi: `20260925210000_profile_phone_validation`, lalu `20260925240000_service_notification_outbox`.
+- Nomori migrasi: `20260925210000_profile_phone_validation`, lalu `20260925290000_service_notification_outbox`.
 - Bahasa comment dan pesan mengikuti repo: Indonesia.
 
 ## Review Focus
@@ -52,7 +52,7 @@ Lima kelas input berikut tidak diuji eksplisit oleh spec, tapi paling mungkin me
 | `src/lib/notifications/service-message.ts` | Membangun teks pesan. Murni, tanpa I/O. |
 | `src/lib/notifications/dispatcher.ts` | Resolve penerima, kirim, kelola state dan retry. |
 | `src/app/api/cron/service-notifications/route.ts` | Endpoint cron. |
-| `supabase/migrations/20260925240000_service_notification_outbox.sql` | Tabel outbox, trigger, RPC suppressor. |
+| `supabase/migrations/20260925290000_service_notification_outbox.sql` | Tabel outbox, trigger, RPC suppressor. |
 | `src/lib/auth/notification-outbox-migration.test.ts` | Penjaga statis migration B. |
 | `scripts/seed-demo-data.mjs` | Memperriktifkan trigger saat seed. |
 
@@ -1519,7 +1519,7 @@ Ini bagian yang menutup semua jalur penulisan status. Ada **empat** jalur, dan g
 Trigger hanya menulis metadata. Isi pesan dirakit di aplikasi, karena URL halaman lacak membutuhkan origin yang tidak diketahui database.
 
 **Files:**
-- Create: `supabase/migrations/20260925240000_service_notification_outbox.sql`
+- Create: `supabase/migrations/20260925290000_service_notification_outbox.sql`
 - Test: `src/lib/auth/notification-outbox-migration.test.ts`
 
 **Interfaces:**
@@ -1543,7 +1543,7 @@ const sql = readFileSync(
     process.cwd(),
     "supabase",
     "migrations",
-    "20260925240000_service_notification_outbox.sql",
+    "20260925290000_service_notification_outbox.sql",
   ),
   "utf8",
 );
@@ -1621,7 +1621,7 @@ Expected: FAIL — `ENOENT`, file migration belum ada.
 
 - [ ] **Step 3: Tulis migration**
 
-Buat `supabase/migrations/20260925240000_service_notification_outbox.sql`:
+Buat `supabase/migrations/20260925290000_service_notification_outbox.sql`:
 
 ```sql
 -- Antrean notifikasi WhatsApp untuk servis.
@@ -1785,9 +1785,9 @@ Apply lewat MCP Supabase dengan nama `service_notification_outbox`. Lalu:
 
 ```sql
 update supabase_migrations.schema_migrations
-   set version = '20260925240000'
+   set version = '20260925290000'
  where name = 'service_notification_outbox'
-   and version <> '20260925240000';
+   and version <> '20260925290000';
 ```
 
 Verifikasi trigger terpasang dan privilege benar:
@@ -1860,7 +1860,7 @@ Expected di notice: `2` setelah insert, `3` setelah `Selesai`, tetap `3` setelah
 - [ ] **Step 7: Commit**
 
 ```bash
-git add supabase/migrations/20260925240000_service_notification_outbox.sql src/lib/auth/notification-outbox-migration.test.ts
+git add supabase/migrations/20260925290000_service_notification_outbox.sql src/lib/auth/notification-outbox-migration.test.ts
 git commit -m "feat: notification outbox and status triggers for services"
 ```
 
@@ -2774,7 +2774,7 @@ select version, name
  order by version;
 ```
 
-Expected: versi `20260925210000` dan `20260925240000`.
+Expected: versi `20260925210000` dan `20260925290000`.
 
 - [ ] **Step 7: cek apakah ada pesan yang tertinggal di `skipped`**
 
