@@ -7,7 +7,10 @@ const read = (relative: string) => readFileSync(join(process.cwd(), relative), "
 const migration = read("supabase/migrations/20260925320000_add_todo_mentions.sql");
 const action = read("src/app/app/actions/todo-mentions.ts");
 const picker = read("src/components/dashboard/mention-picker.tsx");
-const dashboard = read("src/components/dashboard/technician-dashboard.tsx");
+// Logika mention pindah ke task-note-card.tsx waktu To-Do diekstrak jadi
+// komponen shared antara dashboard teknisi dan frontliner. Guard ini ikut
+// diarahkan ke sana, bukan ke file lama.
+const dashboard = read("src/components/dashboard/task-note-card.tsx");
 
 describe("cervise_todo_mentions", () => {
   it("satu catatan boleh punya banyak mention", () => {

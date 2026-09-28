@@ -4,7 +4,6 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import {
   CheckIcon,
-  CircleIcon,
   ListChecksIcon,
   LockIcon,
   PackageIcon,
@@ -14,7 +13,8 @@ import {
   WrenchIcon,
   XIcon,
 } from "lucide-react";
-import { CandyShortcut, CANDY_TONES } from "./candy-shortcut";
+import { CandyButton, CANDY_BUTTON_TONES } from "@/components/ui/candy-button";
+import { Card, TaskNoteCard } from "./task-note-card";
 import { Button } from "@/components/ui/button";
 import { formatCurrencyPlain } from "@/lib/format";
 import { AdjustmentDialog } from "@/components/cash/adjustment-dialog";
@@ -33,20 +33,24 @@ import {
  * Dashboard frontliner.
  *
  * Kerangka sama dengan `technician-dashboard.tsx` — shell compact dipakai
- * keduanya — tapi isinya berbeda total: kasir bekerja dengan antrean
- * pembayaran dan saldo, teknisi dengan tugas dan target.
+ * keduanya — tapi isinya berbeda: kasir bekerja dengan antrean pembayaran dan
+ * saldo, teknisi dengan tugas dan target.
  *
- * Kolom kiri berisi tiga daftar operasional. Bukan To-Do pribadi: tabel
- * `cervise_staff_todos` sengaja tidak diberikan ke FRONTLINER.
+ * Catatan tugasnya sekarang memakai TaskNoteCard yang sama dengan teknisi.
+ * Sebelumnya kolom kiri berisi daftar servis, dan komentar di file ini
+ * menyebut To-Do "sengaja tidak diberikan ke FRONTLINER". Setelah dicek ke
+ * database, policy cervise_staff_todos ternyata tidak membatasi role sama
+ * sekali - hanya `employee_id = auth.uid()` plus can_access_tenant_branch. Jadi
+ * frontliner sejak awal sudah boleh memakai tabel itu; yang menahan hanya
+ * keputusan tampilan, bukan batas database.
  */
 
-type QueueGroup = {
-  key: "unpaid" | "waiting" | "ready";
-  title: string;
-  items: FrontlinerQueueItem[];
+type FrontlinerShortcut = {
+  label: string;
+  icon: typeof WrenchIcon;
+  href?: string;
+  onClick?: () => void;
 };
-
-const PROCESS_STATUS = ["Masuk", "Diagnosa", "Menunggu Konfirmasi", "Menunggu Sparepart", "Dikerjakan"];
 
 export function FrontlinerDashboard({ fullName }: { fullName: string | null }) {
   const [queue, setQueue] = useState<FrontlinerQueueItem[]>([]);
@@ -65,6 +69,15 @@ export function FrontlinerDashboard({ fullName }: { fullName: string | null }) {
     });
   }, []);
 
+  // Didefinisikan di dalam komponen karena "Catat Kas" membuka dialog, jadi
+  // butuh setAdjustOpen - bukan bisa dipindah ke konstanta modul.
+  const FRONTLINER_SHORTCUTS: FrontlinerShortcut[] = [
+    { label: "Servis baru", href: "/app/servis/baru", icon: WrenchIcon },
+    { label: "Penjualan baru", href: "/app/penjualan", icon: ShoppingCartIcon },
+    { label: "Catat Kas", icon: WalletIcon, onClick: () => setAdjustOpen(true) },
+    { label: "Lihat servis", href: "/app/servis", icon: ListChecksIcon },
+  ];
+
   useEffect(() => {
     checkOpenCashSession().then((result) => {
       if (result.ok) setSession(result.data.current);
@@ -75,7 +88,6 @@ export function FrontlinerDashboard({ fullName }: { fullName: string | null }) {
     reloadQueue();
   }, [reloadQueue]);
 
-  const groups = buildGroups(queue);
 
   return (
     <div className="min-h-svh bg-background text-foreground">
@@ -106,46 +118,29 @@ export function FrontlinerDashboard({ fullName }: { fullName: string | null }) {
           </div>
 
           <div className="mt-6 grid grid-cols-2 gap-2 sm:grid-cols-4">
-            <CandyShortcut
-              label="Servis baru"
-              href="/app/servis/baru"
-              icon={WrenchIcon}
-              tone={CANDY_TONES[0]}
-            />
-            <CandyShortcut
-              label="Penjualan baru"
-              href="/app/penjualan"
-              icon={ShoppingCartIcon}
-              tone={CANDY_TONES[1]}
-            />
-            <CandyShortcut
-              label="Catat Kas"
-              icon={WalletIcon}
-              tone={CANDY_TONES[2]}
-              onClick={() => setAdjustOpen(true)}
-            />
-            <CandyShortcut
-              label="Lihat servis"
-              href="/app/servis"
-              icon={ListChecksIcon}
-              tone={CANDY_TONES[3]}
-            />
+            {FRONTLINER_SHORTCUTS.map((s, index) => (
+              <CandyButton
+                key={s.label}
+                href={s.href}
+                onClick={s.onClick}
+                tone={CANDY_BUTTON_TONES[index % CANDY_BUTTON_TONES.length]}
+                className="w-full"
+              >
+                <s.icon className="size-4" />
+                {s.label}
+              </CandyButton>
+            ))}
           </div>
 
           <div className="mt-8 grid grid-cols-1 gap-3 lg:grid-cols-[3fr_2fr]">
-            <Card title="Antrean Tugas">
-              {groups.length === 0 ? (
-                <p className="mt-3 text-sm text-muted-foreground">
-                  Tidak ada antrean. Semua servis sudah tertangani.
-                </p>
-              ) : (
-                <div className="mt-3 space-y-4">
-                  {groups.map((group) => (
-                    <QueueList key={group.key} group={group} />
-                  ))}
-                </div>
-              )}
-            </Card>
+            {/* Yang di kolom kiri bukan To-Do pribadi dulu, tapi daftar
+                servis. Sekarang diganti TaskNoteCard yang sama persis dengan
+                dashboard teknisi.
+                Policy cervise_staff_todos ternyata tidak membatasi role - hanya
+                `employee_id = auth.uid()` plus can_access_tenant_branch, jadi
+                frontliner sejak awal sudah boleh memakai tabel ini. Yang
+                menahan cuma keputusan tampilan di file ini. */}
+            <TaskNoteCard />
 
             <Card
               title="Servis Masuk"
@@ -155,36 +150,41 @@ export function FrontlinerDashboard({ fullName }: { fullName: string | null }) {
                 </span>
               }
             >
-              {queue.length === 0 ? (
-                <p className="mt-3 text-sm text-muted-foreground">Semua sudah dibayar.</p>
-              ) : (
-                <ul className="mt-3 flex flex-col gap-1">
-                  {queue.slice(0, 12).map((item) => (
-                    <li key={item.id}>
-                      <Link
-                        href={`/app/servis/${item.id}`}
-                        className="flex items-center gap-3 rounded-md px-2 py-2 transition-colors hover:bg-foreground/[0.03]"
-                      >
-                        <div className="min-w-0 flex-1">
-                          <div className="truncate text-sm">
-                            {item.serviceNumber ?? item.device}
+              {/* Tingginya dikunci supaya daftar panjang tidak mendorong KPI di
+                  bawahnya terus ikut turun. 460px + scroll internal, bukan
+                  halaman yang ikut memanjang. */}
+              <div className="mt-3 h-[460px] overflow-y-auto scrollbar-none">
+                {queue.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">Semua sudah dibayar.</p>
+                ) : (
+                  <ul className="flex flex-col gap-1">
+                    {queue.map((item) => (
+                      <li key={item.id}>
+                        <Link
+                          href={`/app/servis/${item.id}`}
+                          className="flex items-center gap-3 rounded-md px-2 py-2 transition-colors hover:bg-foreground/[0.03]"
+                        >
+                          <div className="min-w-0 flex-1">
+                            <div className="truncate text-sm">
+                              {item.serviceNumber ?? item.device}
+                            </div>
+                            <div className="truncate text-xs text-muted-foreground">
+                              {item.customerName ?? item.device} · {item.status}
+                            </div>
                           </div>
-                          <div className="truncate text-xs text-muted-foreground">
-                            {item.customerName ?? item.device} · {item.status}
-                          </div>
-                        </div>
-                        <span className="shrink-0 font-mono text-xs">
-                          {formatCurrencyPlain(item.price)}
-                        </span>
-                        {/* Tombol terpisah supaya tidak memicu navigasi baris. */}
-                        <Button size="xs" onClick={() => setPaying(item)}>
-                          Bayar
-                        </Button>
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              )}
+                          <span className="shrink-0 font-mono text-xs">
+                            {formatCurrencyPlain(item.price)}
+                          </span>
+                          {/* Tombol terpisah supaya tidak memicu navigasi baris. */}
+                          <Button size="xs" onClick={() => setPaying(item)}>
+                            Bayar
+                          </Button>
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
             </Card>
           </div>
 
@@ -246,85 +246,6 @@ function greeting(): string {
   return "Selamat malam";
 }
 
-function buildGroups(queue: FrontlinerQueueItem[]): QueueGroup[] {
-  const groups: QueueGroup[] = [
-    { key: "unpaid", title: "Belum dibayar", items: queue.slice(0, 5) },
-    {
-      key: "waiting",
-      title: "Menunggu pengerjaan",
-      items: queue.filter((item) => PROCESS_STATUS.includes(item.status)).slice(0, 3),
-    },
-    {
-      key: "ready",
-      title: "Siap diambil",
-      items: queue.filter((item) => item.status === "Selesai").slice(0, 3),
-    },
-  ];
-  return groups.filter((group) => group.items.length > 0);
-}
-
-function QueueList({ group }: { group: QueueGroup }) {
-  return (
-    <section>
-      <div className="flex items-baseline justify-between">
-        <div className="font-mono text-[10px] text-muted-foreground uppercase tracking-[0.25em]">
-          {group.title}
-        </div>
-        {group.key !== "unpaid" && (
-          <Link
-            href="/app/servis"
-            className="text-[10px] text-muted-foreground underline underline-offset-2"
-          >
-            Lihat semua
-          </Link>
-        )}
-      </div>
-      <ul className="mt-1.5 flex flex-col">
-        {group.items.map((item) => (
-          <li key={item.id}>
-            <Link
-              href={`/app/servis/${item.id}`}
-              className="flex items-center gap-3 rounded-md px-2 py-2 transition-colors hover:bg-foreground/[0.03]"
-            >
-              <CircleIcon className="size-3 shrink-0 text-muted-foreground/50" />
-              <div className="min-w-0 flex-1">
-                <div className="truncate text-sm">{item.serviceNumber ?? item.device}</div>
-                <div className="truncate text-xs text-muted-foreground">
-                  {item.customerName ?? item.device} · {item.status}
-                </div>
-              </div>
-              <span className="shrink-0 font-mono text-xs">
-                {formatCurrencyPlain(item.price)}
-              </span>
-            </Link>
-          </li>
-        ))}
-      </ul>
-    </section>
-  );
-}
-
-function Card({
-  title,
-  trailing,
-  children,
-}: {
-  title: string;
-  trailing?: React.ReactNode;
-  children: React.ReactNode;
-}) {
-  return (
-    <section className="rounded-xl border border-border/60 bg-background/40 p-4">
-      <div className="flex items-center justify-between">
-        <div className="font-mono text-[10px] text-muted-foreground uppercase tracking-[0.25em]">
-          {title}
-        </div>
-        {trailing}
-      </div>
-      {children}
-    </section>
-  );
-}
 
 function FactCard({
   label,
