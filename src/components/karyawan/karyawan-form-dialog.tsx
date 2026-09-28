@@ -1,7 +1,7 @@
 /* eslint-disable react-hooks/set-state-in-effect */
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,6 +28,14 @@ export function KaryawanFormDialog({ open, onOpenChange, editing, onDone }: { op
   const [branchId, setBranchId] = useState("");
   const [branches, setBranches] = useState<{ id: string; name: string }[]>([]);
   const [saving, setSaving] = useState(false);
+
+  // Select (Base UI) hanya bisa mengubah value menjadi label yang tampil di
+  // trigger kalau menerima prop `items`. Tanpa itu ia menampilkan value mentah,
+  // jadi kolom "Cabang" menampilkan UUID seperti "f5d43167-036b-4f2e-...".
+  const branchOptions = useMemo(
+    () => branches.map((branch) => ({ label: branch.name, value: branch.id })),
+    [branches],
+  );
 
   useEffect(() => {
     if (!open) return;
@@ -82,8 +90,8 @@ export function KaryawanFormDialog({ open, onOpenChange, editing, onDone }: { op
           <div className="grid gap-1.5"><Label>Email *</Label><Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="budi@cervise.id" /></div>
           <div className="grid gap-1.5"><Label>Telepon</Label><Input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="0812xxxx (opsional)" /></div>
           <div className="grid grid-cols-2 gap-3">
-            <div className="grid gap-1.5"><Label>Role</Label><Select value={role} onValueChange={(v) => setRole(v ?? "TECHNICIAN")}><SelectTrigger><SelectValue /></SelectTrigger><SelectPopup>{ROLES.map((r) => <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>)}</SelectPopup></Select></div>
-            <div className="grid gap-1.5"><Label>Cabang</Label><Select value={branchId} onValueChange={(v) => setBranchId(v ?? "")}><SelectTrigger><SelectValue placeholder="Pilih cabang" /></SelectTrigger><SelectPopup>{branches.map((b) => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}</SelectPopup></Select></div>
+            <div className="grid gap-1.5"><Label>Role</Label><Select items={ROLES} value={role} onValueChange={(v) => setRole(v ?? "TECHNICIAN")}><SelectTrigger><SelectValue /></SelectTrigger><SelectPopup>{ROLES.map((r) => <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>)}</SelectPopup></Select></div>
+            <div className="grid gap-1.5"><Label>Cabang</Label><Select items={branchOptions} value={branchId} onValueChange={(v) => setBranchId(v ?? "")}><SelectTrigger><SelectValue placeholder="Pilih cabang" /></SelectTrigger><SelectPopup>{branches.map((b) => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}</SelectPopup></Select></div>
           </div>
         </div>
         <DialogFooter><Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>Batal</Button><Button onClick={submit} disabled={saving}>{saving ? "Menyimpan…" : isEdit ? "Simpan" : "Buat"}</Button></DialogFooter>
