@@ -3,7 +3,7 @@ import { renderDotMatrixHtml, renderJetHtml, renderThermalHtml, toPrintData, typ
 
 const base: PrintData = {
   branch: { name: "Servisin", address: "Jl. Merdeka", phone: "08123456789", website: "servisin.test" },
-  invoiceNo: "INV-18092026151939",
+  invoiceNo: "SRV-2026-0001",
   service: {
     id: "svc-1",
     device: "iPhone 13 Pro",
@@ -18,8 +18,8 @@ const base: PrintData = {
     trackingCode: "A3BD9F2C4B",
     tenantSlug: "servisin",
   },
-  customer: { name: "FARHAN", phone: "0812 3456 7890" },
-  admin: "Kasservice",
+  customer: { name: "RINA", phone: "0812 3456 7890" },
+  admin: "Sari",
   teknisi: "Budi",
   printTime: "22/09/2026, 17:46",
 };
@@ -111,5 +111,53 @@ describe("struk memuat kode cek publik", () => {
     const data = toPrintData({ id: "svc-1", device: "iPhone 13", status: "Masuk", customer: "Rina" }, { brandName: "Servisin" }, null);
 
     expect(data.service.trackingCode).toBeUndefined();
+  });
+});
+
+describe("nomor struk memakai nomor servis", () => {
+  // Nomor struk dulu `s?.invoice_no || formatInvoiceNo(createdAt)`. Kolom
+  // invoice_no tidak pernah ada di tabel servis, jadi formatInvoiceNo selalu
+  // dipakai: mencetak struk dua kali menghasilkan nomor BERBEDA untuk servis
+  // yang sama, padahal nomor itu yang dibawa pelanggan ke kasir.
+  it("mengambil service_number sebagai nomor struk", () => {
+    const data = toPrintData(
+      { id: "s1", service_number: "SRV-2026-0001", created_at: "2026-09-26T03:30:00.000Z" },
+      { brandName: "Servisin" },
+    );
+    expect(data.invoiceNo).toBe("SRV-2026-0001");
+  });
+
+  it("menerima juga bentuk camelCase dari baris daftar", () => {
+    const data = toPrintData(
+      { id: "s1", serviceNumber: "SRV-2026-0007", created_at: "2026-09-26T03:30:00.000Z" },
+      { brandName: "Servisin" },
+    );
+    expect(data.invoiceNo).toBe("SRV-2026-0007");
+  });
+
+  it("stabil saat struk yang sama dicetak berulang", () => {
+    const service = { id: "s1", service_number: "SRV-2026-0002", created_at: "2026-09-26T03:30:00.000Z" };
+    const first = toPrintData(service, { brandName: "Servisin" });
+    const second = toPrintData(service, { brandName: "Servisin" });
+    expect(first.invoiceNo).toBe(second.invoiceNo);
+  });
+
+  it("tidak mengarang nomor INV- dari timestamp", () => {
+    const data = toPrintData(
+      { id: "s1", service_number: "SRV-2026-0003", created_at: "2026-09-26T03:30:00.000Z" },
+      { brandName: "Servisin" },
+    );
+    expect(data.invoiceNo).not.toMatch(/^INV-/);
+    for (const render of [renderJetHtml, renderDotMatrixHtml, renderThermalHtml]) {
+      expect(render(data)).not.toMatch(/INV-\d{8}/);
+    }
+  });
+
+  it("menampilkan placeholder, bukan nomor karangan, saat nomor servis tidak ada", () => {
+    const data = toPrintData({ id: "s1", created_at: "2026-09-26T03:30:00.000Z" }, { brandName: "Servisin" });
+    expect(data.invoiceNo).toBe("\u2014");
+    for (const render of [renderJetHtml, renderDotMatrixHtml, renderThermalHtml]) {
+      expect(render(data)).not.toMatch(/INV-\d{8}/);
+    }
   });
 });
