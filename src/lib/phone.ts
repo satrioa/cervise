@@ -43,7 +43,9 @@ export type PhoneValidation =
 
 /**
  * Validasi untuk form. Kosong itu sah, karena tidak semua role butuh nomor.
- * Aturan panjang dan karakter ikut migration `profiles_phone_charset`, supaya
+ * Batas panjang dan kelas karakter di sini sengaja sama persis dengan yang
+ * ditegakkan constraint `profiles_phone_charset`, yaitu
+ * supabase/migrations/20260925210000_profile_phone_validation.sql, supaya
  * penolakan di aplikasi dan di database tidak berbeda.
  */
 export function validatePhone(raw: string | null | undefined): PhoneValidation {
