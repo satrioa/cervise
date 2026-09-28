@@ -3,15 +3,18 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import {
-  ArrowRightIcon,
   CheckIcon,
   CircleIcon,
+  ListChecksIcon,
   LockIcon,
   PackageIcon,
+  ShoppingCartIcon,
   TrendingUpIcon,
+  WalletIcon,
   WrenchIcon,
   XIcon,
 } from "lucide-react";
+import { CandyShortcut, CANDY_TONES } from "./candy-shortcut";
 import { Button } from "@/components/ui/button";
 import { formatCurrencyPlain } from "@/lib/format";
 import { AdjustmentDialog } from "@/components/cash/adjustment-dialog";
@@ -103,10 +106,30 @@ export function FrontlinerDashboard({ fullName }: { fullName: string | null }) {
           </div>
 
           <div className="mt-6 grid grid-cols-2 gap-2 sm:grid-cols-4">
-            <ShortcutButton label="Servis baru" href="/app/servis/baru" />
-            <ShortcutButton label="Penjualan baru" href="/app/penjualan" />
-            <ShortcutButton label="Input kas" href="#" onClick={() => setAdjustOpen(true)} />
-            <ShortcutButton label="Lihat servis" href="/app/servis" />
+            <CandyShortcut
+              label="Servis baru"
+              href="/app/servis/baru"
+              icon={WrenchIcon}
+              tone={CANDY_TONES[0]}
+            />
+            <CandyShortcut
+              label="Penjualan baru"
+              href="/app/penjualan"
+              icon={ShoppingCartIcon}
+              tone={CANDY_TONES[1]}
+            />
+            <CandyShortcut
+              label="Catat Kas"
+              icon={WalletIcon}
+              tone={CANDY_TONES[2]}
+              onClick={() => setAdjustOpen(true)}
+            />
+            <CandyShortcut
+              label="Lihat servis"
+              href="/app/servis"
+              icon={ListChecksIcon}
+              tone={CANDY_TONES[3]}
+            />
           </div>
 
           <div className="mt-8 grid grid-cols-1 gap-3 lg:grid-cols-[3fr_2fr]">
@@ -278,32 +301,6 @@ function QueueList({ group }: { group: QueueGroup }) {
         ))}
       </ul>
     </section>
-  );
-}
-
-function ShortcutButton({
-  label,
-  href,
-  onClick,
-}: {
-  label: string;
-  href: string;
-  onClick?: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={
-        onClick ??
-        (() => {
-          window.location.href = href;
-        })
-      }
-      className="group flex items-center justify-between gap-2 rounded-lg border border-border/60 bg-background/40 px-3.5 py-2.5 text-left transition-colors hover:border-foreground/40 hover:bg-background/60"
-    >
-      <span className="text-sm">{label}</span>
-      <ArrowRightIcon className="size-3.5 opacity-50 transition-transform group-hover:translate-x-0.5 group-hover:opacity-90" />
-    </button>
   );
 }
 

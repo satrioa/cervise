@@ -3,16 +3,18 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
-  ArrowRightIcon,
   CalendarIcon,
   CheckIcon,
   CircleIcon,
+  ListTodoIcon,
+  PackageIcon,
   PlusIcon,
   TargetIcon,
   TrendingUpIcon,
   WrenchIcon,
   XIcon,
 } from "lucide-react";
+import { CandyShortcut, CANDY_TONES } from "./candy-shortcut";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
@@ -41,11 +43,16 @@ import {
  * `CardHeader` bawaan, dan itu yang membuat tampilan sesuai desain.
  */
 
+/**
+ * `tone` diambil dari posisi item (lihat map di bawah), bukan ditulis per
+ * item, supaya urutan shortcut menentukan warna dan menambah atau menggeser
+ * item tidak butuh warna baru.
+ */
 const SHORTCUTS = [
-  { label: "Servis baru", href: "/app/servis/baru" },
-  { label: "Antrean saya", href: "/app/servis" },
-  { label: "Input stok", href: "/app/inventori" },
-  { label: "Target saya", href: "/app/analitik-servis" },
+  { label: "Servis baru", href: "/app/servis/baru", icon: WrenchIcon },
+  { label: "Antrean saya", href: "/app/servis", icon: ListTodoIcon },
+  { label: "Input stok", href: "/app/inventori", icon: PackageIcon },
+  { label: "Target saya", href: "/app/analatik-servis", icon: TargetIcon },
 ];
 
 export function TechnicianDashboard({ fullName }: { fullName: string | null }) {
@@ -59,8 +66,14 @@ export function TechnicianDashboard({ fullName }: { fullName: string | null }) {
           </h1>
 
           <div className="mt-6 grid grid-cols-2 gap-2 sm:grid-cols-4">
-            {SHORTCUTS.map((s) => (
-              <ShortcutButton key={s.href} {...s} />
+            {SHORTCUTS.map((s, index) => (
+              <CandyShortcut
+                key={s.href}
+                label={s.label}
+                href={s.href}
+                icon={s.icon}
+                tone={CANDY_TONES[index % CANDY_TONES.length]}
+              />
             ))}
           </div>
 
@@ -94,21 +107,6 @@ function DateLine() {
   });
   return (
     <div className="font-mono text-[10px] text-muted-foreground uppercase tracking-[0.3em]">{label}</div>
-  );
-}
-
-function ShortcutButton({ label, href }: { label: string; href: string }) {
-  return (
-    <button
-      type="button"
-      onClick={() => {
-        window.location.href = href;
-      }}
-      className="group flex items-center justify-between gap-2 rounded-lg border border-border/60 bg-background/40 px-3.5 py-2.5 text-left transition-colors hover:border-foreground/40 hover:bg-background/60"
-    >
-      <span className="text-sm">{label}</span>
-      <ArrowRightIcon className="size-3.5 opacity-50 transition-transform group-hover:translate-x-0.5 group-hover:opacity-90" />
-    </button>
   );
 }
 
