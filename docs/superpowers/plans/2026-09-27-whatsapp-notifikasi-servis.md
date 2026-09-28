@@ -2785,22 +2785,22 @@ git commit -m "fix: seed script suppresses service notifications"
 
 **Files:** tidak ada
 
-- [ ] **Step 1: typecheck**
+- [x] **Step 1: typecheck**
 
 Run: `npm run typecheck`
 Expected: bersih.
 
-- [ ] **Step 2: seluruh test**
+- [x] **Step 2: seluruh test**
 
 Run: `npm test`
 Expected: semua lulus. Jumlah test harus naik dari baseline yang ada sebelum task ini dimulai.
 
-- [ ] **Step 3: build**
+- [x] **Step 3: build**
 
 Run: `npm run build`
 Expected: `Compiled successfully`, dan route `/api/cron/service-notifications` muncul di daftar route.
 
-- [ ] **Step 4: ESLint terarah**
+- [x] **Step 4: ESLint terarah**
 
 Run:
 ```bash
@@ -2808,12 +2808,12 @@ npx eslint src/lib/fonnte.ts src/lib/phone.ts src/lib/notifications src/app/api/
 ```
 Expected: tidak ada error. Perhatikan `src/lib/fonnte.ts` sebelumnya sudah punya 2 error `no-explicit-any` yang warisan; kalau masih muncul, perbaiki sekalian karena file ini sudah disentuh.
 
-- [ ] **Step 5: cek hygiene diff**
+- [x] **Step 5: cek hygiene diff**
 
 Run: `git diff --check`
 Expected: bersih.
 
-- [ ] **Step 6: pastikan kedua migration tercatat dengan versi nama file**
+- [x] **Step 6: pastikan migration tercatat (VERSI TIDAK AKAN SAMA DENGAN NAMA FILE)**
 
 ```sql
 select version, name
@@ -2823,6 +2823,23 @@ select version, name
 ```
 
 Expected: versi `20260925210000` dan `20260925290000`.
+
+**SALAH — dan sekarang sudah diperbaiki setelah dijalankan.** Applying lewat MCP
+tool memberi nomor versi sendiri, bukan memakai nama file. Yang benar-benar
+tercatat di database:
+
+```
+profile_phone_validation              = 20260925210000
+service_notification_outbox           = 20260928080953
+service_notification_technician_assigned = 20260928090803
+```
+
+`profile_phone_validation` kebetulan cocok dengan nama filenya karena itu
+di-apply lewat CLI, bukan MCP. Dua yang lewat MCP tidak cocok. Konsekuensinya
+selaras dengan yang sudah dicatat di Ruling 17: penomoran file dan penomoran
+database sudah berbeda, dan keduanya jangan dibandingkan. Yang dicek di sini
+adalah **namanya**, bukan versinya -- kalau `service_notification_outbox` tidak
+ada di daftar, itu yang salah.
 
 - [ ] **Step 7: cek apakah ada pesan yang tertinggal di `skipped`**
 
