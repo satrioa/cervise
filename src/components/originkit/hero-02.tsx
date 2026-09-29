@@ -8,8 +8,10 @@ import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { initialsOf } from "@/lib/photos";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Smartphone, LogOutIcon, StoreIcon, UserIcon } from "lucide-react";
+import { LaptopMockupCard } from "@/components/ui/laptop-mockup";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
@@ -72,8 +74,14 @@ const Navbar = ({ isLoggedIn, user }: { isLoggedIn?: boolean; user?: { name: str
     router.push("/login");
     router.refresh();
   };
-  const initials = (user?.name ?? "U").trim().split(/\s+/).slice(0, 2).map((w) => w[0]?.toUpperCase()).join("") || "U";
-  const avatarSrc = user?.avatarUrl ?? `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(user?.name ?? "User")}`;
+  const initials = initialsOf(user?.name);
+  // Fallback-nya inisial lokal, BUKAN api.dicebear.com. Repo ini sudah
+  // menyingkirkan DiceBear di sisi lain justru karena ia mengirim nama
+  // pengguna ke pihak ketiga setiap kali komponen ini dirender -- dan navbar
+  // landing page adalah tempat paling sering render itu terjadi. Nilai cadangan
+  // dihitung di server (lihat `page.tsx`), jadi yang dikirim ke browser cukup
+  // `undefined` kalau memang tidak ada foto.
+  const avatarSrc = user?.avatarUrl ?? undefined;
   return (
   <nav
     aria-label="Primary"
@@ -86,7 +94,10 @@ const Navbar = ({ isLoggedIn, user }: { isLoggedIn?: boolean; user?: { name: str
     >
       <span className="flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground font-bold text-sm">C</span>
       <span className="font-bold text-lg text-[#1d1d1d]">Cervise</span>
-      <Badge variant="secondary" className="hidden sm:inline-flex ml-1 text-[10px]">Multibranch</Badge>
+      {/* Badge "Multibranch" di navbar dihilang atas permintaan: ruang di rail
+          sempit dipakai untuk menu, dan ini bukan informasi yang harus dibawa
+          setiap kali. Badge "Multibranch · PWA" di hero tetap ada -- itu
+          berbeda konteks, bukan navbar. */}
     </Link>
 
     <ul
@@ -270,6 +281,63 @@ const PhoneScreenPlaceholder = () => (
     <p className="text-[11px] font-semibold text-foreground">Mockup HP — coming soon</p>
     <p className="max-w-[140px] text-[9px] leading-snug text-muted-foreground">Placeholder untuk screenshot Cervise. Ganti dengan image real di future.</p>
     <Badge variant="secondary" className="mt-1 text-[8px]">Multibranch • PWA</Badge>
+  </div>
+);
+
+/**
+ * Placeholder untuk layar laptop.
+ *
+ * Beda dari `PhoneScreenPlaceholder`: proporsinya 16:10, bukan 9:19.5, dan
+ * isinya meniru dashboard desktop -- kartu KPI, tabel antrean, sidebar
+ * sempit. Layout yang sama persis dengan HP akan terlihat seperti gambar yang
+ * dikecilkan, bukan seperti aplikasi yang berjalan di layar lebar.
+ */
+const LaptopScreenPlaceholder = () => (
+  <div className="flex size-full flex-col bg-[#f8fafc] p-2 text-left">
+    {/* Bilah atas: judul halaman dan pencarian, menyamar jadi chrome aplikasi. */}
+    <div className="flex items-center gap-1.5 border-b border-[#dee5ed] pb-1.5">
+      <div className="flex gap-1">
+        <span className="size-1.5 rounded-full bg-[#dee5ed]" />
+        <span className="size-1.5 rounded-full bg-[#dee5ed]" />
+        <span className="size-1.5 rounded-full bg-[#dee5ed]" />
+      </div>
+      <span className="ml-1 text-[7px] font-semibold text-[#0d0d0d]">Cervise</span>
+      <span className="ml-auto h-2.5 w-12 rounded-full bg-white ring-1 ring-[#dee5ed]" />
+    </div>
+
+    <div className="flex min-h-0 flex-1 gap-1.5 pt-1.5">
+      {/* Sidebar sempit: menyiratkan aplikasi desktop, bukan PWA. */}
+      <div className="flex w-4 shrink-0 flex-col gap-1 rounded bg-white p-1 ring-1 ring-[#dee5ed]">
+        <span className="size-2 rounded-sm bg-[#0d0d0d]/70" />
+        {Array.from({ length: 5 }).map((_, i) => (
+          <span key={i} className="size-2 rounded-sm bg-[#dee5ed]" />
+        ))}
+      </div>
+
+      <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+        {/* Tiga kartu KPI. */}
+        <div className="flex gap-1.5">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div key={i} className="flex-1 rounded bg-white p-1 ring-1 ring-[#dee5ed]">
+              <div className="h-1 w-5 rounded-full bg-[#dee5ed]" />
+              <div className="mt-1 h-1.5 w-7 rounded-full bg-[#0d0d0d]/15" />
+            </div>
+          ))}
+        </div>
+
+        {/* Tabel antrean: baris bergaris ganti, seperti tabel nyata. */}
+        <div className="flex min-h-0 flex-1 flex-col gap-1 rounded bg-white p-1.5 ring-1 ring-[#dee5ed]">
+          <div className="h-1.5 w-10 rounded-full bg-[#0d0d0d]/20" />
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="flex items-center gap-1 border-b border-[#f1f5f9] pb-1 last:border-0">
+              <span className="size-2 rounded-full bg-[#dee5ed]" />
+              <span className="h-1 flex-1 rounded-full bg-[#dee5ed]" />
+              <span className="h-1 w-4 rounded-full bg-[#dee5ed]" />
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
   </div>
 );
 
@@ -475,15 +543,24 @@ const CommentCard = ({ className = "" }: { className?: string }) => (
   </div>
 );
 
-const DESKTOP_ARTBOARD = { width: 1440, height: 342 } as const;
+/**
+ * Tinggi artboard desktop.
+ *
+ * Sebelumnya 342px, dihitung dari HP tengah 735.556px yang dipotong jadi 325px.
+ * Laptop hanya 272px (shell 384 + bezel + layar 252 + basis 12), jadi 342px
+ * menyisakan ~70px ruang kosong di atas laptop. 300px memberi ruang untuk
+ * kartu teratas di y=36 tanpa membuat laptop duduk jauh dari tepi bawah.
+ */
+const DESKTOP_ARTBOARD = { width: 1440, height: 300 } as const;
 
-const TABLET_ARTBOARD = { width: 900, height: 560 } as const;
-const TABLET_PHONE = {
-  width: 473,
-  fullHeight: (735.556 * 473) / 364,
-
-  cropHeight: 525,
-} as const;
+/**
+ * Tinggi artboard tablet.
+ *
+ * Di tablet hanya ada satu perangkat (HP tengah) dan dua HP miring disembunyikan.
+ * Tablet memakai ukuran `sm` (280px), jadi 560px asal lama tidak lagi dipakai --
+ * kartu paling bawah ada di y=400 dan butuh ruang.
+ */
+const TABLET_ARTBOARD = { width: 900, height: 460 } as const;
 
 const DESKTOP_MIN_WIDTH = 1024;
 
@@ -578,35 +655,19 @@ const PhoneShowcase = () => {
           </motion.div>
         ) : null}
 
+        {/* Laptop di tengah, ditempel ke tepi bawah artboard. Dua HP miring di
+            samping tetap memakai PhoneMockup -- hanya perangkat tengah yang
+            berubah. */}
         <div className="absolute bottom-0 left-1/2 z-10 -translate-x-1/2">
           <motion.div
             className="overflow-hidden will-change-transform"
-            style={
-              isDesktop
-                ? { width: 364, height: 325 }
-                : {
-                    width: TABLET_PHONE.width,
-                    height: TABLET_PHONE.cropHeight,
-                  }
-            }
             initial={phoneInitial}
             animate={phoneAnimate}
             transition={phoneTransition(1)}
           >
-            <PhoneMockup
-              screen="placeholder"
-              screenWidth={417}
-              screenHeight={906}
-              className={isDesktop ? "h-[735.556px] w-[364px]" : undefined}
-              style={
-                isDesktop
-                  ? undefined
-                  : {
-                      width: TABLET_PHONE.width,
-                      height: TABLET_PHONE.fullHeight,
-                    }
-              }
-            />
+            <LaptopMockupCard variant="midnight" size={isDesktop ? "md" : "sm"}>
+              <LaptopScreenPlaceholder />
+            </LaptopMockupCard>
           </motion.div>
         </div>
 
@@ -634,9 +695,16 @@ const PhoneShowcase = () => {
         ) : null}
 
         {}
+        {/*
+          Koordinat kartu dihitung dari geometri laptop, bukan disalin dari
+          versi HP. Shell laptop ada di x=528..912, y=28..300 pada artboard
+          1440x300; empat kartu ditempatkan menempel di sisi-sisinya. Angka
+          lama (x=399, 861, 360, 838) berasal dari HP 364px dan akan membuat
+          kartu menggantung jauh dari tepi laptop sekarang.
+        */}
         <motion.div
           className={`absolute z-30 will-change-transform ${
-            isDesktop ? "top-[89px] left-[399px]" : "top-[156px] left-[150px]"
+            isDesktop ? "top-[36px] left-[360px]" : "top-[120px] left-[150px]"
           }`}
           initial={cardInitial}
           animate={cardAnimate}
@@ -647,7 +715,7 @@ const PhoneShowcase = () => {
 
         <motion.div
           className={`absolute z-30 will-change-transform ${
-            isDesktop ? "top-[89px] left-[861px]" : "top-[255px] left-[550px]"
+            isDesktop ? "top-[36px] left-[936px]" : "top-[210px] left-[550px]"
           }`}
           initial={cardInitial}
           animate={cardAnimate}
@@ -658,9 +726,7 @@ const PhoneShowcase = () => {
 
         <motion.div
           className={`absolute z-30 will-change-transform ${
-            isDesktop
-              ? "top-[219.61px] left-[360px]"
-              : "top-[400px] left-[78px]"
+            isDesktop ? "top-[178px] left-[332px]" : "top-[320px] left-[78px]"
           }`}
           initial={cardInitial}
           animate={cardAnimate}
@@ -671,7 +737,7 @@ const PhoneShowcase = () => {
 
         {isDesktop ? (
           <motion.div
-            className="absolute top-[188px] left-[838px] z-30 will-change-transform"
+            className="absolute top-[124px] left-[920px] z-30 will-change-transform"
             initial={cardInitial}
             animate={cardAnimate}
             transition={{ ...SHARED_TWEEN, delay: cardDelay("comment") }}
