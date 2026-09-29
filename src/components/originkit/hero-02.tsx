@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { initialsOf } from "@/lib/photos";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Smartphone, LogOutIcon, StoreIcon, UserIcon } from "lucide-react";
+import { Smartphone, BellIcon, LogOutIcon, StoreIcon, UserIcon } from "lucide-react";
 import { LaptopMockupCard } from "@/components/ui/laptop-mockup";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
@@ -31,6 +31,57 @@ const BRAND_LOGOS = [
   { name: "Enigma", src: `${A}/brand-enigma.svg` },
   { name: "Spectrum", src: `${A}/brand-spectrum.svg` },
 ] as const;
+
+/**
+ * Angka dan data contoh untuk kartu-kartu di showcase.
+ *
+ * Satu sumber untuk semua, bukan angka yang ditulis inline di tiap kartu.
+ * Tiga kartu menampilkan potongan dari aktivitas servis yang sama -- jumlah
+ * antrean, notifikasi transaksi, dan tren omzet -- dan kalau angkanya
+ * ditulis terpisah, cepat atau lambat isinya jadi tidak konsisten satu sama
+ * lain (misal total omzet di kartu sparkline lebih kecil dari satu transaksi
+ * di kartu notifikasi).
+ *
+ * Datanya contoh, bukan data nyata: hero ini statis, tidak membaca database.
+ */
+
+/** Antrean hari ini. Total masuk 58, lalu 42 selesai dan 31 sudah diambil. */
+const SERVIS_QUEUE_TOTALS = [
+  { value: "58", label: "Masuk" },
+  { value: "42", label: "Selesai" },
+  { value: "31", label: "Diambil" },
+] as const;
+
+/**
+ * Omzet hari ini, dalam rupiah penuh lalu dipotong jadi string tampil.
+ *
+ * Dipisah dari format supaya kartu sparkline dan kartu notifikasi memakai
+ * angka yang sama tanpa menulis nominal dua kali.
+ */
+const REVENUE_TODAY = 4_320_000 as const;
+
+/** Notifikasi transaksi terakhir. */
+const LATEST_TRANSACTION = {
+  kind: "Uang Masuk",
+  service: "Servis LCD iPhone",
+  amount: 1_250_000,
+  /** Render sebagai teks, bukan `Date`: kartu ini statis, tidak ada waktu nyata. */
+  time: "2 menit lalu",
+} as const;
+
+/**
+ * Angka untuk sparkline omzet, dalam ribuan rupiah.
+ *
+ * Datar di awal karena toko masih sepi, naik di tengah, turun sebentar di
+ * sore hari saat teknisi istirahat, lalu memuncak sebelum tutup. Garis lurus
+ * naik terus terlihat seperti placeholder, bukan grafik.
+ */
+const REVENUE_SPARK = [180, 210, 260, 340, 420, 510, 470, 560, 640, 720, 810, 940] as const;
+
+/** "Rp 4.320.000" -- pemisah ribuan titik, gaya yang dipakai di Indonesia. */
+function rupiah(value: number): string {
+  return `Rp ${value.toLocaleString("id-ID")}`;
+}
 
 const EASE_OUT = [0.215, 0.61, 0.355, 1] as const;
 
@@ -387,48 +438,63 @@ const PhoneMockup = ({
   </div>
 );
 
-const LikedCard = ({ className = "" }: { className?: string }) => (
-  <div
-    className={`flex items-center gap-2.5 overflow-clip rounded-full border border-solid border-[#dee5ed] bg-white py-2 pr-3 pl-2 shadow-[0_0_0_2px_white,0_15px_28.6px_rgba(0,0,0,0.12)] ${className}`}
-  >
-    <div className="flex items-center">
-      {(
-        [
-          `${A}/avatar-1.png`,
-          `${A}/avatar-2.png`,
-          `${A}/avatar-3.png`,
-        ] as const
-      ).map((src, index) => (
-        <span
-          key={src}
-          className={`relative size-7 shrink-0 overflow-clip rounded-full ${index < 2 ? "mr-[-11px]" : ""}`}
-        >
-          <Image
-            src={src}
-            alt=""
-            width={28}
-            height={28}
-            className="size-full object-cover"
-            aria-hidden="true"
-          />
-        </span>
-      ))}
-    </div>
-    <span className="flex items-center gap-0.5">
-      <Image
-        src={`${A}/heart.svg`}
-        alt=""
-        width={24}
-        height={24}
-        className="size-6"
-        aria-hidden="true"
-      />
-      <span className="text-[15px] font-medium leading-normal whitespace-nowrap text-[#1d1d1d]">
-        Liked
+/**
+ * Kartu omzet harian dengan sparkline.
+ *
+ * Sparkline digambar sebagai SVG inline, bukan gambar aset. Alasannya: sparkline
+ * harus mengikuti warnanya sendiri -- hijau saat naik, merah saat turun -- dan
+ * aset PNG tidak bisa berubah warna. Bentuknya juga dari pil `rounded-full`
+ * versi lama jadi kartu `rounded-xl`: sparkline butuh tinggi vertikal, pil
+ * tidak punya ruang untuk itu.
+ *
+ * Titik dinormalkan ke viewBox 0..100 dan 0..28 supaya skalanya tidak
+ * bergantung pada nilai rupiah. Kalau dipakai langsung sebagai koordinat,
+ * angka 940 akan keluar dari kotak.
+ */
+const RevenueCard = ({ className = "" }: { className?: string }) => {
+  const max = Math.max(...REVENUE_SPARK);
+  const min = Math.min(...REVENUE_SPARK);
+  // Rentang dipaskan dengan 1 supaya titik tertinggi tidak menempel tepat di
+  // tepi atas dan terbaca sebagai garis yang terpotong.
+  const range = max - min || 1;
+  const points = REVENUE_SPARK.map((value, index) => {
+    const x = (index / (REVENUE_SPARK.length - 1)) * 100;
+    const y = 28 - ((value - min) / range) * 26;
+    return `${x.toFixed(2)},${y.toFixed(2)}`;
+  }).join(" ");
+
+  return (
+    <div
+      className={`flex w-[212px] flex-col gap-1 overflow-clip rounded-[10.205px] border-[0.85px] border-solid border-[#dee5ed] bg-white p-[13.606px] shadow-[0_0_0_1.701px_white,0_8.504px_32.315px_rgba(0,0,0,0.12)] ${className}`}
+    >
+      <span className="text-[9.5px] font-medium uppercase tracking-[0.95px] text-[#808080]">
+        Omzet Hari Ini
       </span>
-    </span>
-  </div>
-);
+      <span className="text-[15.307px] font-bold tracking-[-0.15px] text-[#1d1d1d]">
+        {rupiah(REVENUE_TODAY)}
+      </span>
+      <svg
+        viewBox="0 0 100 28"
+        preserveAspectRatio="none"
+        aria-hidden="true"
+        className="mt-0.5 h-7 w-full"
+      >
+        {/* Area di bawah garis, diberi opacity rendah supaya garisnya tetap
+            terbaca sebagai garis dan bukan blok warna. */}
+        <polygon points={`0,28 ${points} 100,28`} fill="currentColor" opacity="0.08" />
+        <polyline
+          points={points}
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.75"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          vectorEffect="non-scaling-stroke"
+        />
+      </svg>
+    </div>
+  );
+};
 
 const ActionsCard = ({ className = "" }: { className?: string }) => (
   <div
@@ -455,17 +521,21 @@ const ActionsCard = ({ className = "" }: { className?: string }) => (
   </div>
 );
 
+/**
+ * Antrean servis hari ini: masuk, selesai, sudah diambil.
+ *
+ * Lebar 248px, bukan 216px versi lama. "Posts/Follower/Following" semuanya
+ * muat di kolom 72px; "Masuk/Selesai/Diambil" lebih lebar, dan di 216px
+ * kolomnya saling berdesakan sampai angka terlihat rapat.
+ *
+ * Angka diturunkan dari `SERVIS_QUEUE_TOTALS` supaya sumbernya satu tempat
+ * dengan kartu-kartu lain yang menampilkan antrean yang sama.
+ */
 const StatsCard = ({ className = "" }: { className?: string }) => (
   <div
-    className={`flex w-[216px] items-start justify-between overflow-clip rounded-[10.205px] border-[0.85px] border-solid border-[#dee5ed] bg-white p-[13.606px] shadow-[0_0_0_1.701px_white,0_8.504px_32.315px_rgba(0,0,0,0.12)] ${className}`}
+    className={`flex w-[248px] items-start justify-between overflow-clip rounded-[10.205px] border-[0.85px] border-solid border-[#dee5ed] bg-white p-[13.606px] shadow-[0_0_0_1.701px_white,0_8.504px_32.315px_rgba(0,0,0,0.12)] ${className}`}
   >
-    {(
-      [
-        { value: "58", label: "Posts" },
-        { value: "486", label: "Follower" },
-        { value: "397", label: "Following" },
-      ] as const
-    ).map((stat) => (
+    {SERVIS_QUEUE_TOTALS.map((stat) => (
       <div
         key={stat.label}
         className="flex flex-col items-center gap-[3.402px]"
@@ -473,7 +543,7 @@ const StatsCard = ({ className = "" }: { className?: string }) => (
         <span className="text-[15.307px] font-bold tracking-[0.1531px] text-[#1d1d1d]">
           {stat.value}
         </span>
-        <span className="text-[11.906px] font-medium tracking-[0.1191px] text-[#333]">
+        <span className="text-[10.5px] font-medium tracking-[0.105px] text-[#333] whitespace-nowrap">
           {stat.label}
         </span>
       </div>
@@ -481,63 +551,41 @@ const StatsCard = ({ className = "" }: { className?: string }) => (
   </div>
 );
 
-const CommentCard = ({ className = "" }: { className?: string }) => (
+/**
+ * Notifikasi transaksi terakhir.
+ *
+ * Bentuknya toast, bukan komentar sosial. Baris Like/Comment dan avatar
+ * bulat dihapus karena itulah yang membuat versi lamanya terbaca sebagai
+ * komentar: dua aksi sosial di bawah nama orang. Untuk notifikasi, hierarki
+ * yang benar adalah APA yang terjadi (Transaksi), APA yang berubah (nominal),
+ * lalu untuk apa (nama servis).
+ *
+ * Nominal ditulis kapital karena itu angka yang dicari orang. "Uang Masuk" dan
+ * "Servis LCD iPhone" dipisah titik tengah -- kalau hanya spasi, jenis
+ * transaksi menempel ke nama servis dan terbaca seperti satu frasa.
+ */
+const TransactionToast = ({ className = "" }: { className?: string }) => (
   <div
-    className={`flex w-[279px] flex-col gap-[16.127px] rounded-[16.127px] bg-white p-[16.127px] shadow-[0_-1.613px_14.353px_rgba(124,124,155,0.08),0_17.74px_35.802px_rgba(0,0,0,0.12)] ${className}`}
+    className={`flex w-[272px] items-start gap-[10px] rounded-[14px] border-[0.85px] border-solid border-[#dee5ed] bg-white p-[12px] shadow-[0_-1.613px_14.353px_rgba(124,124,155,0.08),0_17.74px_35.802px_rgba(0,0,0,0.12)] ${className}`}
   >
-    <div className="flex w-full items-start gap-[12.095px]">
-      <span className="relative size-[40.318px] shrink-0 overflow-clip rounded-full">
-        <Image
-          src={`${A}/avatar-comment.png`}
-          alt=""
-          width={40}
-          height={40}
-          className="size-full object-cover"
-          aria-hidden="true"
-        />
-      </span>
-      <div className="flex min-w-0 flex-1 flex-col gap-[7.257px]">
-        <p className="text-[12.902px] font-medium leading-normal text-[#1d1d1d]">
-          Kurniawan
-        </p>
-        <p className="text-[9.676px] leading-normal tracking-[0.4838px] text-[#333]">
-          I like the overall vibe! How do you create that arrow on the all
-          design?
-        </p>
-      </div>
-    </div>
-    <div className="flex items-center gap-[20.159px]">
-      <span className="flex items-center gap-[6.451px]">
-        <Image
-          src={`${A}/icon-like.svg`}
-          alt=""
-          width={15}
-          height={15}
-          className="size-[14.5px] rotate-180"
-          aria-hidden="true"
-        />
-        <span className="text-[9.676px] text-[#808080]">Like</span>
-      </span>
-      <span className="flex items-center gap-[6.451px]">
-        <span className="relative h-[13.7px] w-4">
-          <Image
-            src={`${A}/icon-comment-line.svg`}
-            alt=""
-            width={16}
-            height={14}
-            className="absolute inset-0 size-full"
-            aria-hidden="true"
-          />
-          <Image
-            src={`${A}/icon-comment-dot.svg`}
-            alt=""
-            width={8}
-            height={2}
-            className="absolute top-[4.4px] left-[2.8px] h-[1.6px] w-2"
-            aria-hidden="true"
-          />
+    <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-emerald-600 ring-1 ring-emerald-100">
+      <BellIcon className="size-4" aria-hidden="true" />
+    </span>
+
+    <div className="flex min-w-0 flex-1 flex-col gap-[3px]">
+      <div className="flex items-baseline gap-2">
+        <span className="text-[12.5px] font-semibold leading-normal text-[#1d1d1d]">
+          Transaksi
         </span>
-        <span className="text-[9.676px] text-[#808080]">Comment</span>
+        <span className="ml-auto shrink-0 text-[9.5px] text-[#808080]">
+          {LATEST_TRANSACTION.time}
+        </span>
+      </div>
+      <p className="text-[10.5px] leading-snug text-[#333]">
+        {LATEST_TRANSACTION.kind} · {LATEST_TRANSACTION.service}
+      </p>
+      <span className="mt-0.5 text-[13px] font-bold leading-normal tracking-[-0.13px] text-[#1d1d1d]">
+        {rupiah(LATEST_TRANSACTION.amount)}
       </span>
     </div>
   </div>
@@ -704,13 +752,13 @@ const PhoneShowcase = () => {
         */}
         <motion.div
           className={`absolute z-30 will-change-transform ${
-            isDesktop ? "top-[36px] left-[360px]" : "top-[120px] left-[150px]"
+            isDesktop ? "top-[26px] left-[300px]" : "top-[104px] left-[150px]"
           }`}
           initial={cardInitial}
           animate={cardAnimate}
           transition={{ ...SHARED_TWEEN, delay: cardDelay("liked") }}
         >
-          <LikedCard />
+          <RevenueCard />
         </motion.div>
 
         <motion.div
@@ -726,7 +774,7 @@ const PhoneShowcase = () => {
 
         <motion.div
           className={`absolute z-30 will-change-transform ${
-            isDesktop ? "top-[178px] left-[332px]" : "top-[320px] left-[78px]"
+            isDesktop ? "top-[168px] left-[272px]" : "top-[316px] left-[78px]"
           }`}
           initial={cardInitial}
           animate={cardAnimate}
@@ -737,12 +785,12 @@ const PhoneShowcase = () => {
 
         {isDesktop ? (
           <motion.div
-            className="absolute top-[124px] left-[920px] z-30 will-change-transform"
+            className="absolute top-[132px] left-[922px] z-30 will-change-transform"
             initial={cardInitial}
             animate={cardAnimate}
             transition={{ ...SHARED_TWEEN, delay: cardDelay("comment") }}
           >
-            <CommentCard />
+            <TransactionToast />
           </motion.div>
         ) : null}
       </div>
