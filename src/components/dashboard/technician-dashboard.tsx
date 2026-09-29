@@ -10,7 +10,7 @@ import {
   TrendingUpIcon,
   WrenchIcon,
 } from "lucide-react";
-import { CandyButton, CANDY_BUTTON_TONES } from "@/components/ui/candy-button";
+import { CandyShortcut, CANDY_TONES } from "./candy-shortcut";
 import { Card, TaskNoteCard } from "./task-note-card";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -54,15 +54,13 @@ export function TechnicianDashboard({ fullName }: { fullName: string | null }) {
 
           <div className="mt-6 grid grid-cols-2 gap-2 sm:grid-cols-4">
             {SHORTCUTS.map((s, index) => (
-              <CandyButton
+              <CandyShortcut
                 key={s.href}
+                label={s.label}
                 href={s.href}
-                tone={CANDY_BUTTON_TONES[index % CANDY_BUTTON_TONES.length]}
-                className="w-full"
-              >
-                <s.icon className="size-4" />
-                {s.label}
-              </CandyButton>
+                icon={s.icon}
+                tone={CANDY_TONES[index % CANDY_TONES.length]}
+              />
             ))}
           </div>
 

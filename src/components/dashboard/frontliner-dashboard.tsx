@@ -13,7 +13,8 @@ import {
   WrenchIcon,
   XIcon,
 } from "lucide-react";
-import { CandyButton, CANDY_BUTTON_TONES } from "@/components/ui/candy-button";
+import { CandyShortcut, CANDY_TONES } from "./candy-shortcut";
+import { CandyButton } from "@/components/ui/candy-button";
 import { Card, TaskNoteCard } from "./task-note-card";
 import { Button } from "@/components/ui/button";
 import { formatCurrencyPlain } from "@/lib/format";
@@ -111,24 +112,29 @@ export function FrontlinerDashboard({ fullName }: { fullName: string | null }) {
                   : "Tidak ada servis menunggu pembayaran."}
               </p>
             </div>
-            <Button onClick={() => setClosingOpen(true)} disabled={!session}>
-              <LockIcon />
+            {/* CandyButton dipakai untuk aksi tunggal yang menonjol, bukan
+                untuk grid pintasan. Grid itu CandyShortcut, yang bentuknya
+                [ikon + label] [chevron] dan punya nada per tombol. */}
+            <CandyButton
+              tone="accent-amber"
+              onClick={() => setClosingOpen(true)}
+              disabled={!session}
+            >
+              <LockIcon className="size-4" />
               Tutup Toko
-            </Button>
+            </CandyButton>
           </div>
 
           <div className="mt-6 grid grid-cols-2 gap-2 sm:grid-cols-4">
             {FRONTLINER_SHORTCUTS.map((s, index) => (
-              <CandyButton
+              <CandyShortcut
                 key={s.label}
+                label={s.label}
                 href={s.href}
+                icon={s.icon}
+                tone={CANDY_TONES[index % CANDY_TONES.length]}
                 onClick={s.onClick}
-                tone={CANDY_BUTTON_TONES[index % CANDY_BUTTON_TONES.length]}
-                className="w-full"
-              >
-                <s.icon className="size-4" />
-                {s.label}
-              </CandyButton>
+              />
             ))}
           </div>
 

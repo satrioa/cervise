@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { CANDY_TONES } from "./candy-shortcut";
 import { CANDY_BUTTON_TONES } from "@/components/ui/candy-button";
 
 const read = (relative: string) => readFileSync(join(process.cwd(), relative), "utf8");
@@ -20,47 +21,66 @@ const readCode = (relative: string) =>
 const frontliner = read("src/components/dashboard/frontliner-dashboard.tsx");
 const technician = read("src/components/dashboard/technician-dashboard.tsx");
 const candyButton = readCode("src/components/ui/candy-button.tsx");
+const candyShortcut = readCode("src/components/dashboard/candy-shortcut.tsx");
 
 /**
- * Tombol candy di kedua dashboard.
+ * Dua widget candy yang berbeda, dan tugasnya dipisah:
  *
- * Sebelumnya widget ini ada di components/dashboard/candy-shortcut.tsx dan
- * dipakai sebagai CandyShortcut. Sekarang diganti CandyButton dari registry
- * VengeanceUI, dengan warna yang diadaptasi ke sistem nada proyek. Guard ini
- * ditulis ulang mengikuti komponen barunya, tapi niatnya sama: nada diambil
- * dari posisi tombol, bukan ditulis manual per item.
+ * - CandyShortcut untuk GRID PINTASAN di dashboard. Bentuknya
+ *   [ikon + label] [chevron kanan], datar, warnanya beda per tombol.
+ * - CandyButton untuk TOMBOL BIASA satu aksi. Gradien, satu warna, tanpa
+ *   chevron. Registry VengeanceUI menyebutnya "Candy Button" dan usage-nya
+ *   sesederhana <CandyButton>Candy Button</CandyButton>.
+ *
+ * Pernah keduanya tertukar: grid pintasan diforce memakai CandyButton, yang
+ * membuat chevron hilang dan empat tombol kehilangan warna berbeda. Test di
+ * bawah menjaga pemisahan itu.
  */
-describe("CANDY_BUTTON_TONES", () => {
-  it("nada cukup untuk empat kolom grid", () => {
-    // Kedua dashboard memakai sm:grid-cols-4, jadi satu nada per kolom.
-    // Kalau nada kurang dari kolom, ada tombol yang warnanya kembar.
-    expect(CANDY_BUTTON_TONES.length).toBeGreaterThanOrEqual(4);
+describe("CandyShortcut untuk grid pintasan", () => {
+  it("bentuknya [ikon + label] [chevron kanan]", () => {
+    expect(candyShortcut).toMatch(/ArrowRightIcon/);
+    expect(candyShortcut).toMatch(/group-hover:translate-x-0\.5/);
   });
 
-  it("tidak ada nada yang kembar", () => {
-    expect(new Set(CANDY_BUTTON_TONES).size).toBe(CANDY_BUTTON_TONES.length);
+  it("kedua dashboard memakainya untuk grid pintasan", () => {
+    expect(technician).toMatch(/CandyShortcut/);
+    expect(frontliner).toMatch(/CandyShortcut/);
+  });
+
+  it("nada diambil dari posisi tombol, bukan ditulis manual", () => {
+    expect(technician).toMatch(/CANDY_TONES\[index % CANDY_TONES\.length\]/);
+    expect(frontliner).toMatch(/CANDY_TONES\[index % CANDY_TONES\.length\]/);
+  });
+
+  it("nada cukup untuk empat kolom grid dan tidak ada yang kembar", () => {
+    expect(CANDY_TONES.length).toBeGreaterThanOrEqual(4);
+    expect(new Set(CANDY_TONES).size).toBe(CANDY_TONES.length);
   });
 });
 
-describe("kedua dashboard memakai CandyButton", () => {
-  it("tidak ada CandyShortcut yang tersisa", () => {
-    // ShortcutButton lokal sudah dihapus duluan, CandyShortcut sekarang
-    // digantikan CandyButton. Kalau muncul lagi, ada widget yang tidak ikut
-    // mendapat gaya candy yang baru.
-    expect(technician).not.toMatch(/CandyShortcut/);
-    expect(frontliner).not.toMatch(/CandyShortcut/);
-    expect(technician).toMatch(/CandyButton/);
-    expect(frontliner).toMatch(/CandyButton/);
+describe("CandyButton untuk aksi tunggal", () => {
+  it("dipakai sebagai tombol biasa, bukan grid pintasan", () => {
+    // Grid pintasan harus CandyShortcut. Kalau CandyButton masuk ke sana,
+    // chevron hilang dan warna per tombol ikut hilang.
+    const gridBlock = (source: string) =>
+      source.slice(source.indexOf("grid-cols-2 gap-2 sm:grid-cols-4"));
+    expect(gridBlock(technician)).not.toMatch(/CandyButton/);
+    expect(gridBlock(frontliner)).not.toMatch(/CandyButton/);
   });
 
-  it("warna diambil dari posisi, bukan ditulis manual per tombol", () => {
-    expect(technician).toMatch(/CANDY_BUTTON_TONES\[index % CANDY_BUTTON_TONES\.length\]/);
-    expect(frontliner).toMatch(/CANDY_BUTTON_TONES\[index % CANDY_BUTTON_TONES\.length\]/);
+  it("memakai usage sederhana seperti di registry", () => {
+    // children langsung jadi isi tombol; tidak ada mode widget yang
+    // mengharuskan props khusus.
+    expect(candyButton).toMatch(/children = "Candy Button"/);
   });
 
-  it('label "Input kas" diganti "Catat Kas"', () => {
-    expect(frontliner).toMatch(/label: "Catat Kas"/);
-    expect(frontliner).not.toMatch(/Input kas/);
+  it("dipakai untuk aksi nyata di dashboard frontliner", () => {
+    expect(frontliner).toMatch(/<CandyButton[\s\S]*?Tutup Toko[\s\S]*?<\/CandyButton>/);
+  });
+
+  it("nada cukup untuk empat kolom dan tidak ada yang kembar", () => {
+    expect(CANDY_BUTTON_TONES.length).toBeGreaterThanOrEqual(4);
+    expect(new Set(CANDY_BUTTON_TONES).size).toBe(CANDY_BUTTON_TONES.length);
   });
 });
 
@@ -73,8 +93,6 @@ describe("warna CandyButton disesuaikan, bukan hex mentah dari registry", () => 
   });
 
   it("setiap nada punya latar DAN warna teks, supaya terbaca di light dan dark", () => {
-    // Warna teks ditulis eksplisit per nada, bukan mengandalkan currentColor
-    // atau token accent-content - mengikuti candy-shortcut yang lama.
     for (const tone of CANDY_BUTTON_TONES) {
       const entry = candyButton.split(`"${tone}"`)[1] ?? "";
       expect(entry).toMatch(/text-/);
@@ -90,8 +108,6 @@ describe("catatan tugas dipakai bersama oleh kedua dashboard", () => {
   it("keduanya memakai TaskNoteCard yang sama, bukan dua salinan", () => {
     expect(technician).toMatch(/TaskNoteCard/);
     expect(frontliner).toMatch(/TaskNoteCard/);
-    // Duplikat To-Do per dashboard akan buat perbaikan berikutnya hanya berlaku
-    // untuk satu role.
     expect(technician).not.toMatch(/function TodoCard/);
     expect(frontliner).not.toMatch(/function TodoCard/);
   });
