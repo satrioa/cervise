@@ -183,9 +183,6 @@ export default function ServisPage() {
   const [detailLoading, setDetailLoading] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkStatusOpen, setBulkStatusOpen] = useState(false);
-  const [bulkAssignOpen, setBulkAssignOpen] = useState(false);
-  const [bulkTeknisi, setBulkTeknisi] = useState<string>("");
-  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const [bulkInvoiceOpen, setBulkInvoiceOpen] = useState(false);
   const [bulkPrintOpen, setBulkPrintOpen] = useState(false);
   const [bulkPrintType, setBulkPrintType] = useState<"Dot Matrix" | "Jet" | "Thermal">("Thermal");
@@ -532,30 +529,6 @@ export default function ServisPage() {
     setBulkStatusOpen(false);
   };
 
-  const handleBulkAssign = () => {
-    const ids = new Set(selectedIds);
-    setServisData((prev) => prev.map((it) => (ids.has(it.id) ? { ...it, teknisi: bulkTeknisi } : it)));
-    setKanbanValue((prev) => {
-      const nextVal: Record<string, ServisItem[]> = {};
-      for (const k of Object.keys(prev)) nextVal[k] = prev[k].map((it) => (ids.has(it.id) ? { ...it, teknisi: bulkTeknisi } : it));
-      return nextVal;
-    });
-    setBulkAssignOpen(false);
-    setSelectedIds(new Set());
-  };
-
-  const handleBulkDelete = () => {
-    const ids = new Set(selectedIds);
-    setServisData((prev) => prev.filter((it) => !ids.has(it.id)));
-    setKanbanValue((prev) => {
-      const nextVal: Record<string, ServisItem[]> = {};
-      for (const k of Object.keys(prev)) nextVal[k] = prev[k].filter((it) => !ids.has(it.id));
-      return nextVal;
-    });
-    setSelectedIds(new Set());
-    setBulkDeleteOpen(false);
-  };
-
   const handleBulkPrint = async (type: "Dot Matrix" | "Jet" | "Thermal") => {
     const data = selectedData;
     if (data.length === 0) return;
@@ -856,17 +829,12 @@ export default function ServisPage() {
               <span className="hidden sm:inline">Ubah status {canBulkStatus && currentBulkStatus ? `(${currentBulkStatus})` : ""}</span>
               <span className="sm:hidden">Status</span>
             </Button>
-            <Button size="sm" variant="outline" onClick={() => setBulkAssignOpen(true)} className="shrink-0 shadow-sm">
-              <span className="hidden sm:inline">Assign Teknisi</span>
-              <span className="sm:hidden">Assign</span>
-            </Button>
             <Button size="sm" variant="outline" onClick={() => setBulkInvoiceOpen(true)} className="shrink-0 shadow-sm gap-1.5">
               <svg viewBox="0 0 24 24" fill="currentColor" className="size-4 text-[#25D366] shrink-0" aria-hidden="true"><path d="M19.05 4.94A9.91 9.91 0 0 0 12 2C6.48 2 2 6.48 2 12a9.91 9.91 0 0 0 1.32 4.98L2 22l5.15-1.32A9.91 9.91 0 0 0 12 22c5.52 0 10-4.48 10-10a9.91 9.91 0 0 0-2.95-7.06ZM12 20a8 8 0 0 1-4.08-1.11l-.29-.17-3.06.79.79-3.06-.17-.29A8 8 0 0 1 12 4a8 8 0 0 1 8 8 8 8 0 0 1-8 8Zm4.37-5.92c-.23-.11-1.35-.67-1.56-.74-.21-.08-.36-.11-.51.11-.15.23-.59.74-.72.89-.13.15-.26.17-.48.06-.23-.11-.97-.36-1.85-1.14-.68-.61-1.14-1.36-1.27-1.59-.13-.23-.01-.35.1-.46.1-.1.23-.26.34-.39.11-.13.15-.23.23-.38.08-.15.04-.28-.02-.39-.06-.11-.51-1.23-.7-1.68-.18-.44-.37-.38-.51-.39l-.43-.01c-.15 0-.39.06-.59.28-.2.23-.77.75-.77 1.83s.79 2.12.9 2.27c.11.15 1.55 2.37 3.76 3.32.53.23.94.36 1.26.47.53.17 1.01.14 1.39.09.42-.06 1.35-.55 1.54-1.09.19-.53.19-.99.13-1.09-.06-.1-.21-.15-.44-.26Z" /></svg>
               <span className="hidden sm:inline">Kirim Invoice WA</span>
               <span className="sm:hidden">Invoice</span>
             </Button>
             <Button size="sm" variant="outline" onClick={() => setBulkPrintOpen(true)} className="shrink-0 shadow-sm">Print</Button>
-            <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive hover:bg-destructive/10 shrink-0" onClick={() => setBulkDeleteOpen(true)}>Hapus</Button>
           </div>
           <Button size="icon-sm" variant="ghost" className="ml-1 shrink-0 rounded-full" onClick={() => setSelectedIds(new Set())} aria-label="Clear selection">
             <XIcon className="size-4" />
@@ -1018,35 +986,6 @@ export default function ServisPage() {
         </DialogPrimitive.Portal>
       </DialogPrimitive.Root>
 
-      {/* Bulk Assign Teknisi */}
-      <DialogPrimitive.Root open={bulkAssignOpen} onOpenChange={setBulkAssignOpen}>
-        <DialogPrimitive.Portal>
-          <DialogPrimitive.Backdrop className="fixed inset-0 z-50 bg-black/20 backdrop-blur-sm" />
-          <DialogPrimitive.Popup className="fixed left-1/2 top-1/2 z-50 w-[95vw] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-xl border bg-background p-6 shadow-lg">
-            <DialogPrimitive.Title className="font-semibold">Assign Teknisi Massal</DialogPrimitive.Title>
-            <DialogPrimitive.Description className="text-sm text-muted-foreground">Assign {selectedCount} servis ke teknisi:</DialogPrimitive.Description>
-            <div className="mt-4 space-y-3">
-              <div className="grid gap-1.5">
-                <Label>Teknisi</Label>
-                <Select value={bulkTeknisi} onValueChange={(v) => { if (v) setBulkTeknisi(v); }}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Rudi">Rudi</SelectItem>
-                    <SelectItem value="Sari">Sari</SelectItem>
-                    <SelectItem value="—">— (Unassigned)</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="flex justify-end gap-2">
-                <Button variant="outline" onClick={() => setBulkAssignOpen(false)}>Batal</Button>
-                <Button onClick={handleBulkAssign}>Assign {selectedCount} servis</Button>
-              </div>
-            </div>
-            <DialogPrimitive.Close className="absolute right-3 top-3 rounded-md p-1 text-muted-foreground hover:bg-muted"><XIcon className="size-4" /></DialogPrimitive.Close>
-          </DialogPrimitive.Popup>
-        </DialogPrimitive.Portal>
-      </DialogPrimitive.Root>
-
       {/* Bulk Kirim Invoice WA */}
       <DialogPrimitive.Root open={bulkInvoiceOpen} onOpenChange={setBulkInvoiceOpen}>
         <DialogPrimitive.Portal>
@@ -1097,27 +1036,6 @@ export default function ServisPage() {
                 <Button variant="outline" onClick={() => setBulkPrintOpen(false)}>Batal</Button>
                 <Button onClick={() => handleBulkPrint(bulkPrintType)}>Print {selectedCount} servis</Button>
               </div>
-            </div>
-            <DialogPrimitive.Close className="absolute right-3 top-3 rounded-md p-1 text-muted-foreground hover:bg-muted"><XIcon className="size-4" /></DialogPrimitive.Close>
-          </DialogPrimitive.Popup>
-        </DialogPrimitive.Portal>
-      </DialogPrimitive.Root>
-
-      {/* Bulk Delete */}
-      <DialogPrimitive.Root open={bulkDeleteOpen} onOpenChange={setBulkDeleteOpen}>
-        <DialogPrimitive.Portal>
-          <DialogPrimitive.Backdrop className="fixed inset-0 z-50 bg-black/20 backdrop-blur-sm" />
-          <DialogPrimitive.Popup className="fixed left-1/2 top-1/2 z-50 w-[95vw] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-xl border bg-background p-6 shadow-lg">
-            <DialogPrimitive.Title className="font-semibold">Hapus {selectedCount} Servis?</DialogPrimitive.Title>
-            <DialogPrimitive.Description className="text-sm text-muted-foreground">Tindakan tidak bisa dibatalkan. Daftar nomor servis:</DialogPrimitive.Description>
-            <div className="mt-3 max-h-32 overflow-y-auto rounded border bg-muted/30 p-2 font-mono text-xs">
-              {selectedData.map((s) => (
-                <div key={s.id}>{servisLabel(s)} · {s.device}</div>
-              ))}
-            </div>
-            <div className="mt-4 flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setBulkDeleteOpen(false)}>Batal</Button>
-              <Button variant="destructive" onClick={handleBulkDelete}>Hapus {selectedCount} servis</Button>
             </div>
             <DialogPrimitive.Close className="absolute right-3 top-3 rounded-md p-1 text-muted-foreground hover:bg-muted"><XIcon className="size-4" /></DialogPrimitive.Close>
           </DialogPrimitive.Popup>
