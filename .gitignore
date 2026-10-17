@@ -10,6 +10,13 @@
 !.yarn/releases
 !.yarn/versions
 
+# Lockfile package manager lain - repo ini pakai npm, yang lockfile-nya
+# package-lock.json. Dua lockfile berarti resolusi versi bisa berbeda antar
+# mesin, dan bugnya cuma muncul di orang yang memakai manager yang lain.
+# File ini muncul kalau ada yang menjalankan `bun install` tanpa disadari.
+bun.lock
+bun.lockb
+
 # testing
 /coverage
 
