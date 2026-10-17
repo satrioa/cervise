@@ -8,12 +8,16 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Select, SelectTrigger, SelectPopup, SelectItem, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
+import { Switch } from "@/components/ui/switch";
+import { ChevronRight } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { KerusakanTagInput } from "./kerusakan-tag-input";
 import { KelengkapanSelect } from "./kelengkapan-select";
 import { GaransiField } from "./garansi-field";
 import { CustomerAutocomplete } from "./customer-autocomplete";
 import { PatternLock } from "./pattern-lock";
-import { KondisiAwalDialog } from "./kondisi-awal-dialog";
+import { KondisiAwalForm } from "./kondisi-awal-form";
+import { teknisiLabel } from "@/lib/servis-technisi-label";
 import { useUnsavedGuard } from "@/hooks/use-unsaved-guard";
 import { createServis, getTeknisi, updateKondisiAwal } from "@/app/app/servis/actions";
 import type { KondisiAwal } from "@/lib/servis-constants";
@@ -51,9 +55,14 @@ export function ServisForm({ onSuccess, onCancel }: ServisFormProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // post-save kondisi dialog
+  // Alur kondisi awal. `kondisiEnabled` menentukan apakah tombolnya tampil,
+  // `kondisiOpen` apakah formnya terbuka. Keduanya terpisah supaya mematikan
+  // switch tidak menghapus state yang sudah diisi tanpa sengaja.
+  const [kondisiEnabled, setKondisiEnabled] = useState(true);
+  const [kondisiOpen, setKondisiOpen] = useState(false);
+
+  // post-save: form kondisi menggantikan tampilan form, bukan modal di atasnya.
   const [savedId, setSavedId] = useState<string | null>(null);
-  const [showKondisi, setShowKondisi] = useState(false);
 
   useEffect(() => {
     getTeknisi().then(setTeknisiOpts).catch(() => {});
@@ -70,7 +79,6 @@ export function ServisForm({ onSuccess, onCancel }: ServisFormProps) {
     if (!teknisiId) return "Teknisi wajib diisi";
     if (!merk.trim()) return "Merk wajib";
     if (!tipe.trim()) return "Tipe wajib";
-    if (!imei1.trim()) return "IMEI/SN 1 wajib";
     if (kerusakan.length === 0) return "Kerusakan minimal 1 tag";
     if (!custName.trim()) return "Nama customer wajib";
     if (!custPhone.trim()) return "Kontak WA wajib";
@@ -82,22 +90,22 @@ export function ServisForm({ onSuccess, onCancel }: ServisFormProps) {
     return null;
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError(null);
+  /** Memvalidasi lalu menyimpan servis. Satu jalur untuk dua pemicu. */
+  const saveServis = async () => {
     const msg = validate();
     if (msg) {
       setError(msg);
-      return;
+      return null;
     }
     setLoading(true);
+    setError(null);
     try {
       const res = await createServis({
         teknisi_id: teknisiId,
         merk: merk.trim(),
         tipe: tipe.trim(),
-        imei1: imei1.trim(),
-        imei2: imei2.trim() || undefined,
+        imei1: imei1.trim() || null,
+        imei2: imei2.trim() || null,
         kerusakan,
         kelengkapan,
         password_type: passwordType,
@@ -109,13 +117,42 @@ export function ServisForm({ onSuccess, onCancel }: ServisFormProps) {
         garansi_unit: garansiUnit,
         price_estimasi: priceEstimasi === "" ? null : Number(priceEstimasi),
       });
-      setSavedId(res.id);
-      setShowKondisi(true);
+      return res;
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Gagal menyimpan");
+      return null;
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const res = await saveServis();
+    if (!res) return;
+    setSavedId(res.id);
+    // Tombol "Simpan Servis" selalu membuka langkah kondisi: switch menentukan
+    // apakah itu perlu, dan kondisinya yang sudah tersimpan tidak hilang kalau
+    // user menutupnya lalu memakai tombol ini.
+    if (kondisiEnabled) setKondisiOpen(true);
+  };
+
+  /**
+   * "Check Kondisi": simpan servis dulu, baru buka form kondisi.
+   *
+   * Ini yang membuat alurnya masuk akal -- `updateKondisiAwal` butuh id servis,
+   * dan id itu hanya ada setelah create. Jadi klik tombol berarti "simpan, lalu
+   * periksa", bukan membuka form yang datanya belum bisa disimpan.
+   */
+  const handleKondisiClick = async () => {
+    if (savedId) {
+      setKondisiOpen((open) => !open);
+      return;
+    }
+    const res = await saveServis();
+    if (!res) return;
+    setSavedId(res.id);
+    setKondisiOpen(true);
   };
 
   const handleKondisiSave = async (data: KondisiAwal) => {
@@ -141,25 +178,41 @@ export function ServisForm({ onSuccess, onCancel }: ServisFormProps) {
 
   return (
     <>
+      {/*
+        Setelah servis tersimpan dan langkah kondisi dibuka, form kondisi
+        MEGANTIKAN tampilan form servis -- bukan modal di atasnya. Alasannya
+        modalnya tumpang tindih dengan form yang masih kelihatan di belakang,
+        dan form itu sudah tidak bisa diedit tanpa menggantungkan pengguna di
+        dua tempat. Data form sudah tersimpan, jadi tidak ada yang hilang.
+      */}
+      {kondisiOpen && savedId ? (
+        <KondisiAwalForm onSave={handleKondisiSave} onSkip={handleSkip} />
+      ) : (
       <form onSubmit={handleSubmit} className="mx-auto max-w-3xl space-y-6 px-4 sm:px-6 lg:px-0 py-6">
         {error && <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">{error}</div>}
 
         {/* Teknisi - wajib */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Teknisi *</CardTitle>
-            <CardDescription>Pilih teknisi penanggung jawab servis ini</CardDescription>
+            <CardTitle className="text-base">Teknisi</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-1.5">
               <Label>Teknisi *</Label>
               <Select value={teknisiId} onValueChange={(v) => setTeknisiId(v as string)}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Pilih teknisi" />
+                  {/* Children WAJIB diisi eksplisit. `Select.Value` milik base-ui
+                     menampilkan value mentah kalau tidak diberi children --
+                     jadi tanpa baris ini trigger menampilkan UUID teknisi,
+                     bukan namanya. Select lain di repo ini sudah melakukan
+                     hal yang sama. */}
+                  <SelectValue placeholder="Pilih teknisi">
+                    {teknisiLabel(teknisiOpts.find((t) => t.id === teknisiId))}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectPopup>
                   {teknisiOpts.length === 0 ? <SelectItem value="__empty" disabled>Tidak ada teknisi</SelectItem> : teknisiOpts.map((t) => (
-                    <SelectItem key={t.id} value={t.id}>{t.full_name || t.phone || t.id.slice(0, 6)}</SelectItem>
+                    <SelectItem key={t.id} value={t.id}>{teknisiLabel(t)}</SelectItem>
                   ))}
                 </SelectPopup>
               </Select>
@@ -183,8 +236,8 @@ export function ServisForm({ onSuccess, onCancel }: ServisFormProps) {
                 <Input placeholder="A54, 14 Pro, Reno 8..." value={tipe} onChange={(e) => setTipe(e.target.value)} />
               </div>
               <div className="space-y-1.5">
-                <Label>IMEI / SN 1 *</Label>
-                <Input placeholder="359..." value={imei1} onChange={(e) => setImei1(e.target.value)} />
+                <Label>IMEI / SN 1</Label>
+                <Input placeholder="Opsional" value={imei1} onChange={(e) => setImei1(e.target.value)} />
               </div>
               <div className="space-y-1.5">
                 <Label>IMEI / SN 2 (Opsional)</Label>
@@ -247,12 +300,56 @@ export function ServisForm({ onSuccess, onCancel }: ServisFormProps) {
         <Card>
           <CardHeader>
             <CardTitle className="text-base">Estimasi Biaya <span className="font-normal text-muted-foreground">(Opsional)</span></CardTitle>
-            <CardDescription>Perkiraan awal, bisa DP atau lunas nanti. Pembayaran resmi dicatat terpisah (hanya admin/kasir).</CardDescription>
           </CardHeader>
           <CardContent className="space-y-1.5">
             <Label>Estimasi (Rp)</Label>
             <Input type="number" min={0} placeholder="Kosongkan jika belum tahu, cth: 350000" value={priceEstimasi} onChange={(e) => { const v = e.target.value; if (v === "") setPriceEstimasi(""); else setPriceEstimasi(Math.max(0, Number(v))); }} />
             <p className="text-[11px] text-muted-foreground">Hanya info awal. Total bayar final dari riwayat pembayaran di detail servis.</p>
+
+            {/* Switch "Kondisi" menentukan apakah pemeriksaan kondisi awal ikut
+                jadi bagian dari alur ini. Mati = lewati, dan tombolnya ikut
+                disembunyikan supaya tidak ada tombol yang tidak bisa dipakai. */}
+            <div className="flex items-center justify-between gap-3 rounded-lg border px-3 py-2.5">
+              <Label htmlFor="srv-kondisi-toggle" className="cursor-pointer">
+                Kondisi
+                <span className="block text-[11px] font-normal text-muted-foreground">
+                  Periksa kondisi perangkat sebelum dikerjakan
+                </span>
+              </Label>
+              <Switch
+                id="srv-kondisi-toggle"
+                checked={kondisiEnabled}
+                onCheckedChange={(v: boolean) => {
+                  setKondisiEnabled(v);
+                  // Mematikan switch harus ikut menutup form yang sudah terbuka,
+                  // kalau tidak isinya menggantung di layar tanpa jalan menutup.
+                  if (!v) setKondisiOpen(false);
+                }}
+              />
+            </div>
+
+            {kondisiEnabled ? (
+              <div className="grid transition-[grid-template-rows] duration-200 ease-out grid-rows-[1fr]">
+                <div className="overflow-hidden">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full justify-between"
+                    disabled={loading}
+                    aria-expanded={kondisiOpen}
+                    onClick={handleKondisiClick}
+                  >
+                    <span>Check Kondisi</span>
+                    <ChevronRight
+                      className={cn(
+                        "size-4 transition-transform duration-200",
+                        kondisiOpen && "rotate-90",
+                      )}
+                    />
+                  </Button>
+                </div>
+              </div>
+            ) : null}
           </CardContent>
         </Card>
 
@@ -261,8 +358,7 @@ export function ServisForm({ onSuccess, onCancel }: ServisFormProps) {
           <Button type="submit" disabled={loading}>{loading ? "Menyimpan..." : "Simpan Servis (Masuk)"}</Button>
         </div>
       </form>
-
-      <KondisiAwalDialog open={showKondisi} onOpenChange={setShowKondisi} onSave={handleKondisiSave} onSkip={handleSkip} />
+      )}
     </>
   );
 }

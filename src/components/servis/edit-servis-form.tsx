@@ -15,6 +15,7 @@ import { CustomerAutocomplete } from "./customer-autocomplete";
 import { PatternLock } from "./pattern-lock";
 import { useUnsavedGuard } from "@/hooks/use-unsaved-guard";
 import { getTeknisi, updateServis } from "@/app/app/servis/actions";
+import { teknisiLabel } from "@/lib/servis-technisi-label";
 import type { ServisDetail } from "@/app/app/servis/actions";
 import { format } from "date-fns";
 import { id as localeId } from "date-fns/locale";
@@ -88,7 +89,7 @@ export function EditServisForm({ servisId, initial, onSuccess, onCancel }: Props
     if (!teknisiId) return "Teknisi wajib diisi";
     if (!merk.trim()) return "Merk wajib";
     if (!tipe.trim()) return "Tipe wajib";
-    if (!imei1.trim()) return "IMEI/SN 1 wajib";
+
     if (kerusakan.length === 0) return "Kerusakan minimal 1 tag";
     if (!custName.trim()) return "Nama customer wajib";
     if (!custPhone.trim()) return "Kontak WA wajib";
@@ -112,7 +113,7 @@ export function EditServisForm({ servisId, initial, onSuccess, onCancel }: Props
         teknisi_id: teknisiId,
         merk: merk.trim(),
         tipe: tipe.trim(),
-        imei1: imei1.trim(),
+        imei1: imei1.trim() || null,
         imei2: imei2.trim() || undefined,
         kerusakan,
         kelengkapan,
@@ -157,14 +158,20 @@ export function EditServisForm({ servisId, initial, onSuccess, onCancel }: Props
       </Card>
 
       <Card>
-        <CardHeader><CardTitle className="text-base">Teknisi *</CardTitle><CardDescription>Pilih teknisi penanggung jawab</CardDescription></CardHeader>
+        <CardHeader><CardTitle className="text-base">Teknisi</CardTitle></CardHeader>
         <CardContent>
           <div className="space-y-1.5">
             <Label>Teknisi *</Label>
             <Select value={teknisiId} onValueChange={(v) => setTeknisiId(v as string)}>
-              <SelectTrigger><SelectValue placeholder="Pilih teknisi" /></SelectTrigger>
+              <SelectTrigger>
+                {/* Children wajib: `Select.Value` base-ui menampilkan value
+                   mentah tanpa children, jadi trigger akan menampilkan UUID. */}
+                <SelectValue placeholder="Pilih teknisi">
+                  {teknisiLabel(teknisiOpts.find((t) => t.id === teknisiId))}
+                </SelectValue>
+              </SelectTrigger>
               <SelectPopup>
-                {teknisiOpts.length === 0 ? <SelectItem value="__empty" disabled>Tidak ada teknisi</SelectItem> : teknisiOpts.map((t) => <SelectItem key={t.id} value={t.id}>{t.full_name || t.phone || t.id.slice(0, 6)}</SelectItem>)}
+                {teknisiOpts.length === 0 ? <SelectItem value="__empty" disabled>Tidak ada teknisi</SelectItem> : teknisiOpts.map((t) => <SelectItem key={t.id} value={t.id}>{teknisiLabel(t)}</SelectItem>)}
               </SelectPopup>
             </Select>
           </div>
@@ -177,7 +184,7 @@ export function EditServisForm({ servisId, initial, onSuccess, onCancel }: Props
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-1.5"><Label>Merk Handphone *</Label><Input value={merk} onChange={(e) => setMerk(e.target.value)} /></div>
             <div className="space-y-1.5"><Label>Tipe Handphone *</Label><Input value={tipe} onChange={(e) => setTipe(e.target.value)} /></div>
-            <div className="space-y-1.5"><Label>IMEI / SN 1 *</Label><Input value={imei1} onChange={(e) => setImei1(e.target.value)} /></div>
+            <div className="space-y-1.5"><Label>IMEI / SN 1</Label><Input value={imei1} onChange={(e) => setImei1(e.target.value)} /></div>
             <div className="space-y-1.5"><Label>IMEI / SN 2 (Opsional)</Label><Input value={imei2} onChange={(e) => setImei2(e.target.value)} /></div>
           </div>
           <Separator />
@@ -206,7 +213,7 @@ export function EditServisForm({ servisId, initial, onSuccess, onCancel }: Props
       </Card>
 
       <Card>
-        <CardHeader><CardTitle className="text-base">Estimasi Biaya <span className="font-normal text-muted-foreground">(Opsional)</span></CardTitle><CardDescription>Perkiraan awal. Total bayar final dari riwayat pembayaran.</CardDescription></CardHeader>
+        <CardHeader><CardTitle className="text-base">Estimasi Biaya <span className="font-normal text-muted-foreground">(Opsional)</span></CardTitle></CardHeader>
         <CardContent className="space-y-1.5"><Label>Estimasi (Rp)</Label><Input type="number" min={0} placeholder="Kosongkan jika belum tahu" value={priceEstimasi} onChange={(e) => { const v = e.target.value; if (v === "") setPriceEstimasi(""); else setPriceEstimasi(Math.max(0, Number(v))); }} /></CardContent>
       </Card>
 

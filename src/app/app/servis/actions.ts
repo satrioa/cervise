@@ -25,8 +25,12 @@ export type CreateServisPayload = {
   teknisi_id: string;
   merk: string;
   tipe: string;
-  imei1: string;
-  imei2?: string;
+  // Keduanya boleh null: kolomnya nullable di database, dan IMEI tidak selalu
+  // ada (mis. perangkat tanpa IMEI, atau tidak diketahui kasir). `null`
+  // disengaja, bukan string kosong -- string kosong akan cocok dengan pencarian
+  // IMEI kosong dan unenforceable.
+  imei1?: string | null;
+  imei2?: string | null;
   kerusakan: string[];
   kelengkapan: string[];
   password_type: "PIN" | "POLA";
@@ -172,8 +176,7 @@ export async function createServis(payload: CreateServisPayload) {
   // validation server-side (teknisi wajib)
   if (!payload.teknisi_id) throw new Error("Teknisi wajib diisi");
   if (!payload.merk || !payload.tipe) throw new Error("Merk & Tipe wajib");
-  if (!payload.imei1) throw new Error("IMEI 1 wajib");
-  if (!payload.kerusakan || payload.kerusakan.length === 0) throw new Error("Kerusakan minimal 1");
+  if (payload.kerusakan == null || payload.kerusakan.length === 0) throw new Error("Kerusakan minimal 1");
   if (!payload.customer_name || !payload.customer_phone) throw new Error("Nama & WA wajib");
   if (!payload.password_type || !payload.password_value) throw new Error("Password device wajib");
   if (!payload.garansi_value || !payload.garansi_unit) throw new Error("Garansi wajib");
@@ -282,7 +285,7 @@ export async function createServis(payload: CreateServisPayload) {
       price_estimasi: payload.price_estimasi ?? null,
       merk: payload.merk.trim(),
       tipe: payload.tipe.trim(),
-      imei1: payload.imei1.trim(),
+      imei1: payload.imei1?.trim() || null,
       imei2: payload.imei2?.trim() || null,
       kerusakan: kerusakanNorm,
       kelengkapan: kelengkapanNorm,
