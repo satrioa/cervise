@@ -7,6 +7,7 @@ const { mocks } = vi.hoisted(() => {
     serviceRow,
     logRows,
     rateLimitRow: null as { window_start: string; hits: number } | null,
+    orgId: "org-1" as string | null,
     calls: [] as { table: string; op: string; value?: unknown }[],
   };
 
@@ -27,13 +28,37 @@ const { mocks } = vi.hoisted(() => {
           },
         };
       }
+      if (table === "organizations") {
+        return {
+          select: () => ({
+            eq: () => ({
+              in: () => ({ maybeSingle: async () => ({ data: state.orgId ? { id: state.orgId } : null, error: null }) }),
+            }),
+          }),
+        };
+      }
       if (table === "cervise_services") {
         return {
           select: (columns: string) => {
             state.calls.push({ table, op: "select", value: columns });
-            return {
-              eq: () => ({ limit: () => ({ maybeSingle: async () => ({ data: state.serviceRow.id ? state.serviceRow : null, error: null }) }) }),
+            // Servis tidak punya organization_id sendiri, tenant-nya lewat
+            // branch. Mock meniru PostgREST: embedded filter yang tidak cocok
+            // berarti baris tidak terlihat.
+            const filters: Record<string, unknown> = {};
+            const chain: Record<string, unknown> = {
+              eq: (column: string, value: unknown) => {
+                filters[column] = value;
+                return chain;
+              },
+              limit: () => ({
+                maybeSingle: async () => {
+                  const owner = (state.serviceRow.branchOrganizationId as string | undefined) ?? state.orgId ?? null;
+                  const inScope = filters["branches.organization_id"] === owner;
+                  return { data: state.serviceRow.id && inScope ? state.serviceRow : null, error: null };
+                },
+              }),
             };
+            return chain;
           },
         };
       }
@@ -65,6 +90,7 @@ describe("lookupServisByCode", () => {
     mocks.state.serviceRow = {};
     mocks.state.logRows = [];
     mocks.state.rateLimitRow = null;
+    mocks.state.orgId = "org-1";
     mocks.state.calls = [];
     mocks.headers.mockResolvedValue(new Headers({ "x-forwarded-for": "203.0.113.9, 10.0.0.1" }));
   });
@@ -170,5 +196,23 @@ describe("lookupServisByCode", () => {
     await lookupServisByCode("other", "A3BD9F2C4B");
     const otherInsert = mocks.state.calls.filter((call) => call.table === "public_rate_limits" && call.op === "insert").at(-1);
     expect((otherInsert?.value as { key: string }).key.startsWith("look:other:")).toBe(true);
+  });
+
+  it("tidak membuka kode milik tenant lain di halaman tenant ini", async () => {
+    mocks.state.serviceRow = { id: "svc-b", tracking_code: "A3BD9F2C4B", branchOrganizationId: "org-2", device: "iPhone 13", status: "Selesai", created_at: "2026-09-01T00:00:00Z", garansi_value: 30, garansi_unit: "hari", garansi_until: "2026-10-01T00:00:00Z", service_number: "SRV-2026-0001", branches: { id: "b-2", name: "Cabang Milik Orang" }, profiles: { full_name: "Rahasia" } };
+
+    const result = await lookupServisByCode("acme", "A3BD9F2C4B");
+
+    expect(result).toEqual({ ok: false, message: UNAVAILABLE });
+    expect(JSON.stringify(result)).not.toContain("Rahasia");
+  });
+
+  it("balas pesan yang sama saat slug-nya tidak dikenal, tanpa menyentuh tabel servis", async () => {
+    mocks.state.orgId = null;
+
+    const result = await lookupServisByCode("tenant-hantu", "A3BD9F2C4B");
+
+    expect(result).toEqual({ ok: false, message: UNAVAILABLE });
+    expect(mocks.state.calls.some((call) => call.table === "cervise_services")).toBe(false);
   });
 });

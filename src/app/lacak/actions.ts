@@ -130,6 +130,29 @@ export async function getPublicTenant(slug: string): Promise<PublicTenant | null
   return toPublicTenant(row, process.env.NEXT_PUBLIC_SUPABASE_URL ?? "");
 }
 
+/**
+ * `tracking_code` unik GLOBAL, jadi tanpa filter tenant kode milik tenant lain
+ * tetap terbuka di halaman lacak tenant ini. Slug harus di-resolve lebih dulu
+ * dan query servis harus ikut `branches.organization_id` (cervise_services
+ * tidak punya organization_id sendiri, tenant-nya lewat branch).
+ * Slug yang tidak dikenal/tenant tidak aktif dibalas dengan pesan yang sama
+ * seperti kode salah, supaya halaman ini tidak jadi alat tebak slug.
+ */
+async function tenantIdForSlug(slug: string): Promise<string | null> {
+  const normalized = slug.trim().toLowerCase();
+  if (!normalized) return null;
+
+  const { data } = await createAdminClient()
+    .from("organizations")
+    .select("id")
+    .eq("slug", normalized)
+    .in("status", ACTIVE_TENANT_STATUSES)
+    .maybeSingle();
+
+  const id = (data as { id?: unknown } | null)?.id;
+  return typeof id === "string" ? id : null;
+}
+
 export async function lookupServisByCode(slug: string, rawCode: string): Promise<PublicServisLookup> {
   const code = normalizeTrackingCode(rawCode);
   if (!code) return { ok: false, message: PUBLIC_LOOKUP_UNAVAILABLE_MESSAGE };
@@ -139,11 +162,15 @@ export async function lookupServisByCode(slug: string, rawCode: string): Promise
     return { ok: false, message: PUBLIC_LOOKUP_RATE_LIMIT_MESSAGE };
   }
 
+  const tenantId = await tenantIdForSlug(slug);
+  if (!tenantId) return { ok: false, message: PUBLIC_LOOKUP_UNAVAILABLE_MESSAGE };
+
   const admin = createAdminClient();
   const { data, error } = await admin
     .from("cervise_services")
     .select(PUBLIC_SERVICE_SELECT)
     .eq("tracking_code", code)
+    .eq("branches.organization_id", tenantId)
     .limit(1)
     .maybeSingle();
   if (error) return { ok: false, message: PUBLIC_LOOKUP_UNAVAILABLE_MESSAGE };
