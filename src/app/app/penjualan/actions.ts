@@ -341,6 +341,8 @@ export async function createSale(input: {
       p_product_id: p.id,
       p_delta: -it.qty,
       p_expected_stock: Number(p.stock_qty),
+      p_reason: "sale",
+      p_sale_id: saleId,
     });
     if (stErr) throw new Error(stErr.message);
   }
@@ -376,6 +378,8 @@ export async function returnSaleItems(saleId: string, returns: { item_id: string
     const { error: stockError } = await supabase.rpc("adjust_product_stock", {
       p_product_id: (it as any).product_id,
       p_delta: r.qty,
+      p_reason: "sale_return",
+      p_sale_id: saleId,
     });
     if (stockError) throw new Error(stockError.message);
     const { error: returnError } = await supabase.from("cervise_sales_items").update({ qty_returned: (it as any).qty_returned + r.qty } as any).eq("id", r.item_id);

@@ -190,6 +190,8 @@ describe("createSale", () => {
       p_product_id: "product-1",
       p_delta: -2,
       p_expected_stock: 5,
+      p_reason: "sale",
+      p_sale_id: expect.any(String),
     });
     expect(productUpdate).not.toHaveBeenCalled();
   });
