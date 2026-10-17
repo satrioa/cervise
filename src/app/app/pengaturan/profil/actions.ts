@@ -6,6 +6,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { publicPhotoUrl } from "@/lib/photos";
 import { validatePhone } from "@/lib/phone";
 import { passwordResetRedirectUrl } from "@/lib/auth/redirect-url";
+import { isManagerRole } from "@/lib/auth/authorization";
 import { revalidatePath } from "next/cache";
 
 export async function getProfileInitial() {
@@ -31,7 +32,7 @@ export async function getProfileInitial() {
 
   const branchId = (emp?.branch_id as string | null) ?? null;
   const role = (emp?.role as string) ?? actor.role;
-  const isMasterAdmin = role === "MASTER_ADMIN" || role === "ADMIN";
+  const isMasterAdmin = isManagerRole(role);
 
   const { data: branches } = await supabase
     .from("branches")

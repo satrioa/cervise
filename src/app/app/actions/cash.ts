@@ -1,6 +1,7 @@
 "use server";
 
 import { getActiveTenant } from "@/lib/supabase/actor";
+import { isManagerRole } from "@/lib/auth/authorization";
 import { canAccess } from "@/lib/nav/manifest";
 import {
   buildFrontlinerKpi,
@@ -191,7 +192,7 @@ export async function closeCashSession(input: {
   try {
     const { supabase, userId, role } = await cashContext();
 
-    const isManager = ["MASTER_ADMIN", "ADMIN"].includes(role.toUpperCase());
+    const isManager = isManagerRole(role);
 
     // Verifikasi sesi masih terbuka sebelum update. Constraint database
     // `cervise_cash_sessions_closed_check` hanya menolak update yang
@@ -341,7 +342,7 @@ export async function listShiftSessions(
 ): Promise<CashResult<CashSessionRow[]>> {
   try {
     const { supabase, branchId, userId, role } = await cashContext();
-    const isManager = ["MASTER_ADMIN", "ADMIN"].includes(role.toUpperCase());
+    const isManager = isManagerRole(role);
     const scope = filters.scope ?? (isManager ? "branch" : "mine");
 
     let query = supabase

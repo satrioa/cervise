@@ -1,3 +1,5 @@
+import { formatRupiah } from "@/lib/format";
+
 export type SubscriptionLifecycleStatus =
   | "trial"
   | "active"
@@ -64,12 +66,6 @@ function formatIndonesianDate(value: Date) {
     year: "numeric",
     timeZone: "Asia/Jakarta",
   }).format(value);
-}
-
-function formatRupiah(value: number) {
-  return `Rp${new Intl.NumberFormat("id-ID", {
-    maximumFractionDigits: 0,
-  }).format(value)}`;
 }
 
 export function shouldCreateRenewalInvoice(input: RenewalInvoiceInput) {

@@ -13,6 +13,8 @@
  * Modul ini murni: tidak menyentuh database, sehingga bisa diuji langsung.
  */
 
+import { isManagerRole } from "@/lib/auth/authorization";
+
 export const PROFILE_ROLE = {
   MASTER_ADMIN: "master_admin",
   ADMIN: "admin",
@@ -49,11 +51,12 @@ export const EMPLOYEE_TO_PROFILE_ROLE: Readonly<Record<string, string>> = {
  * Batas per-cabang itu ditegakkan RLS, jadi gate di sini tidak perlu
  * memeriksa branch — cukup memeriksa role. Menolaknya di sini dengan alasan lain
  * akan membuat ADMIN lolos cek lalu ditolak RLS tanpa pesan yang berguna.
+ *
+ * Gate-nya tidak ditulis ulang di sini: `isManagerRole` di `authorization.ts`
+ * sudah persis sama syaratnya, jadi nama ini hanya alias supaya call site yang
+ * soal karyawan tetap terbaca apa adanya.
  */
-export function canManageEmployees(role: string | null | undefined): boolean {
-  const upper = (role ?? "").toUpperCase();
-  return upper === EMPLOYEE_ROLE.MASTER_ADMIN || upper === EMPLOYEE_ROLE.ADMIN;
-}
+export const canManageEmployees = isManagerRole;
 
 export type MasterAdminInput = {
   fullName: string;

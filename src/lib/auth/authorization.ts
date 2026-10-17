@@ -65,6 +65,15 @@ export function isManagerRole(role: string | null | undefined) {
   return normalized === "MASTER_ADMIN" || normalized === "ADMIN";
 }
 
+/**
+ * MASTER_ADMIN saja, tanpa ADMIN. Berbeda dari `isManagerRole` dan dipakai
+ * untuk hak yang tidak boleh dipegang ADMIN: pindah tenant/cabang, menambah
+ * karyawan, dan menggeser cabang milik sendiri.
+ */
+export function isMasterAdminRole(role: string | null | undefined) {
+  return normalizeRole(role) === "MASTER_ADMIN";
+}
+
 export function isSalesRole(role: string | null | undefined) {
   const normalized = normalizeRole(role);
   return normalized === "MASTER_ADMIN" || normalized === "ADMIN" || normalized === "FRONTLINER";

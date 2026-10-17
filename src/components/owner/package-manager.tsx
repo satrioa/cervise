@@ -4,6 +4,7 @@ import { useState } from "react";
 import { PencilIcon, PlusIcon, SaveIcon } from "lucide-react";
 import { toast } from "sonner";
 import { savePackage } from "@/app/owner/actions";
+import { formatRupiah } from "@/lib/format";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -40,10 +41,6 @@ const emptyForm: FormState = {
   branchLimit: "1",
   userLimit: "3",
 };
-
-function formatRupiah(value: number) {
-  return `Rp${new Intl.NumberFormat("id-ID", { maximumFractionDigits: 0 }).format(value)}`;
-}
 
 export function PackageManager({ packages }: { packages: PackageRow[] }) {
   const [form, setForm] = useState<FormState>(emptyForm);

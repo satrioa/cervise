@@ -42,15 +42,6 @@ export async function requireMenuForBilling(key: string): Promise<Actor> {
   return actor;
 }
 
-/**
- * Untuk halaman read-only: tetap boleh dibuka, tapi aksi tulis tidak boleh.
- * Dibiarkan sebagai no-op guard supaya call site eksplisit dan mudah dicari,
- * dan supaya penambahan readOnly di masa depan cukup mengubah satu tempat.
- */
-export async function requireMenuReadOnly(key: string): Promise<Actor> {
-  return requireMenu(key);
-}
-
 export function assertCanWrite(actor: Actor, key: string): void {
   if (!canWrite(actor.role, key)) {
     throw new Error("Role tidak diizinkan mengubah data ini");
