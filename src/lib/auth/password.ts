@@ -18,27 +18,48 @@ const PASSWORD_SUFFIX = "1!";
 
 export const GENERATED_PASSWORD_LENGTH = 12;
 
+/** Sisa buffer byte dari panggilan terakhir; lihat `randomChars`. */
+let carry = new Uint8Array(0);
+
 /**
- * Satu karakter acak seragam dari alfabet.
+ * `length` karakter acak seragam dari alfabet, dengan satu panggilan
+ * `getRandomValues` per potong.
  *
- * Versi lama memakai `byte % 58` langsung. Dengan 256 byte dan alfabet 58,
- * 232 byte pertama memberi setiap huruf 4 slot, sedangkan 24 byte sisanya
- * berulang ke 24 huruf pertama - jadi huruf pertama muncul sekitar 1,25x
- * lebih sering dari huruf terakhir. Pola itu membuat password lebih mudah
- * ditebak. Di sini byte yang jatuh di "ekor" (>= batas kelipatan) dibuang
- * dan diundi ulang.
+ * Dua hal yang dijaga di sini:
+ *
+ * 1. Tidak ada modulo bias. Alfabet 58 bukan kelipatan 256, jadi 232 byte
+ *    pertama memberi setiap huruf 4 slot sedangkan 24 byte sisanya berulang ke
+ *    24 huruf pertama - huruf pertama jadi muncul sekitar 1,25x lebih sering.
+ *    Byte di "ekor" itu dibuang, bukan dipakai.
+ * 2. Byte diambil sepotong, bukan satu per karakter. Versi lama melakukan satu
+ *    `getRandomValues` per karakter, yang berarti ratusan ribu panggilan untuk
+ *    test yang mengambil 30.000 sampel, dan itu cukup untuk melewati batas
+ *    waktu test di mesin lambat.
+ *
+ * Sisa buffer disimpan di `carry` supaya byte yang terbuang oleh rejection
+ * sampling tidak hilang.
  */
-function randomChar(): string {
+function randomChars(length: number): string {
   const limit = 256 - (256 % PASSWORD_ALPHABET.length);
-  for (;;) {
-    const [byte] = crypto.getRandomValues(new Uint8Array(1));
-    if (byte < limit) return PASSWORD_ALPHABET[byte % PASSWORD_ALPHABET.length];
+  let buffer = carry;
+  let offset = 0;
+  let out = "";
+
+  while (out.length < length) {
+    if (offset >= buffer.length) {
+      buffer = crypto.getRandomValues(new Uint8Array(length));
+      offset = 0;
+    }
+    const byte = buffer[offset];
+    offset += 1;
+    if (byte < limit) out += PASSWORD_ALPHABET[byte % PASSWORD_ALPHABET.length];
   }
+
+  carry = buffer.slice(offset);
+  return out;
 }
 
 export function generateTempPassword(length: number = GENERATED_PASSWORD_LENGTH): string {
   const bodyLength = Math.max(1, length - PASSWORD_SUFFIX.length);
-  let out = "";
-  for (let i = 0; i < bodyLength; i += 1) out += randomChar();
-  return out + PASSWORD_SUFFIX;
+  return randomChars(bodyLength) + PASSWORD_SUFFIX;
 }
