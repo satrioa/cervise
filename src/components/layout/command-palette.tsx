@@ -49,7 +49,10 @@ export function CerviseCommandPalette({ open, onOpenChange, role }: Props) {
     setTimeout(() => setShowNewServis(true), 150);
   };
 
-  const blocks = navFor(role, "legacy");
+  // Sidebar menyembunyikan group akun/pengaturan karena sudah punya tempat
+  // sendiri, tapi palette harus tetap bisa melompat ke sana. Jika pencarian di
+  // sini lebih sempit dari navigasi, "pengaturan" jadi tidak bisa dicari.
+  const blocks = navFor(role, "legacy", { includeHidden: true });
 
   return (
     <>

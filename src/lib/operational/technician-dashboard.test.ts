@@ -14,11 +14,15 @@ const TEKNISI = "tech-1";
 const LAIN = "tech-2";
 
 function service(overrides: Partial<TechnicianServiceInput> = {}): TechnicianServiceInput {
+  const dibuat = overrides.created_at ?? "2026-09-28T08:00:00Z";
   return {
     id: "s1",
     service_number: "SRV-001",
-    created_at: "2026-09-28T08:00:00Z",
-    updated_at: "2026-09-28T08:00:00Z",
+    created_at: dibuat,
+    updated_at: dibuat,
+    // Default-nya waktu selesai ikut waktu dibuat, supaya test yang hanya
+    // bermaksud "servis selesai bulan ini" tidak perlu menyebutkannya.
+    completed_at: "completed_at" in overrides ? (overrides.completed_at ?? null) : dibuat,
     branch_id: "b1",
     teknisi_id: TEKNISI,
     status: "Masuk",
@@ -170,12 +174,95 @@ describe("buildAttentionQueue", () => {
   });
 });
 
+describe("KPI harian di kartu bento", () => {
+  const aktif: BranchIntensif = {
+    is_intensif_enabled: true,
+    // `flat`, bukan `percent`: target adalah syarat pembayaran mode flat, jadi
+    // kombinasi percent+target tidak akan pernah tersimpan lagi.
+    intensif_mode: "flat",
+    intensif_value: 300_000,
+    intensif_target_count: 10,
+  };
+
+  it("masuk hari ini = status Masuk yang dibuat hari ini", () => {
+    const services = [
+      service({ id: "a", status: "Masuk", created_at: hoursAgo(2) }),
+      service({ id: "b", status: "Masuk", created_at: hoursAgo(1) }),
+      // Dibuat kemarin: bukan hari ini meski masih berstatus Masuk.
+      service({ id: "c", status: "Masuk", created_at: hoursAgo(30) }),
+      service({ id: "d", status: "Dikerjakan", created_at: hoursAgo(1) }),
+    ];
+    expect(buildTechnicianKpi(services, TEKNISI, aktif, NOW).masukHariIni).toBe(2);
+  });
+
+  it("selesai hari ini memakai completed_at, bukan updated_at", () => {
+    // `set_service_status` tidak menyentuh `updated_at`, jadi updated_at tidak
+    // pernah menandai waktu selesai. completed_at satu-satunya sumber yang benar.
+    const services = [
+      service({ id: "a", status: "Selesai", created_at: hoursAgo(200), updated_at: hoursAgo(200), completed_at: hoursAgo(3) }),
+      service({ id: "b", status: "Sudah Diambil", created_at: hoursAgo(200), updated_at: hoursAgo(200), completed_at: hoursAgo(1) }),
+      // updated_at hari ini tapi selesai minggu lalu: bukan hari ini.
+      service({ id: "d", status: "Selesai", created_at: hoursAgo(400), updated_at: hoursAgo(1), completed_at: hoursAgo(20) }),
+    ];
+    expect(buildTechnicianKpi(services, TEKNISI, aktif, NOW).selesaiHariIni).toBe(2);
+  });
+
+  it("servis selesai tanpa completed_at tidak dihitung sebagai selesai hari ini", () => {
+    const services = [
+      service({ id: "a", status: "Selesai", updated_at: hoursAgo(1), completed_at: null }),
+    ];
+    expect(buildTechnicianKpi(services, TEKNISI, aktif, NOW).selesaiHariIni).toBe(0);
+  });
+
+  it("masuk hari ini tetap memakai created_at, bukan completed_at", () => {
+    const services = [
+      service({ id: "a", status: "Masuk", created_at: hoursAgo(2), completed_at: null }),
+      service({ id: "b", status: "Masuk", created_at: hoursAgo(1), completed_at: null }),
+      service({ id: "c", status: "Masuk", created_at: hoursAgo(30), completed_at: null }),
+    ];
+    expect(buildTechnicianKpi(services, TEKNISI, aktif, NOW).masukHariIni).toBe(2);
+  });
+
+  it("mengabaikan servis teknisi lain", () => {
+    const services = [
+      service({ id: "a", status: "Masuk", teknisi_id: LAIN, created_at: hoursAgo(1) }),
+      service({ id: "b", status: "Selesai", teknisi_id: LAIN, updated_at: hoursAgo(1) }),
+    ];
+    const kpi = buildTechnicianKpi(services, TEKNISI, aktif, NOW);
+    expect(kpi.masukHariIni).toBe(0);
+    expect(kpi.selesaiHariIni).toBe(0);
+  });
+
+  it("harian tetap nol saat teknisi tidak punya assignment", () => {
+    const kpi = buildTechnicianKpi(
+      [service({ id: "a", status: "Masuk", created_at: hoursAgo(1) })],
+      null,
+      aktif,
+      NOW,
+    );
+    expect(kpi.masukHariIni).toBe(0);
+    expect(kpi.selesaiHariIni).toBe(0);
+  });
+
+  it("tidak terpengaruh tanggal rusak", () => {
+    const services = [
+      service({ id: "a", status: "Masuk", created_at: "bukan-tanggal" }),
+      service({ id: "b", status: "Selesai", completed_at: "" }),
+    ];
+    const kpi = buildTechnicianKpi(services, TEKNISI, aktif, NOW);
+    expect(kpi.masukHariIni).toBe(0);
+    expect(kpi.selesaiHariIni).toBe(0);
+  });
+});
+
 describe("buildTechnicianKpi", () => {
   const aktif: BranchIntensif = {
     is_intensif_enabled: true,
-    intensif_mode: "percent",
-    intensif_value: 5,
-    intensify_target_count: 10,
+    // `flat`, bukan `percent`: target adalah syarat pembayaran mode flat, jadi
+    // kombinasi percent+target tidak akan pernah tersimpan lagi.
+    intensif_mode: "flat",
+    intensif_value: 300_000,
+    intensif_target_count: 10,
   };
 
   it("menghitung persentase terhadap target", () => {
@@ -183,7 +270,9 @@ describe("buildTechnicianKpi", () => {
       service({ id: `d${i}`, status: "Selesai" }),
     );
     const kpi = buildTechnicianKpi(services, TEKNISI, aktif, NOW);
-    expect(kpi).toEqual({ target: 10, selesai: 3, targetPct: 30, unset: false });
+    // `toMatchObject`, bukan `toEqual`: kartu harian ditambahkan terpisah dan
+    // test ini hanya soal target bulanan.
+    expect(kpi).toMatchObject({ target: 10, selesai: 3, targetPct: 30, unset: false });
   });
 
   it("membatasi persentase maksimal 100", () => {
@@ -201,14 +290,30 @@ describe("buildTechnicianKpi", () => {
 
   it("target null, nol, atau negatif berarti belum diatur", () => {
     for (const target of [null, 0, -5]) {
-      const kpi = buildTechnicianKpi([], TEKNISI, { ...aktif, intensify_target_count: target }, NOW);
+      const kpi = buildTechnicianKpi([], TEKNISI, { ...aktif, intensif_target_count: target }, NOW);
       expect(kpi.unset, String(target)).toBe(true);
       expect(kpi.targetPct, String(target)).toBeNull();
     }
   });
 
+  it("target hanya berlaku di mode flat", () => {
+    // Sisa target di mode percent/fixed harus diabaikan, bukan dipakai sebagai
+    // KPI. Kalau tidak, progres bar akan berjalan untuk cabang yang sistemnya
+    // memang tidak memakai gate target sama sekali.
+    for (const mode of ["percent", "fixed"] as const) {
+      const kpi = buildTechnicianKpi([], TEKNISI, { ...aktif, intensif_mode: mode }, NOW);
+      expect(kpi.applicable, mode).toBe(false);
+      expect(kpi.target, mode).toBeNull();
+      expect(kpi.targetPct, mode).toBeNull();
+    }
+  });
+
+  it("mode flat menandai target sebagai applicable", () => {
+    expect(buildTechnicianKpi([], TEKNISI, aktif, NOW).applicable).toBe(true);
+  });
+
   it("tanpa baris setting cabang, kartu menampilkan empty state", () => {
-    expect(buildTechnicianKpi([], TEKNISI, null, NOW)).toEqual({
+    expect(buildTechnicianKpi([], TEKNISI, null, NOW)).toMatchObject({
       target: null,
       selesai: 0,
       targetPct: null,
@@ -226,11 +331,32 @@ describe("buildTechnicianKpi", () => {
     expect(buildTechnicianKpi(services, TEKNISI, aktif, NOW).selesai).toBe(2);
   });
 
-  it("hanya menghitung servis bulan berjalan", () => {
+  it("hanya menghitung servis bulan berjalan menurut waktu selesai", () => {
     const services = [
-      service({ id: "a", status: "Selesai", created_at: "2026-09-10T08:00:00Z" }),
-      service({ id: "b", status: "Selesai", created_at: "2026-08-10T08:00:00Z" }),
-      service({ id: "c", status: "Selesai", created_at: "2025-09-10T08:00:00Z" }),
+      service({ id: "a", status: "Selesai", created_at: "2026-09-10T08:00:00Z", completed_at: "2026-09-10T08:00:00Z" }),
+      service({ id: "b", status: "Selesai", created_at: "2026-09-09T08:00:00Z", completed_at: "2026-08-10T08:00:00Z" }),
+      service({ id: "c", status: "Selesai", created_at: "2026-09-11T08:00:00Z", completed_at: "2025-09-10T08:00:00Z" }),
+      // Dibuat bulan ini tapi selesai bulan depan: belum masuk hitungan.
+      service({ id: "d", status: "Selesai", created_at: "2026-09-12T08:00:00Z", completed_at: "2026-10-01T08:00:00Z" }),
+    ];
+    expect(buildTechnicianKpi(services, TEKNISI, aktif, NOW).selesai).toBe(1);
+  });
+
+  it("menghitung batas bulan menurut waktu Indonesia, bukan UTC", () => {
+    // 2026-09-30T19:00Z = 1 Oktober 02:00 WIB. Kalau dihitung pakai UTC,
+    // servis ini masuk September dan teknisi dapat target lebih awal.
+    const services = [
+      service({ id: "a", status: "Selesai", completed_at: "2026-09-30T19:00:00Z" }),
+      // 2026-09-30T15:00Z = 30 September 22:00 WIB: masih September.
+      service({ id: "b", status: "Selesai", completed_at: "2026-09-30T15:00:00Z" }),
+    ];
+    expect(buildTechnicianKpi(services, TEKNISI, aktif, NOW).selesai).toBe(1);
+  });
+
+  it("servis selesai tanpa completed_at tidak masuk hitungan bulanan", () => {
+    const services = [
+      service({ id: "a", status: "Selesai", completed_at: null }),
+      service({ id: "b", status: "Selesai", completed_at: "2026-09-10T08:00:00Z" }),
     ];
     expect(buildTechnicianKpi(services, TEKNISI, aktif, NOW).selesai).toBe(1);
   });

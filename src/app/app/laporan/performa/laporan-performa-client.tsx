@@ -14,12 +14,30 @@ import { PageHeader } from "@/components/layout/page-header";
 import { getPerformaTeknisi } from "@/app/app/laporan/performa/actions";
 import type { TeknisiPerformanceRow } from "@/lib/operational/performa-teknisi";
 
+const NAMA_BULAN = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
+
+const OFFSET_WIB_MS = 7 * 60 * 60 * 1000;
+
+function formatBulan(iso: string): string {
+  const waktu = new Date(new Date(iso).getTime() + OFFSET_WIB_MS);
+  if (Number.isNaN(waktu.getTime())) return "bulan berjalan";
+  return `${NAMA_BULAN[waktu.getUTCMonth()]} ${waktu.getUTCFullYear()}`;
+}
+
+function labelInsentif(row: TeknisiPerformanceRow): string {
+  if (!row.intensifEnabled) return "Off";
+  if (row.intensifMode === "percent") return `${row.intensifValue}% dari pendapatan`;
+  if (row.intensifMode === "fixed") return `${formatCurrencyPlain(row.intensifValue)} per servis`;
+  return `Flat bila ≥ ${row.intensifTarget ?? "—"} servis`;
+}
+
 export default function PerformaPage() {
   const [q, setQ] = useState("");
   const [cabangFilter, setCabangFilter] = useState<string>("all");
   const [intensifFilter, setIntensifFilter] = useState<string>("all");
   const [rows, setRows] = useState<TeknisiPerformanceRow[]>([]);
-  const [summary, setSummary] = useState<{ technicians: number; selesai: number; revenue: number; insentif: number } | null>(null);
+  const [summary, setSummary] = useState<{ technicians: number; selesai: number; revenue: number; insentif: number; selesaiTanpaTanggal: number } | null>(null);
+  const [bulan, setBulan] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -32,6 +50,7 @@ export default function PerformaPage() {
         else {
           setRows(result.data.report.rows);
           setSummary(result.data.report.summary);
+          setBulan(formatBulan(result.data.periode.dari));
         }
       })
       .finally(() => {
@@ -59,7 +78,7 @@ export default function PerformaPage() {
     <div className="min-h-svh bg-background">
       <PageHeader
         title="Performa Teknisi"
-        description={`${filtered.length}/${rows.length} teknisi · metrik: Selesai + Sudah Diambil = selesai · insentif per cabang (persentase dari pendapatan / nominal per servis) · target opsional`}
+        description={`${filtered.length}/${rows.length} teknisi · bulan ${bulan} · metrik: Selesai + Sudah Diambil · insentif mengikuti pengaturan tiap cabang`}
         containerClassName="max-w-5xl"
         search={
           <div className="relative w-full">
@@ -131,6 +150,13 @@ export default function PerformaPage() {
             ))}
           </div>
         ) : null}
+        {summary && summary.selesaiTanpaTanggal > 0 && (
+          <p className="mb-4 rounded-lg border border-dashed border-border bg-muted/30 px-4 py-3 text-xs text-muted-foreground">
+            {formatNumberPlain(summary.selesaiTanpaTanggal)} servis selesai tidak punya tanggal selesai, jadi tidak
+            dihitung di {bulan}. Teknisi yang punya data seperti itu ditandai "+n tanpa tanggal" pada kolom
+            Selesai. Angka ini masuk begitu status servis diubah lewat aplikasi.
+          </p>
+        )}
         <div className="rounded-xl border bg-card shadow-xs/5 overflow-hidden">
           <Table>
             <TableHeader>
@@ -157,16 +183,28 @@ export default function PerformaPage() {
                 </TableRow>
               ) : null}
               {filtered.map((t) => {
-                const total = t.insentif;
                 const pct = t.intensifTarget ? t.targetPct : null;
+                const terkumpul = t.intensifMode === "flat" && t.intensifTarget != null && t.selesai >= t.intensifTarget;
                 return (
                 <TableRow key={t.id}>
                   <TableCell className="ps-4 font-medium">{t.name}</TableCell>
                   <TableCell className="text-muted-foreground text-xs">{t.branchName}</TableCell>
                   <TableCell>
-                    <Badge variant="secondary" size="sm" className="font-mono tabular-nums">
-                      {formatNumberPlain(t.selesai)} servis
-                    </Badge>
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <Badge variant="secondary" size="sm" className="font-mono tabular-nums">
+                        {formatNumberPlain(t.selesai)} servis
+                      </Badge>
+                      {t.selesaiTanpaTanggal > 0 && (
+                        <Badge
+                          variant="outline"
+                          size="sm"
+                          title={`${t.selesaiTanpaTanggal} servis selesai tidak punya tanggal selesai, jadi tidak masuk hitungan bulan ini`}
+                          className="gap-1 border-dashed font-mono text-[10px] text-muted-foreground"
+                        >
+                          +{t.selesaiTanpaTanggal} tanpa tanggal
+                        </Badge>
+                      )}
+                    </div>
                   </TableCell>
                   <TableCell className="font-mono text-xs tabular-nums">{formatCurrencyPlain(t.revenue)}</TableCell>
                   <TableCell>
@@ -175,9 +213,14 @@ export default function PerformaPage() {
                     ) : (
                       <div className="space-y-1">
                         <Badge variant="outline" size="sm" className="font-mono text-[10px] tabular-nums">
-                          {t.intensifMode === "percent" ? `${t.intensifValue}% dari pendapatan` : `${formatCurrencyPlain(t.intensifValue)} / servis`}
+                          {labelInsentif(t)}
                         </Badge>
-                        <div className="font-mono text-xs tabular-nums">{formatCurrencyPlain(total)}</div>
+                        <div className="font-mono text-xs tabular-nums">{formatCurrencyPlain(t.insentif)}</div>
+                        {t.intensifMode === "flat" && (
+                          <div className={terkumpul ? "text-[11px] text-emerald-600 dark:text-emerald-400" : "text-[11px] text-amber-600 dark:text-amber-400"}>
+                            {terkumpul ? "Target tercapai" : `Belum tercapai (${t.selesai}/${t.intensifTarget})`}
+                          </div>
+                        )}
                       </div>
                     )}
                   </TableCell>

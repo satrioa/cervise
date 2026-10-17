@@ -1,6 +1,7 @@
 "use server";
 
 import { getActiveTenant } from "@/lib/supabase/actor";
+import { rentangBulanSekarang } from "@/lib/operational/periode-bulan";
 import {
   buildPerformaTeknisi,
   type BranchIntensif,
@@ -14,17 +15,20 @@ const ROW_CAP = 5000;
 export type PerformaTeknisiData = {
   report: PerformaTeknisi;
   branches: { id: string; name: string }[];
+  periode: { dari: string; sampai: string };
 };
 
 export type PerformaTeknisiResult = { data: PerformaTeknisiData; error: string | null };
 
 export async function getPerformaTeknisi(): Promise<PerformaTeknisiResult> {
+  const now = new Date();
+  const { from, to } = rentangBulanSekarang(now);
   try {
     const { supabase } = await getActiveTenant();
 
     // employees.role is the authoritative upper-cased role; profiles.role is
     // legacy lower-case and must not be filtered on.
-    const [employeesResult, branchesResult, servicesResult] = await Promise.all([
+    const [employeesResult, branchesResult, servicesResult, undatedResult] = await Promise.all([
       supabase
         .from("employees")
         .select("profile_id, branch_id, profiles(id, full_name)")
@@ -36,14 +40,27 @@ export async function getPerformaTeknisi(): Promise<PerformaTeknisiResult> {
         .order("name"),
       supabase
         .from("cervise_services")
-        .select("teknisi_id, status, price")
+        .select("teknisi_id, status, price, completed_at")
         .not("teknisi_id", "is", null)
+        .gte("completed_at", from.toISOString())
+        .lt("completed_at", to.toISOString())
+        .limit(ROW_CAP),
+      // Servis selesai tanpa tanggal selesai tidak bisa difilter per periode,
+      // jadi diambil terpisah lalu hanya dipakai untuk ditandai di UI. Jumlahnya
+      // sedikit, dan cap ROW_CAP di sini hanya penjaga.
+      supabase
+        .from("cervise_services")
+        .select("teknisi_id, status, price, completed_at")
+        .not("teknisi_id", "is", null)
+        .is("completed_at", null)
+        .in("status", ["Selesai", "Sudah Diambil"])
         .limit(ROW_CAP),
     ]);
 
     if (employeesResult.error) throw new Error(employeesResult.error.message);
     if (branchesResult.error) throw new Error(branchesResult.error.message);
     if (servicesResult.error) throw new Error(servicesResult.error.message);
+    if (undatedResult.error) throw new Error(undatedResult.error.message);
 
     const branchRows = (branchesResult.data ?? []) as (BranchIntensif & { id: string; name: string })[];
     const branchNames = new Map(branchRows.map((branch) => [branch.id, branch.name]));
@@ -77,17 +94,22 @@ export async function getPerformaTeknisi(): Promise<PerformaTeknisiResult> {
       data: {
         report: buildPerformaTeknisi({
           technicians,
-          services: (servicesResult.data ?? []) as ServiceForTech[],
+          services: [...(servicesResult.data ?? []), ...(undatedResult.data ?? [])] as ServiceForTech[],
           branchIntensif,
-          now: new Date(),
+          now,
         }),
         branches: branchRows.map(({ id, name }) => ({ id, name })),
+        periode: { dari: from.toISOString(), sampai: to.toISOString() },
       },
       error: null,
     };
   } catch (cause) {
     return {
-      data: { report: buildPerformaTeknisi({ technicians: [], services: [], branchIntensif: {}, now: new Date() }), branches: [] },
+      data: {
+        report: buildPerformaTeknisi({ technicians: [], services: [], branchIntensif: {}, now }),
+        branches: [],
+        periode: { dari: from.toISOString(), sampai: to.toISOString() },
+      },
       error: cause instanceof Error ? cause.message : "Gagal memuat performa teknisi",
     };
   }

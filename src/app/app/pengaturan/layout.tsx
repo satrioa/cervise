@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { getActiveTenant } from "@/lib/supabase/actor";
-import { NAV_ENTRIES, normalizeAppRole, type NavGroup } from "@/lib/nav/manifest";
-import { SettingsNav } from "@/components/layout/settings-nav";
+import { NAV_ENTRIES, normalizeAppRole, type NavEntry, type NavGroup } from "@/lib/nav/manifest";
+import { SettingsNav, type SettingsNavGroup } from "@/components/layout/settings-nav";
 
 /**
  * Sub-sidebar pengaturan.
@@ -16,13 +16,33 @@ import { SettingsNav } from "@/components/layout/settings-nav";
  * dan `/app/pengaturan/lokalisasi` boleh dibuka semua role, jadi tidak ada satu
  * kunci yang berlaku untuk seluruh subtree. Guard per halaman ada di
  * masing-masing `page.tsx`.
+ *
+ * Group `akun` ikut ditampilkan karena di sidebar utama keduanya disembunyikan
+ * (lihat `HIDDEN_GROUPS`). Kalau tidak, Lokalisasi tidak punya pintu masuk sama
+ * sekali: ikon gear di footer hanya menuju profil.
  */
 
 const GROUP_LABEL: Partial<Record<NavGroup, string>> = {
+  akun: "Account",
   pengaturan: "Configuration",
 };
 
-const GROUP_ORDER: NavGroup[] = ["pengaturan"];
+const GROUP_ORDER: NavGroup[] = ["akun", "pengaturan"];
+
+/**
+ * Bentuk payload untuk Client Component, dibangun di sini dari `NavEntry`.
+ *
+ * Dipisah sebagai fungsi murni supaya bisa diuji tanpa `getActiveTenant()`.
+ */
+export function buildSettingsGroups(entries: NavEntry[]): SettingsNavGroup[] {
+  return GROUP_ORDER.map((group) => ({
+    group,
+    label: GROUP_LABEL[group],
+    entries: entries
+      .filter((entry) => entry.group === group)
+      .map(({ href, label }) => ({ href, label })),
+  })).filter((block) => block.entries.length > 0);
+}
 
 export default async function PengaturanLayout({ children }: { children: React.ReactNode }) {
   const actor = await getActiveTenant();
@@ -39,11 +59,7 @@ export default async function PengaturanLayout({ children }: { children: React.R
       )
     : [];
 
-  const groups = GROUP_ORDER.map((group) => ({
-    group,
-    label: GROUP_LABEL[group],
-    entries: entries.filter((entry) => entry.group === group),
-  })).filter((block) => block.entries.length > 0);
+  const groups = buildSettingsGroups(entries);
 
   // Role ini tidak punya halaman pengaturan selain profil: jangan tampilkan
   // sidebar yang kosong.

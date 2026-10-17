@@ -21,7 +21,7 @@ type BranchItem = {
   phone: string;
   is_active: boolean;
   is_intensif_enabled?: boolean;
-  intensif_mode?: "percent" | "fixed";
+  intensif_mode?: "percent" | "fixed" | "flat";
   intensif_value?: number;
   intensif_target_count?: number | null;
   created_at: string;
@@ -38,6 +38,30 @@ type Member = {
   customStatus?: string;
   active: string;
   permission: "Owner" | "Admin" | "Member" | "Viewer";
+};
+
+/**
+ * Mode insentif cabang.
+ *
+ * Dipakai lewat alias, bukan union yang ditulis ulang di tiap tempat --
+ * `flat` pernah hilang dari `branch-cards.tsx` tepat karena union-nya ditulis
+ * manual di beberapa lokasi dan satu saja lupa diperbarui.
+ */
+type IntensifMode = "percent" | "fixed" | "flat";
+
+/** Hanya mode flat yang memakai target. */
+const TARGET_MODES: ReadonlySet<IntensifMode> = new Set<IntensifMode>(["flat"]);
+
+const AMOUNT_LABEL: Record<IntensifMode, string> = {
+  percent: "Persentase %",
+  fixed: "Nominal per servis (Rp)",
+  flat: "Nominal flat bulanan (Rp)",
+};
+
+const AMOUNT_HELP: Record<IntensifMode, string> = {
+  percent: "Dihitung dari total pendapatan servis selesai bulan ini.",
+  fixed: "Dibayar untuk setiap servis selesai, berapa pun hasilnya.",
+  flat: "Dibayar sekali penuh ke tiap teknisi yang mencapai target bulan ini, bukan per servis.",
 };
 
 const STATUS_DOT: Record<Member["status"], string> = {
@@ -64,7 +88,7 @@ export function CabangDrawer({ branch, open, onOpenChange }: { branch: BranchIte
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [intensifEnabled, setIntensifEnabled] = useState(true);
-  const [intensifMode, setIntensifMode] = useState<"percent" | "fixed">("percent");
+  const [intensifMode, setIntensifMode] = useState<IntensifMode>("percent");
   const [intensifValue, setIntensifValue] = useState<string>("5");
   const [intensifTarget, setIntensifTarget] = useState<string>("");
   const [savingIntensif, setSavingIntensif] = useState(false);
@@ -135,8 +159,15 @@ export function CabangDrawer({ branch, open, onOpenChange }: { branch: BranchIte
     const val = Number(intensifValue);
     if (isNaN(val) || val < 0) { setErrorIntensif("Nilai harus angka ≥ 0"); return; }
     if (intensifMode === "percent" && val > 100) { setErrorIntensif("Persentase maksimal 100%"); return; }
-    const target = intensifTarget.trim() === "" ? null : Number(intensifTarget);
-    if (target !== null && (isNaN(target) || target <= 0)) { setErrorIntensif("Target harus > 0"); return; }
+    // Target hanya bermakna di mode flat. Di mode lain dipaksa null supaya
+    // tidak ada sisa target yang diam-diam menggerakkan KPI/progress.
+    const rawTarget = intensifTarget.trim() === "" ? null : Number(intensifTarget);
+    if (rawTarget !== null && (isNaN(rawTarget) || rawTarget <= 0)) { setErrorIntensif("Target harus lebih dari 0"); return; }
+    if (intensifMode === "flat" && rawTarget === null) {
+      setErrorIntensif("Mode Flat bulanan wajib diisi target per teknisi");
+      return;
+    }
+    const target = TARGET_MODES.has(intensifMode) ? rawTarget : null;
     setSavingIntensif(true);
     setErrorIntensif(null);
     try {
@@ -153,48 +184,30 @@ export function CabangDrawer({ branch, open, onOpenChange }: { branch: BranchIte
 
   if (!branch) return null;
 
-  const letter = (branch.name.trim()[0] ?? "?").toUpperCase();
-  const status: Member["status"] = branch.is_active ? "online" : "off";
-
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="right" className="w-full sm:max-w-md overflow-y-auto p-0">
         <SheetHeader className="border-b px-5 py-4 text-left">
-          <div className="flex items-center gap-3">
-            <div className="flex size-9 items-center justify-center rounded-lg bg-foreground/[0.06] font-heading font-semibold">
-              {letter}
-            </div>
-            <div className="min-w-0 flex-1">
-              <SheetTitle className="truncate">{branch.name}</SheetTitle>
-            </div>
-          </div>
+          <SheetTitle className="truncate">{branch.name}</SheetTitle>
         </SheetHeader>
 
         <div className="p-5 space-y-5">
           {/* Compact identity card like header of compact-card */}
           <div className="rounded-xl border bg-card p-4 shadow-xs/5">
-            <div className="flex items-center gap-3">
-              <div className="relative">
-                <Avatar className="size-10">
-                  <AvatarFallback className="text-xs">{letter}</AvatarFallback>
-                </Avatar>
-                <span className={"absolute right-0 bottom-0 size-3 rounded-full border-2 border-background " + STATUS_DOT[status]} />
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <span className="truncate text-sm font-medium">{branch.name}</span>
+                <Badge variant="outline" size="sm" className="gap-1.5 font-mono text-[10px] uppercase">
+                  <span className={"size-1.5 rounded-full " + (branch.is_active ? "bg-emerald-500" : "bg-muted-foreground/40")} />
+                  {branch.is_active ? "Aktif" : "Nonaktif"}
+                </Badge>
               </div>
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2">
-                  <span className="truncate text-sm font-medium">{branch.name}</span>
-                  <Badge variant="outline" size="sm" className="gap-1.5 font-mono text-[10px] uppercase">
-                    <span className={"size-1.5 rounded-full " + (branch.is_active ? "bg-emerald-500" : "bg-muted-foreground/40")} />
-                    {branch.is_active ? "Aktif" : "Nonaktif"}
-                  </Badge>
-                </div>
-                <div className="mt-0.5 truncate text-xs text-muted-foreground">
-                  {branch.is_active ? "Aktif" : "Tidak aktif"}
-                </div>
-                <div className="mt-1 inline-flex items-center gap-1 font-mono text-[11px] text-muted-foreground">
-                  {branch.is_active ? <CheckCircle2Icon className="size-3 text-emerald-600" /> : null}
-                  dibuat {new Date(branch.created_at).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })}
-                </div>
+              <div className="mt-0.5 truncate text-xs text-muted-foreground">
+                {branch.is_active ? "Aktif" : "Tidak aktif"}
+              </div>
+              <div className="mt-1 inline-flex items-center gap-1 font-mono text-[11px] text-muted-foreground">
+                {branch.is_active ? <CheckCircle2Icon className="size-3 text-emerald-600" /> : null}
+                dibuat {new Date(branch.created_at).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })}
               </div>
             </div>
             <div className="mt-3 flex items-center gap-2">
@@ -233,7 +246,7 @@ export function CabangDrawer({ branch, open, onOpenChange }: { branch: BranchIte
             <div className="flex items-center justify-between gap-3">
               <div>
                 <div className="font-heading text-sm font-semibold">Insentif Teknisi</div>
-                <p className="text-xs text-muted-foreground">Per cabang · hitung dari servis Selesai + Sudah Diambil</p>
+                <p className="text-xs text-muted-foreground">Per cabang · dihitung dari servis Selesai + Sudah Diambil pada bulan berjalan</p>
               </div>
               <Switch checked={intensifEnabled} disabled={savingIntensif || !branch.is_active} onCheckedChange={handleIntensifToggle} />
             </div>
@@ -243,24 +256,44 @@ export function CabangDrawer({ branch, open, onOpenChange }: { branch: BranchIte
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1.5">
                     <Label className="font-mono text-[10px] uppercase tracking-[0.2em]">Mode</Label>
-                    <Select value={intensifMode} onValueChange={(v) => setIntensifMode(v as "percent" | "fixed")}>
+                    <Select
+                      value={intensifMode}
+                      onValueChange={(v) => {
+                        const next = v as IntensifMode;
+                        setIntensifMode(next);
+                        // Pindah keluar dari flat berarti target tidak berlaku
+                        // lagi. Dibiarkan, nilainya akan terkirim ulang dan
+                        // tersimpan di cabang yang tidak memakainya.
+                        if (!TARGET_MODES.has(next)) setIntensifTarget("");
+                      }}
+                    >
                       <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="percent">Persentase (%)</SelectItem>
-                        <SelectItem value="fixed">Nominal tetap (Rp)</SelectItem>
+                        <SelectItem value="percent">Persentase dari pendapatan</SelectItem>
+                        <SelectItem value="fixed">Nominal per servis</SelectItem>
+                        <SelectItem value="flat">Flat bulanan bila target tercapai</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
                   <div className="space-y-1.5">
-                    <Label className="font-mono text-[10px] uppercase tracking-[0.2em]">{intensifMode === "percent" ? "Persentase %" : "Nominal Rp"}</Label>
+                    <Label className="font-mono text-[10px] uppercase tracking-[0.2em]">{AMOUNT_LABEL[intensifMode]}</Label>
                     <Input type="number" min={0} max={intensifMode === "percent" ? 100 : undefined} value={intensifValue} onChange={(e) => setIntensifValue(e.target.value)} placeholder={intensifMode === "percent" ? "5" : "50000"} />
+                    <p className="text-[11px] text-muted-foreground">{AMOUNT_HELP[intensifMode]}</p>
                   </div>
                 </div>
-                <div className="space-y-1.5">
-                  <Label className="font-mono text-[10px] uppercase tracking-[0.2em]">Target servis / periode (opsional)</Label>
-                  <Input type="number" min={1} value={intensifTarget} onChange={(e) => setIntensifTarget(e.target.value)} placeholder="mis. 20" />
-                  <p className="text-[11px] text-muted-foreground">Dipakai di Performa Teknisi untuk progress bar. Kosongkan jika tidak pakai target.</p>
-                </div>
+                {/* Target hanya ada di mode flat. Di mode lain tidak ada
+                   meaningful gate, dan membiarkannya terlihat hanya
+                   membingungkan -- sisa target lama akan diam-diam menggerakkan
+                   KPI "Target" dan progress bar di dashboard. */}
+                {TARGET_MODES.has(intensifMode) && (
+                  <div className="space-y-1.5">
+                    <Label className="font-mono text-[10px] uppercase tracking-[0.2em]">Target per teknisi per bulan</Label>
+                    <Input type="number" min={1} value={intensifTarget} onChange={(e) => setIntensifTarget(e.target.value)} placeholder="mis. 20" />
+                    <p className="text-[11px] text-muted-foreground">
+                      Wajib diisi. Bonus hanya dibayar kalau satu teknisi menyelesaikan minimal sebanyak ini dalam bulan berjalan. Kalau belum tercapai, bonusnya nol.
+                    </p>
+                  </div>
+                )}
                 {errorIntensif && <div className="rounded-md border border-destructive/30 bg-destructive/10 px-2 py-1.5 text-xs text-destructive">{errorIntensif}</div>}
                 <div className="flex justify-end">
                   <Button size="sm" onClick={handleSaveIntensif} disabled={savingIntensif}>{savingIntensif ? "Menyimpan..." : "Simpan insentif"}</Button>

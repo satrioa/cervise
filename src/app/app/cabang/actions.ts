@@ -8,6 +8,23 @@ function requireCabangAccess(role: string) {
   if (!canAccess(role, "cabang")) throw new Error("Role tidak diizinkan mengelola cabang");
 }
 
+type IntensifMode = "percent" | "fixed" | "flat";
+
+/**
+ * Baca `intensif_mode` tanpa cast.
+ *
+ * Sebelumnya di sini ada `as "percent" | "fixed"` -- union yang TIDAK menyertakan
+ * `"flat"`. Cast itu membuat compiler satisfied padahal nilai `"flat"` ikut
+ * diteruskan, dan `branch-cards.tsx` yang punya union sama ikut kelewatan
+ * menampilkan bonus flat seolah-olah nominal per servis.
+ *
+ * Sekarang nilainya benar-benar diperiksa, dan nilai asing (mis. data lama
+ * sebelum constraint) turun ke `"percent"` alih-alih disebut apa adanya.
+ */
+function readIntensifMode(value: unknown): IntensifMode {
+  return value === "fixed" || value === "flat" || value === "percent" ? value : "percent";
+}
+
 export async function getCabangList() {
   const { supabase, orgId, role } = await getActiveTenant();
   requireCabangAccess(role);
@@ -29,7 +46,7 @@ export async function getCabangList() {
     phone: (b.phone as string | null) ?? "",
     is_active: !!b.is_active,
     is_intensif_enabled: b.is_intensif_enabled ?? true,
-    intensif_mode: (b.intensif_mode as "percent" | "fixed") ?? "percent",
+    intensif_mode: readIntensifMode(b.intensif_mode),
     intensif_value: b.intensif_value ?? 5,
     intensif_target_count: b.intensif_target_count ?? null,
     created_at: b.created_at as string,
@@ -75,16 +92,26 @@ export async function toggleCabangIntensif(id: string, enabled: boolean) {
 
 export async function updateCabangIntensif(
   id: string,
-  data: { mode: "percent" | "fixed"; value: number; targetCount: number | null }
+  data: { mode: "percent" | "fixed" | "flat"; value: number; targetCount: number | null }
 ) {
   const { supabase, orgId, role } = await getActiveTenant();
   requireCabangAccess(role);
-  if (!["percent", "fixed"].includes(data.mode)) throw new Error("Mode invalid");
-  if (data.value === null || isNaN(data.value) || data.value < 0) throw new Error("Nilai intensif harus >=0");
+  if (!["percent", "fixed", "flat"].includes(data.mode)) throw new Error("Mode invalid");
+  if (data.value === null || isNaN(data.value) || data.value < 0) throw new Error("Nilai insentif harus >=0");
   if (data.targetCount !== null && (isNaN(data.targetCount) || data.targetCount <= 0)) throw new Error("Target harus >0");
+  // Mode flat tidak pernah membayar tanpa target, jadi menyimpan target kosong
+  // di mode itu hanya menghasilkan bonus nol yang tidak disadari.
+  if (data.mode === "flat" && data.targetCount === null) {
+    throw new Error("Mode Flat bulanan wajib punya target per teknisi");
+  }
+  // Target hanya bermakna di mode flat. Mode lain dipaksa null di sini, bukan
+  // hanya disembunyikan di form: kalau tidak, request basi atau sengaja dibuat
+  // akan meninggalkan target yang diam-diam menggerakkan KPI "Target" dan
+  // progress bar di dashboard.
+  const targetCount = data.mode === "flat" ? data.targetCount : null;
   const { error } = await supabase
     .from("branches")
-    .update({ intensif_mode: data.mode, intensif_value: data.value, intensif_target_count: data.targetCount })
+    .update({ intensif_mode: data.mode, intensif_value: data.value, intensif_target_count: targetCount })
     .eq("id", id)
     .eq("organization_id", orgId);
   if (error) throw new Error(error.message);

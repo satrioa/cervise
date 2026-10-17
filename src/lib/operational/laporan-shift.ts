@@ -65,6 +65,11 @@ export type ShiftServiceLine = {
   amount: number;
   /** true kalau baris ini sudah punya penjualan terkait, jadi tidak dihitung lagi. */
   counted: boolean;
+  /**
+   * Kapan baris terakhir berubah. Dibawa ke sini supaya kartu "Transaksi
+   * Terbaru" bisa menampilkan tanggal tanpa query tambahan.
+   */
+  updatedAt: string;
 };
 
 export type ShiftSaleLine = {
@@ -196,6 +201,7 @@ export function buildLaporanShift(input: {
       status: row.status,
       amount: amount(row.price),
       counted: !soldServiceIds.has(row.id),
+      updatedAt: row.updated_at,
     }))
     .sort((a, b) => a.label.localeCompare(b.label));
 

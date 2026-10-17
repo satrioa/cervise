@@ -3,6 +3,10 @@
 import { getActiveTenant } from "@/lib/supabase/actor";
 import { canAccess } from "@/lib/nav/manifest";
 import {
+  buildFrontlinerKpi,
+  type FrontlinerKpi,
+} from "@/lib/operational/frontliner-dashboard";
+import {
   buildLaporanShift,
   type ShiftCashRow,
   type ShiftReport,
@@ -514,17 +518,12 @@ export async function payServis(input: {
 // KPI frontliner
 // ---------------------------------------------------------------------------
 
-export type FrontlinerKpi = {
-  /** Servis dibuat hari ini, semua status. */
-  masuk: number;
-  /** Status `Sudah Diambil` hari ini. */
-  diambil: number;
-  /** Status `Batal` hari ini. */
-  batal: number;
-  /** Limap status yang masih dikerjakan. */
-  proses: number;
-};
-
+/**
+ * Tipe lived here didefinisikan di `@/lib/operational/frontliner-dashboard`
+ * supaya bisa diuji tanpa Supabase. Di-reexport di sini supaya pemanggil
+ * lama yang mengimpor dari actions tidak perlu diubah.
+ */
+export type { FrontlinerKpi } from "@/lib/operational/frontliner-dashboard";
 /**
  * Empat KPI untuk dashboard kasir.
  *
@@ -545,28 +544,11 @@ export async function getFrontlinerKpi(): Promise<CashResult<FrontlinerKpi>> {
 
     const rows = (data ?? []) as { status: string; created_at: string }[];
 
-    return {
-      ok: true,
-      data: {
-        masuk: rows.length,
-        diambil: rows.filter((row) => row.status === "Sudah Diambil").length,
-        batal: rows.filter((row) => row.status === "Batal").length,
-        proses: rows.filter((row) => IN_PROGRESS_STATUS.has(row.status)).length,
-      },
-    };
+    return { ok: true, data: buildFrontlinerKpi(rows) };
   } catch (cause) {
     return fail(cause instanceof Error ? cause.message : "Gagal memuat KPI");
   }
 }
-
-/** Status servis yang masih dikerjakan. `Dijemput` tidak ada di CHECK constraint. */
-const IN_PROGRESS_STATUS = new Set([
-  "Masuk",
-  "Diagnosa",
-  "Menunggu Konfirmasi",
-  "Menunggu Sparepart",
-  "Dikerjakan",
-]);
 
 export type FrontlinerQueueItem = {
   id: string;

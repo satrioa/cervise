@@ -19,7 +19,14 @@ type BranchItem = {
   phone: string;
   is_active: boolean;
   is_intensif_enabled: boolean;
-  intensif_mode: "percent" | "fixed";
+  /**
+   * Semua mode, termasuk `flat`.
+   *
+   * `flat` pernah hilang dari union di sini dan di `actions.ts`; kedua-duanya
+   * ditutup dengan cast, jadi TypeScript tidak complained dan bonus flat
+   * dirender seolah nominal per servis.
+   */
+  intensif_mode: "percent" | "fixed" | "flat";
   intensif_value: number;
   intensif_target_count: number | null;
   created_at: string;
@@ -33,7 +40,26 @@ function statusFor(b: BranchItem): "ok" | "warn" | "off" {
 }
 
 const STATUS_LABEL: Record<string, string> = { ok: "Aktif", warn: "Perlu perhatian", off: "Nonaktif" };
-const STATUS_DOT: Record<string, string> = { ok: "bg-emerald-500", warn: "bg-amber-500", off: "bg-muted-foreground/40" };
+
+/**
+ * Ringkasan insentif untuk kartu cabang.
+ *
+ * Tiga mode butuh tiga kalimat berbeda. Versi lama hanya punya dua cabang
+ * (`percent` vs sisanya), jadi mode `flat` ikut masuk cabang rupiah dan
+ * terbaca sebagai "nominal per servis" -- padahal itu bonus sekali bayar.
+ *
+ * `· target N` hanya relevan di mode flat, karena target adalah syarat
+ * pembayaran mode itu.
+ */
+function branchIntensifLabel(b: BranchItem): string {
+  const value = Number(b.intensif_value);
+  if (b.intensif_mode === "percent") return `Insentif ${value}%`;
+  if (b.intensif_mode === "flat") {
+    const nominal = `Flat ${formatCurrencyPlain(value)}`;
+    return b.intensif_target_count ? `${nominal} bila ≥ ${b.intensif_target_count} servis` : `${nominal} (target belum diatur)`;
+  }
+  return `Insentif ${formatCurrencyPlain(value)} per servis`;
+}const STATUS_DOT: Record<string, string> = { ok: "bg-emerald-500", warn: "bg-amber-500", off: "bg-muted-foreground/40" };
 
 /**
  * `canManage` false untuk ADMIN: RLS `branches_update` sudah mencabut ADMIN,
@@ -118,7 +144,7 @@ export function BranchCards({ branches, onKelola, canManage = true }: { branches
                       {b.teknisiCount} teknisi
                     </span>
                     <span className={"rounded border px-1.5 py-0.5 font-mono text-[10px] " + (b.is_intensif_enabled ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-700 dark:text-emerald-300" : "bg-muted text-muted-foreground")}>
-                      {b.is_intensif_enabled ? (b.intensif_mode === "percent" ? `Insentif ${Number(b.intensif_value).toString()}%` : `Insentif ${formatCurrencyPlain(Number(b.intensif_value))}`) + (b.intensif_target_count ? ` · target ${b.intensif_target_count}` : "") : "Insentif off"}
+                      {b.is_intensif_enabled ? branchIntensifLabel(b) : "Insentif off"}
                     </span>
                   </div>
                   <div className="mt-2 inline-flex items-center gap-1 font-mono text-[11px] text-muted-foreground">

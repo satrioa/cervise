@@ -1,3 +1,5 @@
+import { dalamHariYangSama, dalamRentangBulan } from "./periode-bulan";
+
 /**
  * Perhitungan untuk dashboard teknisi.
  *
@@ -16,6 +18,7 @@ export type TechnicianServiceInput = {
   service_number: string | null;
   created_at: string;
   updated_at: string;
+  completed_at: string | null;
   branch_id: string;
   teknisi_id: string | null;
   status: string;
@@ -23,12 +26,12 @@ export type TechnicianServiceInput = {
   device: string | null;
 };
 
-/** Kolom setting intensif di `public.branches`. */
+/** Kolom setting insentif di `public.branches`. */
 export type BranchIntensif = {
   is_intensif_enabled: boolean;
   intensif_mode: string;
   intensif_value: number | null;
-  intensify_target_count: number | null;
+  intensif_target_count: number | null;
 };
 
 // ---------------------------------------------------------------------------
@@ -172,18 +175,34 @@ export type TechnicianKpi = {
   selesai: number;
   /** Persentase 0-100, atau null kalau target belum diatur. */
   targetPct: number | null;
-  /** true = cabang tidak punya target aktif, kartu menampilkanempty state. */
+  /**
+   * true = cabang tidak punya target aktif, kartu menampilkan empty state.
+   *
+   * Bedakan dari `applicable`: "belum diatur" masihCallable diperbaiki, kalau
+   * "tidak berlaku" memang tidak ada yang bisa diatur.
+   */
   unset: boolean;
+  /**
+   * false = cabang tidak memakai mode flat, jadi target tidak berlaku.
+   *
+   * Target adalah syarat pembayaran khusus mode flat. Pada mode percent/fixed
+   * tidak ada target sama sekali, dan menampilkan ajakan "Atur sekarang" di
+   * sana hanya mengarahkan teknisi ke halaman yang tidak bisa ia buka.
+   */
+  applicable: boolean;
+  /** Servis berstatus `Masuk` yang dibuat hari ini. */
+  masukHariIni: number;
+  /**
+   * Servis yang selesai hari ini.
+   *
+   * Dihitung dari `completed_at`, bukan `created_at` maupun `updated_at`:
+   * servis bisa dibuat minggu lalu dan baru diselesaikan hari ini, dan
+   * `set_service_status` tidak pernah menyentuh `updated_at`.
+   */
+  selesaiHariIni: number;
 };
 
 const DONE_STATUS = new Set(["Selesai", "Sudah Diambil"]);
-
-/** Bulan kalender dari sebuah timestamp, dalam UTC agar deterministik. */
-function sameMonth(iso: string, now: Date): boolean {
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return false;
-  return date.getUTCFullYear() === now.getUTCFullYear() && date.getUTCMonth() === now.getUTCMonth();
-}
 
 export function buildTechnicianKpi(
   services: TechnicianServiceInput[],
@@ -192,21 +211,77 @@ export function buildTechnicianKpi(
   now: Date,
 ): TechnicianKpi {
   const selesai = teknisiId
+    ? services.filter((s) => s.teknisi_id === teknisiId && DONE_STATUS.has(s.status) && dalamRentangBulan(s.completed_at, now)).length
+    : 0;
+
+  const rawTarget = branchIntensif?.intensif_target_count ?? null;
+  const active = branchIntensif?.is_intensif_enabled === true;
+  // Target adalah syarat pembayaran mode flat. Di mode lain `intensif_mode`
+  // bukan "flat", jadi nilai target yang tersimpan (jika ada) tidak dipakai
+  // sebagai KPI -- dan UI tidak boleh menawarkan pengaturan yang tidak ada.
+  const applicable = branchIntensif?.intensif_mode === "flat";
+  const target = active && applicable && rawTarget && rawTarget > 0 ? rawTarget : null;
+
+  // Tanpa assignment tidak ada yang bisa dihitung - teknisi tidak melihat
+  // antrean orang lain, jadi jangan dijumlahkan diam-diam.
+  const masukHariIni = teknisiId
     ? services.filter(
-        (s) => s.teknisi_id === teknisiId && DONE_STATUS.has(s.status) && sameMonth(s.created_at, now),
+        (s) => s.teknisi_id === teknisiId && s.status === "Masuk" && dalamHariYangSama(s.created_at, now),
       ).length
     : 0;
 
-  const rawTarget = branchIntensif?.intensify_target_count ?? null;
-  const active = branchIntensif?.is_intensif_enabled === true;
-  const target = active && rawTarget && rawTarget > 0 ? rawTarget : null;
+  const selesaiHariIni = teknisiId
+    ? services.filter((s) => s.teknisi_id === teknisiId && DONE_STATUS.has(s.status) && dalamHariYangSama(s.completed_at, now)).length
+    : 0;
 
   return {
     target,
     selesai,
     targetPct: target ? Math.min(100, Math.round((selesai / target) * 100)) : null,
     unset: target === null,
+    applicable,
+    masukHariIni,
+    selesaiHariIni,
   };
+}
+
+// ---------------------------------------------------------------------------
+// Servis terbaru
+// ---------------------------------------------------------------------------
+
+/** Satu baris untuk kartu "Servis terbaru" di dashboard. */
+export type RecentService = {
+  id: string;
+  serviceNumber: string | null;
+  device: string;
+};
+
+/** Baris servis yang dibuang dari kartu "Servis terbaru". */
+const HIDDEN_STATUS = new Set(["Batal"]);
+
+/**
+ * Servis terbaru milik teknisi tertentu, terbaru lebih dulu.
+ *
+ * Kartu ini jadi pintu masuk ke detail servis, jadi servis yang dibatalkan
+ * tidak layak ditampilkan - membuka halaman untuk servis batal hanya
+ * membingungkan. `limit` dipakai supaya payload tidak ikut membesar.
+ */
+export function buildRecentServices(
+  services: TechnicianServiceInput[],
+  teknisiId: string | null,
+  now: Date,
+  limit = 6,
+): RecentService[] {
+  if (!teknisiId) return [];
+  return services
+    .filter((s) => s.teknisi_id === teknisiId && !HIDDEN_STATUS.has(s.status))
+    .sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())
+    .slice(0, limit)
+    .map((s) => ({
+      id: s.id,
+      serviceNumber: s.service_number,
+      device: s.device ?? "Tanpa perangkat",
+    }));
 }
 
 // ---------------------------------------------------------------------------

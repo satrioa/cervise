@@ -179,18 +179,75 @@ async function resolveTarget() {
     await supabase.from("branches").select("id,name").eq("organization_id", org.id).eq("is_active", true).limit(1).single(),
     "baca branches",
   );
+  // Aktor seed adalah siapa pun yang menjalankan skrip, dan dipakai untuk
+  // `created_by` -- itu memang benar. Tapi aktor ini TIDAK boleh dipakai untuk
+  // `teknisi_id`: sering kali dia admin, dan servis demo jadi tercatat dikerjakan
+  // oleh admin. Itu sumber kebingungan "kenapa aku tidak lihat servis di dashboard
+  // teknisi", dan sekarang juga berarti notifikasi WhatsApp dikirim ke admin.
   const employee = must(
     await supabase.from("employees").select("profile_id,role").eq("organization_id", org.id).limit(1).single(),
     "baca employees",
   );
-  return { org, branch, actorProfileId: employee.profile_id, actorRole: employee.role };
+
+  // Teknisi HARUS di cabang yang sama dengan servisnya: dashboard teknisi
+  // memfilter servis per `branch_id`, jadi teknisi dari cabang lain tidak akan
+  // pernah melihat servis yang ditugaskan kepadanya.
+  const technicians = must(
+    await supabase
+      .from("employees")
+      .select("profile_id")
+      .eq("organization_id", org.id)
+      .eq("branch_id", branch.id)
+      .eq("role", "TECHNICIAN")
+      .eq("is_active", true)
+      .order("created_at", { ascending: true }),
+    "baca employees teknisi",
+  );
+
+  return {
+    org,
+    branch,
+    actorProfileId: employee.profile_id,
+    actorRole: employee.role,
+    technicians: (technicians ?? []).map((t) => t.profile_id),
+  };
+}
+
+/**
+ * Profil teknisi untuk satu baris demo.
+ *
+ * `s.teknisi` di data demo adalah indeks 0..5, jadi niatnya untuk tersebar ke
+ * beberapa teknisi. Modulo dipakai supaya indeks di luar jumlah teknisi tetap
+ * menunjuk teknisi yang ada -- tidak ada baris demo yang jadi yatim.
+ *
+ * Kalau tidak ada teknisi sama sekali, lempar. Dulu skrip diam-diam memakai
+ * admin di sini, dan itu bug yang paling sulit terlihat: data terlihat masuk,
+ * tidak ada error, tapi tidak ada yang bisa menjelaskan kenapa dashboard teknisi
+ * kosong.
+ */
+function resolveTeknisiId(s, technicians) {
+  if (s.teknisi === null || s.teknisi === undefined) return null;
+  if (technicians.length === 0) {
+    throw new Error(
+      "Seed dibatalkan: tenant ini tidak punya employees dengan role TECHNICIAN di cabang aktif. " +
+        "Buat teknisi dulu di halaman Karyawan, lalu jalankan ulang. " +
+        "Script ini sengaja berhenti di sini daripada mencatat admin sebagai teknisi.",
+    );
+  }
+  return technicians[s.teknisi % technicians.length];
 }
 
 async function seed() {
-  const { org, branch, actorProfileId, actorRole } = await resolveTarget();
+  const { org, branch, actorProfileId, actorRole, technicians } = await resolveTarget();
   console.log(`Tenant   : ${org.name} (${org.slug})`);
   console.log(`Cabang   : ${branch.name}`);
-  console.log(`Aktor    : ${actorProfileId} / ${actorRole}\n`);
+  console.log(`Aktor    : ${actorProfileId} / ${actorRole}`);
+  // Technician dilaporkan terpisah supaya perbedaan dengan aktornya jelas.
+  // Dulu keduanya profile yang sama, dan itulah yang membuat demo data terlihat
+  // seperti dikerjakan admin.
+  console.log(
+    `Teknisi  : ${technicians.length > 0 ? `${technicians.length} orang (${technicians.join(", ")})` : "TIDAK ADA di cabang ini"}\n`,
+  );
 
   // 1. Kategori, kelengkapan, tag kerusakan
   for (const name of CATEGORIES) {
@@ -291,7 +348,7 @@ async function seed() {
       tipe: s.tipe,
       complaint: s.complaint,
       status: s.status,
-      teknisi_id: s.teknisi === null ? null : actorProfileId,
+      teknisi_id: resolveTeknisiId(s, technicians),
       price: s.price,
       kerusakan: s.tags,
       kelengkapan: s.kelengkapan,

@@ -25,6 +25,7 @@ import { LocaleProvider } from "@/lib/localization-context";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { MultipleAccounts, type AccountOption } from "@/components/uitripled/multiple-accounts-shadcnui";
 import { IdentityAvatar } from "@/components/identity-avatar";
+import { TenantLogo } from "@/components/layout/tenant-logo";
 import { cn } from "@/lib/utils";
 import { CheckIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
@@ -36,24 +37,6 @@ export const ROLE_LABEL: Record<string, string> = {
   FRONTLINER: "Frontliner",
   TECHNICIAN: "Technician",
 };
-
-const BRANCH_TONES = [
-  "from-emerald-500/20 to-teal-500/10",
-  "from-slate-500/20 to-slate-500/5",
-  "from-violet-500/20 to-fuchsia-500/10",
-  "from-amber-500/20 to-orange-500/10",
-  "from-sky-500/20 to-sky-500/5",
-];
-
-function branchTone(branchId: string) {
-  let hash = 0;
-  for (let i = 0; i < branchId.length; i++) hash = (hash * 31 + branchId.charCodeAt(i)) >>> 0;
-  return BRANCH_TONES[hash % BRANCH_TONES.length];
-}
-
-function branchLetter(label: string) {
-  return (label.trim()[0] ?? "?").toUpperCase();
-}
 
 function roleLabel(role: string) {
   return ROLE_LABEL[role.toUpperCase()] ?? role;
@@ -83,9 +66,10 @@ function TenantSwitcher({ canSwitchTenant: canSwitchTenantValue }: { canSwitchTe
   if (!canSwitchTenantValue) {
     return (
       <div className="flex w-full items-center gap-2.5 px-3.5 py-2">
-        <IdentityAvatar
-          photoUrl={activeTenant?.logoUrl ?? null}
+        <TenantLogo
+          logoUrl={activeTenant?.logoUrl}
           name={activeTenant?.name}
+          title={`Tenant: ${activeTenant?.name ?? "Tenant"}`}
           className="size-8 text-xs"
         />
         <div className="min-w-0">
@@ -128,10 +112,7 @@ function BranchSwitcher({ canSwitch }: { canSwitch: boolean }) {
   const [open, setOpen] = useState(false);
   if (!canSwitch) {
     return (
-      <div className="flex h-12 w-full items-center gap-2 rounded-xl border border-border/60 bg-white px-2.5 dark:bg-card">
-        <div className={`flex size-8 shrink-0 items-center justify-center rounded-lg border bg-gradient-to-br font-heading font-semibold text-xs ${branchTone(branch.id)}`}>
-          {branchLetter(branch.label)}
-        </div>
+      <div className="flex h-12 w-full items-center rounded-xl border border-border/60 bg-white px-2.5 dark:bg-card">
         <div className="min-w-0 flex-1 truncate font-semibold text-sm">{branch.label}</div>
       </div>
     );
@@ -142,16 +123,11 @@ function BranchSwitcher({ canSwitch }: { canSwitch: boolean }) {
         render={
           <button
             type="button"
-            className="flex h-12 w-full items-center justify-between gap-2 rounded-xl border border-border/60 bg-white px-2.5 text-left transition-colors hover:bg-muted/60 dark:bg-card"
+            className="flex h-12 w-full items-center justify-between gap-2 rounded-xl border border-border/60 bg-white px-2.5 dark:bg-card"
           />
         }
       >
-        <div className="flex items-center gap-2.5 min-w-0">
-          <div className={`flex size-8 shrink-0 items-center justify-center rounded-lg border bg-gradient-to-br font-heading font-semibold text-xs ${branchTone(branch.id)}`}>
-            {branchLetter(branch.label)}
-          </div>
-          <div className="min-w-0 flex-1 truncate font-semibold text-sm text-left">{branch.label}</div>
-        </div>
+        <div className="min-w-0 flex-1 truncate font-semibold text-sm text-left">{branch.label}</div>
         <ChevronsUpDown className="size-3.5 opacity-60 shrink-0" />
       </PopoverTrigger>
       <PopoverContent align="start" side="bottom" className="w-[248px] p-1">
@@ -167,13 +143,10 @@ function BranchSwitcher({ canSwitch }: { canSwitch: boolean }) {
                 setOpen(false);
               }}
               className={cn(
-                "flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left transition-colors",
+                "flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-left transition-colors",
                 active ? "bg-foreground/[0.06] text-foreground" : "hover:bg-foreground/[0.04] text-muted-foreground hover:text-foreground"
               )}
             >
-              <div className={`flex size-7 shrink-0 items-center justify-center rounded-lg border bg-gradient-to-br font-heading font-semibold text-[11px] ${branchTone(b.id)}`}>
-                {branchLetter(b.label)}
-              </div>
               <div className="min-w-0 flex-1 truncate text-sm font-medium">{b.label}</div>
               {active && <CheckIcon className="size-4 text-primary shrink-0" />}
             </button>

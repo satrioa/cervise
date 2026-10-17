@@ -80,6 +80,19 @@ function build(overrides: Partial<Parameters<typeof buildLaporanShift>[0]> = {})
   });
 }
 
+describe("baris servis untuk kartu Transaksi Terbaru", () => {
+  it("baris apa pun punya updatedAt, supaya kartu bisa mengurutkan sendiri", () => {
+    // Kartu "Transaksi Terbaru" mengambil N baris terbaru. Laporan sendiri
+    // tetap diurutkan abjad karena `formatShiftAsText` dan
+    // `formatShiftRowsForSheet` bergantung pada urutan itu, jadi pengurutan
+    // terbaru dilakukan di komponen, bukan di sini.
+    const report = build({
+      services: [svc({ id: "a", updated_at: "2026-09-28T12:00:00.000Z" })],
+    });
+    expect(report.services[0].updatedAt).toBe("2026-09-28T12:00:00.000Z");
+  });
+});
+
 describe("rekap", () => {
   it("expected = opening + servis lunas + penjualan lunas + kas masuk - kas keluar", () => {
     const report = build({

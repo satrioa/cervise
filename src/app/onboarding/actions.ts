@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { slugify } from "@/lib/tenant-slug";
 import { normalizePhone62 } from "@/lib/phone";
+import { TENANT_NAME_MAX, TENANT_SLUG_MIN } from "@/lib/onboarding/validation";
 
 export async function completeOnboarding(opts: {
   tenantName: string;
@@ -27,7 +28,7 @@ export async function completeOnboarding(opts: {
   if (platformAdmin) redirect("/owner");
 
   const name = opts.tenantName.trim();
-  if (!name || name.length > 120) throw new Error("Nama tenant tidak valid");
+  if (!name || name.length > TENANT_NAME_MAX) throw new Error("Nama tenant tidak valid");
   const { data: existing } = await supabase
     .from("employees")
     .select("id")
@@ -37,7 +38,7 @@ export async function completeOnboarding(opts: {
   if (existing && existing.length > 0) throw new Error("Anda sudah memiliki tenant");
 
   const baseSlug = slugify(name);
-  if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(baseSlug) || baseSlug.length < 3) {
+  if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(baseSlug) || baseSlug.length < TENANT_SLUG_MIN) {
     throw new Error("Slug tenant tidak valid");
   }
 
