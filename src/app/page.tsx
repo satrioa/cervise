@@ -2,6 +2,7 @@ import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/ca
 import { Wrench, Users, BarChart3, Wallet, UserCog, LayoutDashboard } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import Hero02 from "@/components/originkit/hero-02";
+import { publicPhotoUrl } from "@/lib/photos";
 import { PricingThreeTier } from "@/components/pricing-three-tier";
 
 export default async function LandingPage() {
@@ -10,10 +11,25 @@ export default async function LandingPage() {
   const isLoggedIn = !!user;
   let heroUser: { name: string; email: string; avatarUrl?: string | null } | null = null;
   if (isLoggedIn && user) {
-    const { data: profile } = await supabase.from("profiles").select("full_name, email, phone").eq("id", user.id).maybeSingle();
+    // `avatar_url` WAJIB ikut diselect. Tanpa kolom ini, `heroUser.avatarUrl`
+    // selalu `undefined`, sehingga navbar selalu jatuh ke nilai cadangan dan
+    // foto profil asli tidak pernah muncul di landing page padahal sudah
+    // tersimpan di database.
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("full_name, email, phone, avatar_url")
+      .eq("id", user.id)
+      .maybeSingle();
     const name = (profile as { full_name?: string | null } | null)?.full_name ?? (user.user_metadata as { full_name?: string } | null)?.full_name ?? user.email?.split("@")[0] ?? "Akun";
     const email = (profile as { email?: string | null } | null)?.email ?? user.email ?? "";
-    heroUser = { name, email };
+    // `publicPhotoUrl` menolak path yang tidak aman, jadi kolom yang berisi
+    // "../" atau URL luar tidak bisa dialihkan ke host lain. Pola ini sama
+    // dengan `lib/supabase/actor.ts`.
+    const avatarUrl = publicPhotoUrl(
+      process.env.NEXT_PUBLIC_SUPABASE_URL ?? "",
+      (profile as { avatar_url?: string | null } | null)?.avatar_url,
+    );
+    heroUser = { name, email, avatarUrl };
   }
 
   return (

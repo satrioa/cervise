@@ -2,16 +2,25 @@
 
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { lookupServisByCode, type PublicTenant } from "@/app/lacak/actions";
+import { lookupServisByCode } from "@/app/lacak/actions";
+import type { PublicTenant } from "@/lib/public/landing";
 import { ServisResultCard } from "@/components/public/servis-result-card";
-import { TenantBadge } from "@/components/public/tenant-badge";
 import { Button } from "@/components/ui/button";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { AlertTriangleIcon, SearchIcon } from "lucide-react";
 import type { PublicServisResult } from "@/lib/public/lookup";
 
-export function LacakForm({ tenant, initialCode }: { tenant: PublicTenant; initialCode?: string }) {
+export function LacakForm({
+  tenant,
+  initialCode,
+  preview = false,
+}: {
+  tenant: PublicTenant;
+  initialCode?: string;
+  /** Pratinjau di halaman Tampilan: form tetap tampil, tapi tidak memanggil API. */
+  preview?: boolean;
+}) {
   const router = useRouter();
   const [code, setCode] = useState(initialCode ?? "");
   const [result, setResult] = useState<PublicServisResult | null>(null);
@@ -21,6 +30,7 @@ export function LacakForm({ tenant, initialCode }: { tenant: PublicTenant; initi
   const submit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError(null);
+    if (preview) return;
 
     startTransition(async () => {
       const response = await lookupServisByCode(tenant.slug, code);
@@ -36,14 +46,13 @@ export function LacakForm({ tenant, initialCode }: { tenant: PublicTenant; initi
 
   return (
     <div className="relative mx-auto w-full max-w-2xl">
-      <TenantBadge name={tenant.name} logoUrl={tenant.logoUrl} branchName={tenant.branchName} />
-
-      <div className="mt-6 rounded-2xl border bg-card p-5 shadow-xs/5">
-        <form onSubmit={submit} className="space-y-4">
-          <div>
-            <span className="font-mono text-[10px] uppercase tracking-[0.3em] text-muted-foreground">Cek service</span>
-            <h1 className="mt-1 font-heading text-2xl tracking-tight">Lacak status service</h1>
-            <p className="mt-1 text-sm text-muted-foreground">
+      <div className="rounded-2xl border bg-card p-[var(--lacak-pad-card)] shadow-xs/5">
+        <form onSubmit={submit} className="space-y-[var(--lacak-gap)]">
+          <div className="text-center">
+            <h2 className="font-heading text-[length:var(--lacak-text-title)] font-bold tracking-tight">
+              Lacak Progres Servis
+            </h2>
+            <p className="mt-1 text-[length:var(--lacak-text-body)] text-muted-foreground">
               Masukkan kode yang tertera di struk service Anda untuk melihat status perbaikan dan masa garansi.
             </p>
           </div>
@@ -72,7 +81,7 @@ export function LacakForm({ tenant, initialCode }: { tenant: PublicTenant; initi
           <div className="flex flex-wrap gap-2">
             <Button type="submit" size="lg" loading={pending} disabled={pending || code.trim().length === 0}>
               <SearchIcon className="size-4" />
-              {result ? "Cek lagi" : "Cek status"}
+              {result ? "Cek lagi" : "Cari Servis"}
             </Button>
             {result ? (
               <Button

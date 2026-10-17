@@ -84,7 +84,14 @@
   --color-smooth-1000: var(--smooth-1000);
 }
 
-:root {
+/*
+ * `.lacak-light` dan `.lacak-dark` di baris pertama mengikuti blok di bawah
+ * supaya halaman publik Lacak bisa memilih mode sendiri di elemennya, tanpa
+ * menyentuh `class="dark"` milik `next-themes` pada `<html>`. Tanpa
+ * `.lacak-light`, tidak ada cara memaksa terang saat aplikasi sedang gelap.
+ */
+:root,
+.lacak-light {
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);
@@ -151,7 +158,8 @@
   --smooth-1000: oklch(0.22 0 0);
 }
 
-.dark {
+.dark,
+.lacak-dark {
   --background: oklch(0.145 0 0);
   --foreground: oklch(0.985 0 0);
   --card: oklch(0.205 0 0);
@@ -214,6 +222,106 @@
   --smooth-950: oklch(0.85 0 0);
   --smooth-1000: oklch(0.96 0 0);
 }
+
+/*
+ * Token khusus halaman Lacak publik.
+ *
+ * Hanya berlaku di dalam `.lacak-theme`, jadi pilihan admin tidak pernah
+ * mengubah tampilan aplikasi. Nilai entered lewat atribut `data-*` yang
+ * nilainya sudah dibatasi daftar di `lacak-appearance.ts` — tidak ada nilai
+ * yang masuk ke CSS sebagai string bebas.
+ */
+.lacak-theme {
+  --lacak-pad-card: 1.25rem;
+  --lacak-gap: 1rem;
+  --lacak-text-title: 1.5rem;
+  --lacak-text-body: 0.875rem;
+}
+
+.lacak-theme[data-density="comfortable"] {
+  --lacak-pad-card: 1.75rem;
+  --lacak-gap: 1.25rem;
+  --lacak-text-title: 1.875rem;
+  --lacak-text-body: 1rem;
+}
+
+.lacak-theme[data-density="compact"] {
+  --lacak-pad-card: 0.875rem;
+  --lacak-gap: 0.625rem;
+  --lacak-text-title: 1.25rem;
+  --lacak-text-body: 0.8125rem;
+}
+
+/*
+ * Nama keluarga di sini harus sama persis dengan yang dimuat `@import` di
+ * baris atas file ini: `Geist`, `Geist Mono`, dan `Inter` — bukan varian
+ * `* Variable`, karena blok import itu memang memuat weight tetap.
+ */
+.lacak-theme[data-font="geist"] {
+  --font-sans: Geist, system-ui, sans-serif;
+}
+
+.lacak-theme[data-font="inter"] {
+  --font-sans: Inter, system-ui, sans-serif;
+}
+
+.lacak-theme[data-font="mono"] {
+  --font-sans: "Geist Mono", ui-monospace, "SF Mono", monospace;
+  --font-heading: "Geist Mono", ui-monospace, "SF Mono", monospace;
+}
+
+/*
+ * Palette menimpa lima token saja. Sisanya tetap netral supaya kontras teks
+ * tidak ikut bergeser bersama warnanya.
+ *
+ * Nama dan warna diambil dari Palette di `settings-appearance.tsx`, jadi
+ * pilihan admin di layar sama persis dengan yang benar-benar dipakai CSS di
+ * sini. Nilai konversi dari hex aslinya ke oklch.
+ */
+.lacak-theme[data-palette="indigo"] {
+  --primary: oklch(0.424 0.181 265.6);
+  --primary-foreground: oklch(0.985 0 0);
+  --accent: oklch(0.94 0.03 265.6);
+  --accent-foreground: oklch(0.32 0.11 265.6);
+  --ring: oklch(0.424 0.181 265.6);
+}
+
+.lacak-theme[data-palette="crimson"] {
+  --primary: oklch(0.444 0.161 26.9);
+  --primary-foreground: oklch(0.985 0 0);
+  --accent: oklch(0.95 0.04 26.9);
+  --accent-foreground: oklch(0.33 0.12 26.9);
+  --ring: oklch(0.444 0.161 26.9);
+}
+
+.lacak-theme[data-palette="sage"] {
+  --primary: oklch(0.527 0.137 150.1);
+  --primary-foreground: oklch(0.985 0 0);
+  --accent: oklch(0.94 0.04 150.1);
+  --accent-foreground: oklch(0.31 0.08 150.1);
+  --ring: oklch(0.527 0.137 150.1);
+}
+
+.lacak-theme[data-palette="amber"] {
+  --primary: oklch(0.555 0.146 49);
+  --primary-foreground: oklch(0.985 0 0);
+  --accent: oklch(0.95 0.05 70.1);
+  --accent-foreground: oklch(0.33 0.1 49);
+  --ring: oklch(0.555 0.146 49);
+}
+
+.lacak-theme[data-palette="violet"] {
+  --primary: oklch(0.496 0.237 301.9);
+  --primary-foreground: oklch(0.985 0 0);
+  --accent: oklch(0.95 0.04 301.9);
+  --accent-foreground: oklch(0.33 0.14 301.9);
+  --ring: oklch(0.496 0.237 301.9);
+}
+
+/*
+ * Graphite sengaja tidak didefinisikan di sini: ia persis sama dengan token
+ * netral bawaan, jadi memblokirnya hanya menambah tempat yang bisa meleset.
+ */
 
 @layer base {
   * {

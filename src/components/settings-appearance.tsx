@@ -1,199 +1,211 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import Image from "next/image";
 import { CheckIcon, MonitorIcon, MoonIcon, SunIcon } from "lucide-react";
+import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/layout/page-header";
+import { LacakForm } from "@/components/public/lacak-form";
+import { PublicFooter } from "@/components/public/public-footer";
+import { TestimonialsCarousel } from "@/components/public/testimonials-carousel";
+import { initialsOf } from "@/lib/photos";
+import { saveLacakAppearance } from "@/app/app/pengaturan/tampilan/actions";
+import {
+  DEFAULT_LACAK_APPEARANCE,
+  LACAK_DENSITIES,
+  LACAK_FONTS,
+  LACAK_PALETTES,
+  resolveLacakScheme,
+  type LacakAppearance,
+} from "@/lib/operational/lacak-appearance";
+import { LandingSection } from "@/components/settings-appearance-landing";
+import type { PublicTenant } from "@/lib/public/landing";
 
-type Mode = "light" | "dark" | "system";
-type Density = "comfortable" | "cozy" | "compact";
-type Palette = "graphite" | "indigo" | "crimson" | "sage" | "amber" | "violet";
-type FontId = "geist" | "inter" | "mono";
-
-const PALETTES: { id: Palette; name: string; swatch: [string, string] }[] = [
-  { id: "graphite", name: "Graphite", swatch: ["#71717a", "#a1a1aa"] },
-  { id: "indigo", name: "Indigo", swatch: ["#3b82f6", "#1e40af"] },
-  { id: "crimson", name: "Crimson", swatch: ["#ef4444", "#991b1b"] },
-  { id: "sage", name: "Sage", swatch: ["#22c55e", "#15803d"] },
-  { id: "amber", name: "Amber", swatch: ["#f59e0b", "#b45309"] },
-  { id: "violet", name: "Violet", swatch: ["#a855f7", "#7e22ce"] },
-];
-
-const FONTS: { id: FontId; label: string; sample: string; stack: string }[] = [
-  {
-    id: "geist",
-    label: "Geist",
-    sample: "AaBbCc 0123",
-    stack: '"Geist Variable", "Geist", system-ui, sans-serif',
-  },
-  {
-    id: "inter",
-    label: "Inter",
-    sample: "AaBbCc 0123",
-    stack: '"Inter Variable", "Inter", system-ui, sans-serif',
-  },
-  {
-    id: "mono",
-    label: "Geist Mono",
-    sample: "AaBbCc 0123",
-    stack:
-      '"Geist Mono Variable", "Geist Mono", ui-monospace, "SF Mono", monospace',
-  },
-];
-
-const DENSITY: Record<
-  Density,
-  { padCard: string; padRow: string; gapStack: string; rowH: string; text: string }
-> = {
-  comfortable: { padCard: "20px", padRow: "12px 14px", gapStack: "14px", rowH: "44px", text: "14px" },
-  cozy: { padCard: "16px", padRow: "10px 12px", gapStack: "10px", rowH: "38px", text: "13.5px" },
-  compact: { padCard: "12px", padRow: "6px 10px", gapStack: "6px", rowH: "30px", text: "12.5px" },
+const PALETTE_LABEL: Record<(typeof LACAK_PALETTES)[number], string> = {
+  graphite: "Graphite",
+  indigo: "Indigo",
+  crimson: "Crimson",
+  sage: "Sage",
+  amber: "Amber",
+  violet: "Violet",
 };
 
-const SCHEMES = {
-  light: {
-    bg: "#fafafa",
-    surface: "#ffffff",
-    surfaceMuted: "#f4f4f5",
-    text: "#0a0a0a",
-    textMuted: "#71717a",
-    border: "#e4e4e7",
-    rail: "#f4f4f5",
-    railBorder: "#e4e4e7",
-    activeWash: "rgba(0,0,0,0.05)",
-  },
-  dark: {
-    bg: "#0a0a0a",
-    surface: "#141416",
-    surfaceMuted: "#101012",
-    text: "#fafafa",
-    textMuted: "#a1a1aa",
-    border: "#27272a",
-    rail: "#101012",
-    railBorder: "#27272a",
-    activeWash: "rgba(255,255,255,0.06)",
-  },
-} as const;
+const PALETTE_SWATCH: Record<(typeof LACAK_PALETTES)[number], [string, string]> = {
+  graphite: ["#71717a", "#a1a1aa"],
+  indigo: ["#3b82f6", "#1e40af"],
+  crimson: ["#ef4444", "#991b1b"],
+  sage: ["#22c55e", "#15803d"],
+  amber: ["#f59e0b", "#b45309"],
+  violet: ["#a855f7", "#7e22ce"],
+};
 
-type Scheme = (typeof SCHEMES)[keyof typeof SCHEMES];
+const FONT_LABEL: Record<(typeof LACAK_FONTS)[number], string> = {
+  geist: "Geist",
+  inter: "Inter",
+  mono: "Geist Mono",
+};
 
-function getOsScheme(): "light" | "dark" {
-  if (typeof window === "undefined") return "dark";
-  return window.matchMedia("(prefers-color-scheme: dark)").matches
-    ? "dark"
-    : "light";
-}
+/**
+ * Nama keluarga untuk pratinjau huruf di kartu pilihan. Harus sama dengan
+ * blok `.lacak-theme[data-font=...]` di `globals.css`, bukan dengan nama
+ * `* Variable` yang tidak pernah dimuat.
+ */
+const FONT_SAMPLE_STACK: Record<(typeof LACAK_FONTS)[number], string> = {
+  geist: "Geist, system-ui, sans-serif",
+  inter: "Inter, system-ui, sans-serif",
+  mono: '"Geist Mono", ui-monospace, "SF Mono", monospace',
+};
 
-export function SettingsAppearanceShowcasePage() {
-  const [mode, setMode] = useState<Mode>("system");
-  const [density, setDensity] = useState<Density>("cozy");
-  const [palette, setPalette] = useState<Palette>("graphite");
-  const [font, setFont] = useState<FontId>("geist");
+const DENSITY_LABEL: Record<(typeof LACAK_DENSITIES)[number], string> = {
+  comfortable: "Longgar",
+  cozy: "Sedang",
+  compact: "Padat",
+};
+
+export function SettingsAppearanceShowcasePage({ initial, tenant }: { initial: LacakAppearance; tenant: PublicTenant }) {
+  const [tenantData, setTenant] = useState<PublicTenant>(tenant);
+  const [draft, setDraft] = useState<LacakAppearance>(initial);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    setDraft(initial);
+  }, [initial]);
+
+  const dirty = JSON.stringify(draft) !== JSON.stringify(initial);
+
+  const set = <K extends keyof LacakAppearance>(key: K, value: LacakAppearance[K]) =>
+    setDraft((sekarang) => ({ ...sekarang, [key]: value }));
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      await saveLacakAppearance(draft);
+      toast.success("Tampilan Lacak diperbarui");
+    } catch (e: any) {
+      toast.error(e?.message ?? "Gagal menyimpan");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDiscard = () => setDraft(initial);
 
   return (
     <div className="min-h-svh bg-background text-foreground">
       <PageHeader
-        title="Make it yours"
+        title="Tampilan halaman Lacak"
         titleClassName="font-heading text-2xl"
-        description="Tweak everything from the comfort of one screen. Changes preview live on the right — they don't touch the rest of the app."
+        description="Berlaku untuk halaman lacak publik milik toko ini. Pengaturan di sini tidak mengubah tampilan aplikasi yang Anda pakai sendiri."
       />
-      <div className="mx-auto max-w-6xl px-8 py-8">
 
-        <div className="mt-10 grid grid-cols-1 gap-10 lg:grid-cols-[minmax(0,1fr)_360px]">
+      {dirty ? (
+        <div className="fixed bottom-[84px] left-1/2 z-40 flex w-fit max-w-[calc(100vw-16px)] -translate-x-1/2 items-center gap-3 rounded-2xl border bg-background/95 px-3 py-2.5 shadow-2xl shadow-black/15 backdrop-blur-xl supports-[backdrop-filter]:backdrop-blur-xl animate-in slide-in-from-bottom-2 fade-in-0 lg:bottom-6">
+          <div aria-hidden className="absolute -top-1.5 left-1/2 hidden h-1 w-10 -translate-x-1/2 rounded-full bg-foreground/10 lg:block" />
+          <span className="px-1 text-sm font-medium whitespace-nowrap">Ada perubahan</span>
+          <span aria-hidden className="hidden h-4 w-px bg-border/60 sm:block" />
+          <div className="flex items-center gap-1">
+            <Button variant="outline" size="sm" type="button" disabled={saving} onClick={handleDiscard}>
+              Buang
+            </Button>
+            <Button size="sm" type="button" disabled={saving} onClick={handleSave}>
+              {saving ? "Menyimpan..." : "Simpan"}
+            </Button>
+          </div>
+        </div>
+      ) : null}
+
+      <div className="mx-auto max-w-6xl px-8 py-8">
+        <div className="grid grid-cols-1 gap-10 lg:grid-cols-[minmax(0,1fr)_360px]">
           <div>
             <section>
-              <SectionHeader
-                title="Mode"
-                hint="Light, dark, or follow your system."
-              />
+              <SectionHeader title="Mode" hint="Terang, gelap, atau mengikuti perangkat pengunjung." />
               <div className="mt-4 grid max-w-2xl grid-cols-3 gap-3">
                 <ModeCard
                   id="light"
-                  label="Light"
+                  label="Terang"
                   icon={<SunIcon className="size-3.5" />}
-                  active={mode === "light"}
-                  onSelect={setMode}
+                  active={draft.mode === "light"}
+                  onSelect={() => set("mode", "light")}
                   scheme="light"
                 />
                 <ModeCard
                   id="dark"
-                  label="Dark"
+                  label="Gelap"
                   icon={<MoonIcon className="size-3.5" />}
-                  active={mode === "dark"}
-                  onSelect={setMode}
+                  active={draft.mode === "dark"}
+                  onSelect={() => set("mode", "dark")}
                   scheme="dark"
                 />
                 <ModeCard
                   id="system"
-                  label="System"
+                  label="Sistem"
                   icon={<MonitorIcon className="size-3.5" />}
-                  active={mode === "system"}
-                  onSelect={setMode}
+                  active={draft.mode === "system"}
+                  onSelect={() => set("mode", "system")}
                   scheme="split"
                 />
               </div>
             </section>
 
             <section className="mt-10">
-              <SectionHeader
-                title="Palette"
-                hint="Accent and primary colours."
-              />
+              <SectionHeader title="Palette" hint="Warna utama dan aksen." />
               <div className="mt-4 grid max-w-2xl grid-cols-3 gap-3 sm:grid-cols-6">
-                {PALETTES.map((p) => (
-                  <button
-                    key={p.id}
-                    type="button"
-                    onClick={() => setPalette(p.id)}
-                    aria-pressed={palette === p.id}
-                    className={`group relative flex flex-col items-center gap-2 rounded-xl border p-3 transition-colors ${
-                      palette === p.id
-                        ? "border-foreground/60 bg-foreground/[0.04]"
-                        : "border-border/60 bg-background/40 hover:border-border"
-                    }`}
-                  >
-                    <div className="relative flex size-12 items-center justify-center">
-                      <span
-                        className="absolute size-12 rounded-full opacity-30 blur-md"
-                        style={{ background: p.swatch[0] }}
-                      />
-                      <span
-                        className="relative size-7 rounded-full ring-2 ring-background"
-                        style={{ background: p.swatch[0] }}
-                      />
-                      <span
-                        className="-ml-3 relative size-7 rounded-full ring-2 ring-background"
-                        style={{ background: p.swatch[1] }}
-                      />
-                    </div>
-                    <span className="font-medium text-xs">{p.name}</span>
-                    {palette === p.id ? (
-                      <CheckIcon className="absolute top-1.5 right-1.5 size-3 opacity-80" />
-                    ) : null}
-                  </button>
-                ))}
+                {LACAK_PALETTES.map((p) => {
+                  const swatch = PALETTE_SWATCH[p];
+                  return (
+                    <button
+                      key={p}
+                      type="button"
+                      onClick={() => set("palette", p)}
+                      aria-pressed={draft.palette === p}
+                      className={`group relative flex flex-col items-center gap-2 rounded-xl border p-3 transition-colors ${
+                        draft.palette === p
+                          ? "border-foreground/60 bg-foreground/[0.04]"
+                          : "border-border/60 bg-background/40 hover:border-border"
+                      }`}
+                    >
+                      <div className="relative flex size-12 items-center justify-center">
+                        <span
+                          className="absolute size-12 rounded-full opacity-30 blur-md"
+                          style={{ background: swatch[0] }}
+                        />
+                        <span
+                          className="relative size-7 rounded-full ring-2 ring-background"
+                          style={{ background: swatch[0] }}
+                        />
+                        <span
+                          className="-ml-3 relative size-7 rounded-full ring-2 ring-background"
+                          style={{ background: swatch[1] }}
+                        />
+                      </div>
+                      <span className="font-medium text-xs">{PALETTE_LABEL[p]}</span>
+                      {draft.palette === p ? (
+                        <CheckIcon className="absolute top-1.5 right-1.5 size-3 opacity-80" />
+                      ) : null}
+                    </button>
+                  );
+                })}
               </div>
             </section>
 
             <section className="mt-10">
-              <SectionHeader
-                title="Density"
-                hint="Tighter spacing for power users, looser for clarity."
-              />
+              <SectionHeader title="Density" hint="Renggang untuk dibaca, rapat untuk layar kecil." />
               <div className="mt-4 max-w-2xl rounded-xl border border-border/60 bg-background/40 p-1">
                 <div className="grid grid-cols-3 gap-1">
-                  {(["comfortable", "cozy", "compact"] as Density[]).map((d) => (
+                  {LACAK_DENSITIES.map((d) => (
                     <button
                       key={d}
                       type="button"
-                      onClick={() => setDensity(d)}
-                      aria-pressed={density === d}
-                      className={`rounded-lg px-3 py-2.5 text-sm capitalize transition-colors ${
-                        density === d
+                      onClick={() => set("density", d)}
+                      aria-pressed={draft.density === d}
+                      className={`rounded-lg px-3 py-2.5 text-sm transition-colors ${
+                        draft.density === d
                           ? "bg-foreground text-background"
                           : "text-muted-foreground hover:bg-foreground/[0.05] hover:text-foreground"
                       }`}
                     >
-                      {d}
+                      {DENSITY_LABEL[d]}
                     </button>
                   ))}
                 </div>
@@ -201,30 +213,27 @@ export function SettingsAppearanceShowcasePage() {
             </section>
 
             <section className="mt-10">
-              <SectionHeader title="Font" hint="Used everywhere except code." />
+              <SectionHeader title="Font" hint="Berlaku untuk halaman Lacak, bukan untuk aplikasi." />
               <div className="mt-4 grid max-w-2xl grid-cols-1 gap-3 sm:grid-cols-3">
-                {FONTS.map((f) => (
+                {LACAK_FONTS.map((f) => (
                   <button
-                    key={f.id}
+                    key={f}
                     type="button"
-                    onClick={() => setFont(f.id)}
-                    aria-pressed={font === f.id}
+                    onClick={() => set("font", f)}
+                    aria-pressed={draft.font === f}
                     className={`relative rounded-xl border p-4 text-left transition-colors ${
-                      font === f.id
+                      draft.font === f
                         ? "border-foreground/60 bg-foreground/[0.04]"
                         : "border-border/60 bg-background/40 hover:border-border"
                     }`}
                   >
-                    <div
-                      className="text-xl tracking-tight"
-                      style={{ fontFamily: f.stack }}
-                    >
-                      {f.sample}
+                    <div className="text-xl tracking-tight" style={{ fontFamily: FONT_SAMPLE_STACK[f] }}>
+                      AaBbCc 0123
                     </div>
                     <div className="mt-2 font-mono text-[10px] text-muted-foreground uppercase tracking-[0.25em]">
-                      {f.label}
+                      {FONT_LABEL[f]}
                     </div>
-                    {font === f.id ? (
+                    {draft.font === f ? (
                       <CheckIcon className="absolute top-2.5 right-2.5 size-3.5 opacity-80" />
                     ) : null}
                   </button>
@@ -234,316 +243,90 @@ export function SettingsAppearanceShowcasePage() {
           </div>
 
           <aside className="lg:sticky lg:top-12 lg:self-start">
-            <div className="font-mono text-[10px] text-muted-foreground uppercase tracking-[0.3em]">
-              Preview
-            </div>
+            <div className="font-mono text-[10px] text-muted-foreground uppercase tracking-[0.3em]">Pratinjau</div>
             <div className="mt-2 flex items-center justify-between text-muted-foreground text-xs">
-              <span>Reflects only this page.</span>
+              <span>Menampilkan halaman Lacak sungguhan.</span>
               <button
                 type="button"
-                onClick={() => {
-                  setMode("system");
-                  setDensity("cozy");
-                  setPalette("graphite");
-                  setFont("geist");
-                }}
+                onClick={() => setDraft({ ...DEFAULT_LACAK_APPEARANCE })}
                 className="font-mono text-[10px] uppercase tracking-[0.25em] transition-colors hover:text-foreground"
               >
-                Reset
+                Default
               </button>
             </div>
-            <PreviewPane
-              mode={mode}
-              palette={palette}
-              density={density}
-              font={font}
-            />
+            <div className="mt-2 overflow-hidden rounded-xl border border-border/60">
+              <LacakPreview appearance={draft} tenant={tenantData} />
+            </div>
           </aside>
         </div>
+
+        <LandingSection tenant={tenantData} onSaved={setTenant} />
       </div>
     </div>
   );
 }
 
-function PreviewPane({
-  mode,
-  palette,
-  density,
-  font,
-}: {
-  mode: Mode;
-  palette: Palette;
-  density: Density;
-  font: FontId;
-}) {
-  const effectiveMode: "light" | "dark" =
-    mode === "system" ? getOsScheme() : mode;
-  const s = SCHEMES[effectiveMode];
-  const accent = PALETTES.find((p) => p.id === palette)!.swatch[0];
-  const accentSoft = PALETTES.find((p) => p.id === palette)!.swatch[1];
-  const fontStack = FONTS.find((f) => f.id === font)!.stack;
-  const d = DENSITY[density];
+/**
+ * Pratinjau memakai komponen halaman Lacak yang sungguhan di dalam pembungkus
+ * `.lacak-theme`, bukan tiruan dengan hex hardcode. Hex di sini dulu tidak
+ * cocok dengan `globals.css`, jadi apa yang dilihat admin tidak sama dengan
+ * yang dilihat pelanggan; sekarang keduanya membaca token yang sama.
+ */
+function LacakPreview({ appearance, tenant }: { appearance: LacakAppearance; tenant: PublicTenant }) {
+  const prefersDark =
+    typeof window !== "undefined" && window.matchMedia("(prefers-color-scheme: dark)").matches;
+  const scheme = resolveLacakScheme(appearance.mode, prefersDark);
 
   return (
     <div
-      className="mt-3 overflow-hidden rounded-xl ring-1 ring-border/60 shadow-sm"
-      style={{
-        background: s.bg,
-        color: s.text,
-        fontFamily: fontStack,
-        fontSize: d.text,
-      }}
+      className={`lacak-theme ${scheme} max-h-[620px] overflow-y-auto bg-background`}
+      data-palette={appearance.palette}
+      data-density={appearance.density}
+      data-font={appearance.font}
     >
-      <div
-        className="flex items-center justify-between border-b px-3 py-1.5 text-[10px] uppercase tracking-[0.25em]"
-        style={{ borderColor: s.border, color: s.textMuted }}
-      >
-        <div className="flex items-center gap-1.5">
-          <span
-            className="size-1.5 rounded-full"
-            style={{ background: accent }}
-          />
-          Acme · Workspace
+      <div className="relative h-[168px] shrink-0 overflow-hidden">
+        <div className="absolute inset-0">
+          {tenant.bannerUrl ? (
+            <Image src={tenant.bannerUrl} alt="" fill sizes="360px" unoptimized className="object-cover" />
+          ) : (
+            <div className="size-full bg-[linear-gradient(135deg,var(--primary),color-mix(in_oklch,var(--primary)_55%,var(--background)))]" />
+          )}
         </div>
-        <div className="flex items-center gap-1">
-          <span className="size-1.5 rounded-full" style={{ background: "#ef4444", opacity: 0.7 }} />
-          <span className="size-1.5 rounded-full" style={{ background: "#f59e0b", opacity: 0.7 }} />
-          <span className="size-1.5 rounded-full" style={{ background: "#22c55e", opacity: 0.7 }} />
+        <div className="absolute inset-0 bg-background/45" aria-hidden />
+        <div className="absolute inset-0 flex items-center gap-2 px-3 pt-3">
+          <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-background text-[10px] font-bold">
+            {initialsOf(tenant.name)}
+          </span>
+          <span className="min-w-0 flex-1 truncate text-center font-heading text-xs font-bold">{tenant.name}</span>
+          <span className="size-8 shrink-0" aria-hidden />
         </div>
+        {tenant.tagline ? (
+          <p className="absolute inset-x-0 bottom-3 px-4 text-center text-[13px] font-bold leading-tight">{tenant.tagline}</p>
+        ) : null}
       </div>
 
-      <div className="grid grid-cols-[80px_1fr]">
-        <div
-          className="flex flex-col items-center gap-1.5 border-r"
-          style={{
-            background: s.rail,
-            borderColor: s.railBorder,
-            padding: "10px 0",
-          }}
-        >
-          <div
-            className="flex size-7 items-center justify-center rounded-md text-[11px] font-medium"
-            style={{
-              background: accent,
-              color: effectiveMode === "light" ? "#fff" : "#fff",
-            }}
-          >
-            A
-          </div>
-          <RailItem active scheme={s} accent={accent}>
-            ●
-          </RailItem>
-          <RailItem scheme={s}>○</RailItem>
-          <RailItem scheme={s}>◇</RailItem>
-          <div className="mt-auto" />
-          <RailItem scheme={s}>⚙</RailItem>
-        </div>
-
-        <div
-          className="flex flex-col"
-          style={{ padding: d.padCard, gap: d.gapStack }}
-        >
-          <div
-            className="flex items-center justify-between"
-            style={{ minHeight: d.rowH }}
-          >
-            <div>
-              <div
-                className="text-[10px] uppercase tracking-[0.25em]"
-                style={{ color: s.textMuted }}
-              >
-                Project · Q3 planning
-              </div>
-              <div
-                className="mt-0.5 font-medium"
-                style={{ fontSize: `calc(${d.text} + 4px)` }}
-              >
-                Roadmap notes
-              </div>
-            </div>
-            <button
-              type="button"
-              className="rounded-md px-2.5 font-medium"
-              style={{
-                background: accent,
-                color: "#fff",
-                fontSize: `calc(${d.text} - 1px)`,
-                height: `calc(${d.rowH} - 8px)`,
-              }}
-            >
-              Save
-            </button>
-          </div>
-
-          <div
-            className="rounded-lg border"
-            style={{
-              background: s.surface,
-              borderColor: s.border,
-              padding: d.padCard,
-            }}
-          >
-            <div
-              className="flex items-center gap-2 text-[10px] uppercase tracking-[0.25em]"
-              style={{ color: s.textMuted }}
-            >
-              <span
-                className="rounded-full px-1.5 py-0.5"
-                style={{
-                  background: `${accent}22`,
-                  color: accentSoft,
-                  letterSpacing: "0.2em",
-                }}
-              >
-                Pro
-              </span>
-              Updated 2m ago
-            </div>
-            <div
-              className="mt-2 font-medium"
-              style={{ fontSize: `calc(${d.text} + 1px)` }}
-            >
-              Three things shipped this week.
-            </div>
-            <p
-              className="mt-1 leading-relaxed"
-              style={{ color: s.textMuted, fontSize: `calc(${d.text} - 1px)` }}
-            >
-              The audit log API, scoped invites, and a simpler pricing page.
-              Light read.
-            </p>
-          </div>
-
-          <div className="flex flex-col" style={{ gap: d.gapStack }}>
-            <Row scheme={s} density={d}>
-              <span
-                className="inline-flex items-center gap-2"
-                style={{ color: s.text }}
-              >
-                <span
-                  className="flex size-3.5 items-center justify-center rounded-sm"
-                  style={{ background: accent }}
-                >
-                  <CheckIcon className="size-2.5" style={{ color: "#fff" }} />
-                </span>
-                Two-factor auth
-              </span>
-              <ToggleDot on accent={accent} scheme={s} />
-            </Row>
-            <Row scheme={s} density={d}>
-              <span style={{ color: s.text }}>Public sign-up</span>
-              <ToggleDot accent={accent} scheme={s} />
-            </Row>
-            <Row scheme={s} density={d}>
-              <span style={{ color: s.text }}>Show project IDs</span>
-              <ToggleDot on accent={accent} scheme={s} />
-            </Row>
-          </div>
-
-          <div
-            className="flex items-center justify-between border-t pt-2 text-[10px] uppercase tracking-[0.25em]"
-            style={{ borderColor: s.border, color: s.textMuted }}
-          >
-            <span>Mode · {effectiveMode}</span>
-            <span>{density}</span>
-          </div>
-        </div>
+      <div className="relative -mt-5 rounded-t-2xl border-t bg-background px-3 pb-2">
+        <LacakForm tenant={tenant} preview />
+        <TestimonialsCarousel items={tenant.testimonials} />
       </div>
-    </div>
-  );
-}
 
-function RailItem({
-  children,
-  active,
-  scheme,
-  accent,
-}: {
-  children: React.ReactNode;
-  active?: boolean;
-  scheme: Scheme;
-  accent?: string;
-}) {
-  return (
-    <div className="relative">
-      {active ? (
-        <span
-          className="-translate-y-1/2 absolute top-1/2 -left-2 h-3 w-1 rounded-r-full"
-          style={{ background: accent }}
-        />
-      ) : null}
-      <div
-        className="flex size-7 items-center justify-center rounded-md text-[10px]"
-        style={{
-          background: active ? scheme.activeWash : "transparent",
-          color: active ? scheme.text : scheme.textMuted,
-        }}
-      >
-        {children}
-      </div>
-    </div>
-  );
-}
-
-function Row({
-  children,
-  scheme,
-  density,
-}: {
-  children: React.ReactNode;
-  scheme: Scheme;
-  density: (typeof DENSITY)[Density];
-}) {
-  return (
-    <div
-      className="flex items-center justify-between rounded-md border"
-      style={{
-        background: scheme.surface,
-        borderColor: scheme.border,
-        padding: density.padRow,
-      }}
-    >
-      {children}
-    </div>
-  );
-}
-
-function ToggleDot({
-  on,
-  accent,
-  scheme,
-}: {
-  on?: boolean;
-  accent: string;
-  scheme: Scheme;
-}) {
-  return (
-    <span
-      className="relative inline-block h-4 w-7 rounded-full transition-colors"
-      style={{
-        background: on ? accent : scheme.border,
-      }}
-    >
-      <span
-        className="absolute top-0.5 size-3 rounded-full transition-all"
-        style={{
-          background: "#fff",
-          left: on ? "calc(100% - 14px)" : "2px",
-          boxShadow: "0 1px 2px rgba(0,0,0,0.2)",
-        }}
+      <PublicFooter
+        name={tenant.name}
+        instagramUrl={tenant.instagramUrl}
+        tiktokUrl={tenant.tiktokUrl}
+        address={tenant.branchAddress}
+        phone={tenant.branchPhone}
       />
-    </span>
+    </div>
   );
 }
 
 function SectionHeader({ title, hint }: { title: string; hint?: string }) {
   return (
-    <header>
+    <div>
       <h2 className="font-heading text-base">{title}</h2>
-      {hint ? (
-        <p className="mt-1 text-muted-foreground text-xs">{hint}</p>
-      ) : null}
-    </header>
+      {hint ? <p className="mt-0.5 text-sm text-muted-foreground">{hint}</p> : null}
+    </div>
   );
 }
 
@@ -551,36 +334,35 @@ function ModeCard({
   id,
   label,
   icon,
-  scheme,
   active,
   onSelect,
+  scheme,
 }: {
-  id: Mode;
+  id: string;
   label: string;
   icon: React.ReactNode;
-  scheme: "light" | "dark" | "split";
   active: boolean;
-  onSelect: (m: Mode) => void;
+  onSelect: () => void;
+  scheme: "light" | "dark" | "split";
 }) {
   return (
     <button
       type="button"
-      onClick={() => onSelect(id)}
+      onClick={onSelect}
       aria-pressed={active}
-      className={`group flex flex-col gap-3 overflow-hidden rounded-xl border transition-colors ${
-        active
-          ? "border-foreground/60 bg-foreground/[0.04]"
-          : "border-border/60 bg-background/40 hover:border-border"
+      className={`flex flex-col items-start gap-3 rounded-xl border p-4 text-left transition-colors ${
+        active ? "border-foreground/60 bg-foreground/[0.04]" : "border-border/60 bg-background/40 hover:border-border"
       }`}
     >
-      <ModePreview scheme={scheme} />
-      <div className="flex items-center justify-between px-3 pb-3 text-sm">
-        <span className="flex items-center gap-2">
+      <div className="flex w-full items-center justify-between gap-2">
+        <span className="flex items-center gap-1.5 text-sm font-medium">
           {icon}
           {label}
         </span>
         {active ? <CheckIcon className="size-3.5 opacity-80" /> : null}
       </div>
+      <ModePreview scheme={scheme} />
+      {id ? <span className="sr-only">{label}</span> : null}
     </button>
   );
 }
@@ -588,61 +370,15 @@ function ModeCard({
 function ModePreview({ scheme }: { scheme: "light" | "dark" | "split" }) {
   if (scheme === "split") {
     return (
-      <div className="relative h-24 w-full">
-        <div
-          className="absolute inset-0"
-          style={{ clipPath: "polygon(0 0, 100% 0, 0 100%)" }}
-        >
-          <MiniChrome scheme="light" />
-        </div>
-        <div
-          className="absolute inset-0"
-          style={{ clipPath: "polygon(100% 0, 100% 100%, 0 100%)" }}
-        >
-          <MiniChrome scheme="dark" />
-        </div>
+      <div className="flex h-14 w-full overflow-hidden rounded-md ring-1 ring-border/60">
+        <div className="w-1/2 bg-[#fafafa]" />
+        <div className="w-1/2 bg-[#0a0a0a]" />
       </div>
     );
   }
-  return <MiniChrome scheme={scheme} />;
-}
-
-function MiniChrome({ scheme }: { scheme: "light" | "dark" }) {
-  const s = SCHEMES[scheme];
   return (
-    <div className="flex h-24" style={{ background: s.bg }}>
-      <div
-        className="flex w-[26px] flex-col items-center gap-1.5 border-r py-2"
-        style={{ background: s.rail, borderColor: s.railBorder }}
-      >
-        <span
-          className="size-2.5 rounded"
-          style={{ background: "var(--primary)" }}
-        />
-        <span className="size-1.5 rounded-sm" style={{ background: s.textMuted, opacity: 0.45 }} />
-        <span className="size-1.5 rounded-sm" style={{ background: s.textMuted, opacity: 0.25 }} />
-      </div>
-      <div className="flex min-w-0 flex-1 flex-col gap-1.5 p-2">
-        <span
-          className="h-1 w-12 rounded-full"
-          style={{ background: s.textMuted, opacity: 0.45 }}
-        />
-        <div
-          className="flex flex-1 flex-col justify-between rounded-md border p-1.5"
-          style={{ background: s.surface, borderColor: s.border }}
-        >
-          <span
-            className="h-1 w-10 rounded-full"
-            style={{ background: s.textMuted, opacity: 0.45 }}
-          />
-          <span
-            className="inline-flex h-3 items-center rounded px-1.5 font-semibold text-[7px] text-white"
-            style={{ background: "var(--primary)" }}
-          >
-            Go
-          </span>
-        </div>
-      </div>
-    </div>
+    <div
+      className={`h-14 w-full rounded-md ring-1 ring-border/60 ${scheme === "light" ? "bg-[#fafafa]" : "bg-[#0a0a0a]"}`}
+    />
   );
 }

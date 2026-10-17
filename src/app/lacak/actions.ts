@@ -2,6 +2,7 @@
 
 import { headers } from "next/headers";
 import { garansiMeta } from "@/lib/operational/garansi-meta";
+import { toPublicTenant, type LandingRow, type PublicTenant } from "@/lib/public/landing";
 import { coerceStage, normalizeTrackingCode, PUBLIC_LOOKUP_RATE_LIMIT_MESSAGE, PUBLIC_LOOKUP_UNAVAILABLE_MESSAGE, PUBLIC_SERVICE_SELECT, type PublicServisHistoryEntry, type PublicServisLookup, type PublicServisResult } from "@/lib/public/lookup";
 import { createAdminClient } from "@/lib/supabase/admin";
 
@@ -68,21 +69,10 @@ async function allowAttempt(slug: string, ip: string): Promise<boolean> {
   return !bumpError;
 }
 
-export type PublicTenant = {
-  name: string;
-  slug: string;
-  logoUrl: string | null;
-  branchName: string | null;
-};
-
-type BranchRef = { id: string; name: string; logo_url?: string | null };
+type BranchRef = { id: string; name: string };
 type TechnicianRef = { full_name: string | null };
 
-type OrganizationRow = {
-  name: string;
-  slug: string;
-  branches: BranchRef[] | null;
-};
+type OrganizationRow = LandingRow;
 
 type ServiceRow = {
   id: string | null;
@@ -125,24 +115,19 @@ export async function getPublicTenant(slug: string): Promise<PublicTenant | null
   const admin = createAdminClient();
   const { data, error } = await admin
     .from("organizations")
-    .select("id, name, slug, status, branches(id, name, logo_url)")
+    .select(
+      "id, name, slug, status, logo_url, banner_url, tagline, instagram_url, tiktok_url, lacak_appearance, branches(id, name, city, phone, is_active, created_at), lacak_testimonials(id, nama, isi, rating, urutan, is_active, created_at)",
+    )
     .eq("slug", normalized)
     .in("status", ACTIVE_TENANT_STATUSES)
+    .order("urutan", { referencedTable: "lacak_testimonials", ascending: true })
     .limit(1)
     .maybeSingle();
   if (error) return null;
   if (!data) return null;
 
   const row = asRow<OrganizationRow>(data);
-  const branches = row.branches ?? [];
-  const withLogo = branches.find((branch) => Boolean(branch.logo_url)) ?? branches[0] ?? null;
-
-  return {
-    name: row.name,
-    slug: row.slug,
-    logoUrl: withLogo?.logo_url ?? null,
-    branchName: withLogo?.name ?? null,
-  };
+  return toPublicTenant(row, process.env.NEXT_PUBLIC_SUPABASE_URL ?? "");
 }
 
 export async function lookupServisByCode(slug: string, rawCode: string): Promise<PublicServisLookup> {

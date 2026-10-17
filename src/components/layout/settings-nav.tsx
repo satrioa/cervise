@@ -3,12 +3,29 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import type { NavEntry, NavGroup } from "@/lib/nav/manifest";
+import type { NavGroup } from "@/lib/nav/manifest";
 
+export type SettingsNavItem = { href: string; label: string };
+
+/**
+ * Bentuk datar, BUKAN `NavEntry[]`.
+ *
+ * Layout pengaturan adalah Server Component (butuh `getActiveTenant()` yang
+ * memakai `cookies()`), sementara komponen ini Client Component. `NavEntry`
+ * membawa `icon`, yaitu komponen React — sebuah fungsi — dan React melarang
+ * apa pun yang bukan plain object melewati batas itu. Mengirim `NavEntry`
+ * langsung menghasilkan:
+ *
+ *   Only plain objects can be passed to Client Components from Server
+ *   Components.
+ *
+ * Ikon memang tidak pernah dipakai di sini, jadi bentuk datarnya bukan
+ * sekadar pemangkasan.
+ */
 export type SettingsNavGroup = {
   group: NavGroup;
   label?: string;
-  entries: NavEntry[];
+  entries: SettingsNavItem[];
 };
 
 export function SettingsNav({ groups }: { groups: SettingsNavGroup[] }) {

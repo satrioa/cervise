@@ -14,12 +14,12 @@ const OPTIONS = [
 ] as const;
 
 /**
- * Pengalih tema terang/gelap/sistem.
+ * Pengalih tema terang/gelap/sistem untuk APLIKASI.
  *
- * next-thes sudah terpasang dan styling `dark:` sudah ada di seluruh
- * komponen, tapi sebelumnya tidak ada satu pun kontrol untuk mengubahnya -
- * ThemeProvider di app/layout.tsx memakai defaultTheme="light" dan
- * enableSystem={false}, jadi aplikasi praktisnya light-only.
+ * Menyimpan ke `localStorage["cervise-theme"]` lewat `next-themes`, dan hanya
+ * memengaruhi `<html>` lewat class `dark`. Tidak ada hubungannya dengan
+ * pengaturan tampilan halaman Lacak di `/app/pengaturan/tampilan`: yang itu
+ * milik toko, disimpan di database, dan tidak menyentuh class pada `<html>`.
  *
  * Button ini meniru gaya CommandSearchTrigger di sebelahnya, dan memakai
  * primitive coss yang sudah ada di repo (Button + Popover) -
