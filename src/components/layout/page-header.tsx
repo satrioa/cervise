@@ -1,8 +1,6 @@
 import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
-import { CommandSearchTrigger } from "./command-palette-provider";
-import { ThemeToggle } from "./theme-toggle";
-import { useShellChrome } from "./shell-chrome";
+import { ShellChrome } from "./shell-chrome";
 
 export type PageHeaderProps = {
   title: ReactNode;
@@ -29,11 +27,9 @@ export function PageHeader({
   sticky = true,
   className,
 }: PageHeaderProps) {
-  // Shell compact sudah merender search dan tema di header-nya. Kalau
-  // PageHeader tetap merendernya, teknisi dan frontliner melihat dua header
-  // bertumpuk. Di legacy, shell tidak punya header, jadi keduanya tetap
-  // diperlukan di sini.
-  const shellHasChrome = useShellChrome();
+  // `ShellChrome` yang memutuskan apakah search + tema perlu dirender di
+  // sini. `PageHeader` sengaja tetap server component, jadi `useShellChrome`
+  // tidak boleh dipanggil langsung dari file ini.
   const hasRow2 = search != null || filters != null || actions != null;
 
   return (
@@ -54,12 +50,7 @@ export function PageHeader({
           <h1 className={cn("truncate font-heading text-xl", titleClassName)}>{title}</h1>
           {description ? <p className="mt-0.5 truncate text-sm text-muted-foreground">{description}</p> : null}
         </div>
-        {shellHasChrome ? null : (
-          <div className="flex shrink-0 items-center gap-1.5">
-            <ThemeToggle />
-            <CommandSearchTrigger />
-          </div>
-        )}
+        <ShellChrome />
       </div>
       {hasRow2 ? (
         <div className="border-t border-border/40">
