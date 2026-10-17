@@ -6,6 +6,7 @@ export type TenantAccessErrorCode =
   | "branch_invalid"
   | "profile_inactive"
   | "subscription_blocked"
+  | "subscription_expired"
   | "lookup_failed";
 
 export function getTenantAccessRedirect(code: TenantAccessErrorCode) {
@@ -16,9 +17,21 @@ export function getTenantAccessRedirect(code: TenantAccessErrorCode) {
       return "/onboarding";
     case "assignment_required":
       return "/account/assignment-required";
+    // Keduanya mengarah ke halaman tagihan, bukan ke login. Trial yang habis
+    // atau langganan yang terblokir bukan masalah password - mengunci orang
+    // ke layar login membuat mereka mengira akunnya rusak, sementara
+    // tagihan yang perlu diselesaikan ada di halaman yang sama: pilih paket
+    // lalu bayar.
+    //
+    // `reason` dibaca halaman tagihan untuk menampilkan penjelasannya.
+    case "subscription_expired":
+      return "/app/pengaturan/subscription?reason=trial-ended";
+    case "subscription_blocked":
+      return "/app/pengaturan/subscription?reason=blocked";
+    // Dua berikut tetap ke login: ini masalah akun atau cabang, bukan
+    // tagihan, jadi mengarahkan ke halaman paket hanya akan membingungkan.
     case "branch_invalid":
     case "profile_inactive":
-    case "subscription_blocked":
       return "/login?error=tenant-access-denied";
     case "lookup_failed":
       return "/login?error=tenant-access-check-failed";

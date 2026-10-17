@@ -65,6 +65,33 @@ export type Actor = {
 };
 
 export async function getActiveTenant(): Promise<Actor> {
+  return resolveTenant({ allowExpiredSubscription: false });
+}
+
+/**
+ * Actor untuk halaman penagihan saja.
+ *
+ * Bedanya satu: subscription yang sudah berakhir (trial habis, atau status
+ * blocked/suspended/cancelled) TIDAK lagi melempar error. Semua pemeriksaan
+ * lain tetap jalan - profil harus aktif, tenant harus ada, cabang harus
+ * valid, dan kegagalan query tetap `lookup_failed`.
+ *
+ * Kenapa perlu: tanpa ini, tenant yang trial-nya habis terkunci total, dan
+ * halaman yang harus dipakai untuk membayar - `/app/pengaturan/subscription` -
+ * ikut terkunci. Itu jalan buntu: tidak ada halaman yang bisaderr reached,
+ * sehingga satu-satunya jalan keluar adalah platform owner intervene manual.
+ * Halaman penagihan justru harus tetap bisa dibaca dan acted-on supaya tenant
+ * bisa memilih paket dan membuat invoice.
+ *
+ * PENTUM: `allowExpiredSubscription` hanya untuk penagihan. Jangan dipakai di
+ * halaman lain - readonly data tenant (servis, penjualan, stok) tidak boleh
+ * terbaca oleh tenant yang langganannya sudah berhenti.
+ */
+export async function getActiveTenantForBilling(): Promise<Actor> {
+  return resolveTenant({ allowExpiredSubscription: true });
+}
+
+async function resolveTenant(options: { allowExpiredSubscription: boolean }): Promise<Actor> {
   const supabase = await createClient();
   const { data: auth } = await supabase.auth.getUser();
   if (!auth.user) throw new TenantAccessError("unauthenticated", "Unauthorized");
@@ -133,6 +160,12 @@ export async function getActiveTenant(): Promise<Actor> {
     .eq("id", targetOrgId)
     .maybeSingle();
   if (organizationError) throw new TenantAccessError("lookup_failed", organizationError.message);
+  // `organizations.status` TIDAK dikecualikan untuk jalur penagihan, walaupun
+  // namanya juga "blocked". Status ini berarti tenant-nya dinonaktifkan
+  // seluruhnya - bisa karena penyalahgunaan, bukan sekadar tagihan yang lewat
+  // tempo. Membukanya di jalur penagihan akan memberi halaman paket pada akun
+  // yang seharusnya tidak melihat apa pun; tagihannya diselesaikan platform
+  // owner dari sisi `/owner`.
   if (!organization || ["blocked", "suspended", "cancelled"].includes(organization.status)) {
     throw new TenantAccessError("subscription_blocked", "Organisasi tenant tidak aktif");
   }
@@ -163,26 +196,38 @@ export async function getActiveTenant(): Promise<Actor> {
     const trialEndsAt = subscriptionRow.trial_ends_at as string | null;
     const graceDays = (subscriptionRow.grace_days as number | null) ?? 3;
 
-    if (status === "trial" && (!trialEndsAt || new Date(trialEndsAt) <= new Date())) {
-      throw new TenantAccessError("subscription_blocked", "Masa trial tenant telah berakhir");
+    // Status dihitung lebih dulu supaya `subscription` yang dikembalikan
+    // selalu menunjukkan keadaan sebenarnya, termasuk di jalur penagihan.
+    // Trial yang sudah lewat hanya melempar di jalur biasa; di jalur
+    // penagihan nilainya dibiarkan apa adanya supaya halaman tagihan bisa
+    // menampilkan "Trial berakhir" beserta tanggalnya.
+    const trialExpired =
+      status === "trial" && (!trialEndsAt || new Date(trialEndsAt) <= new Date());
+    if (trialExpired && !options.allowExpiredSubscription) {
+      throw new TenantAccessError("subscription_expired", "Masa trial tenant telah berakhir");
     }
 
     if (status === "active" || status === "grace") {
-      if (!currentPeriodEnd) throw new TenantAccessError("subscription_blocked", "Periode subscription tidak valid");
-      status = getSubscriptionAccessState({
-        status,
-        currentPeriodEnd: new Date(currentPeriodEnd),
-        graceDays,
-        now: new Date(),
-      });
+      if (!currentPeriodEnd) {
+        if (!options.allowExpiredSubscription) {
+          throw new TenantAccessError("subscription_blocked", "Periode subscription tidak valid");
+        }
+      } else {
+        status = getSubscriptionAccessState({
+          status,
+          currentPeriodEnd: new Date(currentPeriodEnd),
+          graceDays,
+          now: new Date(),
+        });
+      }
     }
 
-    if (status === "blocked" || status === "suspended" || status === "cancelled") {
+    if (!options.allowExpiredSubscription && (status === "blocked" || status === "suspended" || status === "cancelled")) {
       throw new TenantAccessError("subscription_blocked", "Akses tenant diblokir. Hubungi platform owner untuk pembayaran.");
     }
 
     subscription = { status, currentPeriodEnd, trialEndsAt, graceDays };
-  } else {
+  } else if (!options.allowExpiredSubscription) {
     throw new TenantAccessError("subscription_blocked", "Subscription tenant tidak ditemukan");
   }
 
@@ -199,7 +244,7 @@ export async function getActiveTenant(): Promise<Actor> {
     // berarti bertanggung jawab atas tagihan. Keduanya bisa ada pada satu
     // orang, tapi tidak boleh saling disamakan.
     isOwner: isTenantOwner(
-      organization.owner_profile_id as string | null,
+      organization?.owner_profile_id as string | null,
       auth.user.id,
     ),
     fullName: (profile.full_name as string | null) ?? null,
@@ -282,7 +327,7 @@ export async function getTenantBySlugForCurrentUser(slug: string) {
   const trialEndsAt = subscription.trial_ends_at as string | null;
   const graceDays = (subscription.grace_days as number | null) ?? 3;
   if (subscriptionStatus === "trial" && (!trialEndsAt || new Date(trialEndsAt) <= new Date())) {
-    throw new TenantAccessError("subscription_blocked", "Masa trial tenant telah berakhir");
+    throw new TenantAccessError("subscription_expired", "Masa trial tenant telah berakhir");
   }
   if (subscriptionStatus === "active" || subscriptionStatus === "grace") {
     if (!currentPeriodEnd) throw new TenantAccessError("subscription_blocked", "Periode subscription tidak valid");

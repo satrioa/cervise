@@ -52,15 +52,45 @@ export default function LoginPage() {
   );
 }
 
-function usePasswordNotice() {
-  const searchParams = useSearchParams();
-  if (searchParams.get("password") === "updated") {
-    return { kind: "success" as const, message: "Password berhasil diganti. Silakan masuk." };
+/**
+ * Pesan yang muncul di atas form login.
+ *
+ * Dipisah dari komponen supaya bisa diuji tanpa merender React: yang perlu
+ * dijaga adalah pemetaan kode error ke kalimatnya, dan itu murni.
+ *
+ * `tenant-access-denied` sengaja punya kalimat sendiri. Tanpa ini, tenant yang
+ * trial-nya habis melihat layar login yang sama seperti biasa - tidak ada
+ * penjelasan kenapa mereka dikeluarkan, dan tidak ada arah ke jalan keluar.
+ */
+export function loginNoticeFromParams(params: URLSearchParams): { kind: "success" | "error"; message: string } | null {
+  const password = params.get("password");
+  if (password === "updated") {
+    return { kind: "success", message: "Password berhasil diganti. Silakan masuk." };
   }
-  if (searchParams.get("error") === "access_denied") {
-    return { kind: "error" as const, message: "Link reset password tidak valid atau sudah kedaluwarsa." };
+
+  const error = params.get("error");
+  if (error === "access_denied") {
+    return { kind: "error", message: "Link reset password tidak valid atau sudah kedaluwarsa." };
+  }
+  if (error === "tenant-access-denied") {
+    return {
+      kind: "error",
+      message:
+        "Akses ditolak: akun, cabang, atau langganan Anda tidak aktif. Hubungi pemilik toko atau platform owner untuk mengaktifkannya kembali.",
+    };
+  }
+  if (error === "tenant-access-check-failed") {
+    return {
+      kind: "error",
+      message: "Pemeriksaan akses gagal sementara. Coba beberapa saat lagi, atau hubungi platform owner bila terus gagal.",
+    };
   }
   return null;
+}
+
+function usePasswordNotice() {
+  const searchParams = useSearchParams();
+  return loginNoticeFromParams(searchParams);
 }
 
 function PageBackdrop() {

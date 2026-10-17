@@ -1,5 +1,9 @@
 import { redirect } from "next/navigation";
-import { getActiveTenant, type Actor } from "@/lib/supabase/actor";
+import {
+  getActiveTenant,
+  getActiveTenantForBilling,
+  type Actor,
+} from "@/lib/supabase/actor";
 import { canAccess, canWrite } from "@/lib/nav/manifest";
 
 /**
@@ -12,6 +16,26 @@ import { canAccess, canWrite } from "@/lib/nav/manifest";
  */
 export async function requireMenu(key: string): Promise<Actor> {
   const actor = await getActiveTenant();
+  if (!canAccess(actor.role, key)) {
+    redirect("/app?error=forbidden");
+  }
+  return actor;
+}
+
+/**
+ * Guard untuk halaman penagihan.
+ *
+ * Perbedaannya hanya di sumber actor: tenant yang langganannya sudah berakhir
+ * tidak melempar, jadi halaman tagihan tetap bisa dibaca dan dipakai membuat
+ * invoice. Pemeriksaan role-nya identik - tenant terkunci bukan berarti siapa
+ * pun boleh melihat harga paket.
+ *
+ * Hanya boleh dipakai untuk halaman yang benar-benar berisi tagihan. Halaman
+ * lain tetap memakai `requireMenu`, supaya data tenant yang sudah tidak berhak
+ * tidak ikut terbaca.
+ */
+export async function requireMenuForBilling(key: string): Promise<Actor> {
+  const actor = await getActiveTenantForBilling();
   if (!canAccess(actor.role, key)) {
     redirect("/app?error=forbidden");
   }

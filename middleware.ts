@@ -9,9 +9,16 @@ import type { NextRequest } from "next/server";
 const intlMiddleware = createMiddleware(routing);
 
 export default async function middleware(request: NextRequest) {
+  // Path diteruskan ke server component lewat request header.
+  //
+  // `AppLayout` butuh tahu pathname untuk mengecualikan halaman subscription
+  // dari gate langganan: tenant yang trial-nya habis harus tetap bisa membuka
+  // halaman itu untuk membayar. `next-intl` menambah prefiks locale, jadi
+  // path yang dibandingkan di layout adalah path SETELAH locale dihapus.
+  request.headers.set("x-pathname", request.nextUrl.pathname);
+
   // Supabase session refresh
-  const response = NextResponse.next({ request: { headers: request.headers } });
-  const supabase = createServerClient(
+  const response = NextResponse.next({ request: { headers: request.headers } });  const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {

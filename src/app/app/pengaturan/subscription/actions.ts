@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { getActiveTenantStrict } from "@/lib/supabase/actor";
+import { getActiveTenantForBilling } from "@/lib/supabase/actor";
 import { canAccess } from "@/lib/rbac";
 
 function requireSubscriptionAccess(role: string) {
@@ -50,7 +50,7 @@ function firstRelation<T>(value: T | T[] | null) {
 }
 
 export async function getTenantBilling() {
-  const actor = await getActiveTenantStrict();
+  const actor = await getActiveTenantForBilling();
   requireSubscriptionAccess(actor.role);
   const [subscriptionResult, invoiceResult, packageResult, contactResult] = await Promise.all([
     actor.supabase
@@ -103,7 +103,11 @@ export async function getTenantBilling() {
 }
 
 export async function requestPackage(packageId: string) {
-  const actor = await getActiveTenantStrict();
+  // `getActiveTenantForBilling`, bukan `Strict`: tenant yang trial-nya habis
+  // harus tetap bisa membuat invoice. Aktivasi paketnya nanti dilakukan
+  // platform owner lewat `approveInvoice`, yang tidak bergantung pada
+  // status langganan tenant sama sekali.
+  const actor = await getActiveTenantForBilling();
   if (!canAccess(actor.role, "pengaturan_subscription")) {
     throw new Error("Hanya Master Admin atau Admin yang dapat memilih paket");
   }

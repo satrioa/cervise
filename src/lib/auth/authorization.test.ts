@@ -42,10 +42,31 @@ describe("authorization helpers", () => {
   it("maps tenant access failures to safe destinations", () => {
     expect(getTenantAccessRedirect("unauthenticated")).toBe("/login?next=/app");
     expect(getTenantAccessRedirect("tenant_not_found")).toBe("/onboarding");
-    expect(getTenantAccessRedirect("subscription_blocked")).toBe("/login?error=tenant-access-denied");
     expect(getTenantAccessRedirect("branch_invalid")).toBe("/login?error=tenant-access-denied");
     expect(getTenantAccessRedirect("profile_inactive")).toBe("/login?error=tenant-access-denied");
     expect(getTenantAccessRedirect("assignment_required")).toBe("/account/assignment-required");
+  });
+
+  it("mengarahkan langganan yang berakhir ke halaman tagihan, bukan ke login", () => {
+    // Ini yang memperbaiki jalan buntu: sebelumnya tenant yang trial-nya habis
+    // terpental ke /login tanpa penjelasan, sementara halaman yang dipakai
+    // untuk membayar ikut terkunci. Sekarang keduanya bertemu di satu tempat.
+    expect(getTenantAccessRedirect("subscription_expired")).toBe(
+      "/app/pengaturan/subscription?reason=trial-ended",
+    );
+    expect(getTenantAccessRedirect("subscription_blocked")).toBe(
+      "/app/pengaturan/subscription?reason=blocked",
+    );
+  });
+
+  it("memisahkan masalah tagihan dari masalah akun", () => {
+    // `branch_invalid` dan `profile_inactive` tetap ke login. Mengarahkannya
+    // ke halaman paket akan menampilkan pilihan bayar untuk masalah yang
+    // sebenarnya adalah data akun yang salah - satu langganan tidak akan
+    // memperbaikinya.
+    const redirect = getTenantAccessRedirect("branch_invalid");
+    expect(redirect).not.toContain("subscription");
+    expect(getTenantAccessRedirect("profile_inactive")).not.toContain("subscription");
   });
 
   it("detects protected paths after locale prefixes", () => {

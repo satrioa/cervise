@@ -1,19 +1,21 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { getActiveTenantMock, redirectMock } = vi.hoisted(() => ({
+const { getActiveTenantMock, getActiveTenantForBillingMock, redirectMock } = vi.hoisted(() => ({
   getActiveTenantMock: vi.fn(),
+  getActiveTenantForBillingMock: vi.fn(),
   redirectMock: vi.fn(),
 }));
 
 vi.mock("@/lib/supabase/actor", () => ({
   getActiveTenant: getActiveTenantMock,
+  getActiveTenantForBilling: getActiveTenantForBillingMock,
 }));
 
 vi.mock("next/navigation", () => ({
   redirect: redirectMock,
 }));
 
-import { assertCanRead, assertCanWrite, requireMenu } from "./require-menu";
+import { assertCanRead, assertCanWrite, requireMenu, requireMenuForBilling } from "./require-menu";
 import type { Actor } from "@/lib/supabase/actor";
 
 function actorWithRole(role: string): Actor {
@@ -32,6 +34,7 @@ function actorWithRole(role: string): Actor {
 describe("requireMenu", () => {
   beforeEach(() => {
     getActiveTenantMock.mockReset();
+    getActiveTenantForBillingMock.mockReset();
     redirectMock.mockReset();
   });
 
@@ -87,6 +90,45 @@ describe("requireMenu", () => {
     getActiveTenantMock.mockResolvedValue(actorWithRole("MASTER_ADMIN"));
     await requireMenu("/app/pengaturan/subscription");
     expect(redirectMock).toHaveBeenCalledTimes(3);
+  });
+});
+
+describe("requireMenuForBilling", () => {
+  beforeEach(() => {
+    getActiveTenantMock.mockReset();
+    getActiveTenantForBillingMock.mockReset();
+    redirectMock.mockReset();
+  });
+
+  it("memakai actor penagihan, bukan actor biasa", async () => {
+    // Guard ini ada karena halaman tagihan harus tetap terbuka untuk tenant
+    // yang langganannya habis. Kalau tanpa sengaja memakai `requireMenu`,
+    // halaman itu ikut terkunci dan perbaikannya jadi tidak berarti.
+    getActiveTenantForBillingMock.mockResolvedValue(actorWithRole("MASTER_ADMIN"));
+    await requireMenuForBilling("pengaturan_subscription");
+    expect(getActiveTenantForBillingMock).toHaveBeenCalledTimes(1);
+    expect(getActiveTenantMock).not.toHaveBeenCalled();
+  });
+
+  it("tetap memeriksa role seperti guard biasa", async () => {
+    expect(redirectMock).not.toHaveBeenCalled();
+  });
+
+  it("role tanpa hak tetap ditolak", async () => {
+    // Pengecualian itu soal status langganan, bukan soal hak akses.
+    // FRONTLINER tidak boleh melihat harga paket meski tenant-nya terkunci.
+    for (const role of ["ADMIN", "FRONTLINER", "TECHNICIAN"]) {
+      getActiveTenantForBillingMock.mockResolvedValue(actorWithRole(role));
+      await requireMenuForBilling("pengaturan_subscription");
+      expect(redirectMock).toHaveBeenCalledWith("/app?error=forbidden");
+    }
+  });
+
+  it("MASTER_ADMIN boleh membuka halaman paket", async () => {
+    getActiveTenantForBillingMock.mockResolvedValue(actorWithRole("MASTER_ADMIN"));
+    const actor = await requireMenuForBilling("pengaturan_subscription");
+    expect(actor.role).toBe("MASTER_ADMIN");
+    expect(redirectMock).not.toHaveBeenCalled();
   });
 });
 
