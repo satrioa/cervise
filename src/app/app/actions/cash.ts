@@ -262,12 +262,14 @@ async function computeReport(sessionId: string, row: SessionForReport): Promise<
       .select("id, service_number, device, status, price, created_at, updated_at")
       .eq("branch_id", branchId)
       .gte("created_at", session.openAt)
+      .order("created_at", { ascending: false })
       .limit(SERVICE_ROW_CAP),
     supabase
       .from("cervise_sales")
       .select("id, sale_number, total, paid, payment_status, payment_method, kas_date, servis_id")
       .eq("branch_id", branchId)
       .eq("kas_date", date)
+      .order("created_at", { ascending: false })
       .limit(SALE_ROW_CAP),
     supabase
       .from("cervise_finance_tx")
@@ -275,6 +277,7 @@ async function computeReport(sessionId: string, row: SessionForReport): Promise<
       .eq("branch_id", branchId)
       .eq("kas_date", date)
       .in("source", ["kas_manual", "penyesuaian"])
+      .order("created_at", { ascending: false })
       .limit(CASH_ROW_CAP),
   ]);
 

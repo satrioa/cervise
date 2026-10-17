@@ -1,6 +1,7 @@
 "use server";
 
 import { getActiveTenant } from "@/lib/supabase/actor";
+import { assertCanRead } from "@/lib/auth/require-menu";
 import { rentangBulanSekarang } from "@/lib/operational/periode-bulan";
 import {
   buildPerformaTeknisi,
@@ -24,7 +25,11 @@ export async function getPerformaTeknisi(): Promise<PerformaTeknisiResult> {
   const now = new Date();
   const { from, to } = rentangBulanSekarang(now);
   try {
-    const { supabase } = await getActiveTenant();
+    const actor = await getActiveTenant();
+    // Guard di page.tsx tidak menutup jalur ini: server action bisa dipanggil
+    // langsung. Hanya manifest yang menentukan role, jadi cek ulang di sini.
+    assertCanRead(actor, "/app/laporan/performa");
+    const { supabase } = actor;
 
     // employees.role is the authoritative upper-cased role; profiles.role is
     // legacy lower-case and must not be filtered on.
