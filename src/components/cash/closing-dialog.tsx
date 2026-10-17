@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -18,6 +19,7 @@ import { formatCurrencyPlain } from "@/lib/format";
 import type { ShiftReport } from "@/lib/operational/laporan-shift";
 import { closeCashSession, getShiftPreview, type CashSessionRow } from "@/app/app/actions/cash";
 import { ShiftReportView, VarianceRow } from "./shift-report";
+import { printShiftThermal } from "./shift-thermal-print";
 
 type Step = "preview" | "closing" | "confirm";
 
@@ -32,6 +34,12 @@ type Step = "preview" | "closing" | "confirm";
  *
  * Tahap 3 computing ulang preview-nya: sejak tahap 1 masih ada transaksi yang
  * bisa masuk, jadi angka yang disimpan harus yang dibaca paling akhir.
+ *
+ * Setelah shift tertutup, struk thermal ringkasannya otomatis dicetak. Cetak
+ * terjadi setelah `closeCashSession` sukses, bukan sebelum: kalau simpan
+ * gagal, tidak boleh ada struk untuk shift yang belum tertutup. Laporan yang
+ * dicetak adalah hasil balikan server - angka yang sama dengan yang tersimpan
+ * di snapshot, bukan angka lokal dari tahap 3.
  */
 export function ClosingDialog({
   open,
@@ -52,6 +60,10 @@ export function ClosingDialog({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [openedFor, setOpenedFor] = useState<string | null>(null);
+  // Default-nya tetap cetak. Struk untuk laci, dan shift yang tutup
+  // tanpa struk berarti laci tidak punya catatan hari itu - jadi yang
+  // dicentang berarti "jangan", bukan "boleh".
+  const [skipPrint, setSkipPrint] = useState(false);
 
   // Dialog ini dibuka dari tombol, jadi reset state dilakukan di render bukan
   // di effect: `openedFor` berubah hanya saat dialog dibuka untuk sesi lain.
@@ -63,6 +75,9 @@ export function ClosingDialog({
     setClosing("");
     setReason("");
     setError(null);
+    // Box "jangan cetak" tidak ikut mewarisi pilihan sesi sebelumnya: sesi
+    // berikutnya punya struk yang sendiri.
+    setSkipPrint(false);
   }
   if (!open && openedFor !== null) {
     setOpenedFor(null);
@@ -123,6 +138,17 @@ export function ClosingDialog({
         ? "Shift ditutup. Saldo sesuai."
         : "Shift ditutup dengan selisih tercatat.",
     );
+
+    // Cetak setelah dialog ditutup. `printShiftThermal` membuka dialog cetak
+    // browser yang memblokir thread - dengan dialog Tutup Toko masih terbuka,
+    // akan muncul dua dialog bertumpuk dan yang jadi TUJUHAN tidak jelas.
+    // Urutannya: tutup dialog dulu, baru cetak.
+    if (!skipPrint) {
+      const printed = printShiftThermal(result.data);
+      if (!printed) {
+        toast.error("Shift ditutup, tapi struk thermal gagal dibuat. Cetak manual dari Laporan Shift.");
+      }
+    }
     onClosed?.();
   };
 
@@ -214,6 +240,26 @@ export function ClosingDialog({
                 />
               </div>
             )}
+
+            {/* Opt-out cetak, hanya di tahap konfirmasi. Bukan di tahap 1
+                karena di situ belum ada yang diputuskan, dan tidak di footer
+                karena keduanya sudah punya konteks sendiri. Yang dicatat di
+                sini adalah struk yang akan keluar begitu tombol ditekan. */}
+            <label className="flex cursor-pointer items-start gap-2 rounded-lg border border-border/60 bg-muted/20 p-3 hover:bg-foreground/[0.03]">
+              <Checkbox
+                checked={skipPrint}
+                onCheckedChange={(value) => setSkipPrint(value === true)}
+                className="mt-0.5"
+                aria-label="Jangan cetak otomatis"
+              />
+              <span className="text-sm leading-snug">
+                Jangan cetak otomatis
+                <span className="block text-xs text-muted-foreground">
+                  Setelah ditutup, ringkasan shift dicetak ke printer thermal. Centang ini kalau
+                  printer tidak terhubung atau struk sudah diambil dari laporan.
+                </span>
+              </span>
+            </label>
           </div>
         )}
 
