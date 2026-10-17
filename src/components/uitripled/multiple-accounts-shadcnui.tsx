@@ -4,7 +4,7 @@ import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { Check, ChevronDown, Settings2 } from "lucide-react";
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { cn } from "@/lib/utils";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { TenantLogo } from "@/components/layout/tenant-logo";
 
 export type AccountOption = {
   id: string;
@@ -25,15 +25,6 @@ type MultipleAccountsProps = {
   bare?: boolean;
 };
 
-function initials(name: string) {
-  return name
-    .trim()
-    .split(/\s+/)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase() ?? "")
-    .join("") || "?";
-}
-
 function AccountAvatar({
   account,
   compact = false,
@@ -41,16 +32,16 @@ function AccountAvatar({
   account: AccountOption;
   compact?: boolean;
 }) {
-  const className = cn(
-    "relative flex shrink-0 items-center justify-center overflow-hidden rounded-xl border border-border/60 bg-muted font-semibold text-foreground",
-    compact ? "size-9 text-xs" : "size-10 text-sm",
-  );
-
   return (
-    <Avatar className={className} aria-hidden="true">
-      {account.avatarUrl ? <AvatarImage src={account.avatarUrl} alt="" /> : null}
-      <AvatarFallback>{initials(account.name)}</AvatarFallback>
-    </Avatar>
+    <TenantLogo
+      logoUrl={account.avatarUrl}
+      name={account.name}
+      title={`Tenant: ${account.name}`}
+      className={cn(
+        "border border-border/60 bg-muted font-semibold text-foreground",
+        compact ? "size-9 text-xs" : "size-10 text-sm",
+      )}
+    />
   );
 }
 
