@@ -1,15 +1,13 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
-import { useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { LogOut, Settings } from "lucide-react";
 import { useTenant } from "@/lib/tenant-context";
 import { useBranch } from "@/lib/branch-context";
 import { createClient } from "@/lib/supabase/client";
 import { IdentityAvatar } from "@/components/identity-avatar";
-import { initialsOf } from "@/lib/photos";
+import { TenantLogo } from "@/components/layout/tenant-logo";
 import { GROUP_LABEL_KEY, navFor, type NavEntry } from "@/lib/nav/manifest";
 import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
@@ -40,7 +38,16 @@ import { cn } from "@/lib/utils";
  * Grup yang dirender di rail compact. `dashboard` masuk supaya teknisi dan
  * frontliner bisa kembali ke dashboard tanpa tombol khusus.
  */
-const COMPACT_GROUPS = ["dashboard", "operasional", "laporan", "keuangan"] as const;
+/**
+ * Group yang dirender di rail, sesuai urutannya di `GROUP_ORDER`.
+ *
+ * `manajemen` ikut masuk karena Customer dipindahkan ke sana. Tanpa baris ini
+ * ikonnya tidak akan pernah muncul di rail: `navFor` tetap mengembalikan blok
+ * `manajemen`, tapi blok itu dibuang di bawah. Efeknya Group management hilang
+ * dari rail, bukan cuma Customer -- beredaksi entri di sini berarti menghapus
+ * halaman untuk semua role, bukan menyembunyikannya.
+ */
+const COMPACT_GROUPS = ["dashboard", "operasional", "manajemen", "laporan", "keuangan"] as const;
 
 /**
  * Lebar rail untuk `grid-template-columns`.
@@ -192,56 +199,6 @@ export function CompactSidebar({
         <LogoutButton />
       </div>
     </>
-  );
-}
-
-/**
- * Logo tenant di kepala rail.
- *
- * Dipakai `next/image`, bukan `IdentityAvatar`, karena bentuknya persegi
- * (rounded-lg) untuk logo — `IdentityAvatar` hardcode `rounded-full` yang
- * memang benar untuk foto orang tapi terlihat salah untuk logo perusahaan.
- *
- * Kalau tenant belum mengunggah logo, jatuh ke inisial nama tenant, sama
- * seperti `IdentityAvatar` melakukan untuk foto orang. Tidak ada panggilan ke
- * layanan avatar pihak ketiga.
- */
-function TenantLogo({
-  logoUrl,
-  name,
-  title,
-  className,
-}: {
-  logoUrl: string | null;
-  name: string | null;
-  title: string;
-  className?: string;
-}) {
-  const [failed, setFailed] = useState(false);
-  const showLogo = Boolean(logoUrl) && !failed;
-
-  return (
-    <span
-      title={title}
-      className={cn(
-        "relative flex shrink-0 cursor-default items-center justify-center overflow-hidden rounded-lg bg-muted font-medium text-muted-foreground",
-        className ?? "size-8 text-xs",
-      )}
-    >
-      {showLogo ? (
-        <Image
-          src={logoUrl as string}
-          alt={name ?? "Logo tenant"}
-          fill
-          sizes="32px"
-          unoptimized
-          onError={() => setFailed(true)}
-          className="object-contain"
-        />
-      ) : (
-        initialsOf(name ?? "C")
-      )}
-    </span>
   );
 }
 

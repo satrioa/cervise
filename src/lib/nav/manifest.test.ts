@@ -14,6 +14,7 @@ import {
   normalizeAppRole,
   surfaceFor,
   type AppRole,
+  type NavEntry,
   type NavGroup,
   type Surface,
 } from "./manifest";
@@ -193,6 +194,49 @@ describe("canAccess", () => {
     expect(canAccess("FRONTLINER", "karyawan")).toBe(false);
   });
 
+  it("Customer berada di grup manajemen, bersama Karyawan dan Cabang", () => {
+    // Customer adalah data induk yang dikelola, bukan pekerjaan harian di
+    // loket, jadi dikelompokkan bersama menu master data lain.
+    const customer = entryForHref("/app/customer");
+    expect(customer?.group).toBe("manajemen");
+    const label = customer as NavEntry;
+    expect(label.roles).toEqual(["MASTER_ADMIN", "ADMIN", "FRONTLINER"]);
+  });
+
+  it("Customer tetap bisa dibuka Frontliner dari sidebar dan rail", () => {
+    // Yang paling rapuh dari perubahan ini. Menaruh Customer di `manajemen`
+    // Aman selama `roles` masih CASHIERS -- kalau sampai MANAGERS, grup itu
+    // kosong untuk Frontliner, `navFor` melewatkan grup kosong, lalu menu
+    // Customer hilang tanpa satu pun error.
+    const compact = navFor("FRONTLINER", "compact");
+    const manajemenCompact = compact.find((block) => block.group === "manajemen");
+    expect(manajemenCompact?.entries.map((entry) => entry.href)).toEqual(["/app/customer"]);
+
+    const legacy = navFor("FRONTLINER", "legacy");
+    const manajemenLegacy = legacy.find((block) => block.group === "manajemen");
+    expect(manajemenLegacy?.entries.map((entry) => entry.href)).toEqual(["/app/customer"]);
+  });
+
+  it("Teknisi tidak melihat grup manajemen karena tidak punya akses ke isinya", () => {
+    // `navFor` melewatkan grup yang kosong. Untuk teknisi, `manajemen` tidak
+    // punya satu pun entri yang boleh dibuka, jadi harus hilang sepenuhnya -
+    // bukan muncul sebagai section kosong.
+    const groups = navFor("TECHNICIAN", "legacy").map((block) => block.group);
+    expect(groups).not.toContain("manajemen");
+    // Customer sendiri memang bukan haknya sejak awal, jadi ini tidak berubah.
+    expect(canAccess("TECHNICIAN", "customer")).toBe(false);
+  });
+
+  it("Customer berada di akhir grup manajemen, di bawah Cabang", () => {
+    const entries = navFor("ADMIN", "legacy").find((block) => block.group === "manajemen")!.entries;
+    expect(entries.map((entry) => entry.label)).toEqual(["Karyawan", "Cabang", "Customer"]);
+  });
+
+  it("grup operasional tidak lagi memuat Customer", () => {
+    const entries = navFor("ADMIN", "legacy").find((block) => block.group === "operasional")!.entries;
+    expect(entries.map((entry) => entry.label)).toEqual(["Servis", "Inventori", "Sparepart"]);
+  });
+
   it("FRONTLINER tidak boleh mencatat pembayaran servis lewat keuangan_transaksi", () => {
     expect(canAccess("FRONTLINER", "keuangan_transaksi")).toBe(false);
   });
@@ -266,13 +310,27 @@ describe("canWrite", () => {
 });
 
 describe("menu per role", () => {
-  it("MASTER_ADMIN melihat 23 dari 24 entri di shell legacy, kecuali analitik-servis", () => {
+  it("MASTER_ADMIN melihat 17 dari 24 entri di shell legacy", () => {
+    // 24 entri dikurangi analitik-servis, lalu 6 entri akun+pengaturan yang
+    // disembunyikan (gear di footer + sub-sidebar /app/pengaturan).
     const sidebar = sidebarHrefsFor("MASTER_ADMIN", LEGACY);
-    expect(sidebar).toHaveLength(23);
+    expect(sidebar).toHaveLength(17);
     expect(sidebar).not.toContain("/app/analitik-servis");
+    const tersembunyi = new Set([
+      "/app/analitik-servis",
+      "/app/pengaturan/profil",
+      "/app/pengaturan/lokalisasi",
+      "/app/pengaturan",
+      "/app/pengaturan/tampilan",
+      "/app/pengaturan/subscription",
+      "/app/pengaturan/usage",
+    ]);
     for (const entry of NAV_ENTRIES) {
-      if (entry.href === "/app/analitik-servis") continue;
-      expect(sidebar).toContain(entry.href);
+      if (tersembunyi.has(entry.href)) {
+        expect(sidebar, entry.href).not.toContain(entry.href);
+      } else {
+        expect(sidebar, entry.href).toContain(entry.href);
+      }
     }
   });
 
@@ -295,10 +353,36 @@ describe("menu per role", () => {
     expect(hrefsFor("TECHNICIAN", COMPACT)).toContain("/app/pengaturan/profil");
   });
 
-  it("profil dan lokalisasi tetap muncul di sidebar legacy", () => {
-    const sidebar = sidebarHrefsFor("ADMIN", LEGACY);
-    expect(sidebar).toContain("/app/pengaturan/profil");
-    expect(sidebar).toContain("/app/pengaturan/lokalisasi");
+  it("profil dan lokalisasi disembunyikan dari sidebar legacy tapi tetap boleh dibuka", () => {
+    // Sama seperti compact. Di legacy keduanya punya pintu masuk lain: gear di
+    // footer untuk profil, sub-sidebar /app/pengaturan untuk lokalisasi.
+    for (const role of ["MASTER_ADMIN", "ADMIN"] as const) {
+      const sidebar = sidebarHrefsFor(role, LEGACY);
+      expect(sidebar, role).not.toContain("/app/pengaturan/profil");
+      expect(sidebar, role).not.toContain("/app/pengaturan/lokalisasi");
+      expect(hrefsFor(role, LEGACY), role).toContain("/app/pengaturan/profil");
+      expect(hrefsFor(role, LEGACY), role).toContain("/app/pengaturan/lokalisasi");
+    }
+  });
+
+  it("includeHidden mengembalikan group yang disembunyikan sidebar", () => {
+    // Command palette memakai ini: pencarian tidak boleh lebih sempit dari
+    // navigasi, kalau tidak "pengaturan" tidak bisa dicari lewat Ctrl-K.
+    const groups = navFor("MASTER_ADMIN", LEGACY, { includeHidden: true }).map((b) => b.group);
+    expect(groups).toContain("akun");
+    expect(groups).toContain("pengaturan");
+
+    const hrefs = navFor("MASTER_ADMIN", LEGACY, { includeHidden: true })
+      .flatMap((block) => block.entries.map((e) => e.href));
+    expect(hrefs).toContain("/app/pengaturan/profil");
+    expect(hrefs).toContain("/app/pengaturan/lokalisasi");
+    expect(hrefs).toContain("/app/pengaturan/subscription");
+  });
+
+  it("tanpa opsi, group tersembunyi tetap dibuang", () => {
+    const groups = navFor("MASTER_ADMIN", LEGACY).map((b) => b.group);
+    expect(groups).not.toContain("akun");
+    expect(groups).not.toContain("pengaturan");
   });
 
   it("ADMIN tidak melihat halaman pengaturan", () => {

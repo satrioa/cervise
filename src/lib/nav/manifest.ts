@@ -85,7 +85,11 @@ export const NAV_ENTRIES: NavEntry[] = [
   {
     href: "/app",
     key: "dashboard",
-    label: "Dashboard",
+    // Label "Dashboard" diubah jadi "Home" mengikuti grid bento: entri ini
+    // sudah jadi beranda aplikasi, bukan lagi satu modul pelaporan di antara
+    // modul lain. `key` sengaja tidak diubah karena ia dipakai sebagai
+    // pengenal menu di banyak tempat (active state, `menuKeys`, preferensi).
+    label: "Home",
     // `House`, bukan `LayoutDashboard`: yang di rail compact adalah isi konten
     // halaman, dan grid dasbor membingungkan di sana. `House` juga terbaca
     // benar di sidebar legacy yang penuh ikon modul.
@@ -109,16 +113,6 @@ export const NAV_ENTRIES: NavEntry[] = [
     roles: ALL,
     surface: ["legacy", "compact"],
     menuKeys: ["servis"],
-  },
-  {
-    href: "/app/customer",
-    key: "customer",
-    label: "Customer",
-    icon: Users,
-    group: "operasional",
-    roles: CASHIERS,
-    surface: ["legacy", "compact"],
-    menuKeys: ["customer"],
   },
   {
     href: "/app/penjualan",
@@ -170,6 +164,31 @@ export const NAV_ENTRIES: NavEntry[] = [
     readOnly: ["ADMIN"],
     surface: ["legacy"],
     menuKeys: ["cabang"],
+  },
+  {
+    href: "/app/customer",
+    key: "customer",
+    label: "Customer",
+    icon: Users,
+    // Di grup `manajemen`, bersama Karyawan dan Cabang - customer adalah data
+    // induk yang dikelola, bukan pekerjaan harian di loket.
+    //
+    // Dua hal yang harus ikut dijaga kalau entri ini digeser lagi:
+    //
+    // 1. `roles` tetap CASHIERS. Kalau ikut jadi MANAGERS, Frontliner kehilangan
+    //    akses: grup `manajemen` akan kosong baginya, dan `navFor` melewatkan
+    //    grup kosong (manifest.ts) sehingga header Managerannya tidak dirender.
+    // 2. `surface` tetap memuat "compact", DAN `manajemen` harus ada di
+    //    `COMPACT_GROUPS` (compact-sidebar.tsx). Kalau salah satu hilang, ikon
+    //    Customer lenyap dari rail 70px milik teknisi dan frontliner walau
+    //    halamannya masih boleh dibuka.
+    //
+    // Konsekuensi yang sudah disepakati: Frontliner melihat section "Manajemen"
+    // yang hanya berisi Customer, karena Karyawan dan Cabang bukan haknya.
+    group: "manajemen",
+    roles: CASHIERS,
+    surface: ["legacy", "compact"],
+    menuKeys: ["customer"],
   },
   {
     href: "/app/keuangan/transaksi",
@@ -423,15 +442,30 @@ const GROUP_ORDER: NavGroup[] = [
  * footer — bukan lewat daftar menu — supaya sidebar tetap ringkas.
  */
 const HIDDEN_GROUPS: Record<Surface, NavGroup[]> = {
-  legacy: [],
+  legacy: ["akun", "pengaturan"],
   compact: ["akun"],
 };
 
-export function navFor(role: string | null | undefined, surface: Surface): NavGroupBlock[] {
+/**
+ * Group `akun` dan `pengaturan` disembunyikan dari sidebar karena isinya
+ * sudah punya tempatnya sendiri: `/app/pengaturan/*` punya sub-sidebar, dan
+ * profil ditandai aktif lewat ikon gear di footer. Kalau keduanya ikut
+ * dirender, satu tujuan punya tiga cara masuk dan daftar pengaturan terulang
+ * dua kali.
+ *
+ * `includeHidden` tetap dipakai command palette: di sana pencarian tidak
+ * boleh lebih sempit dari navigasi, dan user justru bisa saja mengingat
+ * "pengaturan" lalu mengetik ke Ctrl-K.
+ */
+export function navFor(
+  role: string | null | undefined,
+  surface: Surface,
+  options?: { includeHidden?: boolean },
+): NavGroupBlock[] {
   const normalized = normalizeAppRole(role);
   if (!normalized) return [];
 
-  const hidden = HIDDEN_GROUPS[surface];
+  const hidden = options?.includeHidden ? [] : HIDDEN_GROUPS[surface];
   const visible = NAV_ENTRIES.filter(
     (entry) =>
       entry.surface.includes(surface) &&

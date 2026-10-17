@@ -1,10 +1,11 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useState } from "react";
-import { CheckIcon, CircleIcon, PlusIcon, XIcon } from "lucide-react";
+import { CheckIcon, PencilIcon, PlusIcon, XIcon } from "lucide-react";
 import { MentionComposerInput, NoteWithMentions, type ChipSource } from "./mention-composer-input";
 import { addTodoMentions, getTodoMentions, type TodoMention } from "@/app/app/actions/todo-mentions";
 import { Button } from "@/components/ui/button";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -59,7 +60,17 @@ export function Card({
 
 /** Mention di dalam composer, lengkap dengan label untuk chip. */
 type DraftMention = ChipSource;
-export function TaskNoteCard() {
+/**
+ * `compact` dipakai saat kartu ini jadi isi satu bento: daftar dipangkas jadi
+ * `compactLimit` baris dan sisanya pindah ke popover "Lihat semua". Tanpa itu
+ * lima tugas pertama akan memenuhi bento dan mendorong KPI di bawahnya.
+ */
+export type TaskNoteCardProps = {
+  compact?: boolean;
+  /** Berapa tugas yang tampil sebelum sisanya pindah ke popover. */
+  compactLimit?: number;
+};
+export function TaskNoteCard({ compact = false, compactLimit = 5 }: TaskNoteCardProps = {}) {
   // `todos` null berarti belum termuat. Dipisah dari `loading` supaya
   // penanganannya tetap bertipe `StaffTodo[]` dan tidak perlu narrowing
   // di setiap pembaruan optimistik.
@@ -206,6 +217,11 @@ export function TaskNoteCard() {
   const open = todos.filter((t) => t.doneAt === null);
   const done = todos.filter((t) => t.doneAt !== null);
   const ordered = [...open, ...done];
+  // Di bento hanya `compactLimit` tugas yang tampil; sisanya disembunyikan di
+  // balik popover "Lihat semua". Di luar mode ringkas semua tampil seperti
+  // sebelumnya, jadi tidak ada yang tiba-tiba hilang.
+  const visible = compact ? ordered.slice(0, compactLimit) : ordered;
+  const hiddenCount = ordered.length - visible.length;
 
   return (
     <Card
@@ -265,32 +281,37 @@ export function TaskNoteCard() {
           Belum ada tugas. Klik <span className="font-medium">Baru</span> untuk menambah.
         </p>
       ) : (
-        <ul className="mt-3 flex flex-col">
-          {ordered.map((todo) => {
+        <>
+          <ul className="mt-3 flex flex-col">
+          {visible.map((todo) => {
             const isDone = todo.doneAt !== null;
             return (
               <li
                 key={todo.id}
-                className="group flex items-start gap-3 rounded-md px-2 py-2 transition-colors hover:bg-foreground/[0.03]"
+                className="group flex items-center gap-2 rounded-md px-2 py-1.5 transition-colors hover:bg-foreground/[0.03]"
               >
+                {/* Baris penuh bisa diketuk untuk toggle selesai, seperti
+                    MinimalAgendaWidget. Tombol hapus dan ubah sengaja DI
+                    LUAR tombol ini supaya tidak ada elemen interaktif di dalam
+                    elemen interaktif. */}
                 <button
                   type="button"
                   onClick={() => onToggle(todo)}
+                  aria-pressed={isDone}
                   aria-label={isDone ? "Tandai belum selesai" : "Tandai selesai"}
-                  className={cn(
-                    "mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full border transition-colors",
-                    isDone
-                      ? "border-foreground/30 bg-foreground/10 text-foreground"
-                      : "border-foreground/30 text-transparent hover:bg-foreground/[0.06]",
-                  )}
+                  className="flex min-w-0 flex-1 cursor-pointer items-center gap-3 text-left"
                 >
-                  {isDone ? <CheckIcon className="size-3" /> : <CircleIcon className="size-3" />}
-                </button>
+                  <span
+                    className={cn(
+                      "flex size-5 shrink-0 items-center justify-center rounded-full border transition-colors",
+                      isDone
+                        ? "border-foreground/30 bg-foreground/10 text-foreground"
+                        : "border-foreground/30 text-transparent hover:bg-foreground/[0.06]",
+                    )}
+                  >
+                    <CheckIcon className="size-3" />
+                  </span>
 
-                {/* `min-w-0 flex-1` membungkus teks dan chip, jadi chip yang
-                    panjang membuat teks membungkus, bukan membuat baris melebar
-                    melewati container. */}
-                <div className="min-w-0 flex-1">
                   {editing === todo.id ? (
                     // Edit inline memakai editor yang sama dengan composer.
                     // Dua implementasi berbeda akan membuat satu jalur bisa
@@ -308,34 +329,36 @@ export function TaskNoteCard() {
                       className="h-7 min-h-7 py-0"
                     />
                   ) : (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setEditDraft(todo.title);
-                        setEditing(todo.id);
-                      }}
-                      className={cn(
-                        "block w-full text-left text-sm",
-                        isDone && "text-muted-foreground line-through",
-                      )}
-                    >
+                    <AgendaTitle done={isDone}>
                       <NoteWithMentions
                         value={todo.title}
                         mentions={mentionsByTodo[todo.id] ?? []}
                       />
-                    </button>
+                    </AgendaTitle>
                   )}
-                </div>
 
-                <span className="mt-1 w-20 shrink-0 text-right font-mono text-[10px] text-muted-foreground/70 uppercase tracking-[0.2em]">
-                  {dueLabel(todo.dueAt)}
-                </span>
+                  <span className="ml-auto w-20 shrink-0 text-right font-mono text-[10px] text-muted-foreground/70 uppercase tracking-[0.2em]">
+                    {dueLabel(todo.dueAt)}
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditDraft(todo.title);
+                    setEditing(todo.id);
+                  }}
+                  aria-label="Ubah tugas"
+                  className="shrink-0 rounded p-1 text-muted-foreground opacity-0 transition-opacity hover:text-foreground focus-visible:opacity-100 group-hover:opacity-100"
+                >
+                  <PencilIcon className="size-3.5" />
+                </button>
 
                 <button
                   type="button"
                   onClick={() => onDelete(todo)}
                   aria-label="Hapus tugas"
-                  className="mt-0.5 shrink-0 rounded p-1 text-muted-foreground opacity-0 transition-opacity hover:text-destructive focus-visible:opacity-100 group-hover:opacity-100"
+                  className="shrink-0 rounded p-1 text-muted-foreground opacity-0 transition-opacity hover:text-destructive focus-visible:opacity-100 group-hover:opacity-100"
                 >
                   <XIcon className="size-3.5" />
                 </button>
@@ -343,16 +366,98 @@ export function TaskNoteCard() {
             );
           })}
         </ul>
+          {hiddenCount > 0 ? (
+            <Popover>
+              <PopoverTrigger
+                render={
+                  <Button variant="outline" size="sm" className="mt-3 w-full">
+                    Lihat semua ({ordered.length})
+                  </Button>
+                }
+              />
+              <PopoverContent align="start" className="w-80">
+                <ul className="flex max-h-80 flex-col overflow-y-auto scrollbar-none">
+                  {ordered.map((todo) => {
+                    const isDone = todo.doneAt !== null;
+                    return (
+                      <li
+                        key={todo.id}
+                        className="group flex items-start gap-3 rounded-md px-2 py-2 transition-colors hover:bg-foreground/[0.03]"
+                      >
+                        <button
+                          type="button"
+                          onClick={() => onToggle(todo)}
+                          aria-label={isDone ? "Tandai belum selesai" : "Tandai selesai"}
+                          className={cn(
+                            "mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full border transition-colors",
+                            isDone
+                              ? "border-foreground/30 bg-foreground/10 text-foreground"
+                              : "border-foreground/30 text-transparent hover:bg-foreground/[0.06]",
+                          )}
+                        >
+                          <CheckIcon className="size-3" />
+                        </button>
+                        <div className="min-w-0 flex-1">
+                          <p className={cn("truncate text-sm", isDone && "text-muted-foreground line-through")}>
+                            {todo.title}
+                          </p>
+                          <span className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
+                            {dueLabel(todo.dueAt)}
+                          </span>
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </PopoverContent>
+            </Popover>
+          ) : null}
+        </>
       )}
     </Card>
   );
 }
 
+/**
+ * Judul tugas dengan garis coret yang menempel pada lebar teks.
+ *
+ * Diported dari komponen MinimalAgendaWidget. Bedanya dengan `line-through`
+ * bawaan: garis itu elemen tersendiri yang lebannya dianimasikan dari 0 ke
+ * 100%, jadi menyapu mengikuti lebar teks dan bukan melintasi seluruh baris.
+ * Warna teks juga ikut meredup saat selesai, seperti aslinya.
+ *
+ * Warna memakai `currentColor` dengan opasitas, bukan palet `neutral-*` yang
+ * dipakai komponen asalnya - palet itu tidak ada di repo ini dan tidak akan
+ * ikut pindah ke dark mode.
+ */
+function AgendaTitle({ done, children }: { done: boolean; children: React.ReactNode }) {
+  return (
+    <span className="relative inline-block min-w-0 max-w-full flex-1">
+      <span
+        className={cn(
+          "block max-w-full truncate text-sm transition-colors duration-300 ease-out",
+          done ? "text-muted-foreground" : "text-foreground",
+        )}
+      >
+        {children}
+      </span>
+      <span
+        aria-hidden
+        className={cn(
+          "pointer-events-none absolute top-2 left-0 h-px bg-current opacity-40",
+          "transition-[width] duration-500 ease-in-out",
+          done ? "w-full" : "w-0",
+        )}
+      />
+    </span>
+  );
+}
+
 
 function dueLabel(dueAt: string | null): string {
-  if (!dueAt) return "â€”";
+  if (!dueAt) return "—";
   const due = new Date(dueAt);
-  if (Number.isNaN(due.getTime())) return "â€”";
+  if (Number.isNaN(due.getTime())) return "—";
   const startOfToday = new Date();
   startOfToday.setHours(0, 0, 0, 0);
   const startOfDue = new Date(due.getFullYear(), due.getMonth(), due.getDate());

@@ -23,6 +23,27 @@ import { useEffect, useRef } from "react";
  * Legacy variants `default` / `secondary` / `destructive` are preserved verbatim
  * for back-compat with existing call sites and ignore the `color` axis.
  */
+/**
+ * Kelas candy. Diekstrak dari peta `variants` supaya elemen lain yang juga
+ * memakai gaya candy - kartu bento - bisa memakainya tanpa menyalinnya.
+ * Kalau kelas ini diubah, tombol dan kartu ikut berubah.
+ */
+const CANDY_CLASSES =
+  "border-[0.5px] border-white/25 bg-gradient-to-b from-[var(--btn,var(--color-brand))] to-[var(--btn-hover,var(--color-brand-secondary))] text-[var(--btn-fg,#fff)] text-shadow-sm shadow-black/20 shadow-md ring-1 ring-[color-mix(in_oklab,var(--color-foreground)_15%,var(--btn,var(--color-brand)))] hover:from-[var(--btn-hover,var(--color-brand-secondary))] hover:to-[var(--btn-hover,var(--color-brand-secondary))] [&_svg]:drop-shadow-sm";
+
+/**
+ * Kelas warna candy, diekstrak dari sumbu `color` supaya bisa dipakai juga
+ * oleh permukaan non-tombol (kartu bento) tanpa menyalin warnanya.
+ */
+const CANDY_COLOR_CLASSES = {
+  accent:
+    "[--btn-fg:#fff] [--btn-hover:var(--color-brand-secondary)] [--btn:var(--color-brand)]",
+  amber:
+    "[--btn-fg:var(--color-amber-fg)] [--btn-hover:var(--color-amber-hover)] [--btn:var(--color-amber)]",
+  green:
+    "[--btn-fg:var(--color-green-fg)] [--btn-hover:var(--color-green-hover)] [--btn:var(--color-green)]",
+  blue: "[--btn-fg:var(--color-blue-fg)] [--btn-hover:var(--color-blue-hover)] [--btn:var(--color-blue)]",
+} as const satisfies Record<CandyCardColor, string>;
 const smoothButtonVariants = cva(
   "relative inline-flex cursor-pointer items-center justify-center gap-2 whitespace-nowrap font-medium outline-none ring-offset-background transition-[transform,background-color,border-color,color,box-shadow] duration-150 ease-out focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 active:scale-[0.97] disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none motion-reduce:active:scale-100 [&_svg]:pointer-events-none [&_svg]:shrink-0",
   {
@@ -33,15 +54,9 @@ const smoothButtonVariants = cva(
     },
     variants: {
       color: {
-        accent:
-          "[--btn-fg:#fff] [--btn-hover:var(--color-brand-secondary)] [--btn:var(--color-brand)]",
-        amber:
-          "[--btn-fg:var(--color-amber-fg)] [--btn-hover:var(--color-amber-hover)] [--btn:var(--color-amber)]",
-        blue: "[--btn-fg:var(--color-blue-fg)] [--btn-hover:var(--color-blue-hover)] [--btn:var(--color-blue)]",
+        ...CANDY_COLOR_CLASSES,
         destructive:
           "[--btn-fg:#fff] [--btn-hover:color-mix(in_oklab,var(--color-destructive)_85%,black)] [--btn:var(--color-destructive)]",
-        green:
-          "[--btn-fg:var(--color-green-fg)] [--btn-hover:var(--color-green-hover)] [--btn:var(--color-green)]",
         neutral:
           "[--btn-fg:var(--color-background)] [--btn-hover:var(--color-smooth-900)] [--btn:var(--color-foreground)]",
       },
@@ -62,8 +77,7 @@ const smoothButtonVariants = cva(
         "icon-filter": "size-8 sm:size-7 rounded-md [&_svg]:size-4 sm:[&_svg]:size-3.5",
       },
       variant: {
-        candy:
-          "border-[0.5px] border-white/25 bg-gradient-to-b from-[var(--btn,var(--color-brand))] to-[var(--btn-hover,var(--color-brand-secondary))] text-[var(--btn-fg,#fff)] text-shadow-sm shadow-black/20 shadow-md ring-1 ring-[color-mix(in_oklab,var(--color-foreground)_15%,var(--btn,var(--color-brand)))] hover:from-[var(--btn-hover,var(--color-brand-secondary))] hover:to-[var(--btn-hover,var(--color-brand-secondary))] [&_svg]:drop-shadow-sm",
+        candy: CANDY_CLASSES,
         // --- legacy (preserved verbatim, ignore `color`) ---
         default:
           "bg-primary text-primary-foreground shadow-xs hover:bg-primary/90",
@@ -229,6 +243,36 @@ function SmoothButton({
       {suffix}
     </button>
   );
+}
+
+/**
+ * Warna candy yang bisa dipakai, diambil dari sumbu `color` yang sudah ada.
+ * Tidak ada warna baru di sini - kartu bento memakai warna yang sama dengan
+ * tombolnya, jadi tidak ada dua daftar warna yang bisa berbeda.
+ *
+ * Cakupannya 4 dari 6 warna di sumbu `color`. `destructive` dan `neutral`
+ * sengaja tidak ikut: keduanya tidak punya token `-fg`/`-hover` tersendiri
+ * (`destructive` memakai `color-mix`, `neutral` membalik
+ * `--color-foreground` dengan `--color-background`), jadi kontras teksnya di
+ * kartu perlu diperiksa per mode dulu. Saat ini memang belum ada kartu yang
+ * maknanya "bahaya" atau "netral" - memaksakan merah hanya akan memberi tanda
+ * bahaya pada aksi biasa.
+ */
+export const CANDY_CARD_COLOR = ["accent", "amber", "green", "blue"] as const;
+export type CandyCardColor = (typeof CANDY_CARD_COLOR)[number];
+
+/**
+ * Gaya permukaan candy untuk elemen yang BUKAN tombol - kartu bento.
+ *
+ * Hanya kelas variant dan warnanya, tanpa kelas `size`: tinggi, padding, dan
+ * radius tetap datang dari BentoCard. Kalau `smoothButtonVariants` yang
+ * dipanggil, `defaultVariants` akan ikut menyuntikkan `h-9 px-3` yang tidak
+ * boleh ada di kartu.
+ */
+export const CANDY_CARD = CANDY_CLASSES;
+
+export function candyCardColorClass(color: CandyCardColor): string {
+  return CANDY_COLOR_CLASSES[color];
 }
 
 export default SmoothButton;
