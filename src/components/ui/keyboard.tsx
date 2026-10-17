@@ -1,7 +1,7 @@
 "use client"
 
 import { Keyboard as KeyboardPrimitive } from "react-aria-components/Keyboard"
-import { cn } from "cn"
+import { cn } from "@/lib/cn"
 
 export function Keyboard({ className, ...props }: React.ComponentProps<typeof KeyboardPrimitive>) {
   return (

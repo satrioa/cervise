@@ -8,7 +8,7 @@ import type { ListBoxItemProps, ListBoxSectionProps } from "react-aria-component
 import { ListBoxItem as ListBoxItemPrimitive, ListBoxSection } from "react-aria-components/ListBox"
 import { Separator, type SeparatorProps } from "react-aria-components/Separator"
 import { Text, type TextProps } from "react-aria-components/Text"
-import { twJoin, cn } from "cn"
+import { twJoin, cn } from "@/lib/cn"
 import { tv } from "tailwind-variants"
 import { Keyboard } from "./keyboard"
 

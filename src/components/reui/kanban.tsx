@@ -49,7 +49,7 @@ import {
 import { CSS } from "@dnd-kit/utilities"
 import { createPortal } from "react-dom"
 
-import { cn } from "cn"
+import { cn } from "@/lib/cn"
 
 interface KanbanContextProps<T> {
   columns: Record<string, T[]>

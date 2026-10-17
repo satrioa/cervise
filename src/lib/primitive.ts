@@ -1,7 +1,7 @@
 "use client"
 
 import { composeRenderProps } from "react-aria-components/composeRenderProps"
-import { cn, type ClassNameValue } from "cn"
+import { cn, type ClassNameValue } from "@/lib/cn"
 
 type Render<T> = string | ((v: T) => string) | undefined
 
