@@ -30,6 +30,7 @@ import { cn } from "@/lib/utils";
 import { CheckIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { canSwitchBranch, canSwitchTenant } from "@/lib/auth/access";
+import { isMasterAdminRole } from "@/lib/auth/authorization";
 
 export const ROLE_LABEL: Record<string, string> = {
   MASTER_ADMIN: "Master Admin",
@@ -536,8 +537,8 @@ function AppShellInner({ children, actor }: { children: React.ReactNode; actor: 
 export function AppShell({ children, actor }: { children: React.ReactNode; actor: AppShellActor }) {
   return (
     <LocaleProvider>
-      <TenantProvider fixedOrganizationId={actor.role.toUpperCase() === "MASTER_ADMIN" ? null : actor.orgId}>
-        <BranchProvider fixedBranchId={actor.role.toUpperCase() === "MASTER_ADMIN" ? null : actor.branchId ?? "unassigned"}>
+      <TenantProvider fixedOrganizationId={isMasterAdminRole(actor.role) ? null : actor.orgId}>
+        <BranchProvider fixedBranchId={isMasterAdminRole(actor.role) ? null : actor.branchId ?? "unassigned"}>
           <CommandPaletteProvider role={actor.role}>
             <AppShellInner actor={actor}>{children}</AppShellInner>
           </CommandPaletteProvider>

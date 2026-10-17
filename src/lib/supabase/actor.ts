@@ -255,10 +255,6 @@ async function resolveTenant(options: { allowExpiredSubscription: boolean }): Pr
   };
 }
 
-export async function getActiveTenantStrict(): Promise<Actor> {
-  return getActiveTenant();
-}
-
 /**
  * Gate untuk aksi yang butuh role MASTER_ADMIN.
  *

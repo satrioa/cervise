@@ -30,6 +30,10 @@ export function GenericExportDialog({
   fields,
   rows,
   fileNamePrefix = "export",
+  sheetName = "Export",
+  rowUnit = "baris",
+  pdfTitle,
+  pdfNote,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
@@ -38,6 +42,14 @@ export function GenericExportDialog({
   fields: ExportField[];
   rows: Record<string, any>[];
   fileNamePrefix?: string;
+  /** Nama tab di dalam file .xlsx, dibatasi 31 karakter oleh Excel. */
+  sheetName?: string;
+  /** Kata untuk jumlah baris: "baris" atau "transaksi". */
+  rowUnit?: string;
+  /** Judul di halaman PDF; default-nya `title` dialog. */
+  pdfTitle?: string;
+  /** Catatan tambahan di baris meta PDF, mis. nama cabang. */
+  pdfNote?: string;
 }) {
   const [fileFormat, setFileFormat] = useState<Format>("csv");
   const [dateRange, setDateRange] = useState<{ from?: Date; to?: Date }>({});
@@ -78,7 +90,7 @@ export function GenericExportDialog({
     } else if (fileFormat === "xlsx") {
       const ws = XLSX.utils.json_to_sheet(data);
       const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, "Export");
+      XLSX.utils.book_append_sheet(wb, ws, sheetName);
       XLSX.writeFile(wb, `${baseName}.xlsx`);
     } else if (fileFormat === "json") {
       const json = JSON.stringify({ exportedAt: new Date().toISOString(), count: data.length, rows: data }, null, 2);
@@ -113,8 +125,8 @@ export function GenericExportDialog({
           td:last-child{text-align:right; font-family: monospace;}
         </style>
         </head><body>
-          <h1>${title}</h1>
-          <div class="meta">${format(new Date(), "d MMM yyyy", { locale: localeId })} · ${data.length} baris</div>
+          <h1>${pdfTitle ?? title}</h1>
+          <div class="meta">${format(new Date(), "d MMM yyyy", { locale: localeId })} · ${data.length} ${rowUnit}${pdfNote ? ` · ${pdfNote}` : ""}</div>
           <table><thead><tr>${headers.map((h) => `<th>${h}</th>`).join("")}</tr></thead><tbody>${rowsHtml}</tbody></table>
           <script>window.print();</script>
         </body></html>
@@ -187,7 +199,7 @@ export function GenericExportDialog({
                       : "Pilih rentang tanggal"}
                 </span>
                 <span className="font-mono text-[10px] text-muted-foreground">
-                  {dateRange.from || dateRange.to ? `${filteredRows.length} baris` : "Semua"}
+                  {dateRange.from || dateRange.to ? `${filteredRows.length} ${rowUnit}` : "Semua"}
                 </span>
               </PopoverTrigger>
               <PopoverContent align="start" className="w-auto p-0">

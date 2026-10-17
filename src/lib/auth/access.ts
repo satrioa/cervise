@@ -1,11 +1,13 @@
-function isMasterAdmin(role: string) {
-  return role.trim().toUpperCase() === "MASTER_ADMIN";
-}
+import { isMasterAdminRole } from "@/lib/auth/authorization";
 
+/**
+ * Pindah tenant/cabang hanya untuk MASTER_ADMIN. ADMIN sengaja tidak ikut:
+ * dia boleh mengelola operasional cabangnya sendiri, bukan memilih tenant lain.
+ */
 export function canSwitchTenant(role: string) {
-  return isMasterAdmin(role);
+  return isMasterAdminRole(role);
 }
 
 export function canSwitchBranch(role: string) {
-  return isMasterAdmin(role);
+  return isMasterAdminRole(role);
 }

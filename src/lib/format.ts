@@ -1,5 +1,17 @@
 import { DEFAULT_LOCALE, NUMBER_FORMATS } from "./localization-context";
 
+const RUPIAH = new Intl.NumberFormat("id-ID", { maximumFractionDigits: 0 });
+
+/**
+ * Nominal rupiah tanpa simbol mata uang dari locale user: dipakai halaman
+ * billing/owner yang nominalnya selalu IDR dan tidak boleh ikut berubah kalau
+ * user mengganti preferensi tampilan. `formatCurrencyPlain` berbeda -
+ * dia membaca localStorage, jadi angkanya bisa berganti sendiri.
+ */
+export function formatRupiah(value: number): string {
+  return `Rp${RUPIAH.format(value)}`;
+}
+
 export function formatCurrencyPlain(amount: number): string {
   if (typeof window !== "undefined") {
     try {

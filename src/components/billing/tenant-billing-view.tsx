@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { requestPackage } from "@/app/app/pengaturan/subscription/actions";
 import { buildRenewalWhatsAppMessage, buildWhatsAppUrl } from "@/lib/billing/renewal";
+import { formatRupiah } from "@/lib/format";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -23,10 +24,6 @@ type BillingData = {
   packages: Package[];
   contact: { owner_whatsapp: string | null; owner_email: string | null };
 };
-
-function formatRupiah(value: number) {
-  return `Rp${new Intl.NumberFormat("id-ID", { maximumFractionDigits: 0 }).format(value)}`;
-}
 
 function formatDate(value: string | null) {
   return value ? new Intl.DateTimeFormat("id-ID", { dateStyle: "medium", timeZone: "Asia/Jakarta" }).format(new Date(value)) : "—";

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { CheckIcon, XIcon } from "lucide-react";
 import { toast } from "sonner";
 import { approveInvoice, rejectInvoice } from "@/app/owner/actions";
+import { formatRupiah } from "@/lib/format";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,10 +23,6 @@ type InvoiceRow = {
   organization: { id: string; name: string } | null;
   package: { name: string } | null;
 };
-
-function formatRupiah(value: number) {
-  return `Rp${new Intl.NumberFormat("id-ID", { maximumFractionDigits: 0 }).format(value)}`;
-}
 
 function formatDate(value: string) {
   return new Intl.DateTimeFormat("id-ID", { dateStyle: "medium", timeZone: "Asia/Jakarta" }).format(new Date(value));
