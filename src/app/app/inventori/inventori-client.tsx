@@ -1,19 +1,19 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { InventoriToolbar } from "@/components/inventori/inventori-toolbar";
 import { formatCurrencyPlain } from "@/lib/format";
+import { ChevronRightIcon, PackageIcon, SearchIcon, SmartphoneIcon, XIcon } from "lucide-react";
 import {
-  ChevronRightIcon,
-  LayoutGridIcon,
-  PackageIcon,
-  Rows3Icon,
-  SmartphoneIcon,
-} from "lucide-react";
-import {
+  filterInventoryGroups,
+  INVENTORI_DEFAULTS,
+  summarizeInventory,
+  STOCK_MENIPIS_MAX,
   toInventoryTableRows,
   variantLabel,
   type InventoryGroup,
@@ -23,9 +23,14 @@ import {
 
 type View = "kartu" | "tabel";
 
+/**
+ * Warna badge stok memakai ambang yang sama dengan filter "Stok menipis" /
+ * "Stok tersedia", jadi warna di tabel dan pilihan di toolbar tidak pernah
+ * berbeda artinya.
+ */
 function stockBadgeClass(stock: number): string {
   if (stock <= 0) return "border-destructive text-destructive";
-  if (stock < 3) return "border-amber-500 text-amber-700";
+  if (stock < STOCK_MENIPIS_MAX) return "border-amber-500 text-amber-700";
   return "border-emerald-500 text-emerald-700";
 }
 
@@ -241,12 +246,29 @@ export function InventoriClient({
   groups,
   summary,
   truncated,
+  q,
+  tipe,
+  stok,
 }: {
   groups: InventoryGroup[];
   summary: InventorySummary;
   truncated: boolean;
+  /** Nilai awal dari URL, dipakai server component. */
+  q: string;
+  tipe: string;
+  stok: string;
 }) {
   const [view, setView] = useState<View>("kartu");
+  const router = useRouter();
+  const pathname = usePathname();
+
+  // Disaring di client: `getInventori` sudah mengambil seluruh katalog sekali
+  // jalan, jadi menyaring ulang hanya menambah latency tanpa menambah data.
+  const filteredGroups = useMemo(() => filterInventoryGroups(groups, { q, tipe, stok }), [groups, q, tipe, stok]);
+  // Ringkasan dihitung ulang dari hasil filter supaya angka pada baris
+  // ringkasan dan isi tabel tidak pernah berbeda.
+  const filteredSummary = useMemo(() => summarizeInventory(filteredGroups), [filteredGroups]);
+  const isFiltered = q.trim() !== "" || tipe !== INVENTORI_DEFAULTS.tipe || stok !== INVENTORI_DEFAULTS.stok;
 
   if (groups.length === 0) {
     return (
@@ -264,32 +286,16 @@ export function InventoriClient({
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="text-sm text-muted-foreground">
-          {summary.groups} produk induk · {summary.varian} varian · {summary.totalStok} unit (Baru{" "}
-          {summary.baru} · Bekas {summary.bekas})
-          {summary.stokHabis > 0 ? ` · ${summary.stokHabis} varian stok habis` : ""}
-        </p>
-        <ToggleGroup
-          value={[view]}
-          onValueChange={(value) => {
-            const next = (value as string[])[0];
-            if (next === "kartu" || next === "tabel") setView(next);
-          }}
-          variant="outline"
-          size="sm"
-          aria-label="Tampilan inventori"
-        >
-          <ToggleGroupItem value="kartu" aria-label="Tampilan kartu">
-            <LayoutGridIcon className="size-3.5" />
-            Kartu
-          </ToggleGroupItem>
-          <ToggleGroupItem value="tabel" aria-label="Tampilan tabel">
-            <Rows3Icon className="size-3.5" />
-            Tabel
-          </ToggleGroupItem>
-        </ToggleGroup>
-      </div>
+      <InventoriToolbar
+        q={q}
+        tipe={tipe}
+        stok={stok}
+        view={view}
+        onViewChange={setView}
+        shown={filteredSummary.varian}
+        total={summary.varian}
+        summary={filteredSummary}
+      />
 
       {truncated ? (
         <p role="status" className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-700">
@@ -297,7 +303,24 @@ export function InventoriClient({
         </p>
       ) : null}
 
-      {view === "kartu" ? <CardView groups={groups} /> : <TableView groups={groups} />}
+      {isFiltered && filteredGroups.length === 0 ? (
+        <div className="rounded-xl border border-dashed bg-card/40 p-12 text-center">
+          <div className="mx-auto flex size-12 items-center justify-center rounded-full bg-muted">
+            <SearchIcon className="size-6 text-muted-foreground" />
+          </div>
+          <p className="mt-3 font-medium">Tidak ada produk yang cocok</p>
+          <p className="text-sm text-muted-foreground">
+            Ubah kata kunci atau atur ulang filter untuk melihat {summary.varian} varian.
+          </p>
+          <Button variant="outline" size="sm" className="mt-4" onClick={() => router.replace(pathname)}>
+            <XIcon /> Atur ulang filter
+          </Button>
+        </div>
+      ) : view === "kartu" ? (
+        <CardView groups={filteredGroups} />
+      ) : (
+        <TableView groups={filteredGroups} />
+      )}
     </div>
   );
 }

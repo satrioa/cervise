@@ -1,11 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
+  filterInventoryGroups,
   groupInventoryProducts,
   inventoryGroupKey,
   normalizeInventorySlug,
   summarizeInventory,
   toInventoryTableRows,
   variantLabel,
+  STOCK_MENIPIS_MAX,
   type InventoryProduct,
 } from "@/lib/operational/inventori";
 
@@ -209,5 +211,122 @@ describe("variantLabel", () => {
 
   it("skips blank-string values rather than rendering double separators", () => {
     expect(variantLabel({ variant_type: "BARU", storage: "  ", warna: "Hitam", imei: null })).toBe("Hitam");
+  });
+});
+
+describe("filterInventoryGroups", () => {
+  const groups = groupInventoryProducts([
+    product({ id: "1", name: "iPhone 13 128GB Hitam", parent_key: "iphone-13", sku: "IP13-128", storage: "128GB", warna: "Hitam", stock_qty: 5 }),
+    product({ id: "2", name: "iPhone 13 128GB Putih", parent_key: "iphone-13", sku: "IP13-128P", storage: "128GB", warna: "Putih", stock_qty: 0 }),
+    product({ id: "3", name: "iPhone 13 64GB", parent_key: "iphone-13", sku: "IP13-64", storage: "64GB", stock_qty: 2 }),
+    product({ id: "4", name: "Kabel USB-C", sku: "CBL-C", barcode: "8991234567", stock_qty: 10 }),
+    product({
+      id: "5",
+      name: "iPhone 12",
+      parent_key: "iphone-12",
+      sku: "IP12-128",
+      variant_type: "BEKAS",
+      imei: "352099001111111",
+      stock_qty: 1,
+    }),
+  ]);
+
+  it("returns the same array reference when nothing is filtered", () => {
+    // Identitas, bukan kesamaan: filter tanpa kriteria tidak boleh membangun
+    // ulang group, karena itu membuang memo `useMemo` di client.
+    expect(filterInventoryGroups(groups, {})).toBe(groups);
+    expect(filterInventoryGroups(groups, { q: "   ", tipe: "semua", stok: "semua" })).toBe(groups);
+  });
+
+  it("matches the group name and keeps every variant of that group", () => {
+    // Mencari "iPhone 13" harus memunculkan semua varian, bukan hanya varian
+    // yang namanya mengandung frasa itu persis.
+    const filtered = filterInventoryGroups(groups, { q: "iphone 13" });
+    expect(filtered).toHaveLength(1);
+    expect(filtered[0].key).toBe("iphone-13");
+    expect(filtered[0].items).toHaveLength(3);
+  });
+
+  it("is case-insensitive and trims the query", () => {
+    expect(filterInventoryGroups(groups, { q: "  IPHONE 13  " })).toHaveLength(1);
+  });
+
+  it("matches SKU, barcode, IMEI, and colour, not just the name", () => {
+    expect(filterInventoryGroups(groups, { q: "CBL-C" })[0].key).toBe("kabel-usb-c");
+    expect(filterInventoryGroups(groups, { q: "8991234567" })[0].key).toBe("kabel-usb-c");
+    expect(filterInventoryGroups(groups, { q: "352099001111111" })[0].key).toBe("iphone-12");
+    // "Putih" hanya ada di satu varian iPhone 13, jadi grupnya tetap muncul
+    // tapi hanya varian itu yang lolos.
+    const putih = filterInventoryGroups(groups, { q: "Putih" });
+    expect(putih[0].items).toHaveLength(1);
+    expect(putih[0].items[0].warna).toBe("Putih");
+  });
+
+  it("drops a group whose variants are all filtered out", () => {
+    expect(filterInventoryGroups(groups, { q: "tidak-ada-ini" })).toEqual([]);
+  });
+
+  it("filters by tipe and rebuilds the group counts", () => {
+    const bekas = filterInventoryGroups(groups, { tipe: "BEKAS" });
+    expect(bekas).toHaveLength(1);
+    expect(bekas[0].bekas).toHaveLength(1);
+    expect(bekas[0].baru).toHaveLength(0);
+    expect(bekas[0].totalStok).toBe(1);
+  });
+
+  it("recomputes totalStok so the parent row matches what is shown", () => {
+    // Ini bug yang paling mudah tidak terlihat: kalau hanya `items` yang
+    // dipotong tanpa dihitung ulang, baris induk masih ditulis 7 padahal
+    // tabelnya cuma menampilkan 5.
+    const habis = filterInventoryGroups(groups, { q: "iphone 13", stok: "habis" });
+    expect(habis[0].items).toHaveLength(1);
+    expect(habis[0].totalStok).toBe(0);
+    expect(habis[0].stokHabis).toBe(1);
+  });
+
+  it("uses the same stock thresholds as the badge", () => {
+    const habis = filterInventoryGroups(groups, { stok: "habis" });
+    expect(habis[0].items.every((item) => (item.stock_qty ?? 0) <= 0)).toBe(true);
+
+    const menipis = filterInventoryGroups(groups, { stok: "menipis" });
+    expect(menipis[0].items.map((item) => item.stock_qty)).toEqual([2]);
+
+    const tersedia = filterInventoryGroups(groups, { stok: "tersedia" });
+    expect(tersedia.flatMap((group) => group.items).every((item) => (item.stock_qty ?? 0) >= STOCK_MENIPIS_MAX)).toBe(true);
+  });
+
+  it("treats null stock as zero, so it lands in 'habis'", () => {
+    const denganNull = groupInventoryProducts([
+      product({ id: "9", name: "Sparepart Tanpa Stok", sku: "NOSTOCK", stock_qty: null }),
+    ]);
+    expect(filterInventoryGroups(denganNull, { stok: "habis" })).toHaveLength(1);
+  });
+
+  it("combines tipe and stok instead of treating them as alternatives", () => {
+    const hasil = filterInventoryGroups(groups, { tipe: "BARU", stok: "tersedia" });
+    expect(hasil).toHaveLength(2);
+    expect(hasil.every((group) => group.items.every((item) => item.variant_type === "BARU"))).toBe(true);
+  });
+
+  it("preserves the original group key so expand state survives filtering", () => {
+    // `TableView` menyimpan state expand per `group.key`; kalau key berubah
+    // saat difilter, baris yang tadinya terbuka akan menutup sendiri.
+    const filtered = filterInventoryGroups(groups, { q: "iphone 13" });
+    expect(filtered[0].key).toBe(groups.find((group) => group.key === "iphone-13")!.key);
+  });
+
+  it("does not mutate the input groups", () => {
+    const before = groups[0].items.length;
+    filterInventoryGroups(groups, { tipe: "BEKAS" });
+    expect(groups[0].items).toHaveLength(before);
+    expect(groups[0].totalStok).toBe(7);
+  });
+
+  it("keeps a table row for every group it returns", () => {
+    // Baris induk harus selalu punya anak yang menyusulnya, kalau tidak
+    // chevron expand dangling.
+    const filtered = filterInventoryGroups(groups, { stok: "habis" });
+    const rows = toInventoryTableRows(filtered, new Set());
+    expect(rows.filter((row) => row.kind === "parent")).toHaveLength(filtered.length);
   });
 });

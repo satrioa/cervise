@@ -75,22 +75,32 @@ export function groupInventoryProducts(products: InventoryProduct[]): InventoryG
     else groups.set(key, [product]);
   }
 
-  return Array.from(groups.entries()).map(([key, items]) => {
-    const baru = items.filter((item) => item.variant_type === "BARU");
-    const bekas = items.filter((item) => item.variant_type === "BEKAS");
-    return {
-      key,
-      // Nama induk: data tidak punya tabel produk terpisah, jadi nama varian
-      // pertama adalah satu-satunya sumber yang jujur untuk ditampilkan.
-      name: items[0].name,
-      items,
-      baru,
-      bekas,
-      totalStok: items.reduce((sum, item) => sum + (item.stock_qty ?? 0), 0),
-      bekasTersedia: bekas.filter((item) => (item.stock_qty ?? 0) > 0).length,
-      stokHabis: items.filter((item) => (item.stock_qty ?? 0) <= 0).length,
-    };
-  });
+  return Array.from(groups.entries()).map(([key, items]) => buildInventoryGroup(key, items));
+}
+
+/**
+ * Susun angka turunan sebuah group dari daftar variannya.
+ *
+ * Dipisah dari `groupInventoryProducts` supaya hasil filter bisa membangun ulang
+ * group dengan hitungan yang sama persis. Kalau filter hanya memotong `items`
+ * tanpa menghitung ulang `totalStok`/`baru`/`bekas`, baris induk di tabel
+ * akan menampilkan angka dari katalog penuh - bukan dari yang sedang dilihat.
+ */
+function buildInventoryGroup(key: string, items: InventoryProduct[]): InventoryGroup {
+  const baru = items.filter((item) => item.variant_type === "BARU");
+  const bekas = items.filter((item) => item.variant_type === "BEKAS");
+  return {
+    key,
+    // Nama induk: data tidak punya tabel produk terpisah, jadi nama varian
+    // pertama adalah satu-satunya sumber yang jujur untuk ditampilkan.
+    name: items[0].name,
+    items,
+    baru,
+    bekas,
+    totalStok: items.reduce((sum, item) => sum + (item.stock_qty ?? 0), 0),
+    bekasTersedia: bekas.filter((item) => (item.stock_qty ?? 0) > 0).length,
+    stokHabis: items.filter((item) => (item.stock_qty ?? 0) <= 0).length,
+  };
 }
 
 export type InventorySummary = {
@@ -143,4 +153,94 @@ export function variantLabel(product: Pick<InventoryProduct, "variant_type" | "s
   const parts = [product.storage, product.warna].filter((part): part is string => Boolean(part && part.trim()));
   if (product.variant_type === "BEKAS" && product.imei) parts.unshift(product.imei);
   return parts.length > 0 ? parts.join(" · ") : "—";
+}
+
+/* ---------------------------------------------------------------- filter --- */
+
+/** Ambang stok; dipakai bersama badge di tabel supaya warna dan filter agree. */
+export const STOCK_HABIS_MAX = 0;
+export const STOCK_MENIPIS_MAX = 3;
+
+export const INVENTORI_DEFAULTS = { q: "", tipe: "semua", stok: "semua" } as const;
+
+/** Kriteria filter inventori. String, bukan union ketat, karena nilainya datang dari query string. */
+export type InventoryFilter = {
+  /** Dicocokkan ke nama, SKU, barcode, IMEI, storage, dan warna. */
+  q?: string;
+  /** "semua" | "BARU" | "BEKAS" */
+  tipe?: string;
+  /** "semua" | "habis" | "menipis" | "tersedia" */
+  stok?: string;
+};
+
+export const TIPE_OPTIONS = [
+  { label: "Semua tipe", value: "semua" },
+  { label: "Baru", value: "BARU" },
+  { label: "Bekas", value: "BEKAS" },
+] as const;
+
+export const STOK_OPTIONS = [
+  { label: "Semua stok", value: "semua" },
+  { label: "Stok habis", value: "habis" },
+  { label: "Stok menipis", value: "menipis" },
+  { label: "Stok tersedia", value: "tersedia" },
+] as const;
+
+function matchesStock(stock: number, stok: string): boolean {
+  if (stok === "habis") return stock <= STOCK_HABIS_MAX;
+  if (stok === "menipis") return stock > STOCK_HABIS_MAX && stock < STOCK_MENIPIS_MAX;
+  if (stok === "tersedia") return stock >= STOCK_MENIPIS_MAX;
+  return true;
+}
+
+/** Apakah satu varian lolos pencarian teks. */
+function matchesQuery(product: InventoryProduct, needle: string): boolean {
+  const haystack = [product.name, product.sku, product.barcode, product.imei, product.storage, product.warna]
+    .filter((value): value is string => Boolean(value))
+    .join(" ")
+    .toLowerCase();
+  return haystack.includes(needle);
+}
+
+/**
+ * Saring group inventori.
+ *
+ * Varian yang cocok tetap dikelompokkan dengan induknya, jadi baris induk di
+ * tabel tidak pernah menggantung tanpa anak. Kalau seluruh varian sebuah group
+ * tersaring habis, group-nya ikut hilang - tidak ada gunanya menampilkan
+ * induk yang isinya nol.
+ *
+ * Group dibangun ulang lewat `buildInventoryGroup`, bukan dipotong dari
+ * `items` saja, supaya `totalStok`, `baru`, `bekas`, dan `stokHabis`
+ * neurotransmisi ulang. Kalau tidak, baris induk akan tetap menampilkan angka
+ * katalog penuh padahal tabelnya sudah difilter.
+ */
+export function filterInventoryGroups(groups: InventoryGroup[], filter: InventoryFilter): InventoryGroup[] {
+  const rawQuery = (filter.q ?? "").trim().toLowerCase();
+  const tipe = filter.tipe ?? "semua";
+  const stok = filter.stok ?? "semua";
+
+  // Tanpa filter apa pun, kembalikan input apa adanya: jangan membangun ulang
+  // group yang tidak berubah, itu buang-buang dan bisa mengubah referensi.
+  if (rawQuery === "" && tipe === "semua" && stok === "semua") return groups;
+
+  const result: InventoryGroup[] = [];
+  for (const group of groups) {
+    // Group yang namanya sendiri cocok tetap utuh, walau tidak ada variannya
+    // yang cocok - orang mencari "iPhone 13" dan ingin semua variannya.
+    const groupMatches = rawQuery !== "" && group.name.toLowerCase().includes(rawQuery);
+
+    const items = group.items.filter((product) => {
+      if (tipe !== "semua" && product.variant_type !== tipe) return false;
+      if (!matchesStock(product.stock_qty ?? 0, stok)) return false;
+      // Pencarian kosong harus lolos untuk semua varian. Kalau dicek sebagai
+      // "tidak cocok dengan ''", setiap varian tersaring dan filter tipe/stok
+      // saja mengembalikan nol hasil.
+      if (rawQuery === "" || groupMatches) return true;
+      return matchesQuery(product, rawQuery);
+    });
+
+    if (items.length > 0) result.push(buildInventoryGroup(group.key, items));
+  }
+  return result;
 }
