@@ -306,76 +306,42 @@ export async function createSale(input: {
     throw new Error("Pembayaran non-tunai tidak boleh melebihi total");
   }
   const paid = Math.min(input.paid, total);
-  const payment_status = paid >= total ? "lunas" : paid > 0 ? "dp" : "belum_bayar";
   const sale_number = genNota();
 
-  // ensure customer exists and tag sales
-  const { data: cust } = await supabase.from("cervise_customers").select("id, tags").eq("id", input.customerId).eq("branch_id", branchId).maybeSingle();
-  if (!cust) throw new Error("Customer tidak ditemukan");
-  const tags = new Set<string>((cust as any)?.tags ?? []);
-  tags.add("sales");
-  await supabase.from("cervise_customers").update({ tags: Array.from(tags) } as any).eq("id", input.customerId);
-
-  const { data: sale, error: sErr } = await supabase.from("cervise_sales").insert({
-    branch_id: branchId,
-    customer_id: input.customerId,
-    sale_number,
-    subtotal,
-    discount_total,
-    total,
-    paid,
-    payment_status,
-    payment_method: input.payment_method,
-    status: "selesai",
-    kas_date: input.kas_date,
-    notes: (input.promoCode ? `[Promo ${input.promoCode}] ` : "") + (input.notes?.trim() || ""),
-    created_by: userId,
-  } as any).select("id").single();
-  if (sErr) throw new Error(sErr.message);
-  const saleId = (sale as any).id as string;
-
-  for (const it of saleItems) {
-    const p = pMap.get(it.product_id);
-    const line_total = it.qty * it.unit_price;
-    const { error: iErr } = await supabase.from("cervise_sales_items").insert({
-      sale_id: saleId,
-      product_id: p.id,
-      sku: p.sku,
-      name: p.name,
-      category: p.category,
-      qty: it.qty,
-      cost: p.cost,
-      unit_price: it.unit_price,
-      line_total,
-      is_serialized: p.is_serialized,
-      item_meta: { imei1: it.imei1?.trim() || null, imei2: it.imei2?.trim() || null, warna: it.warna || null },
-    } as any);
-    if (iErr) throw new Error(iErr.message);
-    const { error: stErr } = await supabase.rpc("adjust_product_stock", {
-      p_product_id: p.id,
-      p_delta: -it.qty,
-      p_expected_stock: Number(p.stock_qty),
-      p_reason: "sale",
-      p_sale_id: saleId,
-    });
-    if (stErr) throw new Error(stErr.message);
-  }
-
-  if (paid > 0) {
-    const { error: financeError } = await supabase.from("finance_tx").insert({
-      branch_id: branchId,
-      type: "pemasukan",
-      amount: paid,
-      description: `Penjualan ${sale_number}`,
-      kas_date: input.kas_date,
-      created_by: userId,
-    } as any);
-    if (financeError) throw new Error(financeError.message);
-  }
+  // Semua tulisan terjadi di dalam satu fungsi SQL, jadi satu transaksi.
+  // Dulu lima panggilan terpisah: tag customer, header sales, tiap item,
+  // stok, lalu finance_tx. Kalau finance_tx gagal, barang sudah keluar dan
+  // invoice sudah terbit tapi uang masuk tidak pernah tercatat.
+  //
+  // Fungsi itu juga menghitung ulang subtotal/total/paid dari item, jadi
+  // angka di bawah hanya dipakai untuk pesan error di UI - nilai yang
+  // tersimpan adalah hitungan SQL.
+  const { data: saleId, error: saleError } = await supabase.rpc("create_sale_atomic", {
+    p_branch_id: branchId,
+    p_customer_id: input.customerId,
+    p_sale_number: sale_number,
+    p_kas_date: input.kas_date,
+    p_payment_method: input.payment_method,
+    p_paid: paid,
+    p_discount_total: discount_total,
+    p_notes: (input.promoCode ? `[Promo ${input.promoCode}] ` : "") + (input.notes?.trim() || ""),
+    p_items: saleItems.map((it) => {
+      return {
+        product_id: it.product_id,
+        qty: Number(it.qty),
+        unit_price: Number(it.unit_price),
+        imei1: it.imei1?.trim() || "",
+        imei2: it.imei2?.trim() || "",
+        warna: it.warna || "",
+      };
+    }),
+    p_created_by: userId,
+  } as any);
+  if (saleError) throw new Error(saleError.message);
 
   revalidatePath("/app/penjualan");
   revalidatePath("/app/laporan/penjualan");
-  return { id: saleId, sale_number };
+  return { id: saleId as unknown as string, sale_number };
 }
 
 export async function returnSaleItems(saleId: string, returns: { item_id: string; qty: number }[]) {
