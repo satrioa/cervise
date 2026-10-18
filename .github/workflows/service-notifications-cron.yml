@@ -1,0 +1,44 @@
+name: Drain notifikasi servis
+
+# Notifikasi WhatsApp tidak dijadwalkan lewat Vercel. Plan Hobby hanya
+# mengizinkan cron harian, sementara outbox perlu dikuras tiap 5 menit -
+# dan jadwal yang lebih rapat membuat setiap build GAGAL, bukan cuma cronnya
+# yang dilewati. e0b3f86 menambahkan vercel.json dengan `5 * * * *` dan
+# `*/5 * * * *`, dan itu alasan tidak ada satu pun deployment sukses
+# sejak 28 September 2026.
+#
+# Endpoint-nya sama persis dengan yang pernah dipanggil cron Vercel,
+# lengkap dengan CRON_SECRET. Tidak ada kode aplikasi yang berubah.
+on:
+  schedule:
+    # 5 menit adalah interval terkecil yang dijadwalkan GitHub Actions, jadi
+    # ini setara dengan cron Vercel yang lama.
+    - cron: "*/5 * * * *"
+  # Untuk memicu manual, misalnya saat token Fonnte baru diganti.
+  workflow_dispatch:
+
+# Jangan menumpuk: satu run sudah mengambil lease di outbox, jadi run
+# berikutnya yang tumpang tindih hanya membebani worker tanpa menambah apa pun.
+concurrency:
+  group: drain-service-notifications
+  cancel-in-progress: false
+
+jobs:
+  drain:
+    runs-on: ubuntu-latest
+    # Di bawah interval 5 menit supaya run yang menggantung tidak menumpuk
+    # dengan run berikutnya.
+    timeout-minutes: 4
+    steps:
+      - name: Panggil endpoint drain outbox
+        # Ganti domain kalau project dipindah. Endpoint mengembalikan 401 kalau
+        # CRON_SECRET salah, jadi run ini gagal dengan jelas, bukan diam-diam.
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          set -euo pipefail
+          curl -fsS \
+            --retry 2 --retry-delay 5 --max-time 200 \
+            -H "Authorization: Bearer ${CRON_SECRET}" \
+            "https://cervise.vercel.app/api/cron/service-notifications" \
+            | tee /dev/stderr | tail -c 400
