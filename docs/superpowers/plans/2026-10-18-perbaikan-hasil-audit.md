@@ -178,6 +178,52 @@ git add src/lib/business-date.ts src/lib/business-date.test.ts src/lib/supabase/
 git commit -m "feat(lib): helper tanggal bisnis Asia/Jakarta dan pencarian user auth"
 ```
 
+## Task 0b: Rekonsiliasi migration database vs repo (temuan 20 — baru, dari cek DB langsung)
+
+**Files:**
+- Create: `supabase/migrations/20261018100000_reconcile_db_drift.sql` (rekonstruksi enammigration yang hilang)
+- Modify: `docs/HANDOVER.md` (catat sumber kebenaran)
+
+**Ini apa:** `supabase_migrations.schema_migrations` di project Supabase punya enam entri yang **tidak ada sebagai file** di `supabase/migrations/`:
+
+```
+20261017160024  pin_is_platform_admin_to_caller
+20261017155945  fix_rpc_null_role_fail_open
+20261017155820  harden_caller_branch_role
+20261017155754  drop_adjust_product_stock_3arg
+20261017155450  guard_employee_role_change
+20261017155421  revoke_anon_write_grants
+```
+
+Semuanya pengaman keamanan, dan `grep` di repo tidak menemukan satu pun nama itu — perubahan ini hanya ada di database.
+
+- **Problem:** kalau project ini dibangun ulang, atau `supabase db push`/`db reset` dijalankan, atau ada developer yang applying `supabase/migrations/*.sql` ke project baru, enam pengaman itu hilang dan project kembali ke keadaan sebelum 17 Oktober: `is_platform_admin()` bisa dipanggil dengan argumen apa pun, role check bisa gagal-terbuka, dan trigger penjaga perubahan role karyawan hilang. Tidak ada yang punya file-nya, jadi tidak ada yang tahu itu pernah ada.
+- **Fix:** rekonstruksi definisi dari database yang hidup, tulis sebagai migration, lalu dokumentasikan. Sudah dipastikan bisa dipulihkan:
+
+```sql
+-- definisi function, persis seperti yang sekarang hidup di database
+select pg_get_functiondef('public.is_platform_admin(uuid)'::regprocedure);
+select pg_get_functiondef('public.caller_branch_role(uuid)'::regprocedure);
+select pg_get_functiondef('public.has_tenant_branch_role(uuid, uuid, text[])'::regprocedure);
+
+-- definisi trigger
+select pg_get_triggerdef(oid) from pg_trigger where tgname = 'guard_employee_role_change' and not tgisinternal;
+
+-- grant/role yang harus dikembalikan persis seperti sekarang
+select table_name, grantee, string_agg(privilege_type, ',' order by privilege_type)
+from information_schema.role_table_grants
+where table_schema = 'public' and table_name in ('finance_tx','cervise_sales','cervise_products','employees')
+  and grantee in ('anon','authenticated')
+group by table_name, grantee order by table_name, grantee;
+```
+
+  Setelah dapat dump-nya, tambahkan test assertion di `src/lib/auth/security-migration.test.ts` (file sudah ada) untuk tiap nama trigger/fungsi yang direkonstruksi — supaya drift yang sama terdeteksi lain kali.
+
+- **Verifikasi akhir:** `select version, name from supabase_migrations.schema_migrations order by version desc` di project yang dibangun ulang harus memuat keenam nama itu.
+- **Kalau dibiarkan:** artefak keamanan yang sudah dibayar mahal hanya hidup di satu database dan hilang begitu ada yang rebuild.
+
+**Bukti tambahan untuk Task B1** (dicek langsung ke database, bukan dari kode): `finance_tx` punya **3 baris** dengan `servis_id` terisi, sedangkan `cervise_sales` punya **0 baris** dengan `servis_id` terisi. Artinya semua pembayaran servis yang benar-benar terjadi di project ini masuk lewat `addPembayaran` — jadi hari ini Laporan Penjualan **tidak** menampilkan satu pun pembayaran servis, dan ketiganya masih akan muncul di antrean "Bayar" kasir. Temuan 1 dan 2 bukan teori.
+
 ---
 
 ## Track A — POS & Penjualan (temuan 3, 9, 12, 17, sebagian 4)
@@ -990,7 +1036,7 @@ Commit: `git commit -am "fix(karyawan): daftarkan akun yang sudah ada sebagai ka
 
 ## Merge Order & Verifikasi
 
-1. Task 0 di worktree `Auditor` (branch `satrioa/Auditor`), commit lebih dulu.
+1. Task 0 **dan 0b** di worktree `Auditor` (branch `satrioa/Auditor`), commit lebih dulu. 0b tidak bisa dispantukan dengan agent mana pun karena sumbernya database yang hidup.
 2. Spawn 4 worktree anak dari `Auditor`:
 
 ```bash
@@ -1003,16 +1049,20 @@ orca worktree create --name fix-publik    --parent-worktree active --agent claud
 Setiap worktree anak wajib `npm install` sebelum test pertama.
 3. Merge berurutan **A → B → C → D** ke `satrioa/Auditor`. Tidak ada file yang sama antar track, jadi tidak ada konflik merge yang diharapkan; kalau ada, itu berarti agent melanggar ownership.
 4. Setelah merge: `npm run typecheck && npm run lint && npm run test`, lalu `npm run build`.
-5. Migration baru harus di-apply ke project Supabase (test SQL hanya memeriksa isi file, tidak menjalankannya). Urutan apply: A1 → A2 → B3 → C1. Terapkan lewat Supabase CLI/migration runner, bukan SQL Editor manual, supaya `supabase_migrations` tetap sinkron.
+5. Migration baru di-apply ke project Supabase setelah merge (test SQL hanya memeriksa isi file, tidak menjalankannya). Urutan apply: **0b → A1 → A2 → B3**. Gunakan `supabase migration apply` / MCP `apply_migration`, bukan SQL Editor manual, supaya `supabase_migrations.schema_migrations` tetap sinkron. Nomor versi migration baru (`20261018...`) sengaja di atas version terakhir yang sudah ter-apply (`20261017160024`) supaya tidak dianggap sudah ada.
 
 ## Review Gaps (test yang belum ada, sudah ditempatkan di task pemilik kodenya)
 
-- Tidak ada test untuk `middleware.ts` sebagai unit (logika `resolvePostLoginDestination` sudah diuji lewat `post-login.test.ts`; `middleware.ts` sendiri belum pernah dijalankan). Track C boleh menambahkan `src/lib/auth/authorization.test.ts` kasus baru untuk `getProtectedPathKind` + redirect owner/onboarding, tanpa mengubah `middleware.ts`.
-- Tidak ada test end-to-end untuk RLS. Semua asumsi RLS di plan ini (mis. `finance_tx` punya grant `insert` untuk `authenticated`) diverifikasi dari isi migration, bukan dari database hidup. Sebelum merge, jalankan satu query verifikasi manual terhadap project Supabase:
+- Tidak ada test untuk `middleware.ts` sebagai unit (logika `resolvePostLoginDestination` sudah diuji lewat `post-login.test.ts`; `middleware.ts` sendiri belum pernah dijalankan). Track C boleh menambahkan kasus baru untuk `getProtectedPathKind` + redirect owner/onboarding di `src/lib/auth/authorization.test.ts`, tanpa mengubah `middleware.ts`.
+- Tidak ada test end-to-end untuk RLS. Asumsi RLS di plan ini diverifikasi langsung ke database hidup pada 2026-10-18, bukan dari asumsi:
 
 ```sql
-select has_table_privilege('authenticated', 'public.finance_tx', 'INSERT') as finance_insert,
-       has_table_privilege('authenticated', 'public.cervise_sales', 'INSERT') as sales_insert;
+-- SUDAH DIVERIFIKASI 2026-10-18, hasil: finance_tx_insert=true, sales_insert=true,
+-- anon_finance_select=false, 4 policy aktif (finance_select/insert/update/delete)
+select has_table_privilege('authenticated', 'public.finance_tx', 'INSERT')  as finance_tx_insert,
+       has_table_privilege('authenticated', 'public.cervise_sales', 'INSERT') as sales_insert,
+       has_table_privilege('anon',          'public.finance_tx',  'SELECT')  as anon_finance_select;
 ```
 
-Kalau `finance_insert` false, semua pencatatan kas gagal diam-diam — itu temuan baru dan harus masuk plan, bukan diabaikan.
+  Kalau hasil ini berubah, semua pencatatan kas gagal diam-diam — itu temuan baru dan harus masuk plan, bukan diabaikan.
+- Dua asumsi lain di plan ini belum dicek ke database dan harus dicek sebelum merge: apakah ada trigger yang mencegah update langsung ke `cervise_products.stock_qty` (penting untuk Task A1), dan apakah `finance_tx.metode` sudah terisi semua di data produksi (kalau ada yang null, Task C2 harus menghitungnya sebagai non-kas dan menyebutkannya di UI).
