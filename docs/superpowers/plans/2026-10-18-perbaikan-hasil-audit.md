@@ -19,6 +19,9 @@
 - Semua pemeriksaan role tetap ganda: di server action (gate) **dan** di RLS/RPC. Kalau sebuah pemeriksaan dihapus dari satu sisi, sisi lain tidak boleh ikut hilang.
 - Migration baru: nama `supabase/migrations/20261018<hhmm00>_<slug>.sql`, satu topik per file, dan setiap migration punya test YAML/string assertion di `src/lib/auth/*-migration.test.ts` (pola: `service-spareparts-migration.test.ts`, `cash-sessions-migration.test.ts`).
 - Test: `npx vitest run <path>` untuk satu file, `npm run test` untuk semua. Typecheck: `npm run typecheck`. Lint: `npm run lint`. Ketiganya harus hijau sebelum commit.
+- Di PowerShell, `npm`/`npx` diblokir execution policy — pakai `& "C:\Program Files\nodejs\npx.cmd" vitest run`.
+- `npm run typecheck` gagal dengan `Cannot find name 'LayoutProps'` di checkout fresh, karena tipe route Next 16 belum digenerate. Jalankan `npx next typegen` sekali per worktree sebelum typecheck pertama. Setelah itu typecheck harus bersih.
+- Baseline saat plan ini ditulis: 101 file test / 1193 test hijau, typecheck bersih setelah `next typegen`.
 - `node_modules` belum terpasang di worktree ini. Jalankan `npm install` sekali per worktree sebelum test pertama; tanpa itu tidak ada yang bisa diverifikasi.
 - Tidak menyentuh `src/components/{reui,originkit,smoothui,uitripled}/` (component library).
 
@@ -51,11 +54,13 @@ Pelanggaran tabel ini = worktree dibuang, bukan di-merge.
 
 **Files:**
 - Create: `src/lib/business-date.ts`, `src/lib/business-date.test.ts`
+- Create: `src/lib/search-term.ts`, `src/lib/search-term.test.ts`
 - Create: `src/lib/supabase/admin-users.ts`, `src/lib/supabase/admin-users.test.ts`
 
 **Interfaces:**
 - Produces: `businessDate(date?: Date): string` — `YYYY-MM-DD` di zona `Asia/Jakarta`.
-- Produces: `findAuthUserByEmail(email: string): Promise<{ id: string } | null>` — meng-loop semua halaman `auth.admin.listUsers`.
+- Produces: `sanitizeSearchTerm(raw: string): string` — aman untuk `.or()` PostgREST.
+- Produces: `findAuthUserByEmail(admin, email: string): Promise<{ id: string } | null>` — meng-loop semua halaman `auth.admin.listUsers`.
 
  Kenapa tidak pakai `toLocalDateString` (`src/lib/operational/garansi-list.ts:35`): fungsi itu memakai `date.getDate()`, yaitu waktu lokal **server**. Di Vercel `TZ=UTC`, jadi hasilnya tetap tanggal UTC — bug yang sama. Zona harus ditulis eksplisit.
 
@@ -438,12 +443,14 @@ git commit -m "fix(penjualan): retur mengembalikan stok dan uang, nomor nota leb
 
 **Files:**
 - Modify: `src/app/app/penjualan/actions.ts:75` (`searchProductsForSale`), `src/components/penjualan/penjualan-cart-dialog.tsx:31`, `src/components/penjualan/penjualan-cart-panel.tsx:145`
-- Create: `src/lib/search-term.ts`, `src/lib/search-term.test.ts`
+- (sudah ada dari Task 0: `src/lib/search-term.ts`, `src/lib/business-date.ts`)
 
 **Interfaces:**
-- Produces: `sanitizeSearchTerm(raw: string): string` — membuang `,` `(` `)` `*` `\` dan `%`, memotong 60 karakter, trim.
+- Produces: `sanitizeSearchTerm(raw: string): string` — membuang `,` `(` `)` `*` `\` dan `%`, memotong 60 karakter, trim. (Dibuat di Task 0.)
 
 - [ ] **Step 1: Test `sanitizeSearchTerm`**
+
+`src/lib/search-term.ts` **sudah dibuat di Task 0** (2026-10-18) bersama helper lainnya, jadi Track A memakainya, bukan membuatnya lagi. Yang tersisa di task ini adalah pemakaiannya. Kalau file-nya hilang, itu berarti Task 0 belum merged.
 
 ```ts
 import { describe, expect, it } from "vitest";
