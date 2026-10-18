@@ -20,13 +20,6 @@ function requireSalesAccess(role: string) {
   if (!canAccess(role, "penjualan")) throw new Error("Hanya frontliner/admin boleh transaksi penjualan");
 }
 
-function genNota(): string {
-  const d = new Date();
-  const ymd = `${d.getFullYear().toString().slice(2)}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}`;
-  const rand = Math.floor(1000 + Math.random() * 9000);
-  return `INV-S-${ymd}-${rand}`;
-}
-
 function genSku(category: string): string {
   const pref = category === "Gadget" ? "GD" : category === "Aksesori" ? "AK" : "PR";
   return `${pref}-${Math.floor(100 + Math.random() * 900)}-${Date.now().toString().slice(-4)}`;
@@ -297,7 +290,14 @@ export async function createSale(input: {
   }
   const paid = Math.min(input.paid, total);
   const payment_status = paid >= total ? "lunas" : paid > 0 ? "dp" : "belum_bayar";
-  const sale_number = genNota();
+  // Nomor urut per cabang dari next_sale_number. Dulu tanggal + empat angka acak,
+  // dan sale_number punya UNIQUE global, jadi bentrok delivers error Postgres
+  // mentah ke kasir dan pembayaran hilang.
+  const { data: saleNumber, error: saleNumberError } = await supabase.rpc("next_sale_number", {
+    p_branch_id: branchId,
+  });
+  if (saleNumberError) throw new Error(saleNumberError.message);
+  const sale_number = String(saleNumber ?? "");
 
   // ensure customer exists and tag sales
   const { data: cust } = await supabase.from("cervise_customers").select("id, tags").eq("id", input.customerId).eq("branch_id", branchId).maybeSingle();

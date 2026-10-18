@@ -130,3 +130,45 @@ describe("invarian yang sudah diterapkan ke produksi", () => {
     expect(body).not.toContain("profile_id = check_user_id");
   });
 });
+
+describe("penutupan kas dan nomor nota", () => {
+  const cash = readFileSync(join(process.cwd(), "src", "app", "app", "actions", "cash.ts"), "utf8");
+  const penjualan = readFileSync(
+    join(process.cwd(), "src", "app", "app", "penjualan", "actions.ts"),
+    "utf8",
+  );
+  // Komentar ikut dibuang: nama fungsi yang sudah dihapus sering disebut di
+  // komentar penjelas, dan membacanya sebagai "masih dipakai" memberi alarm
+  // palsu.
+  const cashCode = cash.replace(/^\s*\/\/.*$/gm, "");
+  const penjualanCode = penjualan.replace(/^\s*\/\/.*$/gm, "");
+
+  it("Tutup Toko gagal kalau update-nya tidak menyentuh baris", () => {
+    // Bug yang diuji: update memakai .is("closed_at", null). Dua admin menekan
+    // Tutup Toko pada sesi yang sama -> update kedua cocok 0 baris, PostgREST
+    // tidak melapor error, dan struk thermal dicetak untuk angka yang tidak
+    // pernah disimpan.
+    expect(cashCode).toContain('.is("closed_at", null)');
+    expect(cashCode).toMatch(/\.is\("closed_at", null\)[\s\S]{0,200}\.select\("id"\)/);
+    expect(cashCode).toMatch(/if \(!closed\) return fail\(/);
+  });
+
+  it("expected_cash di database diisi uang di laci, bukan omzet", () => {
+    // Bug yang diuji: kolom expected_cash diisi report.totals.expected, yang
+    // memuat penjualan non-Tunai dan pendapatan servis. Keduanya tidak pernah
+    // ada di tangan, jadi angka di struk dan di getShiftReport tidak cocok
+    // dengan isi laci.
+    expect(cashCode).toContain("expected_cash: report.expectedCash");
+    expect(cashCode).not.toContain("expected_cash: report.totals.expected");
+  });
+
+  it("nomor penjualan tidak lagi dari angka acak atau base36", () => {
+    // Bug yang diuji: empat angka acak punya 9000 kombinasi dengan UNIQUE
+    // global, dan base36 empat karakter mengulang setiap ~28 menit sehingga dua
+    // pembayaran 28 menit apart bentrok dan pembayaran hilang.
+    expect(penjualanCode).toContain('rpc("next_sale_number"');
+    expect(penjualanCode).not.toContain("Math.floor(1000 + Math.random() * 9000)");
+    expect(cashCode).toContain('rpc("next_sale_number"');
+    expect(cashCode).not.toContain("Date.now().toString(36)");
+  });
+});

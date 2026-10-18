@@ -218,23 +218,40 @@ export async function closeCashSession(input: {
     const report = await computeReport(input.sessionId, row as SessionForReport);
     if (!report) return fail("Gagal menghitung laporan shift");
 
-    const { error: updateError } = await supabase
+    // `expected_cash` dan `variance` memakai report.expectedCash, bukan
+    // report.totals.expected. Yang kedua adalah omzet: penjualan non-Tunai dan
+    // pendapatan servis ikut di dalamnya, dan keduanya tidak pernah ada di
+    // tangan. Menyimpannya ke kolom `expected_cash` membuat angka di struk
+    // thermal dan di getShiftReport tidak cocok dengan isi laci sungguhan.
+    const { data: closed, error: updateError } = await supabase
       .from("cervise_cash_sessions")
       .update({
         closed_at: new Date().toISOString(),
         closing_balance: closing,
-        expected_cash: report.totals.expected,
-        variance: closing - report.totals.expected,
+        expected_cash: report.expectedCash,
+        variance: closing - report.expectedCash,
         snapshot: { ...report, reason: input.reason?.trim() || null },
       })
       .eq("id", input.sessionId)
-      .is("closed_at", null);
+      .is("closed_at", null)
+      // Tanpa select, update yang cocok 0 baris tetap dilaporkan PostgREST
+      // sebagai sukses. Dua admin menekan Tutup Toko pada sesi yang sama ->
+      // yang kedua menulis nol baris, tanpa error, lalu struk thermal
+      // dicetak untuk angka yang tidak pernah disimpan.
+      .select("id")
+      .maybeSingle();
 
     if (updateError) return fail(updateError.message);
+    if (!closed) return fail("Shift sudah ditutup oleh orang lain. Muat ulang.");
 
     return {
       ok: true,
-      data: { ...report, reason: input.reason?.trim() || null, closingBalance: closing, variance: closing - report.totals.expected },
+      data: {
+        ...report,
+        reason: input.reason?.trim() || null,
+        closingBalance: closing,
+        variance: closing - report.expectedCash,
+      },
     };
   } catch (cause) {
     return fail(cause instanceof Error ? cause.message : "Gagal menutup toko");
@@ -481,14 +498,14 @@ export async function payServis(input: {
     const total = input.amount === undefined ? price : Number(input.amount);
     if (!Number.isFinite(total) || total < 0) return fail("Nominal pembayaran tidak valid");
 
-    // Nomor penjualan dari tanggal + sufiks acak, supaya unik tanpa kolom
-    // sequence baru. `sale_number` punya UNIQUE, jadi dua kasir yang menekan
-    // Bayar di detik yang sama tidak akan bentrok.
-    const stamp = new Date();
-    const y = stamp.getFullYear();
-    const m = String(stamp.getMonth() + 1).padStart(2, "0");
-    const d = String(stamp.getDate()).padStart(2, "0");
-    const seq = `${y}${m}${d}-${Date.now().toString(36).slice(-4).toUpperCase()}`;
+    // Nomor urut per cabang. Dulu tanggal + Date.now().toString(36).slice(-4),
+    // dan itu mengulang setiap ~28 menit: dua pembayaran 28 menit apart pada
+    // hari yang sama menghasilkan nomor identik, dan sale_number punya UNIQUE.
+    const { data: saleNumber, error: saleNumberError } = await supabase.rpc("next_sale_number", {
+      p_branch_id: branchId,
+    });
+    if (saleNumberError) return fail(saleNumberError.message);
+    const seq = String(saleNumber ?? "");
 
     const { data: sale, error: saleError } = await supabase
       .from("cervise_sales")
@@ -503,7 +520,7 @@ export async function payServis(input: {
         payment_status: "lunas",
         payment_method: input.paymentMethod,
         status: "selesai",
-        kas_date: toCalendarDate(stamp),
+        kas_date: toCalendarDate(new Date()),
         notes: input.note?.trim() || `Pembayaran servis ${service.service_number ?? ""}`.trim(),
         created_by: userId,
         servis_id: service.id,
