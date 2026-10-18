@@ -7,6 +7,12 @@ const mocks = vi.hoisted(() => {
     tag: null as { id: string; usage_count: number } | null,
     financeRows: [] as { amount: number }[],
     parts: [] as { id: string; name: string; qty: number }[],
+    /** Argumen `bump_service_tag_usage` per panggilan, urut. */
+    tagBumps: [] as { p_branch_id: string; p_name: string; p_delta: number }[],
+    /** Diset untuk menguji jalur error dari RPC. */
+    tagBumpError: null as { message: string } | null,
+    /** Diset untuk menguji baris tag yang sudah hilang. */
+    tagExists: true,
   };
 
   const serviceSingle = { get data() { return state.service; }, error: null };
@@ -15,10 +21,15 @@ const mocks = vi.hoisted(() => {
   }));
   const serviceDelete = vi.fn(() => ({ eq: () => ({ eq: async () => ({ error: null }) }) }));
 
-  const tagSelect = vi.fn(() => ({
-    eq: () => ({ ilike: () => ({ maybeSingle: async () => ({ data: state.tag, error: null }) }) }),
-  }));
-  const tagUpdate = vi.fn(() => ({ eq: async () => ({ error: null }) }));
+  // Counter tag lewat RPC `bump_service_tag_usage`, bukan baca-sulis di server
+  // action. Mock ini mencatat argumennya supaya test bisa memeriksa nama tag dan
+  // arah delta-nya.
+  const rpc = vi.fn((fn: string, args: { p_branch_id: string; p_name: string; p_delta: number }) => {
+    if (fn !== "bump_service_tag_usage") throw new Error(`unexpected rpc: ${fn}`);
+    if (!state.tagExists) return Promise.resolve({ data: null, error: null });
+    state.tagBumps.push(args);
+    return Promise.resolve({ data: state.tag?.usage_count ?? 1, error: state.tagBumpError });
+  });
 
   const financeSelect = vi.fn(() => ({
     eq: () => ({ eq: () => ({ eq: async () => ({ data: state.financeRows, error: null }) }) }),
@@ -33,7 +44,14 @@ const mocks = vi.hoisted(() => {
       case "cervise_services":
         return { select: serviceSelect, delete: serviceDelete };
       case "cervise_service_tags":
-        return { select: tagSelect, update: tagUpdate };
+        // Tidak ada lagi select/update langsung: semua perubahan counter lewat
+        // RPC. Stub di sini hanya menjaga `from("cervise_service_tags")` tidak
+        // melempar kalau ada pemanggil lama yang masih memakainya.
+        return {
+          select: vi.fn(() => ({
+            eq: () => ({ ilike: () => ({ maybeSingle: async () => ({ data: null, error: null }) }) }),
+          })),
+        };
       case "cervise_finance_tx":
         return { select: financeSelect };
       case "cervise_service_spareparts":
@@ -43,7 +61,7 @@ const mocks = vi.hoisted(() => {
     }
   });
 
-  return { state, from, serviceDelete, tagUpdate, getActiveTenant: vi.fn() };
+  return { state, from, rpc, serviceDelete, getActiveTenant: vi.fn() };
 });
 
 vi.mock("@/lib/supabase/actor", () => ({ getActiveTenant: mocks.getActiveTenant }));
@@ -51,7 +69,7 @@ vi.mock("@/lib/supabase/server", () => ({ createClient: vi.fn() }));
 
 function actorStub(role: string) {
   return {
-    supabase: { from: mocks.from },
+    supabase: { from: mocks.from, rpc: mocks.rpc },
     userId: "user-1",
     orgId: "org-1",
     branchId: "branch-1",
@@ -68,6 +86,9 @@ describe("deleteServis", () => {
     mocks.state.tag = null;
     mocks.state.financeRows = [];
     mocks.state.parts = [];
+    mocks.state.tagBumps = [];
+    mocks.state.tagBumpError = null;
+    mocks.state.tagExists = true;
   });
 
   it("refuses to delete while spareparts are still consumed", async () => {
@@ -123,32 +144,39 @@ describe("deleteServis", () => {
     expect(result.orphanedPaymentTotal).toBe(200000);
   });
 
-  it("decrements tag usage counters so they do not drift", async () => {
+  it("decrements tag usage counters through the atomic rpc", async () => {
     mocks.getActiveTenant.mockResolvedValue(actorStub("ADMIN"));
     mocks.state.tag = { id: "tag-1", usage_count: 3 };
 
     await deleteServis("servis-1");
 
-    expect(mocks.tagUpdate).toHaveBeenCalledWith({ usage_count: 2 });
+    // Penurunan dihitung di database (`greatest(..., 0)`), jadi TypeScript hanya
+    // mengirim arahnya.
+    expect(mocks.state.tagBumps).toEqual(
+      mocks.state.service!.kerusakan.map((name) => ({
+        p_branch_id: "branch-1",
+        p_name: name,
+        p_delta: -1,
+      })),
+    );
   });
 
-  it("never pushes a tag usage counter below zero", async () => {
+  it("skips the counter entirely when the tag row is already gone", async () => {
     mocks.getActiveTenant.mockResolvedValue(actorStub("ADMIN"));
-    mocks.state.tag = { id: "tag-1", usage_count: 0 };
+    mocks.state.tagExists = false;
 
     await deleteServis("servis-1");
 
-    expect(mocks.tagUpdate).toHaveBeenCalledWith({ usage_count: 0 });
-  });
-
-  it("skips tag updates when the tag row is already gone", async () => {
-    mocks.getActiveTenant.mockResolvedValue(actorStub("ADMIN"));
-    mocks.state.tag = null;
-
-    await deleteServis("servis-1");
-
-    expect(mocks.tagUpdate).not.toHaveBeenCalled();
+    expect(mocks.state.tagBumps).toEqual([]);
     expect(mocks.serviceDelete).toHaveBeenCalled();
+  });
+
+  it("propagates a counter failure instead of deleting the service anyway", async () => {
+    mocks.getActiveTenant.mockResolvedValue(actorStub("ADMIN"));
+    mocks.state.tagBumpError = { message: "branch tidak diizinkan" };
+
+    await expect(deleteServis("servis-1")).rejects.toThrow("branch tidak diizinkan");
+    expect(mocks.serviceDelete).not.toHaveBeenCalled();
   });
 
   it("still deletes when the service has no recorded tags", async () => {

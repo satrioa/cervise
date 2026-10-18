@@ -1,25 +1,11 @@
 "use server";
 
-import { createClient } from "@/lib/supabase/server";
 import { mapServisListRows, type ServisListRow } from "@/lib/operational/servis-list";
 import { addGaransiDays, normalizeGaransiUnit, toDays } from "@/lib/operational/garansi-list";
+import { sanitizeSearchTerm } from "@/lib/search-term";
 
 export type KondisiStatus = "normal" | "tidak_normal";
 export type KondisiAwal = Record<string, { status: KondisiStatus; note: string }>;
-
-const KONDISI_ITEMS_INTERNAL = [
-  "Battery",
-  "Screen",
-  "Speaker",
-  "Face ID",
-  "Camera",
-  "Button Volume",
-  "Signal",
-  "Port Charging",
-  "Button On/Off",
-  "Mic",
-  "Backglass & Backdoor",
-] as const;
 
 export type CreateServisPayload = {
   teknisi_id: string;
@@ -125,7 +111,10 @@ export async function getTeknisi() {
 
 export async function searchCustomers(q: string) {
   const { supabase, branchId } = await getBranchAndUser();
-  const term = q.trim();
+  // `.or()` menerima string filter mentah, jadi koma dan kurung di term akan
+  // menambah atau menutup klausa - hasilnya error PostgREST atau daftar yang
+  // salah, bukan pesan yang bisa dimengerti kasir.
+  const term = sanitizeSearchTerm(q);
   if (term.length < 1) return [];
   const { data, error } = await supabase
     .from("cervise_customers")
@@ -137,26 +126,22 @@ export async function searchCustomers(q: string) {
   return data ?? [];
 }
 
+/**
+ * Tag kerusakan untuk form servis.
+ *
+ * Query-nya lewat `search_service_tags` supaya `%` dan `_` dari user dibaca
+ * sebagai karakter biasa. Dengan `.ilike` langsung, mengetik `%` di kotak
+ * pencarian menarik seluruh katalog tag cabang.
+ */
 export async function searchTags(q: string) {
   const { supabase, branchId } = await getBranchAndUser();
-  const term = q.trim().toLowerCase();
-  if (term.length < 1) {
-    const { data } = await supabase
-      .from("cervise_service_tags")
-      .select("name, usage_count")
-      .eq("branch_id", branchId)
-      .order("usage_count", { ascending: false })
-      .limit(10);
-    return (data ?? []).map((d) => d.name as string);
-  }
-  const { data, error } = await supabase
-    .from("cervise_service_tags")
-    .select("name")
-    .eq("branch_id", branchId)
-    .ilike("name", `%${term}%`)
-    .limit(10);
+  const { data, error } = await supabase.rpc("search_service_tags", {
+    p_branch_id: branchId,
+    p_term: q,
+    p_limit: 10,
+  });
   if (error) throw new Error(error.message);
-  return (data ?? []).map((d) => d.name as string);
+  return ((data ?? []) as { name: string }[]).map((row) => row.name);
 }
 
 export async function getKelengkapanOptions() {
@@ -206,51 +191,37 @@ export async function createServis(payload: CreateServisPayload) {
       .update({ name: payload.customer_name.trim(), address: payload.customer_address?.trim() || null })
       .eq("id", customerId);
   } else {
-    // also try by name ilike if phone not found but same name (prevent dup loosely)
-    const { data: byName } = await supabase
+    // Query kedua dengan `ilike("name")` yang pernah ada di sini tidak mungkin
+    // mengembalikan apa pun: kondisinya lebih sempit dari query pertama di atas
+    // (branch + phone sama, ditambah nama), jadi kalau query pertama tidak
+    // menemukan baris, query kedua juga tidak.
+    const { data: ins, error: insErr } = await supabase
       .from("cervise_customers")
+      .insert({
+        branch_id: branchId,
+        name: payload.customer_name.trim(),
+        phone: payload.customer_phone.trim(),
+        address: payload.customer_address?.trim() || null,
+      })
       .select("id")
-      .eq("branch_id", branchId)
-      .ilike("name", payload.customer_name.trim())
-      .eq("phone", payload.customer_phone.trim())
-      .maybeSingle();
-    if (byName?.id) {
-      customerId = byName.id as string;
-    } else {
-      const { data: ins, error: insErr } = await supabase
-        .from("cervise_customers")
-        .insert({
-          branch_id: branchId,
-          name: payload.customer_name.trim(),
-          phone: payload.customer_phone.trim(),
-          address: payload.customer_address?.trim() || null,
-        })
-        .select("id")
-        .single();
-      if (insErr) throw new Error(insErr.message);
-      customerId = ins.id as string;
-    }
+      .single();
+    if (insErr) throw new Error(insErr.message);
+    customerId = ins.id as string;
   }
 
   // kelengkapan custom hanya untuk form ini, tidak disimpan permanen (sesuai revisi)
   // sengaja tidak insert ke cervise_kelengkapan_options
 
-  // upsert kerusakan tags + usage_count
+  // Counter tag naik lewat RPC, bukan baca-sulis di sini: dua kasir yang
+  // membuat servis dengan kerusakan sama di detik sama akan saling menimpa
+  // kalau angkanya dibaca lalu ditulis dari TypeScript.
   for (const k of kerusakanNorm) {
-    const { data: existingTag } = await supabase
-      .from("cervise_service_tags")
-      .select("id, usage_count")
-      .eq("branch_id", branchId)
-      .ilike("name", k)
-      .maybeSingle();
-    if (existingTag) {
-      await supabase
-        .from("cervise_service_tags")
-        .update({ usage_count: (existingTag.usage_count as number) + 1 })
-        .eq("id", existingTag.id);
-    } else {
-      await supabase.from("cervise_service_tags").insert({ branch_id: branchId, name: k, usage_count: 1 });
-    }
+    const { error: tagError } = await supabase.rpc("bump_service_tag_usage", {
+      p_branch_id: branchId,
+      p_name: k,
+      p_delta: 1,
+    });
+    if (tagError) throw new Error(tagError.message);
   }
 
   const deviceLabel = `${payload.merk.trim()} ${payload.tipe.trim()}`.trim();
@@ -319,14 +290,18 @@ export async function updateServis(payload: UpdateServisPayload) {
     const newNorm = Array.from(new Set(payload.kerusakan.map((k) => k.trim().toLowerCase()).filter(Boolean)));
     const removed = oldKerusakan.filter((k) => !newNorm.includes(k.toLowerCase()));
     const added = newNorm.filter((k) => !oldKerusakan.map((o) => o.toLowerCase()).includes(k));
-    for (const r of removed) {
-      const { data: tag } = await supabase.from("cervise_service_tags").select("id, usage_count").eq("branch_id", branchId).ilike("name", r).maybeSingle();
-      if (tag) await supabase.from("cervise_service_tags").update({ usage_count: Math.max(0, (tag.usage_count as number) - 1) }).eq("id", tag.id);
-    }
-    for (const a of added) {
-      const { data: tag } = await supabase.from("cervise_service_tags").select("id, usage_count").eq("branch_id", branchId).ilike("name", a).maybeSingle();
-      if (tag) await supabase.from("cervise_service_tags").update({ usage_count: (tag.usage_count as number) + 1 }).eq("id", tag.id);
-      else await supabase.from("cervise_service_tags").insert({ branch_id: branchId, name: a, usage_count: 1 });
+    for (const [names, delta] of [
+      [removed, -1],
+      [added, 1],
+    ] as const) {
+      for (const name of names) {
+        const { error: tagError } = await supabase.rpc("bump_service_tag_usage", {
+          p_branch_id: branchId,
+          p_name: name,
+          p_delta: delta,
+        });
+        if (tagError) throw new Error(tagError.message);
+      }
     }
     payload.kerusakan = newNorm;
   }
@@ -468,17 +443,11 @@ export async function deleteServis(id: string) {
   // The service row is about to disappear, so keep tag usage counters honest.
   const tags = (Array.isArray(service.kerusakan) ? service.kerusakan : []) as string[];
   for (const tag of tags) {
-    const { data: row } = await supabase
-      .from("cervise_service_tags")
-      .select("id, usage_count")
-      .eq("branch_id", branchId)
-      .ilike("name", tag)
-      .maybeSingle();
-    if (!row) continue;
-    const { error: tagError } = await supabase
-      .from("cervise_service_tags")
-      .update({ usage_count: Math.max(0, Number(row.usage_count ?? 0) - 1) })
-      .eq("id", row.id);
+    const { error: tagError } = await supabase.rpc("bump_service_tag_usage", {
+      p_branch_id: branchId,
+      p_name: tag,
+      p_delta: -1,
+    });
     if (tagError) throw new Error(tagError.message);
   }
 
