@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { recordServisPayment } from "./cash";
+import { getFrontlinerQueue, recordServisPayment } from "./cash";
 
 const mocks = vi.hoisted(() => {
   const state = {
@@ -13,21 +13,91 @@ const mocks = vi.hoisted(() => {
       service_number: string | null;
     } | null,
     paidRows: [] as { amount: number }[],
+    /** Baris `finance_tx` income per servis, untuk antrean kasir. */
+    paidFinanceRows: [] as { servis_id: string; amount: number }[],
+    /** `servis_id` yang sudah punya baris di `cervise_sales`. */
+    paidSaleIds: [] as string[],
+    queueServices: [] as {
+      id: string;
+      service_number: string | null;
+      device: string;
+      status: string;
+      price: number;
+      price_estimasi: number | null;
+      created_at: string;
+      customer_id: string | null;
+    }[],
+    customerRows: [] as { id: string; name: string }[],
     insertErrors: {} as Record<string, string>,
     calls: [] as Array<{ table: string; op: string; payload?: unknown }>,
   };
 
   const done = { error: null as { message: string } | null };
 
-  const serviceSelect = vi.fn(() => ({
-    eq: () => ({ eq: () => ({ maybeSingle: async () => ({ data: state.service, error: null }) }) }),
-  }));
+  /**
+   * `cervise_services` dipakai dua bentuk rantai:
+   * - pembayaran servis: `.eq().eq().maybeSingle()`
+   * - antrean kasir:     `.eq().not().order().limit()`
+   * Satu mock melayani keduanya, jadi objek hasil `.eq()` kedua membuka
+   * `maybeSingle` dan `not` sekaligus.
+   */
+  const serviceSelect = vi.fn(() => {
+    // `cervise_services` punya dua bentuk rantai:
+    // - pembayaran servis: `.eq(id).eq(branch_id).maybeSingle()`
+    // - antrean kasir:     `.eq(branch_id).not(status).order().limit()`
+    // Satu mock melayani keduanya, jadi objek hasil `.eq()` pertama membuka
+    // `maybeSingle` (lewat `.eq()` kedua) dan `not` sekaligus.
+    const order = () => ({
+      limit: async () => ({ data: state.queueServices, error: null }),
+    });
+    return {
+      eq: () => ({
+        maybeSingle: async () => ({ data: state.service, error: null }),
+        eq: () => ({
+          maybeSingle: async () => ({ data: state.service, error: null }),
+          not: () => ({ order }),
+        }),
+        not: () => ({ order }),
+      }),
+    };
+  });
   const serviceUpdate = vi.fn((payload: unknown) => {
     state.calls.push({ table: "cervise_services", op: "update", payload });
     return { eq: () => ({ eq: async () => ({ error: null }) }) };
   });
-  const paidSelect = vi.fn(() => ({
-    eq: () => ({ eq: () => ({ eq: async () => ({ data: state.paidRows, error: null }) }) }),
+  const paidSelect = vi.fn(() => {
+    // `finance_tx` punya dua bentuk rantai:
+    // - pembayaran:   `.eq(branch).eq(servis).eq(type)` lalu di-await
+    // - antrean kasir: `.eq(branch).eq(type).not(servis_id)` lalu di-await
+    // Keduanya mulai dari `.eq()`, jadi `eq` membuka `eq` dan `not` sekaligus
+    // dan mengembalikan dirinya sendiri untukallows lebih dari tiga filter.
+    const stage = {
+      then: (resolve: (value: unknown) => unknown) =>
+        resolve({ data: state.paidRows, error: null }),
+      not: () => ({
+        then: (resolve: (value: unknown) => unknown) =>
+          resolve({ data: state.paidFinanceRows, error: null }),
+      }),
+    };
+    const chain: Record<string, unknown> = {
+      ...stage,
+      eq: () => chain,
+    };
+    return { eq: () => chain };
+  });
+  const paidSalesSelect = vi.fn(() => ({
+    eq: () => ({
+      not: () => ({
+        then: (resolve: (value: unknown) => unknown) =>
+          resolve({
+            data: state.paidSaleIds.map((servis_id) => ({ servis_id })),
+            error: null,
+          }),
+      }),
+    }),
+  }));
+  const customerSelect = vi.fn(() => ({
+    in: async () => ({ data: state.customerRows, error: null }),
   }));
   const saleInsert = vi.fn((payload: unknown) => {
     state.calls.push({ table: "cervise_sales", op: "insert", payload });
@@ -57,7 +127,9 @@ const mocks = vi.hoisted(() => {
       case "finance_tx":
         return { select: paidSelect, insert: financeInsert };
       case "cervise_sales":
-        return { insert: saleInsert };
+        return { insert: saleInsert, select: paidSalesSelect };
+      case "cervise_customers":
+        return { select: customerSelect };
       default:
         throw new Error(`unexpected table: ${table}`);
     }
@@ -96,10 +168,129 @@ function serviceRow(overrides: Partial<NonNullable<typeof mocks.state.service>> 
 beforeEach(() => {
   mocks.state.service = serviceRow();
   mocks.state.paidRows = [];
+  mocks.state.paidFinanceRows = [];
+  mocks.state.paidSaleIds = [];
+  mocks.state.queueServices = [];
+  mocks.state.customerRows = [];
   mocks.state.insertErrors = {};
   mocks.state.calls = [];
   mocks.getActiveTenant.mockReset();
   mocks.getActiveTenant.mockResolvedValue(actorStub("FRONTLINER"));
+});
+
+describe("getFrontlinerQueue", () => {
+  function queueRow(overrides: Partial<NonNullable<typeof mocks.state.queueServices>[number]>) {
+    return {
+      id: "s2",
+      service_number: "SRV-2",
+      device: "Redmi Note 13",
+      status: "Selesai",
+      price: 50000,
+      price_estimasi: 150000,
+      created_at: "2026-10-18T02:00:00Z",
+      customer_id: "c1",
+      ...overrides,
+    };
+  }
+
+  it("tidak menampilkan servis yang pembayarannya ada di finance_tx saja", async () => {
+    // Regresi yang ditemukan audit: baris lama dari addPembayaran tidak pernah
+    // punya baris cervise_sales, jadi servis yang sudah lunas tetap muncul di
+    // antrean dan bisa dibayar dua kali.
+    mocks.state.queueServices = [queueRow({ id: "s1" })];
+    mocks.state.paidFinanceRows = [{ servis_id: "s1", amount: 150000 }];
+    mocks.state.paidSaleIds = [];
+
+    const result = await getFrontlinerQueue();
+
+    expect(result.ok && result.data.map((item) => item.id)).toEqual([]);
+  });
+
+  it("tidak menampilkan servis yang pembayarannya ada di cervise_sales", async () => {
+    mocks.state.queueServices = [queueRow({ id: "s1" })];
+    mocks.state.paidSaleIds = ["s1"];
+
+    const result = await getFrontlinerQueue();
+
+    expect(result.ok && result.data.map((item) => item.id)).toEqual([]);
+  });
+
+  it("tetap menampilkan servis yang belum dibayar", async () => {
+    mocks.state.queueServices = [queueRow({})];
+    mocks.state.customerRows = [{ id: "c1", name: "Budi" }];
+
+    const result = await getFrontlinerQueue();
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.data.map((item) => item.id)).toEqual(["s2"]);
+    expect(result.data[0].customerName).toBe("Budi");
+  });
+
+  it("menyertakan estimasi supaya kasir bisa mengisi sisa tagihan", async () => {
+    mocks.state.queueServices = [queueRow({})];
+
+    const result = await getFrontlinerQueue();
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.data[0].priceEstimasi).toBe(150000);
+  });
+
+  it("menjumlahkan beberapa pembayaran sebelum menilai lunas", async () => {
+    // 50rb + 25rb = 75rb dari estimasi 150rb: belum lunas, jadi masih di antrean.
+    mocks.state.queueServices = [queueRow({})];
+    mocks.state.paidFinanceRows = [
+      { servis_id: "s2", amount: 50000 },
+      { servis_id: "s2", amount: 25000 },
+    ];
+
+    const result = await getFrontlinerQueue();
+
+    expect(result.ok && result.data.map((item) => item.id)).toEqual(["s2"]);
+  });
+
+  it("menyembunyikan servis yang pembayarannya sudah mencapai estimasi", async () => {
+    mocks.state.queueServices = [queueRow({})];
+    mocks.state.paidFinanceRows = [
+      { servis_id: "s2", amount: 50000 },
+      { servis_id: "s2", amount: 100000 },
+    ];
+
+    const result = await getFrontlinerQueue();
+
+    expect(result.ok && result.data.map((item) => item.id)).toEqual([]);
+  });
+
+  it("menyembunyikan servis yang pembayarannya melebihi estimasi", async () => {
+    mocks.state.queueServices = [queueRow({})];
+    mocks.state.paidFinanceRows = [{ servis_id: "s2", amount: 175000 }];
+
+    const result = await getFrontlinerQueue();
+
+    expect(result.ok && result.data.map((item) => item.id)).toEqual([]);
+  });
+
+  it("servis tanpa estimasi tetap tampil walau sudah ada pembayaran", async () => {
+    // Tanpa estimasi tidak ada cara memastikan lunas, jadi kasir yang menilai.
+    mocks.state.queueServices = [queueRow({ price_estimasi: null })];
+    mocks.state.paidFinanceRows = [{ servis_id: "s2", amount: 50000 }];
+
+    const result = await getFrontlinerQueue();
+
+    expect(result.ok && result.data.map((item) => item.id)).toEqual(["s2"]);
+    expect(result.ok && result.data[0].priceEstimasi).toBeNull();
+  });
+
+  it("seorang servis yang sudah lunas tidak muncul walau pembayarannya di kedua tabel", async () => {
+    mocks.state.queueServices = [queueRow({ id: "s1" }), queueRow({ id: "s2" })];
+    mocks.state.paidSaleIds = ["s1"];
+    mocks.state.paidFinanceRows = [{ servis_id: "s1", amount: 150000 }];
+
+    const result = await getFrontlinerQueue();
+
+    expect(result.ok && result.data.map((item) => item.id)).toEqual(["s2"]);
+  });
 });
 
 describe("recordServisPayment", () => {

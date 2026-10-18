@@ -3,7 +3,7 @@
 import { getActiveTenant } from "@/lib/supabase/actor";
 import { isManagerRole } from "@/lib/auth/authorization";
 import { canAccess } from "@/lib/nav/manifest";
-import { businessDate } from "@/lib/business-date";
+import { businessDate, businessDayStartIso } from "@/lib/business-date";
 import {
   buildFrontlinerKpi,
   type FrontlinerKpi,
@@ -611,7 +611,7 @@ export async function getFrontlinerKpi(): Promise<CashResult<FrontlinerKpi>> {
       .from("cervise_services")
       .select("status, created_at")
       .eq("branch_id", branchId)
-      .gte("created_at", `${businessDate()}T00:00:00.000Z`)
+      .gte("created_at", businessDayStartIso())
       .limit(SERVICE_ROW_CAP);
     if (error) return fail(error.message);
 
@@ -629,6 +629,13 @@ export type FrontlinerQueueItem = {
   device: string;
   status: string;
   price: number;
+  /**
+   * Harga yang disepakati teknisi; null/0 = belum ada estimasi.
+   *
+   * Yang dibutuhkan kasir untuk prefilling nominal, karena `price` adalah total
+   * yang sudah dibayar, bukan sisa tagihan.
+   */
+  priceEstimasi: number | null;
   createdAt: string;
   customerName: string | null;
 };
@@ -647,7 +654,7 @@ export async function getFrontlinerQueue(): Promise<CashResult<FrontlinerQueueIt
     // menjadi lambat.
     const { data, error } = await supabase
       .from("cervise_services")
-      .select("id, service_number, device, status, price, created_at, customer_id")
+      .select("id, service_number, device, status, price, price_estimasi, created_at, customer_id")
       .eq("branch_id", branchId)
       .not("status", "in", '("Batal")')
       .order("created_at", { ascending: false })
@@ -661,21 +668,57 @@ export async function getFrontlinerQueue(): Promise<CashResult<FrontlinerQueueIt
       device: string;
       status: string;
       price: number;
+      price_estimasi: number | null;
       created_at: string;
       customer_id: string | null;
     }[];
 
     // Satu query untuk semua id, bukan N+1 per baris.
-    const paid = await supabase
-      .from("cervise_sales")
-      .select("servis_id")
-      .eq("branch_id", branchId)
-      .not("servis_id", "is", null);
-    if (paid.error) return fail(paid.error.message);
+    //
+    // KEDUA tabel wajib dibaca. Dulu hanya `cervise_sales` yang dicek, padahal
+    // pembayaran lewat drawer detail servis tercatat di `finance_tx` - jadi
+    // servis yang sudah lunas tetap muncul di antrean ini dan bisa dibayar
+    // lagi. Baris lama yang hanya ada di salah satu tabel harus tetap
+    // terhitung.
+    const [paidSales, paidFinance] = await Promise.all([
+      supabase
+        .from("cervise_sales")
+        .select("servis_id")
+        .eq("branch_id", branchId)
+        .not("servis_id", "is", null),
+      supabase
+        .from("finance_tx")
+        .select("servis_id, amount")
+        .eq("branch_id", branchId)
+        .eq("type", "pemasukan")
+        .not("servis_id", "is", null),
+    ]);
+    if (paidSales.error) return fail(paidSales.error.message);
+    if (paidFinance.error) return fail(paidFinance.error.message);
 
-    const paidIds = new Set(
-      (paid.data ?? []).map((row) => row.servis_id as string).filter(Boolean),
+    // Baris di `cervise_sales` berarti `recordServisPayment` sudah mencatat
+    // pembayaran, jadi possessingnya berarti sudah lunas. Baris `finance_tx`
+    // bisa DP atau pelunasan, jadi nilainya harus dibandingkan dengan estimasi.
+    const saleIds = new Set(
+      (paidSales.data ?? []).map((row) => row.servis_id as string).filter(Boolean),
     );
+
+    // DP yang sudah tercatat tidak boleh menghapus servis dari antrean - sisa
+    // tagihan masih harus bisa dibayar. Yang dikeluarkan hanya yang sudah
+    // lunas terhadap estimasinya. Servis tanpa estimasi tidak bisa dipastikan
+    // lunas, jadi tetap ditampilkan.
+    const paidAmountByService = new Map<string, number>();
+    for (const row of (paidFinance.data ?? []) as { servis_id: string; amount: number }[]) {
+      paidAmountByService.set(
+        row.servis_id,
+        (paidAmountByService.get(row.servis_id) ?? 0) + Number(row.amount ?? 0),
+      );
+    }
+    const isLunas = (service: (typeof services)[number]) => {
+      const estimasi = Number(service.price_estimasi ?? 0);
+      if (estimasi <= 0) return false;
+      return (paidAmountByService.get(service.id) ?? 0) >= estimasi;
+    };
 
     const customerIds = [...new Set(services.map((s) => s.customer_id).filter(Boolean))] as string[];
     const customers = customerIds.length
@@ -688,13 +731,16 @@ export async function getFrontlinerQueue(): Promise<CashResult<FrontlinerQueueIt
     return {
       ok: true,
       data: services
-        .filter((service) => !paidIds.has(service.id))
+        .filter((service) => !saleIds.has(service.id) && !isLunas(service))
         .map((service) => ({
           id: service.id,
           serviceNumber: service.service_number,
           device: service.device,
           status: service.status,
           price: service.price,
+          priceEstimasi:
+            service.price_estimasi == null ? null : Number(service.price_estimasi),
+          alreadyPaid: paidAmountByService.get(service.id) ?? 0,
           createdAt: service.created_at,
           customerName: service.customer_id ? (customerName.get(service.customer_id) ?? null) : null,
         })),
