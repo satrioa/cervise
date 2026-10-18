@@ -1,20 +1,33 @@
 name: Drain notifikasi servis
 
-# Notifikasi WhatsApp tidak dijadwalkan lewat Vercel. Plan Hobby hanya
-# mengizinkan cron harian, sementara outbox perlu dikuras tiap 5 menit -
-# dan jadwal yang lebih rapat membuat setiap build GAGAL, bukan cuma cronnya
-# yang dilewati. e0b3f86 menambahkan vercel.json dengan `5 * * * *` dan
-# `*/5 * * * *`, dan itu alasan tidak ada satu pun deployment sukses
-# sejak 28 September 2026.
+# NOTIFIKASI WHATSAPP SEDANG DIMATIKAN.
 #
-# Endpoint-nya sama persis dengan yang pernah dipanggil cron Vercel,
-# lengkap dengan CRON_SECRET. Tidak ada kode aplikasi yang berubah.
+# Tidak ada jadwal otomatis di file ini: blok `schedule:` sengaja dihapus.
+# Endpoint dan trigger manual tetap berfungsi sekarang, jadi drain bisa diuji.
+#
+# Kenapa plan Hobby tidak bisa dipakai: Vercel hanya mengizinkan cron harian,
+# sedangkan outbox perlu dikuras tiap 5 menit. Dan jadwal yang lebih rapat
+# tidak sekadar dilewati - setiap BUILD GAGAL validasi, lalu Vercel diam-diam
+# mempertahankan deployment lama. e0b3f86 menambahkan vercel.json dengan
+# `5 * * * *` dan `*/5 * * * *` pada 28 September 2026, dan tidak ada satu pun
+# deployment sukses sejak itu. 64b1fb0 tanggal 25 September, yang tidak punya
+# vercel.json sama sekali, adalah deployment terakhir yang berhasil.
+#
+# Cara hidupkan lagi, saat fiturnya mau dikembangkan:
+#   1. Tambahkan blok schedule di bawah dengan - cron: "*/5 * * * *"
+#   2. Pastikan CRON_SECRET ada di Settings > Secrets and variables > Actions
+#   3. Kalau notifikasi tagihan langganan juga mau hidup, kembalikan
+#      vercel.json dengan cron harian /api/cron/subscription-renewals
+#      (file itu dihapus; ambil dari riwayat git di commit dd98c35)
+#   4. Row yang masih pending di cervise_notification_outbox perlu dikexpire
+#      dulu. Empat baris servis_created dari 28 September 2026 masih menunggu
+#      dan akan terkirim sekaligus begitu dijadwalkan - notifikasi "servis
+#      tercatat" yang tiba 20 hari kemudian.
+#
+# Endpoint-nya sendiri tidak berubah dan tetap diamankan CRON_SECRET, jadi
+# trigger manual di bawah ini berfungsi sekarang juga.
 on:
-  schedule:
-    # 5 menit adalah interval terkecil yang dijadwalkan GitHub Actions, jadi
-    # ini setara dengan cron Vercel yang lama.
-    - cron: "*/5 * * * *"
-  # Untuk memicu manual, misalnya saat token Fonnte baru diganti.
+  # Sengaja tidak ada `schedule:`. Lihat catatan di atas.
   workflow_dispatch:
 
 # Jangan menumpuk: satu run sudah mengambil lease di outbox, jadi run
