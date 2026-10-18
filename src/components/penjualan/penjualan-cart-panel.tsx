@@ -21,7 +21,7 @@ import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
 import { createSale, type ProductRow } from "@/app/app/penjualan/actions";
-import { searchCustomersByPhone, createCustomer } from "@/app/app/customer/actions";
+import { searchCustomersByPhone, findOrCreateCustomer } from "@/app/app/customer/actions";
 import { cn } from "@/lib/utils";
 
 const METODE = ["Tunai", "Debit", "Transfer", "QRIS", "E-Wallet"] as const;
@@ -123,17 +123,19 @@ export function PenjualanCartPanel({ onSuccess, customerId, customerPhone, custo
       if (!customerPhone.trim()) { toast.error("Telepon wajib"); return; }
       setSaving(true);
       try {
-        await createCustomer({ name: newCustomerName.trim(), phone: customerPhone.trim() });
-        const found = await searchCustomersByPhone(customerPhone);
-        const norm = customerPhone.replace(/\D/g, ""); let phoneNorm = norm; if (phoneNorm.startsWith("0")) phoneNorm = "62" + phoneNorm.slice(1);
-        const match = found.find((c: any) => c.phone === phoneNorm) ?? found[0];
-        if (!match?.id) throw new Error("Gagal membuat customer");
-        finalCustomerId = match.id;
+        // `findOrCreateCustomer` mengembalikan id customer secara langsung, jadi tidak
+        // perlu lagi mencari ulangnya setelah membuat - dua round-trip ke server,
+        // dan karena `createCustomer` tidak mengembalikan id, mencari ulang itu
+        // satu-satunya cara mendapatkan id. Kalau `createSale` lalu gagal,
+        // customer yatim sudah terlanjur tertulis dan klik berikutnya ditolak
+        // "HP sudah terdaftar".
+        const found = await findOrCreateCustomer({ name: newCustomerName.trim(), phone: customerPhone.trim() });
+        finalCustomerId = found.id;
         setCId(finalCustomerId);
         setShowNameField(false);
         setNewCustomerName("");
-        toast.success(`Customer ${match.name} dibuat`);
-      } catch (e: any) { toast.error(e?.message ?? "Gagal buat customer"); setSaving(false); return; } finally { setSaving(false); }
+        toast.success(found.created ? `Customer ${found.name} dibuat` : `Customer ${found.name} dipakai`);
+      } catch (e: any) { toast.error(e?.message ?? "Gagal buat customer"); setSaving(false); return; }
     }
     if (!finalCustomerId) { toast.error("Customer wajib — cari no HP atau tambah baru"); return; }
     if (cart.length === 0) { toast.error("Keranjang kosong"); return; }

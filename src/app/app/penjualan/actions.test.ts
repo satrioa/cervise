@@ -101,6 +101,76 @@ describe("createProduct", () => {
     await expect(createProduct({ name: "x", category: "Gadget", cost: 1, price: -10 })).rejects.toThrow("Harga jual harus valid");
     expect(productInsert).not.toHaveBeenCalled();
   });
+
+  /**
+   * Ditemukan lewat test end-to-end: memasukkan unit Bekas dengan IMEI yang
+   * sudah ada ditolak database dengan
+   *   duplicate key value violates unique constraint
+   *   "cervise_products_branch_id_sku_key"
+   * sehingga pesan "IMEI sudah ada di cabang ini" tidak pernah muncul -
+   * `includes("imei")` tidak akan cocok dengan nama constraint. Yang tampil ke
+   * pengguna adalah pesan Postgres mentah.
+   *
+   * SKU Bekas diturunkan dari 4 digit terakhir IMEI
+   * (`GD-BK-64GB-2345`), jadi bentrok SKU adalah bentrok IMEI untuk unit
+   * Bekas - atau warna+storage yang sama untuk unit Baru.
+   */
+  it("memetakan error bentrok SKU ke pesan yang menyebut penyebabnya", async () => {
+    productInsert.mockResolvedValue({
+      error: {
+        code: "23505",
+        message: 'duplicate key value violates unique constraint "cervise_products_branch_id_sku_key"',
+      },
+      data: {},
+    } as any);
+
+    await expect(
+      createProduct({
+        name: "iPhone 13 Pro",
+        category: "Gadget",
+        cost: 12000000,
+        price: 14500000,
+        variant_type: "BEKAS",
+        storage: "64 GB",
+        warna: "Black",
+        imei: "356938035412345",
+        bh_percent: 75,
+      }),
+    ).rejects.toThrow("IMEI sudah dipakai unit lain di cabang ini");
+
+    await expect(
+      createProduct({
+        name: "iPhone 14 Pro",
+        category: "Gadget",
+        cost: 15000000,
+        price: 17900000,
+        variant_type: "BARU",
+        stock_qty: 1,
+        storage: "64 GB",
+        warna: "Black",
+      }),
+    ).rejects.toThrow("Varian dengan storage dan warna yang sama sudah ada di cabang ini");
+  });
+
+  it("tetap meneruskan error lain tanpa disamarkan", async () => {
+    productInsert.mockResolvedValue({
+      error: { code: "42501", message: "new row violates row-level security policy" },
+      data: {},
+    } as any);
+
+    await expect(
+      createProduct({
+        name: "iPhone 14 Pro",
+        category: "Gadget",
+        cost: 15000000,
+        price: 17900000,
+        variant_type: "BARU",
+        stock_qty: 1,
+        storage: "64 GB",
+        warna: "Black",
+      }),
+    ).rejects.toThrow("row-level security policy");
+  });
 });
 
 describe("createSale", () => {
