@@ -60,6 +60,26 @@ export function normalizePhone62(raw: string | null | undefined): string | null 
   return digits;
 }
 
+/**
+ * Bentuk digit untuk MENCARI nomor di kolom yang tersimpan kanonik.
+ *
+ * `normalizePhone62` tidak bisa dipakai untuk pencarian karena ia menolak
+ * input di bawah 10 digit, sedangkan orang mengetik nomor sebagian saat
+ * mencari. Fungsi ini memakai aturan awalan yang sama (0 dan 8 jadi 62)
+ * tanpa batas panjang, jadi "0812" tetap dicari sebagai "62812".
+ *
+ * Yang penting: hasil fungsi ini harus bisa muncul sebagai substring dari
+ * kolom `phone`. Ditemukan lewat test end-to-end - pencarian customer di POS
+ * memakai bentuk mentah sehingga "081277770001" tidak pernah cocok dengan
+ * yang tersimpan "6281277770001".
+ */
+export function phoneSearchDigits(raw: string | null | undefined): string {
+  let digits = String(raw ?? "").replace(/\D/g, "");
+  if (digits.startsWith("0")) digits = `62${digits.slice(1)}`;
+  else if (digits.startsWith("8")) digits = `62${digits}`;
+  return digits;
+}
+
 export type PhoneValidation =
   | { ok: true; value: string | null }
   | { ok: false; error: string };

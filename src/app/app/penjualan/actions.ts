@@ -168,7 +168,21 @@ export async function createProduct(input: {
   };
   const { error } = await supabase.from("cervise_products").insert(payload);
   if (error) {
-    if ((error as any).code === "23505" && String(error.message).includes("imei")) throw new Error("IMEI sudah ada di cabang ini");
+    // Constraint yang bentrok adalah `cervise_products_branch_id_sku_key`, bukan
+    // constraint terpisah untuk IMEI. SKU Bekas diturunkan dari 4 digit
+    // terakhir IMEI (`GD-BK-64GB-2345`), jadi IMEI ganda - dan SKU sama dari
+    // warna+storage yang sama - sama-sama muncul sebagai bentrok SKU.
+    //
+    // Ditemukan lewat test end-to-end: `includes("imei")` tidak pernah cocok
+    // dengan nama constraint, jadi pesan "IMEI sudah ada di cabang ini" tidak
+    // pernah muncul dan yang tampil ke pengguna pesan Postgres mentah.
+    if ((error as any).code === "23505" && String(error.message).includes("cervise_products_branch_id_sku_key")) {
+      throw new Error(
+        variant_type === "BEKAS"
+          ? "IMEI sudah dipakai unit lain di cabang ini"
+          : "Varian dengan storage dan warna yang sama sudah ada di cabang ini",
+      );
+    }
     throw new Error(error.message);
   }
   revalidatePath("/app/penjualan");

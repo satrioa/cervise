@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { getActiveTenant } from "@/lib/supabase/actor";
 import { canAccess } from "@/lib/rbac";
+import { phoneSearchDigits } from "@/lib/phone";
 import {
   mapCustomerRows,
   type CustomerInput,
@@ -158,7 +159,13 @@ export async function searchCustomersByPhone(q: string) {
   const { supabase, branchId, role } = await getActiveTenant();
   requireCustomerAccess(role);
   if (!branchId) throw new Error("Branch not set");
-  const term = q.trim().replace(/\D/g, "");
+  // `phone` disimpan kanonik `62...` (lihat normalizePhone62 di atas).
+  // Ditemukan lewat test end-to-end: pencarian dulu memakai digit mentah,
+  // jadi "081277770001" tidak pernah cocok dengan "6281277770001" dan setiap
+  // orang yang mengetik nomor lokal tidak akan menemukan customer yang sudah
+  // ada - POS justru menawarkan "buat customer baru" untuk nomor yang sudah
+  // terdaftar, lalu menolaknya dengan "HP sudah terdaftar".
+  const term = phoneSearchDigits(q);
   if (term.length < 3) return [];
   const { data, error } = await supabase.from("cervise_customers").select("id, name, phone").eq("branch_id", branchId).ilike("phone", `%${term}%`).limit(5);
   if (error) throw new Error(error.message);
