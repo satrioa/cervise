@@ -15,6 +15,7 @@ import {
   type ShiftServiceRow,
   type ShiftSession,
 } from "@/lib/operational/laporan-shift";
+import { awalHariWIB, kalenderWIB } from "@/lib/operational/periode-bulan";
 
 /**
  * Sesi kas harian dan Laporan Shift.
@@ -42,8 +43,11 @@ async function cashContext() {
   return { supabase: actor.supabase, branchId: actor.branchId, userId: actor.userId, role: actor.role };
 }
 
+// Dipakai enam kali di file ini, jadi hanya satu definisi hari kalender.
+// toISOString().slice(0, 10) adalah hari UTC dan menggeser shift yang dibuka
+// antara 00:00 dan 07:00 WIB ke hari sebelumnya. Lihat kalenderWIB.
 function toCalendarDate(date: Date): string {
-  return date.toISOString().slice(0, 10);
+  return kalenderWIB(date);
 }
 
 // ---------------------------------------------------------------------------
@@ -542,7 +546,10 @@ export async function getFrontlinerKpi(): Promise<CashResult<FrontlinerKpi>> {
       .from("cervise_services")
       .select("status, created_at")
       .eq("branch_id", branchId)
-      .gte("created_at", `${toCalendarDate(new Date())}T00:00:00.000Z`)
+      // `T00:00:00.000Z` untuk hari yang sama berarti 07:00 WIB, jadi tujuh jam
+      // pertama hari lokal justru tidak ikut dihitung. awalHariWIB mengembalikan
+      // instant tengah malam WIB yang sebenarnya.
+      .gte("created_at", awalHariWIB(new Date()).toISOString())
       .limit(SERVICE_ROW_CAP);
     if (error) return fail(error.message);
 

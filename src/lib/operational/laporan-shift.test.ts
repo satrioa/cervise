@@ -80,6 +80,75 @@ function build(overrides: Partial<Parameters<typeof buildLaporanShift>[0]> = {})
   });
 }
 
+describe("uang di laci bukan sama dengan pendapatan", () => {
+  // Bug yang diuji: `expectedCash` dan `totals.expected` memakai variabel yang
+  // sama, jadi "Harus ada di laci" selalu memuat pendapatan yang tidak pernah ada
+  // di tangan. Kasir menghitung uang, sistem melaporkan lebih besar, dan
+  // selisihnya selalu negatif.
+  it("tidak menghitung penjualan non-Tunai sebagai uang di laci", () => {
+    const report = build({
+      sales: [
+        sale({ id: "qris", total: 5_000_000, paid: 5_000_000, payment_method: "QRIS" }),
+        sale({ id: "tunai", total: 100_000, paid: 100_000, payment_method: "Tunai" }),
+      ],
+    });
+    // opening 250_000 + tunai 100_000 saja
+    expect(report.expectedCash).toBe(350_000);
+    // pendapatan tetap menghitung semua metode
+    expect(report.totals.sales).toBe(5_100_000);
+  });
+
+  it("suku servis tetap ikut, karena belum bisa dibedakan dari penawaran yang belum dibayar", () => {
+    // `cervise_services.price` ditimpa jadi jumlah pembayaran oleh addPembayaran,
+    // tapi servis yang belum dibayar tetap punya harga penawaran. Di data
+    // produksi: 5 servis punya price tanpa satu pun pembayaran. Memisahkan
+    // keduanya butuh membedakan dua jalur pembayaran servis dulu, dan itu
+    // belum ada bedanya di baris laporan. documented, bukan sekadar dikomentari.
+    const report = build({ services: [svc({ price: 800_000, status: "Selesai" })] });
+    expect(report.expectedCash).toBe(1_050_000);
+    expect(report.totals.services).toBe(800_000);
+  });
+
+  it("pembayaran DP dihitung memakai paid, bukan total", () => {
+    // Bug yang diuji: `amount` memakai `row.total`, jadi DP Rp 500.000 dengan
+    // paid Rp 200.000 membuat sistem menunggu Rp 500.000 di laci padahal
+    // kasir hanya menerima Rp 200.000.
+    const report = build({
+      sales: [sale({ total: 500_000, paid: 200_000, payment_status: "dp" })],
+    });
+    expect(report.sales[0].settled).toBe(true);
+    expect(report.expectedCash).toBe(450_000);
+  });
+
+  it("variance dihitung dari uang di laci, bukan dari pendapatan", () => {
+    const report = build({
+      session: session({ closingBalance: 350_000, closedAt: CLOSE }),
+      sales: [
+        sale({ id: "qris", total: 5_000_000, paid: 5_000_000, payment_method: "QRIS" }),
+        sale({ id: "tunai", total: 100_000, paid: 100_000, payment_method: "Tunai" }),
+      ],
+    });
+    // laci berisi opening 250_000 + tunai 100_000 = 350_000, jadi nihil
+    expect(report.variance).toBe(0);
+  });
+
+  it("sesi tanpa penjualan Tunai menghasilkan expectedCash dari opening saja", () => {
+    const report = build({
+      sales: [sale({ total: 900_000, paid: 900_000, payment_method: "Transfer" })],
+    });
+    expect(report.expectedCash).toBe(250_000);
+  });
+
+  it("baris 'Harus ada di laci' di sheet memakai expectedCash", () => {
+    const report = build({
+      sales: [sale({ id: "qris", total: 5_000_000, paid: 5_000_000, payment_method: "QRIS" })],
+    });
+    const rows = formatShiftRowsForSheet(report);
+    const cashRow = rows.find((row) => row[0] === "Harus ada di laci");
+    expect(cashRow?.[1]).toBe(250_000);
+  });
+});
+
 describe("baris servis untuk kartu Transaksi Terbaru", () => {
   it("baris apa pun punya updatedAt, supaya kartu bisa mengurutkan sendiri", () => {
     // Kartu "Transaksi Terbaru" mengambil N baris terbaru. Laporan sendiri

@@ -44,6 +44,7 @@ function report(overrides: Partial<ShiftReport> = {}): ShiftReport {
         id: "x1",
         label: "SAL-0001",
         amount: 150_000,
+        paid: 150_000,
         method: "Tunai",
         settled: true,
         forService: null,

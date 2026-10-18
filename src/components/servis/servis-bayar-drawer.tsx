@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectTrigger, SelectPopup, SelectItem, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { addPembayaran } from "@/app/app/servis/actions";
+import { kalenderWIB } from "@/lib/operational/periode-bulan";
 
 type Props = {
   servisId: string;
@@ -23,7 +24,7 @@ const METODE = ["Tunai", "Debit", "Transfer", "QRIS", "E-Wallet"] as const;
 export function ServisBayarForm({ servisId, estimasi, totalPaid = 0, onSuccess, onClose }: Props) {
   const [amount, setAmount] = useState<number | "">("");
   const [metode, setMetode] = useState<(typeof METODE)[number]>("Tunai");
-  const [kasDate, setKasDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [kasDate, setKasDate] = useState(() => kalenderWIB());
   const [keterangan, setKeterangan] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);

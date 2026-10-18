@@ -248,20 +248,22 @@ export async function createSale(input: {
   if (!Number.isFinite(input.paid) || input.paid < 0) throw new Error("Pembayaran tidak valid");
 
   const pIds = input.items.map((i) => i.product_id);
-  const { data: prods, error: pErr } = await supabase.from("cervise_products").select("id, sku, name, category, stock_qty, cost, price, is_serialized").in("id", pIds).eq("branch_id", branchId);
+  const { data: prods, error: pErr } = await supabase.from("cervise_products").select("id, sku, name, category, stock_qty, cost, price, is_serialized, imei").in("id", pIds).eq("branch_id", branchId);
   if (pErr) throw new Error(pErr.message);
   const pMap = new Map<string, any>();
   for (const p of (prods as any[]) ?? []) pMap.set(p.id, p);
 
   const canOverridePrice = canAccess(role, "harga_jual");
-  const saleItems = input.items.map((item) => {
-    const product = pMap.get(item.product_id);
-    return {
-      ...item,
-      qty: Number(item.qty),
-      unit_price: canOverridePrice ? Number(item.unit_price) : Number(product.price),
-    };
-  });
+  // Harga TIDAK lagi diganti dengan harga produk di sini. Dulu baris ini
+  // menimpanya diam-diam, jadi kasir melihat "Total Rp1" di layar sementara
+  // server menyimpan total Rp 100.000. validateSaleItems sekarang menolak
+  // harga yang berbeda kalau role tidak punya harga_jual, jadi menimpanya
+  // hanya akan menutupi penolakan itu.
+  const saleItems = input.items.map((item) => ({
+    ...item,
+    qty: Number(item.qty),
+    unit_price: Number(item.unit_price),
+  }));
 
   validateSaleItems(
     saleItems,
@@ -271,7 +273,9 @@ export async function createSale(input: {
       stock_qty: Number(product.stock_qty),
       is_serialized: Boolean(product.is_serialized),
       price: Number(product.price),
+      imei: product.imei ?? null,
     })),
+    { canOverridePrice },
   );
 
   let subtotal = 0;

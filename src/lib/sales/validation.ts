@@ -4,6 +4,8 @@ export type SaleProductSnapshot = {
   stock_qty: number;
   is_serialized: boolean;
   price: number;
+  /** IMEI milik unit itu sendiri, bukan yang diketik kasir. */
+  imei: string | null;
 };
 
 export type SaleItemInput = {
@@ -13,7 +15,22 @@ export type SaleItemInput = {
   imei1?: string;
 };
 
-export function validateSaleItems(items: SaleItemInput[], products: SaleProductSnapshot[]) {
+export type ValidateSaleOptions = {
+  /**
+   * Wajib, bukan opsional dengan default.
+   *
+   * Flag ini menentukan apakah harga boleh berbeda dari harga produk. Kalau punya
+   * default yang longgar, pemanggil yang lupa mengirimnya akan kembali ke
+   * kondisi sekarang: harga kasir dibuang diam-diam.
+   */
+  canOverridePrice: boolean;
+};
+
+export function validateSaleItems(
+  items: SaleItemInput[],
+  products: SaleProductSnapshot[],
+  options: ValidateSaleOptions,
+) {
   if (items.length === 0) throw new Error("Keranjang kosong");
   const productMap = new Map(products.map((product) => [product.id, product]));
   const seen = new Set<string>();
@@ -37,6 +54,28 @@ export function validateSaleItems(items: SaleItemInput[], products: SaleProductS
     }
     if (product.is_serialized && !item.imei1?.trim()) {
       throw new Error(`IMEI wajib untuk ${product.name}`);
+    }
+
+    // Dulu harga yang diketik kasir diganti diam-diam dengan harga produk.
+    // Frontliner yang mengubah Rp 100.000 jadi Rp 1 melihat "Total Rp1" di
+    // layar, tapi server menyimpan total Rp 100.000 dan menunggu Rp 100.000 di
+    // laci - jadi uang Rp 1 yang benar-benar diterima hilang, dan ada piutang
+    // yang tidak bisa ditagih. Sekarang Pricing ditolak, bukan diabaikan.
+    if (!options.canOverridePrice && item.unit_price !== product.price) {
+      throw new Error(
+        `Harga ${product.name} tidak boleh diubah. Muat ulang keranjang lalu ulangi.`,
+      );
+    }
+
+    // IMEI harus milik unit yangDijual. Hanya memeriksa "IMEI ini belum pernah
+    // dipakai di penjualan lain" tidak cukup: barang BEKAS dengan imei
+    // 356938035412345 bisa terjual dengan imei1 "356938035412999", dan catatan
+    // penjualan plus pencarian garansi lalu membawa IMEI perangkat lain.
+    if (product.is_serialized && item.imei1?.trim()) {
+      const expected = product.imei?.trim();
+      if (expected && item.imei1.trim() !== expected) {
+        throw new Error(`IMEI ${product.name} harus ${expected}`);
+      }
     }
   }
 }

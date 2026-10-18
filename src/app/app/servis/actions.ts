@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { mapServisListRows, type ServisListRow } from "@/lib/operational/servis-list";
 import { addGaransiDays, normalizeGaransiUnit, toDays } from "@/lib/operational/garansi-list";
+import { kalenderWIB } from "@/lib/operational/periode-bulan";
 
 export type KondisiStatus = "normal" | "tidak_normal";
 export type KondisiAwal = Record<string, { status: KondisiStatus; note: string }>;
@@ -514,7 +515,7 @@ export async function addPembayaran(params: { servisId: string; amount: number; 
     .eq("branch_id", branchId)
     .maybeSingle();
   if (serviceError || !service) throw new Error("Servis tidak ditemukan");
-  const kasDate = params.kas_date ?? new Date().toISOString().slice(0, 10);
+  const kasDate = params.kas_date ?? kalenderWIB();
   const { error } = await supabase.from("finance_tx").insert({
     branch_id: branchId,
     servis_id: params.servisId,

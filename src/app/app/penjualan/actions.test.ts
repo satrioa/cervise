@@ -160,19 +160,27 @@ describe("createSale", () => {
     expect(salesInsert).not.toHaveBeenCalled();
   });
 
-  it("ignores client price tampering for frontliners", async () => {
+  it("menolak harga yang diketik kasir di luar harga_jual", async () => {
+    // Dulu test ini bernama "ignores client price tampering for frontliners" dan
+    // asserting harga 1 disimpan sebagai 100. Itu bukan perilaku yang ingin
+    // dijaga: keranjang mengirim paid = subtotal dari harga yang diketik, jadi
+    // kasir benar-benar menerima Rp 1 sementara sistem menunggu Rp 100.000.
+    // Diperbaiki dengan menolak, bukan menimpa.
     productQuery.data = [{ id: "product-1", name: "Layar", stock_qty: 5, is_serialized: false, price: 100, sku: "GD1", category: "Gadget", cost: 50 }];
 
-    await createSale({
-      customerId: "customer-1",
-      items: [{ product_id: "product-1", qty: 2, unit_price: 1 }],
-      payment_method: "Tunai",
-      paid: 200,
-      kas_date: "2026-01-01",
-    });
+    await expect(
+      createSale({
+        customerId: "customer-1",
+        items: [{ product_id: "product-1", qty: 2, unit_price: 1 }],
+        payment_method: "Tunai",
+        paid: 2,
+        kas_date: "2026-01-01",
+      })
+    ).rejects.toThrow("tidak boleh diubah");
 
-    expect(salesItemInsert).toHaveBeenCalledWith(expect.objectContaining({ unit_price: 100, line_total: 200 }));
-    expect(salesInsert).toHaveBeenCalledWith(expect.objectContaining({ subtotal: 200, total: 200 }));
+    expect(salesInsert).not.toHaveBeenCalled();
+    expect(salesItemInsert).not.toHaveBeenCalled();
+    expect(rpc).not.toHaveBeenCalled();
   });
 
   it("moves stock through the validated rpc instead of a direct product update", async () => {

@@ -9,6 +9,8 @@
  * Bentuk masukan disengaja datar: array hasil query, bukan objek berisi query.
  */
 
+import { kalenderWIB } from "./periode-bulan";
+
 export const SHIFT_SNAPSHOT_VERSION = 1;
 
 /** Status servis yang dianggap sudah dikerjakan. Sama dengan `DONE` di laporan-servis.ts. */
@@ -75,7 +77,10 @@ export type ShiftServiceLine = {
 export type ShiftSaleLine = {
   id: string;
   label: string;
+  /** Nilai jual penuh. Ini pendapatan, bukan uang di laci. */
   amount: number;
+  /** Uang yang benar-benar diterima. Untuk DP ini lebih kecil dari `amount`. */
+  paid: number;
   settled: boolean;
   method: string | null;
   forService: string | null;
@@ -122,18 +127,24 @@ function amount(value: number | null | undefined): number {
 
 /**
  * `payment_status` tidak punya CHECK constraint nilainya, jadi filter di sini
- * ditulis eksplisit: apa pun selain `lunas` diperlakukan sebagai belum masuk,
- * bukan diabaikan diam-diam.
+ * ditulis eksplisit: apa pun selain `lunas` dan `dp` diperlakukan sebagai belum
+ * masuk, bukan diabaikan diam-diam.
+ *
+ * `dp` ikut dihitung karena uangnya benar-benar ada di laci. Kalau hanya
+ * `lunas` yang dihitung, setiap pembayaran cicilan hilang dari "Harus ada di
+ * laci" padahal kasir sudah menerimanya.
  */
 function isSettled(status: string | null | undefined): boolean {
-  return status === "lunas";
+  return status === "lunas" || status === "dp";
 }
 
 /** Tanggal kalender shift, dari `open_at`. */
 function shiftDate(session: ShiftSession, now: Date): string {
   const opened = new Date(session.openAt);
   const base = Number.isNaN(opened.getTime()) ? now : opened;
-  return base.toISOString().slice(0, 10);
+  // Hari UTC akan menaruh shift yang dibuka jam 00:00-07:00 WIB di tanggal
+  // sebelumnya, jadi shift itu terpotong oleh hari yang salah di laporan.
+  return kalenderWIB(base);
 }
 
 function serviceLabel(row: ShiftServiceRow): string {
@@ -210,6 +221,7 @@ export function buildLaporanShift(input: {
       id: row.id,
       label: saleLabel(row),
       amount: amount(row.total),
+      paid: amount(row.paid),
       settled: isSettled(row.payment_status),
       method: row.payment_method,
       forService: row.servis_id,
@@ -236,6 +248,15 @@ export function buildLaporanShift(input: {
     .filter((line) => line.settled)
     .reduce((sum, line) => sum + line.amount, 0);
 
+  // Uang FISIK di laci. Berbeda dari pendapatan di atas:
+  //   - hanya metode Tunai. QRIS, Debit, Transfer, dan E-Wallet masuk ke
+  //     rekening atau kartu, bukan ke laci, tapi sebelumnya ikut dijumlahkan.
+  //   - memakai `paid`, bukan `total`. Pembayaran DP storing total penuh
+  //     padahal kasir hanya menerima sebagian.
+  const cashSalesTotal = saleLines
+    .filter((line) => line.settled && line.method === "Tunai")
+    .reduce((sum, line) => sum + line.paid, 0);
+
   const manualIn = cashLines
     .filter((line) => line.direction === "pemasukan")
     .reduce((sum, line) => sum + line.amount, 0);
@@ -243,8 +264,24 @@ export function buildLaporanShift(input: {
     .filter((line) => line.direction === "pengeluaran")
     .reduce((sum, line) => sum + line.amount, 0);
 
+  // Pendapatan: semua penjualan yang sudah dibayar apa pun metodenya, plus
+  // servis selesai yang belum punya penjualan. Ini yang dipakai untuk omzet.
   const expected =
     amount(session.openingBalance) + servicesTotal + salesTotal + manualIn - manualOut;
+
+  // Uang di laci. Perbedaannya dari `expected` hanya pada penjualan: yang di
+  // sini hanya metode Tunai dan memakai `paid`, bukan `total`.
+  //
+  // Suku servis SENGAJA belum dipisah. `servicesTotal` mencampur dua hal:
+  // `cervise_services.price` ditimpa jadi jumlah pembayaran oleh
+  // `addPembayaran` (servis/actions.ts), tapi servis yang belum dibayar pun
+  // tetap punya harga penawaran. Dipisah secara benar butuh memisahkan juga
+  // dua jalur pembayaran servis - `payServis` menulis ke cervise_sales dengan
+  // metode, `addPembayaran` menulis ke finance_tx - dan itu belum ada
+  // bedanya di baris laporan. Sampai itu ada, kas undercount hanya untuk
+  // non-Tunai yang bisa dibuktikan.
+  const expectedCash =
+    amount(session.openingBalance) + cashSalesTotal + servicesTotal + manualIn - manualOut;
 
   return {
     schemaVersion: SHIFT_SNAPSHOT_VERSION,
@@ -255,9 +292,9 @@ export function buildLaporanShift(input: {
     closingAt: closeAt,
     openingBalance: amount(session.openingBalance),
     closingBalance: session.closingBalance === null ? null : amount(session.closingBalance),
-    expectedCash: expected,
+    expectedCash: expectedCash,
     variance:
-      session.closingBalance === null ? null : amount(session.closingBalance) - expected,
+      session.closingBalance === null ? null : amount(session.closingBalance) - expectedCash,
     reason: null,
     services: serviceLines,
     sales: saleLines,
@@ -414,7 +451,9 @@ export function formatShiftRowsForSheet(report: ShiftReport): (string | number)[
   rows.push(["Omzet servis", report.totals.services]);
   rows.push(["Omzet penjualan", report.totals.sales]);
   rows.push(["Transaksi manual", report.totals.manualNet]);
-  rows.push(["Harus ada di laci", report.totals.expected]);
+  // expectedCash, bukan totals.expected: baris ini membandingkan uang fisik di
+  // laci, dan totals.expected memuat pendapatan yang tidak pernah ada di tangan.
+  rows.push(["Harus ada di laci", report.expectedCash]);
   if (report.closingBalance !== null) {
     rows.push(["Saldo akhir fisik", report.closingBalance]);
     rows.push(["Selisih", report.variance ?? 0]);

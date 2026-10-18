@@ -15,6 +15,7 @@ import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/in
 import { toast } from "sonner";
 import { searchProductsForSale, createSale, type ProductRow } from "@/app/app/penjualan/actions";
 import { findOrCreateCustomer } from "@/app/app/customer/actions";
+import { kalenderWIB } from "@/lib/operational/periode-bulan";
 
 const METODE = ["Tunai", "Debit", "Transfer", "QRIS", "E-Wallet"] as const;
 
@@ -28,7 +29,7 @@ export function PenjualanCartDialog({ open, onOpenChange, branchLabel, onSuccess
   const [customerName, setCustomerName] = useState("");
   const [customerId, setCustomerId] = useState<string | null>(null);
   const [metode, setMetode] = useState<string>("Tunai");
-  const [kasDate, setKasDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [kasDate, setKasDate] = useState(() => kalenderWIB());
   const [paid, setPaid] = useState<string>("");
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
