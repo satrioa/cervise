@@ -166,9 +166,31 @@ describe("penutupan kas dan nomor nota", () => {
     // Bug yang diuji: empat angka acak punya 9000 kombinasi dengan UNIQUE
     // global, dan base36 empat karakter mengulang setiap ~28 menit sehingga dua
     // pembayaran 28 menit apart bentrok dan pembayaran hilang.
-    expect(penjualanCode).toContain('rpc("next_sale_number"');
-    expect(penjualanCode).not.toContain("Math.floor(1000 + Math.random() * 9000)");
+    //
+    // Penjualan tidak lagi meminta nomor sendiri: create_sale_with_stock
+    // memanggil next_sale_number di dalam transaksinya, jadi kuncinya masih
+    // aktif dan dua kasir bersamaan tidak menerima nomor sama.
     expect(cashCode).toContain('rpc("next_sale_number"');
     expect(cashCode).not.toContain("Date.now().toString(36)");
+    expect(penjualanCode).toContain('rpc("create_sale_with_stock"');
+    expect(penjualanCode).not.toContain('rpc("next_sale_number"');
+    expect(penjualanCode).not.toContain("Math.floor(1000 + Math.random() * 9000)");
+  });
+
+  it("penjualan lewat satu rpc transaksional, bukan beberapa permintaan", () => {
+    // Bug yang diuji: header, tiap item, dan finance_tx ditulis sebagai
+    // permintaan terpisah. Gagal di tengah meninggalkan header dan stok yang
+    // sudah turun tanpa finance_tx, dan Laporan Shift menghitung penjualan itu
+    // sementara Arus Kas tidak.
+    // Hanya createSale yang dicek. returnSaleItems masih memakai
+    // adjust_product_stock dan tidak ikut transaksi ini.
+    const createSaleBody = penjualanCode.slice(
+      penjualanCode.indexOf("export async function createSale"),
+      penjualanCode.indexOf("export async function returnSaleItems"),
+    );
+    expect(createSaleBody).toContain("create_sale_with_stock");
+    expect(createSaleBody).not.toContain('from("cervise_sales_items").insert');
+    expect(createSaleBody).not.toContain('from("finance_tx").insert');
+    expect(createSaleBody).not.toContain('adjust_product_stock');
   });
 });

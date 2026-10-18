@@ -15,7 +15,14 @@ const { from, productQuery, productInsert, productUpdate, rpc, salesItemInsert, 
   const salesItemInsert = vi.fn(async () => ({ error: null }));
   const salesInsert = vi.fn((): any => ({ select: () => ({ single: async () => salesSingle }) }));
   const financeInsert = vi.fn(async () => ({ error: null }));
-  const rpc = vi.fn(async () => ({ data: 3, error: null }));
+  // create_sale_with_stock mengembalikan objek; fungsi lain (next_sale_number)
+  // mengembalikan teks. Bentuk balasan createSale dipakai di sini supaya test
+  // benar-benar melewati pengecekan "id tidak kosong".
+  const rpc = vi.fn(async (name: string, _args: Record<string, unknown>) =>
+    name === "create_sale_with_stock"
+      ? { data: { id: "sale-1", sale_number: "SLV-2026-0003", total: 200 }, error: null }
+      : { data: "SLV-2026-0003", error: null },
+  );
 
   const from = vi.fn((table: string) => {
     switch (table) {
@@ -183,7 +190,13 @@ describe("createSale", () => {
     expect(rpc).not.toHaveBeenCalled();
   });
 
-  it("moves stock through the validated rpc instead of a direct product update", async () => {
+  it("menyerahkan seluruh penulisan ke satu rpc transaksional", async () => {
+    // Bug yang diuji: createSale lama menulis header, tiap item, dan finance_tx
+    // sebagai permintaan terpisah. Gagal di tengah meninggalkan header dan
+    // stok yang sudah turun tanpa finance_tx - Laporan Shift menghitung
+    // penjualan itu (baca cervise_sales) sementara Arus Kas tidak (baca
+    // finance_tx), jadi dua laporan beda tanpa error. Penurunan stok juga
+    // pernah lewat RPC yang tidak menulis ledger.
     productQuery.data = [{ id: "product-1", name: "Layar", stock_qty: 5, is_serialized: false, price: 100, sku: "GD1", category: "Gadget", cost: 50 }];
 
     await createSale({
@@ -194,14 +207,24 @@ describe("createSale", () => {
       kas_date: "2026-01-01",
     });
 
-    expect(rpc).toHaveBeenCalledWith("adjust_product_stock", {
-      p_product_id: "product-1",
-      p_delta: -2,
-      p_expected_stock: 5,
-      p_reason: "sale",
-      p_sale_id: expect.any(String),
-    });
+    // Penurunan stok TIDAK lagi dipanggil dari sini; create_sale_with_stock
+    // memakai apply_stock_delta di dalam transaksinya.
+    expect(rpc).not.toHaveBeenCalledWith("adjust_product_stock", expect.anything());
     expect(productUpdate).not.toHaveBeenCalled();
+
+    const call = rpc.mock.calls.find(([name]) => name === "create_sale_with_stock");
+    expect(call).toBeDefined();
+    expect(call?.[1]).toMatchObject({
+      p_branch_id: "branch-1",
+      p_payload: expect.objectContaining({
+        customer_id: "customer-1",
+        payment_method: "Tunai",
+        kas_date: "2026-01-01",
+        items: [
+          expect.objectContaining({ product_id: "product-1", qty: 2, unit_price: 100 }),
+        ],
+      }),
+    });
   });
 
   it("rejects discounts from frontliners", async () => {

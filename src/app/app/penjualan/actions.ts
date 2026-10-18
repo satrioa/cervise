@@ -271,101 +271,69 @@ export async function createSale(input: {
     { canOverridePrice },
   );
 
-  let subtotal = 0;
+  // Sisa satu loop: cek IMEI belum dipakai di penjualan lain. Validasi
+  // harga, stok, dan IMEI milik unit sudah dikerjakan validateSaleItems dan
+  // diulang lagi di dalam RPC.
   for (const it of saleItems) {
     const p = pMap.get(it.product_id);
     if (p.is_serialized && it.imei1) {
       const { data: dup } = await supabase.from("cervise_sales_items").select("id").eq("is_serialized", true).contains("item_meta", { imei1: it.imei1.trim() });
       if (dup && (dup as any[]).length) throw new Error(`IMEI ${it.imei1} sudah terpakai`);
     }
-    subtotal += Number(it.qty) * Number(it.unit_price);
   }
   const requestedDiscount = Number(input.discount_total ?? 0);
   if (!Number.isFinite(requestedDiscount) || requestedDiscount < 0) throw new Error("Diskon tidak valid");
+  // Diskon tidak boleh diberikan oleh role tanpa harga_jual. RPC tidak
+  // memeriksa ini: dia hanya memotong diskon dari total.
   if (!canOverridePrice && requestedDiscount > 0) throw new Error("Hanya admin yang boleh memberikan diskon");
-  const discount_total = Math.max(0, Math.min(requestedDiscount, subtotal));
-  const total = Math.max(0, subtotal - discount_total); // stack: promo di atas diskon per item
-  if (input.payment_method !== "Tunai" && input.paid > total) {
-    throw new Error("Pembayaran non-tunai tidak boleh melebihi total");
-  }
-  const paid = Math.min(input.paid, total);
-  const payment_status = paid >= total ? "lunas" : paid > 0 ? "dp" : "belum_bayar";
-  // Nomor urut per cabang dari next_sale_number. Dulu tanggal + empat angka acak,
-  // dan sale_number punya UNIQUE global, jadi bentrok delivers error Postgres
-  // mentah ke kasir dan pembayaran hilang.
-  const { data: saleNumber, error: saleNumberError } = await supabase.rpc("next_sale_number", {
+
+  // Subtotal, total, paid, dan payment_status tidak lagi dihitung di sini.
+  // RPC menghitung ulang semuanya dari cervise_products dalam satu transaksi;
+  // nilai yang dihitung di browser tidak menentukan apa yang tersimpan dan
+  // hanya bisa jadi angka yang berbeda dari yang disimpan.
+
+  // Subtotal, total, paid, dan payment_status sekarang dihitung ulang di dalam
+  // RPC dari cervise_products, jadi nilai yang dihitung di browser tidak lagi
+  // menentukan apa yang tersimpan.
+
+  // Tag "sales" ditulis setelah penjualan berhasil, bukan sebelumnya. Kalau
+  // penandaan gagal, penjualan tidak ikut batal - dan kalau ada yang menekan
+  // Beli dua kali, dua penjualan memang terjadi.
+  const { data: sale, error: sErr } = await supabase.rpc("create_sale_with_stock", {
     p_branch_id: branchId,
+    p_payload: {
+      customer_id: input.customerId,
+      payment_method: input.payment_method,
+      kas_date: input.kas_date,
+      paid: input.paid,
+      discount_total: input.discount_total ?? 0,
+      notes: input.notes?.trim() || "",
+      promo_code: input.promoCode ?? "",
+      items: saleItems.map((item) => ({
+        product_id: item.product_id,
+        qty: item.qty,
+        unit_price: item.unit_price,
+        imei1: item.imei1 ?? "",
+        imei2: item.imei2 ?? "",
+        warna: item.warna ?? "",
+      })),
+    },
   });
-  if (saleNumberError) throw new Error(saleNumberError.message);
-  const sale_number = String(saleNumber ?? "");
+  if (sErr) throw new Error(sErr.message);
+  const result = (sale ?? {}) as { id?: string; sale_number?: string; total?: number };
+  if (!result.id) throw new Error("Penjualan tidak berhasil disimpan");
 
   // ensure customer exists and tag sales
   const { data: cust } = await supabase.from("cervise_customers").select("id, tags").eq("id", input.customerId).eq("branch_id", branchId).maybeSingle();
-  if (!cust) throw new Error("Customer tidak ditemukan");
-  const tags = new Set<string>((cust as any)?.tags ?? []);
-  tags.add("sales");
-  await supabase.from("cervise_customers").update({ tags: Array.from(tags) } as any).eq("id", input.customerId);
-
-  const { data: sale, error: sErr } = await supabase.from("cervise_sales").insert({
-    branch_id: branchId,
-    customer_id: input.customerId,
-    sale_number,
-    subtotal,
-    discount_total,
-    total,
-    paid,
-    payment_status,
-    payment_method: input.payment_method,
-    status: "selesai",
-    kas_date: input.kas_date,
-    notes: (input.promoCode ? `[Promo ${input.promoCode}] ` : "") + (input.notes?.trim() || ""),
-    created_by: userId,
-  } as any).select("id").single();
-  if (sErr) throw new Error(sErr.message);
-  const saleId = (sale as any).id as string;
-
-  for (const it of saleItems) {
-    const p = pMap.get(it.product_id);
-    const line_total = it.qty * it.unit_price;
-    const { error: iErr } = await supabase.from("cervise_sales_items").insert({
-      sale_id: saleId,
-      product_id: p.id,
-      sku: p.sku,
-      name: p.name,
-      category: p.category,
-      qty: it.qty,
-      cost: p.cost,
-      unit_price: it.unit_price,
-      line_total,
-      is_serialized: p.is_serialized,
-      item_meta: { imei1: it.imei1?.trim() || null, imei2: it.imei2?.trim() || null, warna: it.warna || null },
-    } as any);
-    if (iErr) throw new Error(iErr.message);
-    const { error: stErr } = await supabase.rpc("adjust_product_stock", {
-      p_product_id: p.id,
-      p_delta: -it.qty,
-      p_expected_stock: Number(p.stock_qty),
-      p_reason: "sale",
-      p_sale_id: saleId,
-    });
-    if (stErr) throw new Error(stErr.message);
-  }
-
-  if (paid > 0) {
-    const { error: financeError } = await supabase.from("finance_tx").insert({
-      branch_id: branchId,
-      type: "pemasukan",
-      amount: paid,
-      description: `Penjualan ${sale_number}`,
-      kas_date: input.kas_date,
-      created_by: userId,
-    } as any);
-    if (financeError) throw new Error(financeError.message);
+  if (cust) {
+    const tags = new Set<string>((cust as any)?.tags ?? []);
+    tags.add("sales");
+    await supabase.from("cervise_customers").update({ tags: Array.from(tags) } as any).eq("id", input.customerId);
   }
 
   revalidatePath("/app/penjualan");
   revalidatePath("/app/laporan/penjualan");
-  return { id: saleId, sale_number };
+  return { id: result.id, sale_number: result.sale_number ?? "" };
 }
 
 export async function returnSaleItems(saleId: string, returns: { item_id: string; qty: number }[]) {
