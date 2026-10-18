@@ -3,6 +3,7 @@
 import { getActiveTenant } from "@/lib/supabase/actor";
 import { isManagerRole } from "@/lib/auth/authorization";
 import { canAccess } from "@/lib/nav/manifest";
+import { businessDate } from "@/lib/business-date";
 import {
   buildFrontlinerKpi,
   type FrontlinerKpi,
@@ -42,9 +43,13 @@ async function cashContext() {
   return { supabase: actor.supabase, branchId: actor.branchId, userId: actor.userId, role: actor.role };
 }
 
-function toCalendarDate(date: Date): string {
-  return date.toISOString().slice(0, 10);
-}
+/**
+ * Tanggal kalender untuk `kas_date` dan "hari ini".
+ *
+ * Dulu `toISOString().slice(0, 10)` dipakai langsung di file ini. Itu tanggal
+ * UTC, sedangkan server produksi berjalan di UTC dan toko berada di WIB:
+ * transaksi antara 00:00 dan 07:00 tercatat di laporan tanggal sebelumnya.
+ */
 
 // ---------------------------------------------------------------------------
 // Sesi
@@ -82,7 +87,7 @@ export async function checkOpenCashSession(): Promise<
       variance: number | null;
     }[];
 
-    const today = toCalendarDate(new Date());
+    const today = businessDate();
     const hydrated = await hydrateSessions(rows);
 
     return {
@@ -90,8 +95,8 @@ export async function checkOpenCashSession(): Promise<
       data: {
         // Index unik `where closed_at is null` menjamin paling banyak satu,
         // tapi `limit(1)` tetap dipakai supaya tidak bergantung pada itu.
-        current: hydrated.find((row) => toCalendarDate(new Date(row.openAt)) === today) ?? hydrated[0] ?? null,
-        stale: hydrated.find((row) => toCalendarDate(new Date(row.openAt)) !== today) ?? null,
+        current: hydrated.find((row) => businessDate(new Date(row.openAt)) === today) ?? hydrated[0] ?? null,
+        stale: hydrated.find((row) => businessDate(new Date(row.openAt)) !== today) ?? null,
       },
     };
   } catch (cause) {
@@ -252,7 +257,7 @@ async function computeReport(sessionId: string, row: SessionForReport): Promise<
 
   const { supabase, branchId } = await cashContext();
   const now = new Date();
-  const date = toCalendarDate(new Date(session.openAt));
+  const date = businessDate(new Date(session.openAt));
 
   // Tiga query paralel. Setiap filter mengikuti bentuk kolomnya masing-masing:
   // servis pakai created_at (timestamptz, jamnya ada), penjualan dan kas
@@ -402,7 +407,7 @@ export async function addCashAdjustment(input: {
       type: input.direction,
       amount,
       description,
-      kas_date: input.kasDate ?? toCalendarDate(new Date()),
+      kas_date: input.kasDate ?? businessDate(),
       created_by: userId,
       source: "kas_manual",
     });
@@ -421,36 +426,60 @@ export async function addCashAdjustment(input: {
 // Pembayaran servis
 // ---------------------------------------------------------------------------
 
+export type PaymentMethod = "Tunai" | "Debit" | "Transfer" | "QRIS" | "E-Wallet";
+
+const PAYMENT_METHODS: PaymentMethod[] = ["Tunai", "Debit", "Transfer", "QRIS", "E-Wallet"];
+
 /**
- * Mencatat pembayaran untuk satu servis.
+ * Nomor penjualan dari tanggal + sufiks yang cukup panjang.
  *
- * **Kenapa bukan `createSale()`.** Action itu mewajibkan
- * `cervise_sales_items.product_id` yang menunjuk `cervise_products` — pembayaran
- * servis tidak punya produk, jadi tidak bisa lewat sana.
- *
- * **Konsekuensi yang perlu diketahui.** Baris `cervise_sales` yang dibuat di
- * sini tidak punya `cervise_sales_items`. `getSalesOrders()` menghitung qty
- * dari tabel itu, jadi baris ini akan terlihat dengan qty 0 di daftar
- * penjualan. Itu konsekuensi yang disadari: menambah baris item dengan
- * produk dummy akan mengotori katalog stok.
- *
- * `servis_id` yang diisi adalah pengait anti double counting di Laporan Shift
- * (§`buildLaporanShift`). Tanpa itu, servis yang dibayar akan masuk rekap dua
- * kali — sekali lewat `price` servis, sekali lewat `total` penjualan.
- *
- * Tidak membuat baris `finance_tx` kalau dalam PaymentDialog, karena penjualan
- * sudah terhitung di Laporan Shift lewat tabel `sales`. MelYGilangkan
- * `finance_tx` akan menghitungnya dua kali.
+ * `sale_number` punya UNIQUE. Versi lama memakai 4 karakter acak, yang pada
+ * ~200 nota per hari punya peluang bentrok sekitar 2% per hari - dan bentrok
+ * berarti kasir melihat error tanpa tahu kenapa.
  */
-export async function payServis(input: {
+function nextServisSaleNumber(date: Date = new Date()): string {
+  const stamp = `${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, "0")}${String(date.getDate()).padStart(2, "0")}`;
+  const suffix = `${date.getTime().toString(36)}${Math.floor(Math.random() * 1296).toString(36).padStart(2, "0")}`.toUpperCase();
+  return `SAL-${stamp}-${suffix}`;
+}
+
+/**
+ * Satu-satunya jalan mencatat pembayaran servis.
+ *
+ * **Kenapa menulis dua tabel.** Pola yang sama dipakai `createSale`: baris
+ * `cervise_sales` adalah faktur (yang dibaca Laporan Penjualan dan yang membuat
+ * servis ini hilang dari antrean "Bayar"), sedangkan `finance_tx` adalah buku
+ * kas (yang dibaca Arus Kas dan Laporan Keuangan). Sebelumnya tiap layar
+ * menulis ke tabel yang berbeda, jadi kedua laporan tidak pernah seesama.
+ *
+ * `buildLaporanShift` hanya menghitung `finance_tx` dengan `source` di
+ * `('kas_manual','penyesuaian')`, jadi baris `source='transaksi'` ini tidak
+ * menambah dua kali di shift — combined dengan `servis_id` yang mengisi
+ * pengait anti-double-count.
+ *
+ * **Konsekuensi yang disadari.** Baris `cervise_sales` ini tidak punya
+ * `cervise_sales_items`, jadi `getSalesOrders()` menampilkannya dengan qty 0.
+ *
+ * **Patokan lunas adalah `price_estimasi`, bukan `price`.** `price` adalah
+ * total yang sudah dibayar (lihat pembaruan di bawah), jadi memakainya sebagai
+ * patokan akan membuat setiap pembayaran kedua ditolak.
+ */
+export async function recordServisPayment(input: {
   servisId: string;
-  paymentMethod: string;
   amount?: number;
+  metode: PaymentMethod;
+  kasDate?: string;
   note?: string;
-}): Promise<CashResult<{ saleId: string; saleNumber: string | null }>> {
-  const allowed = ["Tunai", "Debit", "Transfer", "QRIS", "E-Wallet"];
+}): Promise<
+  CashResult<{
+    saleId: string;
+    saleNumber: string | null;
+    totalPaid: number;
+    alreadyPaid: number;
+  }>
+> {
   if (!input.servisId) return fail("ID servis tidak valid");
-  if (!allowed.includes(input.paymentMethod)) return fail("Metode pembayaran tidak valid");
+  if (!PAYMENT_METHODS.includes(input.metode)) return fail("Metode pembayaran tidak valid");
 
   try {
     const { supabase, branchId, userId, role } = await cashContext();
@@ -464,7 +493,7 @@ export async function payServis(input: {
 
     const { data: service, error: serviceError } = await supabase
       .from("cervise_services")
-      .select("id, price, status, customer_id, branch_id, service_number")
+      .select("id, price, price_estimasi, status, customer_id, branch_id, service_number")
       .eq("id", input.servisId)
       .eq("branch_id", branchId)
       .maybeSingle();
@@ -473,34 +502,48 @@ export async function payServis(input: {
     if (!service) return fail("Servis tidak ditemukan");
     if (service.status === "Batal") return fail("Servis dibatalkan tidak bisa dibayar");
 
-    const price = Number(service.price ?? 0);
-    const total = input.amount === undefined ? price : Number(input.amount);
-    if (!Number.isFinite(total) || total < 0) return fail("Nominal pembayaran tidak valid");
+    const { data: paidRows, error: paidError } = await supabase
+      .from("finance_tx")
+      .select("amount")
+      .eq("branch_id", branchId)
+      .eq("servis_id", input.servisId)
+      .eq("type", "pemasukan");
+    if (paidError) return fail(paidError.message);
+    const alreadyPaid = (paidRows ?? []).reduce(
+      (sum, row) => sum + Number(row.amount ?? 0),
+      0,
+    );
 
-    // Nomor penjualan dari tanggal + sufiks acak, supaya unik tanpa kolom
-    // sequence baru. `sale_number` punya UNIQUE, jadi dua kasir yang menekan
-    // Bayar di detik yang sama tidak akan bentrok.
-    const stamp = new Date();
-    const y = stamp.getFullYear();
-    const m = String(stamp.getMonth() + 1).padStart(2, "0");
-    const d = String(stamp.getDate()).padStart(2, "0");
-    const seq = `${y}${m}${d}-${Date.now().toString(36).slice(-4).toUpperCase()}`;
+    const quoted = Number(service.price_estimasi ?? 0);
+    if (quoted > 0 && alreadyPaid >= quoted) return fail("Servis ini sudah lunas");
+    const remaining = quoted > 0 ? quoted - alreadyPaid : 0;
+
+    const amount = Math.round(
+      input.amount === undefined ? remaining : Number(input.amount),
+    );
+    if (!Number.isFinite(amount) || amount <= 0) {
+      return fail("Nominal pembayaran tidak valid");
+    }
+
+    const kasDate = input.kasDate ?? businessDate();
 
     const { data: sale, error: saleError } = await supabase
       .from("cervise_sales")
       .insert({
         branch_id: branchId,
         customer_id: service.customer_id,
-        sale_number: `SAL-${seq}`,
-        subtotal: total,
+        sale_number: nextServisSaleNumber(),
+        subtotal: amount,
         discount_total: 0,
-        total,
-        paid: total,
+        total: amount,
+        paid: amount,
         payment_status: "lunas",
-        payment_method: input.paymentMethod,
+        payment_method: input.metode,
         status: "selesai",
-        kas_date: toCalendarDate(stamp),
-        notes: input.note?.trim() || `Pembayaran servis ${service.service_number ?? ""}`.trim(),
+        kas_date: kasDate,
+        notes:
+          input.note?.trim() ||
+          `Pembayaran servis ${service.service_number ?? ""}`.trim(),
         created_by: userId,
         servis_id: service.id,
       })
@@ -509,9 +552,35 @@ export async function payServis(input: {
 
     if (saleError) return fail(saleError.message);
 
+    const { error: financeError } = await supabase.from("finance_tx").insert({
+      branch_id: branchId,
+      servis_id: service.id,
+      type: "pemasukan",
+      amount,
+      kas_date: kasDate,
+      metode: input.metode,
+      description: `Pembayaran servis ${service.service_number ?? ""} - ${input.metode}`,
+      created_by: userId,
+    });
+    if (financeError) return fail(financeError.message);
+
+    const totalPaid = alreadyPaid + amount;
+    if (totalPaid !== Number(service.price ?? 0)) {
+      await supabase
+        .from("cervise_services")
+        .update({ price: totalPaid })
+        .eq("id", service.id)
+        .eq("branch_id", branchId);
+    }
+
     return {
       ok: true,
-      data: { saleId: (sale as { id: string }).id, saleNumber: (sale as { sale_number: string | null }).sale_number },
+      data: {
+        saleId: (sale as { id: string }).id,
+        saleNumber: (sale as { sale_number: string | null }).sale_number,
+        totalPaid,
+        alreadyPaid,
+      },
     };
   } catch (cause) {
     return fail(cause instanceof Error ? cause.message : "Gagal menyimpan pembayaran");
@@ -542,7 +611,7 @@ export async function getFrontlinerKpi(): Promise<CashResult<FrontlinerKpi>> {
       .from("cervise_services")
       .select("status, created_at")
       .eq("branch_id", branchId)
-      .gte("created_at", `${toCalendarDate(new Date())}T00:00:00.000Z`)
+      .gte("created_at", `${businessDate()}T00:00:00.000Z`)
       .limit(SERVICE_ROW_CAP);
     if (error) return fail(error.message);
 

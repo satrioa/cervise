@@ -47,7 +47,7 @@ export type CreateServisPayload = {
 export type UpdateServisPayload = Partial<CreateServisPayload> & { id: string };
 
 import { getActiveTenant } from "@/lib/supabase/actor";
-import { canAccess } from "@/lib/rbac";
+
 import { isManagerRole } from "@/lib/auth/authorization";
 
 async function getBranchAndUser() {
@@ -500,39 +500,15 @@ export async function deleteServis(id: string) {
   };
 }
 
-export async function addPembayaran(params: { servisId: string; amount: number; metode: "Tunai" | "Debit" | "Transfer" | "QRIS" | "E-Wallet"; kas_date?: string; keterangan?: string }) {
-  const { supabase, branchId, userId, role } = await getBranchAndUser();
-  if (!canAccess(role, "keuangan_transaksi")) throw new Error("Hanya admin/kasir boleh input pembayaran");
-  if (!params.servisId) throw new Error("Servis ID wajib");
-  if (!params.amount || !Number.isFinite(params.amount) || params.amount <= 0) throw new Error("Nominal harus >0");
-  if (!["Tunai", "Debit", "Transfer", "QRIS", "E-Wallet"].includes(params.metode)) throw new Error("Metode tidak valid");
-
-  const { data: service, error: serviceError } = await supabase
-    .from("cervise_services")
-    .select("id")
-    .eq("id", params.servisId)
-    .eq("branch_id", branchId)
-    .maybeSingle();
-  if (serviceError || !service) throw new Error("Servis tidak ditemukan");
-  const kasDate = params.kas_date ?? new Date().toISOString().slice(0, 10);
-  const { error } = await supabase.from("finance_tx").insert({
-    branch_id: branchId,
-    servis_id: params.servisId,
-    type: "pemasukan",
-    amount: Math.round(params.amount),
-    kas_date: kasDate,
-    metode: params.metode,
-    keterangan: params.keterangan ?? null,
-    description: params.keterangan ?? `Pembayaran servis ${params.servisId} - ${params.metode}`,
-    created_by: userId,
-  });
-  if (error) throw new Error(error.message);
-  // update total price = sum finance_tx for this servis
-  const { data: sums } = await supabase.from("finance_tx").select("amount").eq("servis_id", params.servisId).eq("branch_id", branchId).eq("type", "pemasukan");
-  const total = (sums ?? []).reduce((a, b) => a + Number(b.amount), 0);
-  await supabase.from("cervise_services").update({ price: total }).eq("id", params.servisId).eq("branch_id", branchId);
-  return { ok: true, total };
-}
+/**
+ * Pembayaran servis dicatat oleh `recordServisPayment` di
+ * `@/app/app/actions/cash`, bukan di file ini.
+ *
+ * Fungsi lama (`addPembayaran`) hanya menulis `finance_tx`, sehingga pembayaran
+ * dari drawer ini tidak pernah terlihat di Laporan Penjualan dan tetap muncul di
+ * antrean "Bayar" kasir. Sekarang satu fungsi menulis keduanya, jadi tidak ada
+ * lagi dua jalan pencatatan.
+ */
 
 export async function getPembayaranHistory(servisId: string) {
   const { supabase, branchId } = await getBranchAndUser();

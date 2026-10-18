@@ -2,13 +2,14 @@
 
 import { useState } from "react";
 import { formatCurrencyPlain, formatNumberPlain } from "@/lib/format";
+import { businessDate } from "@/lib/business-date";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectTrigger, SelectPopup, SelectItem, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { addPembayaran } from "@/app/app/servis/actions";
+import { recordServisPayment } from "@/app/app/actions/cash";
 
 type Props = {
   servisId: string;
@@ -23,7 +24,7 @@ const METODE = ["Tunai", "Debit", "Transfer", "QRIS", "E-Wallet"] as const;
 export function ServisBayarForm({ servisId, estimasi, totalPaid = 0, onSuccess, onClose }: Props) {
   const [amount, setAmount] = useState<number | "">("");
   const [metode, setMetode] = useState<(typeof METODE)[number]>("Tunai");
-  const [kasDate, setKasDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [kasDate, setKasDate] = useState(() => businessDate());
   const [keterangan, setKeterangan] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -36,8 +37,18 @@ export function ServisBayarForm({ servisId, estimasi, totalPaid = 0, onSuccess, 
     if (amount === "" || Number(amount) <= 0) { setError("Nominal harus >0"); return; }
     setLoading(true);
     try {
-      const res = await addPembayaran({ servisId, amount: Number(amount), metode, kas_date: kasDate, keterangan: keterangan.trim() || undefined });
-      onSuccess?.(res.total);
+      const res = await recordServisPayment({
+        servisId,
+        amount: Number(amount),
+        metode,
+        kasDate,
+        note: keterangan.trim() || undefined,
+      });
+      if (!res.ok) {
+        setError(res.error);
+        return;
+      }
+      onSuccess?.(res.data.totalPaid);
       setAmount("");
       setKeterangan("");
     } catch (err: unknown) {

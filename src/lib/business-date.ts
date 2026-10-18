@@ -21,3 +21,22 @@ const FORMATTER = new Intl.DateTimeFormat("en-CA", { timeZone: BUSINESS_TIME_ZON
 export function businessDate(date: Date = new Date()): string {
   return FORMATTER.format(date);
 }
+
+/**
+ * Asia/Jakarta tidak punya daylight saving, jadi offset-nya selalu +07:00.
+ * Kalau `BUSINESS_TIME_ZONE` diubah ke zona yang punya DST, konstanta ini harus
+ * ikut dihitung ulang - `business-date.test.ts` gagal kalau berubah.
+ */
+const BUSINESS_UTC_OFFSET = "+07:00";
+
+/**
+ * Instan UTC dari pukul 00:00 tanggal toko.
+ *
+ * Untuk filter `gte("created_at", ...)` pada kolom timestamptz. `businessDate()`
+ * mengembalikan tanggal, dan menempelkan `T00:00:00.000Z` padanya berarti
+ * tengah malam UTC - tujuh jam terlalu malam untuk toko WIB, sehingga servis
+ * jam 1 pagi tidak masuk hitungan "hari ini".
+ */
+export function businessDayStartIso(date: Date = new Date()): string {
+  return new Date(`${businessDate(date)}T00:00:00${BUSINESS_UTC_OFFSET}`).toISOString();
+}
