@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { checkProjectRef } from "@/lib/supabase/env-check";
 import { meetsPasswordLength, MIN_PASSWORD_LENGTH } from "@/lib/auth/password-policy";
+import { PROFILE_ROLE } from "@/lib/auth/account-input";
 
 export async function signupAction(input: { name: string; email: string; password: string }) {
   const name = input.name.trim();
@@ -57,8 +58,26 @@ export async function signupAction(input: { name: string; email: string; passwor
   }
   const uid = data.user?.id;
   if (uid) {
-    // ensure profiles row has full_name & email (trigger handle_new_user may already did)
-    await admin.from("profiles").upsert({ id: uid, full_name: name, email } as never, { onConflict: "id" } as never);
+    // `profiles.role` NOT NULL tanpa default, jadi upsert tanpa role selalu
+    // ditolak database. Error-nya dulu dibuang, jadi signup tetap melaporkan
+    // "Akun dibuat" tanpa pernah menulis baris profil.
+    //
+    // Alur signup sendiri tetap berfungsi karena `complete_tenant_onboarding`
+    // membuat profil dari `auth.users.raw_user_meta_data` - jadi ini bukan
+    // yang membuat signup gagal, tapi kegagalan senyap yang membuat diagnosis
+    // jadi sulit kalau onboarding suatu saat berubah.
+    const { error: profileError } = await admin
+      .from("profiles")
+      .upsert(
+        {
+          id: uid,
+          full_name: name,
+          email,
+          role: PROFILE_ROLE.MASTER_ADMIN,
+        } as never,
+        { onConflict: "id" } as never,
+      );
+    if (profileError) throw new Error(profileError.message);
   }
   return { ok: true as const };
 }
