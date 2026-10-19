@@ -357,25 +357,31 @@ export async function returnSaleItems(saleId: string, returns: { item_id: string
   const { data: sale } = await supabase.from("cervise_sales").select("id, branch_id, status").eq("id", saleId).eq("branch_id", branchId).maybeSingle();
   if (!sale) throw new Error("Sale not found");
   if ((sale as any).status === "retur") throw new Error("Sudah retur");
+
+  // Cek bentuk input di sini supaya pesan errornya ramah. Kebenarannya
+  // (sisa retur, role, kunci baris) tetap dihitung ulang di dalam fungsi,
+  // karena yang di sini dibaca tanpa lock dan bisa saja sudah basi.
   for (const r of returns) {
-    const { data: it } = await supabase.from("cervise_sales_items").select("id, product_id, qty, qty_returned").eq("id", r.item_id).eq("sale_id", saleId).maybeSingle();
-    if (!it) throw new Error("Item not found");
-    const available = (it as any).qty - (it as any).qty_returned;
-    if (!Number.isInteger(r.qty) || r.qty <= 0 || r.qty > available) throw new Error("Qty retur invalid");
-    const { error: stockError } = await supabase.rpc("adjust_product_stock", {
-      p_product_id: (it as any).product_id,
-      p_delta: r.qty,
-      p_reason: "sale_return",
-      p_sale_id: saleId,
-    });
-    if (stockError) throw new Error(stockError.message);
-    const { error: returnError } = await supabase.from("cervise_sales_items").update({ qty_returned: (it as any).qty_returned + r.qty } as any).eq("id", r.item_id);
-    if (returnError) throw new Error(returnError.message);
+    if (!Number.isInteger(r.qty) || r.qty <= 0) throw new Error("Qty retur invalid");
   }
-  // cek apakah semua qty sudah retur → status retur
-  const { data: allItems } = await supabase.from("cervise_sales_items").select("qty, qty_returned").eq("sale_id", saleId);
-  const allReturned = (allItems as any[])?.every((it) => it.qty === it.qty_returned);
-  if (allReturned) await supabase.from("cervise_sales").update({ status: "retur" } as any).eq("id", saleId);
+
+  // Seluruh penulisan dalam satu transaksi, dengan penjualan dan tiap item
+  // dikunci FOR UPDATE.
+  //
+  // Dulu urutannya: stok dikembalikan dulu, baru qty_returned ditulis. Kalau
+  // tulisan kedua gagal, stok sudah balik tanpa tercatat dan retur bisa
+  // diulang indefinitely. Ditambah qty_returned dibaca tanpa lock, jadi dua
+  // retur bersamaan bisa dua-duanya mengembalikan stok yang sama.
+  const { data: returned, error: returnError } = await supabase.rpc(
+    "return_sale_items_atomic",
+    {
+      p_branch_id: branchId,
+      p_sale_id: saleId,
+      p_items: returns.map((r) => ({ item_id: r.item_id, qty: Number(r.qty) })),
+    } as any,
+  );
+  if (returnError) throw new Error(returnError.message);
+
   revalidatePath("/app/penjualan");
-  return { ok: true };
+  return { ok: true, items: returned as unknown as number };
 }
