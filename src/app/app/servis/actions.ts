@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { mapServisListRows, type ServisListRow } from "@/lib/operational/servis-list";
 import { addGaransiDays, normalizeGaransiUnit, toDays } from "@/lib/operational/garansi-list";
 import { kalenderWIB } from "@/lib/operational/periode-bulan";
+import { sanitizeSearchTerm } from "@/lib/search-term";
 
 export type KondisiStatus = "normal" | "tidak_normal";
 export type KondisiAwal = Record<string, { status: KondisiStatus; note: string }>;
@@ -126,7 +127,7 @@ export async function getTeknisi() {
 
 export async function searchCustomers(q: string) {
   const { supabase, branchId } = await getBranchAndUser();
-  const term = q.trim();
+  const term = sanitizeSearchTerm(q);
   if (term.length < 1) return [];
   const { data, error } = await supabase
     .from("cervise_customers")

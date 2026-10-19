@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { getActiveTenant } from "@/lib/supabase/actor";
+import { sanitizeSearchTerm } from "@/lib/search-term";
 
 export type SparepartStockRow = {
   id: string;
@@ -90,7 +91,7 @@ async function callRpc<T>(actor: Actor, name: string, args: Record<string, unkno
 
 export async function searchSparepartStock(q: string): Promise<SparepartStockRow[]> {
   const actor = await getActor();
-  const term = q.trim();
+  const term = sanitizeSearchTerm(q);
 
   let query = actor.supabase
     .from("cervise_products")

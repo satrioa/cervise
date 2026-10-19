@@ -9,6 +9,7 @@ import {
   parsePackageInput,
 } from "@/lib/platform/validation";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { findAuthUserByEmail } from "@/lib/supabase/admin-users";
 import { generateTempPassword } from "@/lib/auth/password";
 import { buildOwnerAccountRows } from "@/lib/platform/owner-accounts";
 
@@ -289,15 +290,7 @@ export async function createTenant(input: {
   const { supabase } = await requirePlatformAdmin();
   const tenantInput = parseCreateTenantInput(input);
   const admin = createAdminClient();
-  const { data: userList, error: listError } = await admin.auth.admin.listUsers({
-    page: 1,
-    perPage: 1000,
-  });
-  if (listError) throw listError;
-
-  const existing = userList.users.find(
-    (candidate) => candidate.email?.toLowerCase() === tenantInput.ownerEmail,
-  );
+  const existing = await findAuthUserByEmail(admin, tenantInput.ownerEmail);
 
   let ownerId: string;
   let tempPassword: string | null = null;

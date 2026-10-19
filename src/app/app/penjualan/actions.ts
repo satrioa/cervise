@@ -7,6 +7,7 @@ import { randomUUID } from "crypto";
 import { getActiveTenant } from "@/lib/supabase/actor";
 import { canAccess } from "@/lib/rbac";
 import { validateSaleItems } from "@/lib/sales/validation";
+import { sanitizeSearchTerm } from "@/lib/search-term";
 
 async function getBranchUser() {
   const actor = await getActiveTenant();
@@ -63,7 +64,7 @@ export async function searchProductsForSale(q: string, opts?: { variant_type?: "
     .order("variant_type", { ascending: true })
     .order("name")
     .limit(40);
-  const term = q.trim();
+  const term = sanitizeSearchTerm(q);
   if (term) {
     query = query.or(`sku.ilike.%${term}%,barcode.ilike.%${term}%,name.ilike.%${term}%,imei.ilike.%${term}%,storage.ilike.%${term}%,warna.ilike.%${term}%`);
   }
