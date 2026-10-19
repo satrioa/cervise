@@ -194,3 +194,54 @@ describe("penutupan kas dan nomor nota", () => {
     expect(createSaleBody).not.toContain('adjust_product_stock');
   });
 });
+
+describe("set_service_status tidak boleh kehilangan completed_at", () => {
+  // Bug yang sudah terjadi di produksi: 20261018112050 menimpa set_service_status
+  // untuk menambahkan garansi dihitung dari waktu pengambilan. create or replace
+  // mengganti SELURUH badan fungsi, jadi completed_at ikut hilang. Kolomnya
+  // tidak pernah terisi lagi, dan Laporan Performa Teknisi beserta insentif
+  // bulanan menghitung nol.
+  //
+  // Fungsi ini didefinisikan di beberapa migration, jadi tidak cukup memeriksa
+  // satu file: setiap definisi yang muncul SETELAH 20260925340000 wajib
+  // tetap menyebut completed_at.
+  const redefinitions = readdirSync(MIGRATIONS_DIR)
+    .filter((file) => file.endsWith(".sql"))
+    .sort()
+    .filter((file) => file > "20260925340000")
+    .filter((file) =>
+      readFileSync(join(MIGRATIONS_DIR, file), "utf8").includes(
+        "create or replace function public.set_service_status",
+      ),
+    );
+
+  it("ada migration yang menimpanya, jadi penjaga ini bukan teori", () => {
+    expect(redefinitions.length).toBeGreaterThan(0);
+  });
+
+  it("setiap definisi yang menimpa tetap menyimpan completed_at", () => {
+    for (const file of redefinitions) {
+      const sql = readFileSync(join(MIGRATIONS_DIR, file), "utf8");
+      expect(`${file}: ${sql.includes("completed_at")}`).toBe(`${file}: true`);
+    }
+  });
+
+  it("completed_at terisi saat Selesai dan saat Sudah Diambil", () => {
+    const latest = readFileSync(
+      join(MIGRATIONS_DIR, redefinitions[redefinitions.length - 1]),
+      "utf8",
+    );
+    // Dulu hanya 'Selesai' yang mengisi, jadi servis yang dilompat ke
+    // 'Sudah Diambil' tidak pernah terhitung sebagai pekerjaan selesai.
+    expect(latest).toMatch(/p_status in \('Selesai', 'Sudah Diambil'\)/);
+  });
+
+  it("completed_at dikosongkan saat Batal", () => {
+    const latest = readFileSync(
+      join(MIGRATIONS_DIR, redefinitions[redefinitions.length - 1]),
+      "utf8",
+    );
+    // Dulu dibiarkan, jadi pekerjaan yang dibatalkan masih terhitung selesai.
+    expect(latest).toMatch(/when p_status = 'Batal' then null/);
+  });
+});
