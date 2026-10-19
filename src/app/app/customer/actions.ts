@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { getActiveTenant } from "@/lib/supabase/actor";
 import { canAccess } from "@/lib/rbac";
-import { phoneSearchDigits } from "@/lib/phone";
+import { phoneSearchDigits, phoneStoredForms } from "@/lib/phone";
 import {
   mapCustomerRows,
   type CustomerInput,
@@ -88,7 +88,7 @@ export async function createCustomer(form: { name: string; phone: string }) {
   if (name.length < 2) throw new Error("Nama minimal 2 karakter");
   if (name.length > 120) throw new Error("Nama maksimal 120 karakter");
   const norm = normalizePhone62(form.phone);
-  const { data: dup } = await supabase.from("cervise_customers").select("id").eq("branch_id", branchId).eq("phone", norm).maybeSingle();
+  const { data: dup } = await supabase.from("cervise_customers").select("id").eq("branch_id", branchId).in("phone", phoneStoredForms(form.phone)).maybeSingle();
   if (dup?.id) throw new Error("HP sudah terdaftar di cabang ini");
   const { error } = await supabase.from("cervise_customers").insert({ branch_id: branchId, name, phone: norm, tags: [] });
   if (error) throw new Error(error.message);
@@ -105,7 +105,7 @@ export async function updateCustomer(id: string, form: { name: string; phone: st
   if (!name) throw new Error("Nama wajib");
   if (name.length > 120) throw new Error("Nama maksimal 120 karakter");
   const norm = normalizePhone62(form.phone);
-  const { data: dup } = await supabase.from("cervise_customers").select("id").eq("branch_id", branchId).eq("phone", norm).neq("id", id).maybeSingle();
+  const { data: dup } = await supabase.from("cervise_customers").select("id").eq("branch_id", branchId).in("phone", phoneStoredForms(form.phone)).neq("id", id).maybeSingle();
   if (dup?.id) throw new Error("HP sudah terdaftar di cabang ini");
   const { error } = await supabase.from("cervise_customers").update({ name, phone: norm }).eq("id", id).eq("branch_id", branchId);
   if (error) throw new Error(error.message);
@@ -159,12 +159,13 @@ export async function searchCustomersByPhone(q: string) {
   const { supabase, branchId, role } = await getActiveTenant();
   requireCustomerAccess(role);
   if (!branchId) throw new Error("Branch not set");
-  // `phone` disimpan kanonik `62...` (lihat normalizePhone62 di atas).
-  // Ditemukan lewat test end-to-end: pencarian dulu memakai digit mentah,
-  // jadi "081277770001" tidak pernah cocok dengan "6281277770001" dan setiap
-  // orang yang mengetik nomor lokal tidak akan menemukan customer yang sudah
-  // ada - POS justru menawarkan "buat customer baru" untuk nomor yang sudah
-  // terdaftar, lalu menolaknya dengan "HP sudah terdaftar".
+  // `phone` ditulis kanonik `62...` oleh normalizePhone62, tapi baris lama
+  // masih tersimpan `08...`. Ditemukan lewat test end-to-end: pencarian dulu
+  // memakai digit mentah, jadi "081277770001" tidak pernah cocok dengan
+  // "6281277770001" dan setiap orang yang mengetik nomor lokal tidak akan
+  // menemukan customer yang sudah ada - POS justru menawarkan "buat customer
+  // baru" untuk nomor yang sudah terdaftar, lalu menolaknya dengan "HP sudah
+  // terdaftar".
   const term = phoneSearchDigits(q);
   if (term.length < 3) return [];
   const { data, error } = await supabase.from("cervise_customers").select("id, name, phone").eq("branch_id", branchId).ilike("phone", `%${term}%`).limit(5);
@@ -188,7 +189,7 @@ export async function findOrCreateCustomer(input: { phone: string; name?: string
     .from("cervise_customers")
     .select("id, name")
     .eq("branch_id", branchId)
-    .eq("phone", norm)
+    .in("phone", phoneStoredForms(input.phone))
     .maybeSingle();
   if (existing) return { id: existing.id as string, name: existing.name as string, created: false };
 
