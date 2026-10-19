@@ -244,4 +244,29 @@ describe("set_service_status tidak boleh kehilangan completed_at", () => {
     // Dulu dibiarkan, jadi pekerjaan yang dibatalkan masih terhitung selesai.
     expect(latest).toMatch(/when p_status = 'Batal' then null/);
   });
+
+  it("payload log status tidak pernah null", () => {
+    // `cervise_service_logs.payload` NOT NULL default '{}'. Fungsinya dulu
+    // menulis null kalau tidak ada catatan, dan itulah cara UI memanggilnya -
+    // jadi setiap perubahan status tanpa catatan gagal dengan 23502.
+    //
+    // Hanya definisi TERAKHIR yang diperiksa: versi lama di 20260925340000
+    // memang masih membawa bug-nya, dan migration sesudahnya yang memperbaiki.
+    const latest = readFileSync(
+      join(MIGRATIONS_DIR, redefinitions[redefinitions.length - 1]),
+      "utf8",
+    );
+    expect(latest).toMatch(/coalesce\(/);
+    expect(latest).toMatch(/'{}'::jsonb/);
+  });
+
+  it("garansi mulai saat diambil, bukan dihitung di setiap status lain", () => {
+    const latest = readFileSync(
+      join(MIGRATIONS_DIR, redefinitions[redefinitions.length - 1]),
+      "utf8",
+    );
+    // Arah terbalik (`when p_status = 'Sudah Diambil' then v_service.garansi_until`)
+    // membuat garansi mulai dari 'Selesai' lalu dibekukan saat diambil.
+    expect(latest).toMatch(/when p_status <> 'Sudah Diambil' then v_service\.garansi_until/);
+  });
 });

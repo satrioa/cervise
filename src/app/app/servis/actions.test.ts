@@ -28,6 +28,9 @@ const mocks = vi.hoisted(() => {
     eq: () => ({ eq: async () => ({ data: state.parts, error: null }) }),
   }));
 
+  // Counter tag sekarang lewat RPC, bukan baca-sulis di tabel.
+  const rpc = vi.fn(async () => ({ data: 0, error: null }));
+
   const from = vi.fn((table: string) => {
     switch (table) {
       case "cervise_services":
@@ -43,7 +46,7 @@ const mocks = vi.hoisted(() => {
     }
   });
 
-  return { state, from, serviceDelete, tagUpdate, getActiveTenant: vi.fn() };
+  return { state, from, serviceDelete, tagUpdate, rpc, getActiveTenant: vi.fn() };
 });
 
 vi.mock("@/lib/supabase/actor", () => ({ getActiveTenant: mocks.getActiveTenant }));
@@ -51,7 +54,7 @@ vi.mock("@/lib/supabase/server", () => ({ createClient: vi.fn() }));
 
 function actorStub(role: string) {
   return {
-    supabase: { from: mocks.from },
+    supabase: { from: mocks.from, rpc: mocks.rpc },
     userId: "user-1",
     orgId: "org-1",
     branchId: "branch-1",
@@ -123,32 +126,28 @@ describe("deleteServis", () => {
     expect(result.orphanedPaymentTotal).toBe(200000);
   });
 
-  it("decrements tag usage counters so they do not drift", async () => {
+  it("menurunkan counter tag lewat rpc, bukan baca-sulis", async () => {
     mocks.getActiveTenant.mockResolvedValue(actorStub("ADMIN"));
-    mocks.state.tag = { id: "tag-1", usage_count: 3 };
 
     await deleteServis("servis-1");
 
-    expect(mocks.tagUpdate).toHaveBeenCalledWith({ usage_count: 2 });
+    expect(mocks.rpc).toHaveBeenCalledWith("bump_service_tag_usage", {
+      p_branch_id: "branch-1",
+      p_name: "Layar retak",
+      p_delta: -1,
+    });
   });
 
-  it("never pushes a tag usage counter below zero", async () => {
+  it("memanggil rpc sekali per tag, tidak memedulikan apakah tag-nya sudah ada", async () => {
     mocks.getActiveTenant.mockResolvedValue(actorStub("ADMIN"));
-    mocks.state.tag = { id: "tag-1", usage_count: 0 };
+    mocks.state.service = { id: "servis-1", device: "iPhone 13", kerusakan: ["Layar retak", "Baterai drop"] };
 
     await deleteServis("servis-1");
 
-    expect(mocks.tagUpdate).toHaveBeenCalledWith({ usage_count: 0 });
-  });
-
-  it("skips tag updates when the tag row is already gone", async () => {
-    mocks.getActiveTenant.mockResolvedValue(actorStub("ADMIN"));
-    mocks.state.tag = null;
-
-    await deleteServis("servis-1");
-
-    expect(mocks.tagUpdate).not.toHaveBeenCalled();
-    expect(mocks.serviceDelete).toHaveBeenCalled();
+    // RPC-nya `on conflict` + `greatest(..., 0)`, jadi baris yang belum ada
+    // atau sudah nol tetap aman: tidak ada lagi cabang "tag tidak ditemukan"
+    // yang harus dilewati di sini.
+    expect(mocks.rpc).toHaveBeenCalledTimes(2);
   });
 
   it("still deletes when the service has no recorded tags", async () => {
