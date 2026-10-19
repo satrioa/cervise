@@ -31,6 +31,29 @@ export function ServisBayarForm({ servisId, estimasi, totalPaid = 0, onSuccess, 
 
   const sisa = estimasi != null ? Math.max(0, estimasi - totalPaid) : null;
 
+  // Servis yang sudah lunas tidak menampilkan form lagi. RPC-nya memang
+  // menolak pembayaran setelah lunas, tapi pesan error setelah menekan
+  // "Simpan" lebih membingungkan daripada menjelaskan keadaannya di depan.
+  if (sisa === 0) {
+    return (
+      <div className="space-y-3">
+        <div className="flex flex-wrap gap-2 text-xs">
+          <Badge variant="outline">Estimasi {formatCurrencyPlain(estimasi ?? 0)}</Badge>
+          <Badge variant="secondary">Terbayar {formatCurrencyPlain(totalPaid)}</Badge>
+          <Badge>Tunai / lunas</Badge>
+        </div>
+        <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm">
+          Servis ini sudah lunas. Tidak ada yang perlu ditagih lagi.
+        </div>
+        {onClose && (
+          <div className="flex justify-end">
+            <Button type="button" variant="outline" onClick={onClose}>Tutup</Button>
+          </div>
+        )}
+      </div>
+    );
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);

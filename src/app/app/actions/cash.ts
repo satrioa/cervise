@@ -1,8 +1,7 @@
-"use server";
+﻿"use server";
 
 import { getActiveTenant } from "@/lib/supabase/actor";
 import { isManagerRole } from "@/lib/auth/authorization";
-import { canAccess } from "@/lib/nav/manifest";
 import {
   buildFrontlinerKpi,
   type FrontlinerKpi,
@@ -57,7 +56,7 @@ function toCalendarDate(date: Date): string {
 /**
  * Sesi terbuka milik pengguna ini, atau null.
  *
- * `staleSession` mengembalikan sesi terbuka yang tanggalnya sudah lewat — tahu
+ * `staleSession` mengembalikan sesi terbuka yang tanggalnya sudah lewat â€” tahu
  * kalau ada shift yang ditinggalkan tanpa ditutup, supaya dialog saldo awal
  * bisa memperingatkan sebelum membuat sesi baru.
  */
@@ -131,15 +130,15 @@ async function hydrateSessions(
     closedAt: row.closed_at,
     closingBalance: row.closing_balance,
     variance: row.variance,
-    branchName: branchName.get(row.branch_id) ?? "—",
-    employeeName: employeeName.get(row.employee_id) ?? "—",
+    branchName: branchName.get(row.branch_id) ?? "â€”",
+    employeeName: employeeName.get(row.employee_id) ?? "â€”",
   }));
 }
 
 /**
  * Membuka sesi kas. Wajib: tanpa ini Laporan Shift tidak punya pijakan.
  *
- * Record sesi dibuat, laporan TIDAK — di titik ini belum ada transaksi
+ * Record sesi dibuat, laporan TIDAK â€” di titik ini belum ada transaksi
  * untuk dilaporkan. Laporan dihitung live dari `open_at`.
  */
 export async function openCashSession(input: { openingBalance: number }): Promise<CashResult<CashSessionRow>> {
@@ -200,7 +199,7 @@ export async function closeCashSession(input: {
 
     // Verifikasi sesi masih terbuka sebelum update. Constraint database
     // `cervise_cash_sessions_closed_check` hanya menolak update yang
-    // meninggalkan kolom penutup kosong — ia tidak menolak update kedua atas
+    // meninggalkan kolom penutup kosong â€” ia tidak menolak update kedua atas
     // sesi yang sudah tertutup. Pemeriksaan ini yang menutup celah itu.
     const { data: row, error: readError } = await supabase
       .from("cervise_cash_sessions")
@@ -397,7 +396,7 @@ export async function listShiftSessions(
  * Saldo masuk atau keluar di luar penjualan.
  *
  * Menulis ke `finance_tx` dengan `source = 'kas_manual'`, bukan ke tabel
- * terpisah — supaya Laporan Shift, Arus Kas, dan Laporan Keuangan membaca
+ * terpisah â€” supaya Laporan Shift, Arus Kas, dan Laporan Keuangan membaca
  * angka yang sama.
  */
 export async function addCashAdjustment(input: {
@@ -435,111 +434,6 @@ export async function addCashAdjustment(input: {
 }
 
 // ---------------------------------------------------------------------------
-// Antrean pembayaran
-// ---------------------------------------------------------------------------
-
-// ---------------------------------------------------------------------------
-// Pembayaran servis
-// ---------------------------------------------------------------------------
-
-/**
- * Mencatat pembayaran untuk satu servis.
- *
- * **Kenapa bukan `createSale()`.** Action itu mewajibkan
- * `cervise_sales_items.product_id` yang menunjuk `cervise_products` — pembayaran
- * servis tidak punya produk, jadi tidak bisa lewat sana.
- *
- * **Konsekuensi yang perlu diketahui.** Baris `cervise_sales` yang dibuat di
- * sini tidak punya `cervise_sales_items`. `getSalesOrders()` menghitung qty
- * dari tabel itu, jadi baris ini akan terlihat dengan qty 0 di daftar
- * penjualan. Itu konsekuensi yang disadari: menambah baris item dengan
- * produk dummy akan mengotori katalog stok.
- *
- * `servis_id` yang diisi adalah pengait anti double counting di Laporan Shift
- * (§`buildLaporanShift`). Tanpa itu, servis yang dibayar akan masuk rekap dua
- * kali — sekali lewat `price` servis, sekali lewat `total` penjualan.
- *
- * Tidak membuat baris `finance_tx` kalau dalam PaymentDialog, karena penjualan
- * sudah terhitung di Laporan Shift lewat tabel `sales`. MelYGilangkan
- * `finance_tx` akan menghitungnya dua kali.
- */
-export async function payServis(input: {
-  servisId: string;
-  paymentMethod: string;
-  amount?: number;
-  note?: string;
-}): Promise<CashResult<{ saleId: string; saleNumber: string | null }>> {
-  const allowed = ["Tunai", "Debit", "Transfer", "QRIS", "E-Wallet"];
-  if (!input.servisId) return fail("ID servis tidak valid");
-  if (!allowed.includes(input.paymentMethod)) return fail("Metode pembayaran tidak valid");
-
-  try {
-    const { supabase, branchId, userId, role } = await cashContext();
-
-    // `canAccess(role, "penjualan")` sudah menerima FRONTLINER
-    // (manifest Spec 1), jadi gerbang role tidak baru. Dicetak eksplisit supaya
-    // pembayaran servis tidak ikut ter-copy dari halaman penjualan tanpa gate.
-    if (!canAccess(role, "penjualan")) {
-      return fail("Role tidak diizinkan melakukan pembayaran");
-    }
-
-    const { data: service, error: serviceError } = await supabase
-      .from("cervise_services")
-      .select("id, price, status, customer_id, branch_id, service_number")
-      .eq("id", input.servisId)
-      .eq("branch_id", branchId)
-      .maybeSingle();
-
-    if (serviceError) return fail(serviceError.message);
-    if (!service) return fail("Servis tidak ditemukan");
-    if (service.status === "Batal") return fail("Servis dibatalkan tidak bisa dibayar");
-
-    const price = Number(service.price ?? 0);
-    const total = input.amount === undefined ? price : Number(input.amount);
-    if (!Number.isFinite(total) || total < 0) return fail("Nominal pembayaran tidak valid");
-
-    // Nomor urut per cabang. Dulu tanggal + Date.now().toString(36).slice(-4),
-    // dan itu mengulang setiap ~28 menit: dua pembayaran 28 menit apart pada
-    // hari yang sama menghasilkan nomor identik, dan sale_number punya UNIQUE.
-    const { data: saleNumber, error: saleNumberError } = await supabase.rpc("next_sale_number", {
-      p_branch_id: branchId,
-    });
-    if (saleNumberError) return fail(saleNumberError.message);
-    const seq = String(saleNumber ?? "");
-
-    const { data: sale, error: saleError } = await supabase
-      .from("cervise_sales")
-      .insert({
-        branch_id: branchId,
-        customer_id: service.customer_id,
-        sale_number: `SAL-${seq}`,
-        subtotal: total,
-        discount_total: 0,
-        total,
-        paid: total,
-        payment_status: "lunas",
-        payment_method: input.paymentMethod,
-        status: "selesai",
-        kas_date: toCalendarDate(new Date()),
-        notes: input.note?.trim() || `Pembayaran servis ${service.service_number ?? ""}`.trim(),
-        created_by: userId,
-        servis_id: service.id,
-      })
-      .select("id, sale_number")
-      .single();
-
-    if (saleError) return fail(saleError.message);
-
-    return {
-      ok: true,
-      data: { saleId: (sale as { id: string }).id, saleNumber: (sale as { sale_number: string | null }).sale_number },
-    };
-  } catch (cause) {
-    return fail(cause instanceof Error ? cause.message : "Gagal menyimpan pembayaran");
-  }
-}
-
-// ---------------------------------------------------------------------------
 // KPI frontliner
 // ---------------------------------------------------------------------------
 
@@ -553,7 +447,7 @@ export type { FrontlinerKpi } from "@/lib/operational/frontliner-dashboard";
  * Empat KPI untuk dashboard kasir.
  *
  * `summarizeDashboard` yang dipakai dashboard manajer tidak punya angka
- * "diambil" dan "batal" — isinya OMZET dan garansi, bukan status servis. Jadi
+ * "diambil" dan "batal" â€” isinya OMZET dan garansi, bukan status servis. Jadi
  * dihitung di sini dari baris yang sama, bukan diakal ulang dari bucket.
  */
 export async function getFrontlinerKpi(): Promise<CashResult<FrontlinerKpi>> {
@@ -589,7 +483,7 @@ export type FrontlinerQueueItem = {
 };
 
 /**
- * Servis hari ini yang belum punya penjualan terkait — itu antrean "Bayar".
+ * Servis hari ini yang belum punya penjualan terkait â€” itu antrean "Bayar".
  */
 export async function getFrontlinerQueue(): Promise<CashResult<FrontlinerQueueItem[]>> {
   try {
@@ -597,12 +491,12 @@ export async function getFrontlinerQueue(): Promise<CashResult<FrontlinerQueueIt
 
     // Antrean = semua servis yang belum punya penjualan terkait, bukan hanya
     // hari ini. Membatasi ke hari ini akan menyembunyikan servis yang tertinggal
-    // dari kemarin dan tidak pernah dibayar — justru yang paling butuh ditagih.
+    // dari kemarin dan tidak pernah dibayar â€” justru yang paling butuh ditagih.
     // Urutan terbaru dulu, dan dibatasi supaya antrean panjang tidak
     // menjadi lambat.
     const { data, error } = await supabase
       .from("cervise_services")
-      .select("id, service_number, device, status, price, created_at, customer_id")
+      .select("id, service_number, device, status, price, price_estimasi, created_at, customer_id")
       .eq("branch_id", branchId)
       .not("status", "in", '("Batal")')
       .order("created_at", { ascending: false })
@@ -616,6 +510,7 @@ export async function getFrontlinerQueue(): Promise<CashResult<FrontlinerQueueIt
       device: string;
       status: string;
       price: number;
+      price_estimasi: number | null;
       created_at: string;
       customer_id: string | null;
     }[];
@@ -649,7 +544,9 @@ export async function getFrontlinerQueue(): Promise<CashResult<FrontlinerQueueIt
           serviceNumber: service.service_number,
           device: service.device,
           status: service.status,
-          price: service.price,
+          // `price` adalah total yang SUDAH dibayar, jadi untuk servis di
+          // antrean nilainya 0. Yang perlu ditagih adalah estimasinya.
+          price: service.price_estimasi ?? service.price,
           createdAt: service.created_at,
           customerName: service.customer_id ? (customerName.get(service.customer_id) ?? null) : null,
         })),

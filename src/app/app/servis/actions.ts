@@ -457,6 +457,26 @@ export async function deleteServis(id: string) {
   };
 }
 
+/**
+ * Mencatat pembayaran servis.
+ *
+ * Satu-satunya jalur: RPC `record_service_payment` menulis faktur
+ * (`cervise_sales` dengan `servis_id`), kas (`finance_tx`), dan total terbayar
+ * (`cervise_services.price`) dalam satu transaksi.
+ *
+ * Dulu ada dua jalur yang menulis ke tabel berbeda - dialog kasir menulis
+ * `cervise_sales`, drawer detail servis menulis `finance_tx` - jadi Laporan
+ * Penjualan tidak melihat yang lewat drawer dan Arus Kas tidak melihat yang
+ * lewat dialog. Sekarang keduanya melihat hal yang sama.
+ *
+ * `servis_id` di baris penjualan adalah pengait anti hitung-ganda di
+ * `buildLaporanShift`: servis yang sudah punya penjualan keluar dari
+ * `servicesTotal` dan masuk `salesTotal`, yang tahu metode pembayarannya.
+ *
+ * Konsekuensi: baris `cervise_sales` ini tidak punya `cervise_sales_items`,
+ * jadi `getSalesOrders()` menampilkannya dengan qty 0. Menambah item dengan
+ * produk dummy akan mengotori katalog stok, jadi itu dibiarkan.
+ */
 export async function addPembayaran(params: { servisId: string; amount: number; metode: "Tunai" | "Debit" | "Transfer" | "QRIS" | "E-Wallet"; kas_date?: string; keterangan?: string }) {
   const { supabase, branchId, userId, role } = await getBranchAndUser();
   if (!canAccess(role, "keuangan_transaksi")) throw new Error("Hanya admin/kasir boleh input pembayaran");
@@ -464,31 +484,19 @@ export async function addPembayaran(params: { servisId: string; amount: number; 
   if (!params.amount || !Number.isFinite(params.amount) || params.amount <= 0) throw new Error("Nominal harus >0");
   if (!["Tunai", "Debit", "Transfer", "QRIS", "E-Wallet"].includes(params.metode)) throw new Error("Metode tidak valid");
 
-  const { data: service, error: serviceError } = await supabase
-    .from("cervise_services")
-    .select("id")
-    .eq("id", params.servisId)
-    .eq("branch_id", branchId)
-    .maybeSingle();
-  if (serviceError || !service) throw new Error("Servis tidak ditemukan");
-  const kasDate = params.kas_date ?? kalenderWIB();
-  const { error } = await supabase.from("finance_tx").insert({
-    branch_id: branchId,
-    servis_id: params.servisId,
-    type: "pemasukan",
-    amount: Math.round(params.amount),
-    kas_date: kasDate,
-    metode: params.metode,
-    keterangan: params.keterangan ?? null,
-    description: params.keterangan ?? `Pembayaran servis ${params.servisId} - ${params.metode}`,
-    created_by: userId,
+  const { data, error } = await supabase.rpc("record_service_payment", {
+    p_branch_id: branchId,
+    p_servis_id: params.servisId,
+    p_amount: Math.round(params.amount),
+    p_metode: params.metode,
+    p_kas_date: params.kas_date ?? kalenderWIB(),
+    p_keterangan: params.keterangan?.trim() || null,
+    p_created_by: userId,
   });
   if (error) throw new Error(error.message);
-  // update total price = sum finance_tx for this servis
-  const { data: sums } = await supabase.from("finance_tx").select("amount").eq("servis_id", params.servisId).eq("branch_id", branchId).eq("type", "pemasukan");
-  const total = (sums ?? []).reduce((a, b) => a + Number(b.amount), 0);
-  await supabase.from("cervise_services").update({ price: total }).eq("id", params.servisId).eq("branch_id", branchId);
-  return { ok: true, total };
+
+  const result = data as { total?: number } | null;
+  return { ok: true, total: Number(result?.total ?? 0) };
 }
 
 export async function getPembayaranHistory(servisId: string) {

@@ -272,14 +272,14 @@ export function buildLaporanShift(input: {
   // Uang di laci. Perbedaannya dari `expected` hanya pada penjualan: yang di
   // sini hanya metode Tunai dan memakai `paid`, bukan `total`.
   //
-  // Suku servis SENGAJA belum dipisah. `servicesTotal` mencampur dua hal:
-  // `cervise_services.price` ditimpa jadi jumlah pembayaran oleh
-  // `addPembayaran` (servis/actions.ts), tapi servis yang belum dibayar pun
-  // tetap punya harga penawaran. Dipisah secara benar butuh memisahkan juga
-  // dua jalur pembayaran servis - `payServis` menulis ke cervise_sales dengan
-  // metode, `addPembayaran` menulis ke finance_tx - dan itu belum ada
-  // bedanya di baris laporan. Sampai itu ada, kas undercount hanya untuk
-  // non-Tunai yang bisa dibuktikan.
+  // Suku servis hanya berisi servis yang belum punya penjualan terkait. Sejak
+  // pembayaran servis selalu menulis baris `cervise_sales` lewat
+  // `record_service_payment`, servis yang sudah dibayar keluar dari sini dan
+  // masuk `salesTotal`, yang tahu metode pembayarannya. Yang tersisa adalah
+  // servis selesai yang pembayarannya tidak tercatat - `price`-nya 0 sejak
+  // dibuat, jadi tidak menambah kas. Baris lama yang `price`-nya terisi lewat
+  // jalur drawer sebelum perubahan ini tetap muncul di sini, dan itu benar:
+  // `finance_tx`-nya tanpa `source` sehingga tidak ikut `cashLines`.
   const expectedCash =
     amount(session.openingBalance) + cashSalesTotal + servicesTotal + manualIn - manualOut;
 

@@ -137,11 +137,16 @@ describe("penutupan kas dan nomor nota", () => {
     join(process.cwd(), "src", "app", "app", "penjualan", "actions.ts"),
     "utf8",
   );
+  const servis = readFileSync(
+    join(process.cwd(), "src", "app", "app", "servis", "actions.ts"),
+    "utf8",
+  );
   // Komentar ikut dibuang: nama fungsi yang sudah dihapus sering disebut di
   // komentar penjelas, dan membacanya sebagai "masih dipakai" memberi alarm
   // palsu.
   const cashCode = cash.replace(/^\s*\/\/.*$/gm, "");
   const penjualanCode = penjualan.replace(/^\s*\/\/.*$/gm, "");
+  const servisCode = servis.replace(/^\s*\/\/.*$/gm, "");
 
   it("Tutup Toko gagal kalau update-nya tidak menyentuh baris", () => {
     // Bug yang diuji: update memakai .is("closed_at", null). Dua admin menekan
@@ -170,11 +175,22 @@ describe("penutupan kas dan nomor nota", () => {
     // Penjualan tidak lagi meminta nomor sendiri: create_sale_with_stock
     // memanggil next_sale_number di dalam transaksinya, jadi kuncinya masih
     // aktif dan dua kasir bersamaan tidak menerima nomor sama.
-    expect(cashCode).toContain('rpc("next_sale_number"');
+    //
+    // cashCode dulu diperiksa untuk rpc next_sale_number. Jalur pembayaran
+    // servis sekarang pindah ke RPC record_service_payment, jadi yang
+    // diperiksa SQL-nya.
     expect(cashCode).not.toContain("Date.now().toString(36)");
+    expect(cashCode).not.toContain('rpc("next_sale_number"');
+    expect(servisCode).toContain('rpc("record_service_payment"');
     expect(penjualanCode).toContain('rpc("create_sale_with_stock"');
     expect(penjualanCode).not.toContain('rpc("next_sale_number"');
     expect(penjualanCode).not.toContain("Math.floor(1000 + Math.random() * 9000)");
+
+    const paymentSql = readFileSync(
+      join(MIGRATIONS_DIR, "20261019151703_record_service_payment.sql"),
+      "utf8",
+    );
+    expect(paymentSql).toContain("public.next_sale_number(p_branch_id)");
   });
 
   it("penjualan lewat satu rpc transaksional, bukan beberapa permintaan", () => {
