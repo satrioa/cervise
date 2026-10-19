@@ -283,7 +283,7 @@ export function PenjualanPOSClient({ initialRows }: { initialRows: any[] }) {
           <DialogPrimitive.Popup className="fixed left-1/2 top-1/2 z-50 w-[95vw] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-xl border bg-background p-6 shadow-lg">
             <DialogPrimitive.Title className="font-semibold">Retur Parsial — {returSale?.sale_number}</DialogPrimitive.Title>
             <div className="mt-4 space-y-2 max-h-64 overflow-auto">{returItems.map((it) => (<div key={it.id} className="flex items-center gap-2 border rounded-lg p-2"><div className="flex-1"><div className="font-medium text-sm">{it.name}</div><div className="font-mono text-xs">{it.sku} · qty {it.qty}</div></div><Input type="number" min={0} max={it.qty - it.qty_returned} value={it.returQty} onChange={(e) => setReturItems((prev) => prev.map((x) => x.id === it.id ? { ...x, returQty: Number(e.target.value) } : x))} className="h-7 w-16" /></div>))}</div>
-            <div className="mt-4 flex justify-end gap-2"><Button variant="outline" onClick={() => setReturOpen(false)}>Batal</Button><Button onClick={async () => { const rets = returItems.filter((it) => it.returQty > 0).map((it) => ({ item_id: it.id, qty: it.returQty })); if (!rets.length) return; await returnSaleItems(returSale.id, rets); toast.success("Retur berhasil"); setReturOpen(false); router.refresh(); }}>Proses Retur</Button></div>
+            <div className="mt-4 flex justify-end gap-2"><Button variant="outline" onClick={() => setReturOpen(false)}>Batal</Button><Button onClick={handleRetur}>Proses Retur</Button></div>
           </DialogPrimitive.Popup>
         </DialogPrimitive.Portal>
       </DialogPrimitive.Root>
