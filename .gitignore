@@ -16,6 +16,8 @@
 # File ini muncul kalau ada yang menjalankan `bun install` tanpa disadari.
 bun.lock
 bun.lockb
+pnpm-lock.yaml
+pnpm-workspace.yaml
 
 # testing
 /coverage
