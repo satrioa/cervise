@@ -1,6 +1,6 @@
 import { cookies } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
-import { resolvePostLoginDestination } from "@/lib/auth/post-login";
+import { fetchLoginAccess, resolveLoginAccess } from "@/lib/auth/login-access";
 import { redirect } from "next/navigation";
 import { OnboardingStepper } from "@/components/onboarding/stepper";
 
@@ -9,32 +9,21 @@ export default async function OnboardingPage() {
   const { data: auth } = await supabase.auth.getUser();
   if (!auth.user) redirect("/login?next=/onboarding");
 
-  const [platformAdminResult, employeesResult] = await Promise.all([
-    supabase
-      .from("platform_admins")
-      .select("profile_id")
-      .eq("profile_id", auth.user.id)
-      .eq("is_active", true)
-      .maybeSingle(),
-    supabase
-      .from("employees")
-      .select("organization_id, role")
-      .eq("profile_id", auth.user.id)
-      .eq("is_active", true),
-  ]);
-  if (platformAdminResult.error) throw platformAdminResult.error;
-  if (employeesResult.error) throw employeesResult.error;
+  let access;
+  try {
+    access = await fetchLoginAccess(supabase);
+  } catch {
+    redirect("/login?error=tenant-access-check-failed");
+  }
 
   const cookieStore = await cookies();
-  const destination = resolvePostLoginDestination({
-    isPlatformAdmin: Boolean(platformAdminResult.data),
+  const decision = resolveLoginAccess({
+    access,
     savedOrganizationId: cookieStore.get("cervise_org")?.value ?? null,
-    memberships: (employeesResult.data ?? []).map((employee) => ({
-      organizationId: employee.organization_id as string,
-      role: employee.role as string,
-    })),
   });
-  if (destination !== "/onboarding") redirect(destination);
+
+  if (decision.kind === "denied") redirect(`/login?error=${decision.reason}`);
+  if (decision.destination !== "/onboarding") redirect(decision.destination);
 
   return <OnboardingStepper />;
 }

@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { fetchLoginAccess, resolveLoginAccess } from "@/lib/auth/login-access";
 import { slugify } from "@/lib/tenant-slug";
 import { normalizePhone62 } from "@/lib/phone";
 import { TENANT_NAME_MAX, TENANT_SLUG_MIN } from "@/lib/onboarding/validation";
@@ -18,24 +19,21 @@ export async function completeOnboarding(opts: {
   const { data: auth } = await supabase.auth.getUser();
   if (!auth.user) throw new Error("Unauthorized");
 
-  const { data: platformAdmin, error: platformAdminError } = await supabase
-    .from("platform_admins")
-    .select("profile_id")
-    .eq("profile_id", auth.user.id)
-    .eq("is_active", true)
-    .maybeSingle();
-  if (platformAdminError) throw new Error("Gagal memverifikasi platform admin");
-  if (platformAdmin) redirect("/owner");
+  const access = await fetchLoginAccess(supabase);
+  const decision = resolveLoginAccess({ access, savedOrganizationId: null });
+  if (decision.kind === "denied") {
+    throw new Error(
+      decision.reason === "tenant-owner-inactive"
+        ? "Langganan tenant Anda sudah berakhir. Hubungi platform owner untuk memperpanjang."
+        : decision.reason === "account-inactive"
+          ? "Akun Anda dinonaktifkan. Hubungi admin."
+          : "Tenant Anda sedang tidak aktif. Hubungi pemilik toko atau admin.",
+    );
+  }
+  if (decision.destination !== "/onboarding") redirect(decision.destination);
 
   const name = opts.tenantName.trim();
   if (!name || name.length > TENANT_NAME_MAX) throw new Error("Nama tenant tidak valid");
-  const { data: existing } = await supabase
-    .from("employees")
-    .select("id")
-    .eq("profile_id", auth.user.id)
-    .eq("is_active", true)
-    .limit(1);
-  if (existing && existing.length > 0) throw new Error("Anda sudah memiliki tenant");
 
   const baseSlug = slugify(name);
   if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(baseSlug) || baseSlug.length < TENANT_SLUG_MIN) {
@@ -81,7 +79,7 @@ export async function completeOnboarding(opts: {
     }
 
     if (error.code === "42501") {
-      throw new Error("Izin onboarding ditolak. Silakan logout lalu login ulang.");
+      throw new Error(error.message || "Izin onboarding ditolak.");
     }
 
     throw new Error(error.message || "Gagal menyelesaikan onboarding");

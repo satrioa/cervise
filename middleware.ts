@@ -1,4 +1,4 @@
-import { resolvePostLoginDestination } from "./src/lib/auth/post-login";
+import { resolveLoginAccess, fetchLoginAccess } from "./src/lib/auth/login-access";
 import { getProtectedPathKind } from "./src/lib/auth/authorization";
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse } from "next/server";
@@ -52,34 +52,36 @@ export default async function middleware(request: NextRequest) {
   }
 
   if (auth.user && protectedPathKind) {
-    const [platformAdminResult, employeesResult] = await Promise.all([
-      supabase
-        .from("platform_admins")
-        .select("profile_id")
-        .eq("profile_id", auth.user.id)
-        .eq("is_active", true)
-        .maybeSingle(),
-      supabase
-        .from("employees")
-        .select("organization_id, role")
-        .eq("profile_id", auth.user.id)
-        .eq("is_active", true),
-    ]);
-
-    if (platformAdminResult.error || employeesResult.error) {
+    let access;
+    try {
+      access = await fetchLoginAccess(supabase);
+    } catch {
       const errorUrl = new URL("/login", request.url);
       errorUrl.searchParams.set("error", "tenant-access-check-failed");
       return NextResponse.redirect(errorUrl);
     }
 
-    const destination = resolvePostLoginDestination({
-      isPlatformAdmin: Boolean(platformAdminResult.data),
+    const decision = resolveLoginAccess({
+      access,
       savedOrganizationId: request.cookies.get("cervise_org")?.value ?? null,
-      memberships: (employeesResult.data ?? []).map((employee) => ({
-        organizationId: employee.organization_id as string,
-        role: employee.role as string,
-      })),
     });
+
+    if (decision.kind === "denied") {
+      // Sesi lama juga harus dihentikan, bukan cuma dialihkan. Cookie hasil
+      // signOut ditulis ke response redirect supaya browser benar-benar logout.
+      try {
+        await supabase.auth.signOut();
+      } catch {
+        // Tetap tolak akses walau penghapusan sesi gagal.
+      }
+      const deniedUrl = new URL("/login", request.url);
+      deniedUrl.searchParams.set("error", decision.reason);
+      const deniedResponse = NextResponse.redirect(deniedUrl);
+      response.cookies.getAll().forEach((cookie) => deniedResponse.cookies.set(cookie));
+      return deniedResponse;
+    }
+
+    const destination = decision.destination;
 
     if (destination === "/owner" && !pathname.startsWith("/owner")) {
       return NextResponse.redirect(new URL(destination, request.url));

@@ -167,7 +167,7 @@ const Navbar = ({ isLoggedIn, user }: { isLoggedIn?: boolean; user?: { name: str
       ))}
     </ul>
 
-    <div className="hidden shrink-0 items-center gap-2 ipad-landscape:flex">
+    <div className="flex shrink-0 items-center gap-2">
       {isLoggedIn ? (
         <>
           <Button variant="candy" color="blue" size="sm" render={<Link href="/app">Dashboard</Link>}>
@@ -220,7 +220,7 @@ const Navbar = ({ isLoggedIn, user }: { isLoggedIn?: boolean; user?: { name: str
         </>
       ) : (
         <>
-          <Button variant="ghost" color="neutral" size="sm" render={<Link href="/login">Login</Link>}>
+          <Button variant="candy" color="blue" size="sm" render={<Link href="/login">Login</Link>}>
             Login
           </Button>
           <Button variant="candy" color="blue" size="sm" render={<Link href="/signup">Coba Gratis</Link>}>
@@ -233,7 +233,7 @@ const Navbar = ({ isLoggedIn, user }: { isLoggedIn?: boolean; user?: { name: str
     <button
       type="button"
       aria-label="Open menu"
-      className="inline-flex h-[53px] w-[64px] shrink-0 touch-manipulation items-center justify-center overflow-clip rounded-full bg-[#2563eb] transition-[background-color,transform] duration-200 ease focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2563eb] motion-reduce:transition-none ipad-landscape:hidden [@media(hover:hover)_and_(pointer:fine)]:hover:bg-[#1d4ed8] [@media(hover:hover)_and_(pointer:fine)]:hover:scale-[1.02]"
+      className="hidden h-[53px] w-[64px] shrink-0 touch-manipulation items-center justify-center overflow-clip rounded-full bg-[#2563eb] transition-[background-color,transform] duration-200 ease focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2563eb] motion-reduce:transition-none [@media(hover:hover)_and_(pointer:fine)]:hover:bg-[#1d4ed8] [@media(hover:hover)_and_(pointer:fine)]:hover:scale-[1.02]"
     >
       <MenuIcon />
     </button>

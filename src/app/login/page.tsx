@@ -79,6 +79,26 @@ export function loginNoticeFromParams(params: URLSearchParams): { kind: "success
         "Akses ditolak: akun, cabang, atau langganan Anda tidak aktif. Hubungi pemilik toko atau platform owner untuk mengaktifkannya kembali.",
     };
   }
+  if (error === "tenant-owner-inactive") {
+    return {
+      kind: "error",
+      message:
+        "Tidak bisa masuk. Langganan tenant Anda sudah berakhir atau dinonaktifkan. Sebagai pemilik, hubungi platform owner untuk memperpanjang langganan.",
+    };
+  }
+  if (error === "tenant-inactive") {
+    return {
+      kind: "error",
+      message:
+        "Tidak bisa masuk. Tenant Anda sedang tidak aktif. Hubungi pemilik toko atau admin untuk memperpanjang langganan.",
+    };
+  }
+  if (error === "account-inactive") {
+    return {
+      kind: "error",
+      message: "Tidak bisa masuk. Akun Anda dinonaktifkan. Hubungi admin.",
+    };
+  }
   if (error === "tenant-access-check-failed") {
     return {
       kind: "error",
@@ -129,10 +149,16 @@ function SignInForm() {
       const supabase = createClient();
       const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
       if (error) throw error;
-      toast.success("Berhasil masuk");
       const clientSavedOrganizationId = window.localStorage.getItem("cervise_org");
-      const destination = await getPostLoginDestination(clientSavedOrganizationId);
-      router.push(destination);
+      const result = await getPostLoginDestination(clientSavedOrganizationId);
+      if (result.kind === "denied") {
+        toast.error("Tidak bisa masuk");
+        router.replace(`/login?error=${result.reason}`);
+        router.refresh();
+        return;
+      }
+      toast.success("Berhasil masuk");
+      router.push(result.destination);
       router.refresh();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Gagal masuk");

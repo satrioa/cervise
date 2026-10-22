@@ -48,6 +48,27 @@ describe("loginNoticeFromParams", () => {
     expect(notice?.message).toMatch(/beberapa saat lagi|sementara/i);
   });
 
+  it("memberi pesan berbeda untuk owner dan member tenant yang tidak aktif", () => {
+    const member = loginNoticeFromParams(params("error=tenant-inactive"));
+    const owner = loginNoticeFromParams(params("error=tenant-owner-inactive"));
+
+    expect(member?.kind).toBe("error");
+    expect(owner?.kind).toBe("error");
+    expect(member?.message).toMatch(/tidak bisa masuk/i);
+    expect(owner?.message).toMatch(/tidak bisa masuk/i);
+    // Owner tidak disuruh menghubungi dirinya sendiri.
+    expect(member?.message).toMatch(/hubungi pemilik toko/i);
+    expect(owner?.message).toMatch(/hubungi platform owner/i);
+    expect(owner?.message).not.toBe(member?.message);
+  });
+
+  it("menjelaskan akun yang dinonaktifkan", () => {
+    const notice = loginNoticeFromParams(params("error=account-inactive"));
+    expect(notice?.kind).toBe("error");
+    expect(notice?.message).toMatch(/dinonaktifkan/i);
+    expect(notice?.message).toMatch(/hubungi admin/i);
+  });
+
   it("tidak menampilkan pesan untuk kode error yang tidak dikenal", () => {
     expect(loginNoticeFromParams(params("error=entah"))).toBeNull();
   });
