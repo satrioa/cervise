@@ -27,7 +27,7 @@ export async function getLaporanPenjualan(query: {
     const branches = (branchesResult.data ?? []) as { id: string; name: string }[];
     let request = supabase
       .from("cervise_sales")
-      .select("id, sale_number, kas_date, subtotal, discount_total, total, paid, payment_status, payment_method, branch_id")
+      .select("id, sale_number, kas_date, subtotal, discount_total, total, paid, returned_value, payment_status, payment_method, branch_id")
       .order("kas_date", { ascending: false })
       .limit(ROW_CAP);
     if (query.from) request = request.gte("kas_date", query.from);

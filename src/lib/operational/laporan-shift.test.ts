@@ -44,11 +44,14 @@ function svc(overrides: Partial<ShiftServiceRow> = {}): ShiftServiceRow {
 }
 
 function sale(overrides: Partial<ShiftSaleRow> = {}): ShiftSaleRow {
+  const total = overrides.total ?? 100_000;
   return {
     id: "sl1",
     sale_number: "SAL-001",
-    total: 100_000,
-    paid: 100_000,
+    total,
+    // Default `paid` mengikuti `total`, supaya fixture tidak lagi punya
+    // penjualan "belum bayar" yang diam-diam sudah dibayar penuh.
+    paid: overrides.paid ?? total,
     payment_status: "lunas",
     payment_method: "Tunai",
     kas_date: "2026-09-28",
@@ -166,7 +169,7 @@ describe("rekap", () => {
   it("expected = opening + servis lunas + penjualan lunas + kas masuk - kas keluar", () => {
     const report = build({
       services: [svc({ price: 100_000 })],
-      sales: [sale({ total: 50_000, servis_id: null })],
+      sales: [sale({ total: 50_000, paid: 50_000, servis_id: null })],
       cashTx: [
         cash({ type: "pemasukan", amount: 30_000 }),
         cash({ id: "c2", type: "pengeluaran", amount: 20_000 }),
@@ -199,30 +202,72 @@ describe("rekap", () => {
   });
 
   it("penjualan belum lunas tampil di daftar tapi tidak menambah saldo", () => {
-    const report = build({ sales: [sale({ total: 90_000, payment_status: "belum_bayar" })] });
+    const report = build({ sales: [sale({ total: 90_000, paid: 0, payment_status: "belum_bayar" })] });
     expect(report.sales).toHaveLength(1);
     expect(report.sales[0].settled).toBe(false);
     expect(report.totals.sales).toBe(0);
     expect(report.totals.expected).toBe(250_000);
   });
 
-  it("payment_status selain 'lunas' diperlakukan sebagai belum masuk", () => {
+  it("deposit penjualan DP menambah saldo, karena uangnya memang di laci", () => {
+    // Dulu `total` yang dijumlahkan dan hanya status 'lunas' yang dihitung,
+    // jadi deposit 100.000 dari nota 300.000 hilang dari rekap dan kas shift
+    // terlihat kurang 100.000. `dp` sendiri tetap dianggap settled: uangnya
+    // sudah ada di laci walau notanya belum lunas.
+    const report = build({ sales: [sale({ total: 300_000, paid: 100_000, payment_status: "dp" })] });
+    expect(report.totals.sales).toBe(100_000);
+    expect(report.totals.expected).toBe(350_000);
+    expect(report.sales[0].settled).toBe(true);
+  });
+
+  it("payment_status tidak menentukan kas - yang menentukan adalah `paid`", () => {
     const report = build({
-      sales: [sale({ payment_status: "LUNAS" }), sale({ id: "s2", payment_status: "" })],
+      sales: [sale({ paid: 0, payment_status: "LUNAS" }), sale({ id: "s2", paid: 0, payment_status: "" })],
     });
     expect(report.totals.sales).toBe(0);
   });
 
-  it("hanya kas_manual dan penyesuaian yang masuk rekap kas", () => {
+  it("retur mengurangi kas lewat baris finance_tx, bukan lewat total penjualan", () => {
+    // Penjualan 100.000 diretur 40.000. Kalau refund dikurangkan dari
+    // penjualan DAN dari kas, uangnya terpotong dua kali.
     const report = build({
+      sales: [sale({ total: 100_000, paid: 100_000 })],
       cashTx: [
-        cash({ id: "a", amount: 10_000 }),
-        cash({ id: "b", amount: 20_000, source: "penyesuaian" }),
-        cash({ id: "c", amount: 999_000, source: "transaksi" }),
+        cash({ id: "r1", type: "pengeluaran", amount: 40_000, source: "retur", description: "Retur SAL-001" }),
       ],
     });
-    expect(report.cashTx.map((line) => line.id)).toEqual(["a", "b"]);
+    expect(report.totals.sales).toBe(100_000);
+    expect(report.totals.manualOut).toBe(40_000);
+    expect(report.totals.expected).toBe(310_000);
+    expect(report.cashTx.map((line) => line.id)).toContain("r1");
+  });
+
+  it("retur penjualan dari hari sebelumnya tetap mengurangi kas hari ini", () => {
+    // Penjualannya tidak ada di daftar shift ini (kas_date beda), tapi uangnya
+    // keluar hari ini.
+    const report = build({
+      cashTx: [
+        cash({ id: "r1", type: "pengeluaran", amount: 75_000, source: "retur", description: "Retur SAL-LAMA" }),
+      ],
+    });
+    expect(report.totals.sales).toBe(0);
+    expect(report.totals.expected).toBe(175_000);
+  });
+
+  it("kas manual, penyesuaian, dan retur masuk rekap; transaksi tidak", () => {
+    // 'transaksi' tidak masuk karena uang penjualan sudah dihitung lewat
+    // cervise_sales. 'retur' masuk karena uangnya keluar dari laci hari itu.
+    const report = build({
+      cashTx: [
+        cash({ id: "a", amount: 10_000, description: "Modal" }),
+        cash({ id: "b", amount: 20_000, source: "penyesuaian", description: "Koreksi" }),
+        cash({ id: "c", amount: 999_000, source: "transaksi", description: "Penjualan" }),
+        cash({ id: "d", amount: 5_000, source: "retur", type: "pengeluaran", description: "Retur SAL-1" }),
+      ],
+    });
+    expect(report.cashTx.map((line) => line.id).sort()).toEqual(["a", "b", "d"]);
     expect(report.totals.manualIn).toBe(30_000);
+    expect(report.totals.manualOut).toBe(5_000);
   });
 
   it("keterangan kosong mendapat label sesuai arahnya", () => {
@@ -257,7 +302,7 @@ describe("anti double counting lewat servis_id", () => {
   });
 
   it("penjualan barang tanpa pengait dihitung normal", () => {
-    const report = build({ sales: [sale({ servis_id: null, total: 75_000 })] });
+    const report = build({ sales: [sale({ servis_id: null, total: 75_000, paid: 75_000 })] });
     expect(report.totals.sales).toBe(75_000);
   });
 
@@ -265,8 +310,8 @@ describe("anti double counting lewat servis_id", () => {
     const report = build({
       services: [svc({ id: "sv1", price: 100_000 })],
       sales: [
-        sale({ id: "a", servis_id: "sv1", total: 60_000 }),
-        sale({ id: "b", servis_id: "sv1", total: 40_000 }),
+        sale({ id: "a", servis_id: "sv1", total: 60_000, paid: 60_000 }),
+        sale({ id: "b", servis_id: "sv1", total: 40_000, paid: 40_000 }),
       ],
     });
     expect(report.totals.services).toBe(0);

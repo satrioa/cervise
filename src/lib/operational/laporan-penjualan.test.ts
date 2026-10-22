@@ -39,7 +39,7 @@ describe("buildLaporanPenjualan", () => {
     expect(result.harian).toEqual([]);
     expect(result.bulanan).toEqual([]);
     expect(result.sales).toEqual([]);
-    expect(result.summary).toEqual({ omzet: 0, paid: 0, unpaid: 0, discount: 0, count: 0 });
+    expect(result.summary).toEqual({ omzet: 0, paid: 0, unpaid: 0, discount: 0, retur: 0, count: 0 });
   });
 
   it("sums total as omzet", () => {
@@ -51,6 +51,50 @@ describe("buildLaporanPenjualan", () => {
 
     expect(result.summary.omzet).toBe(470_000);
     expect(result.summary.count).toBe(2);
+    expect(result.summary.retur).toBe(0);
+  });
+
+  it("tidak menghitung barang yang sudah kembali sebagai omzet", () => {
+    // Laporan ini dulu membaca `total` mentah, jadi penjualan yang diretur
+    // tetap tampil penuh sementara kasnya sudah keluar.
+    const result = buildLaporanPenjualan({
+      sales: [sale({ total: 600_000, paid: 600_000, returned_value: 150_000 })],
+      branches,
+      now: NOW,
+    });
+
+    expect(result.summary.omzet).toBe(450_000);
+    expect(result.summary.paid).toBe(450_000);
+    expect(result.summary.unpaid).toBe(0);
+    expect(result.summary.retur).toBe(150_000);
+    expect(result.sales[0].returnedValue).toBe(150_000);
+  });
+
+  it("retur penuh pada penjualan DP menghapus omzet dan utangnya", () => {
+    // Total 300.000, dibayar 100.000, semua barang kembali (refund 100.000).
+    // Utang 200.000 ikut batal karena barangnya tidak lagi di pelanggan.
+    const result = buildLaporanPenjualan({
+      sales: [sale({ total: 300_000, paid: 100_000, payment_status: "belum_bayar", returned_value: 300_000 })],
+      branches,
+      now: NOW,
+    });
+
+    expect(result.summary.omzet).toBe(0);
+    expect(result.summary.paid).toBe(0);
+    expect(result.summary.unpaid).toBe(0);
+  });
+
+  it("retur sebagian pada penjualan DP hanya menyisakan nilai barang yang dibawa pulang", () => {
+    // Total 300.000, dibayar 100.000, barang 150.000 dikembalikan.
+    const result = buildLaporanPenjualan({
+      sales: [sale({ total: 300_000, paid: 100_000, payment_status: "belum_bayar", returned_value: 150_000 })],
+      branches,
+      now: NOW,
+    });
+
+    expect(result.summary.omzet).toBe(150_000);
+    expect(result.summary.paid).toBe(0);
+    expect(result.summary.unpaid).toBe(150_000);
   });
 
   it("surfaces the outstanding balance instead of hiding it", () => {

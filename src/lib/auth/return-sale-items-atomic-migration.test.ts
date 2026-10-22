@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 const SQL = readFileSync(
-  "supabase/migrations/20261018130000_return_sale_items_atomic.sql",
+  "supabase/migrations/20261018140000_sale_return_finance.sql",
   "utf8",
 );
 
@@ -22,8 +22,8 @@ function fnBody(): string {
  *
  * Kalau langkah 2 gagal, stok sudah kembali ke gudang tanpa tercatat sebagai
  * retur. Kasir bisa mengulang retur item yang sama sebanyak yang mau dan
- * setiap percobaan menambah stok nyata - itu bukan bug pembukuan, itu
- *-Learning sumber stok.
+ * setiap percobaan menambah stok nyata - itu bukan bug pembukuan, itu sumber
+ * stok.
  *
  * Ditambah `qty_returned` dibaca lalu ditulis tanpa lock, jadi dua permintaan
  * retur yang berjalan bersamaan bisa dua-duanya membaca 0, dua-duanya
@@ -36,9 +36,7 @@ describe("return_sale_items_atomic mengunci retur dalam satu transaksi", () => {
       action.indexOf("export async function returnSaleItems"),
     );
 
-    expect(fn).toMatch(
-      /supabase\.rpc\(\s*\n?\s*"return_sale_items_atomic"/,
-    );
+    expect(fn).toMatch(/supabase\.rpc\(\s*\n?\s*"return_sale_items_atomic"/);
     expect(fn).not.toMatch(
       /from\("cervise_sales_items"\)\s*\n?\s*\.update\(/,
     );
@@ -91,10 +89,85 @@ describe("return_sale_items_atomic mengunci retur dalam satu transaksi", () => {
     expect(SQL).toContain("security definer");
     expect(SQL).toContain("set search_path = public");
   });
+});
 
-  it("mengembalikan jumlah item, bukan penanda parsial", () => {
-    // Fungsi tidak pernah mengembalikan penanda sukses parsial. Kalau salah satu
-    // item tidak valid, ia melempar dan seluruh transaksi batal.
-    expect(fnBody()).toMatch(/return v_count;\s*end;\s*$/);
+/**
+ * Retur yang hanya mengembalikan stok adalah retur yang tidak membayar apa pun.
+ * Barang masuk lagi ke gudang, kas tidak bergerak, dan Laporan Penjualan tetap
+ * menghitung omzet penuh.
+ */
+describe("retur mengembalikan uang, bukan hanya stok", () => {
+  it("menghitung nilai barang kembali secara proporsional terhadap total", () => {
+    const body = fnBody();
+    // Harga sticker salah kalau ada diskon: 2 unit @150.000 dengan diskon
+    // 100.000 berarti total 200.000, jadi 1 unit yang kembali bernilai
+    // 100.000 - bukan 150.000.
+    expect(body).toMatch(
+      /v_value\s*:=\s*floor\(\(v_gross::numeric \* v_sale\.total\) \/ v_sale\.subtotal\)::integer/,
+    );
+    // Perkalian 600.000 x 600.000 melewati batas integer, jadi harus numeric.
+    expect(body).toContain("v_gross::numeric");
+  });
+
+  it("tidak pernah mengembalikan uang lebih dari yang pernah diterima", () => {
+    const body = fnBody();
+    // Penjualan DP 300.000 dibayar 100.000, semua barang kembali: yang boleh
+    // keluar hanya 100.000.
+    expect(body).toContain(
+      "v_refund := least(v_value, v_sale.paid) - least(v_sale.returned_value, v_sale.paid);",
+    );
+    expect(body).toContain("if v_refund < 0 then");
+  });
+
+  it("menyimpan nilai barang, bukan uang keluar, supaya utang bisa dihitung", () => {
+    expect(SQL).toContain("returned_value integer not null default 0");
+    expect(SQL).toContain("grant select (returned_value) on public.cervise_sales");
+    // Hanya fungsi yang boleh menulisnya.
+    expect(SQL).not.toContain("grant update (returned_value)");
+    expect(fnBody()).toContain("set returned_value = v_value");
+  });
+
+  it("menyetel nilai barang tepat sama dengan total saat semua kembali", () => {
+    const body = fnBody();
+    // Menjumlahkan floor per permintaan bisa menyisakan 1 rupiah selamanya.
+    expect(body).toMatch(
+      /if v_all_returned then[\s\S]{0,200}v_value\s*:=\s*v_sale\.total/,
+    );
+  });
+
+  it("mencatat kas keluar dengan sumber 'retur' dan tanggal dari pemanggil", () => {
+    const body = fnBody();
+    expect(body).toContain("insert into public.finance_tx");
+    expect(body).toContain("'pengeluaran'");
+    expect(body).toContain("'retur'");
+    // current_date di server UTC akan mencatat retur pagi WIB ke hari
+    // sebelumnya.
+    expect(body).toContain("p_kas_date");
+    expect(body).not.toContain("current_date");
+    // Metode ikut penjualan asalnya, supaya rekap per metode di laporan shift
+    // tidak kehilangan arah uangnya.
+    expect(body).toContain("v_sale.payment_method");
+  });
+
+  it("tidak menulis kas keluar kalau tidak ada uang yang kembali", () => {
+    expect(fnBody()).toMatch(/if v_refund > 0 then[\s\S]{0,200}insert into public\.finance_tx/);
+  });
+
+  it("mengizinkan 'retur' di constraint sumber kas", () => {
+    expect(SQL).toMatch(/finance_tx_source_check[\s\S]{0,300}'retur'/);
+  });
+
+  it("membuang versi lama supaya signature-nya tidak tertinggal", () => {
+    // create or replace tidak bisa mengubah daftar argumen; tanpa drop,
+    // pemanggil lama tetap menemukan fungsi tanpa p_kas_date.
+    expect(SQL).toContain(
+      "drop function if exists public.return_sale_items_atomic(uuid, uuid, jsonb);",
+    );
+  });
+
+  it("mengembalikan jumlah item dan nominal refund", () => {
+    const body = fnBody();
+    expect(body).toMatch(/return jsonb_build_object\(/);
+    expect(body).toContain("'refund', v_refund");
   });
 });

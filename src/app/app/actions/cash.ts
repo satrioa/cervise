@@ -297,7 +297,7 @@ async function computeReport(sessionId: string, row: SessionForReport): Promise<
       .select("id, type, amount, description, kas_date, source")
       .eq("branch_id", branchId)
       .eq("kas_date", date)
-      .in("source", ["kas_manual", "penyesuaian"])
+      .in("source", ["kas_manual", "penyesuaian", "retur"])
       .order("created_at", { ascending: false })
       .limit(CASH_ROW_CAP),
   ]);

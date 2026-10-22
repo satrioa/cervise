@@ -6,6 +6,12 @@ export type SaleInput = {
   discount_total: number | null;
   total: number | null;
   paid: number | null;
+  /**
+   * Nilai barang yang sudah diretur (proporsional terhadap total). Bukan uang
+   * yang keluar - untuk penjualan DP keduanya berbeda. Lihat migrasi
+   * 20261018140000_sale_return_finance.sql.
+   */
+  returned_value?: number | null;
   payment_status: string | null;
   payment_method: string | null;
   branch_id: string | null;
@@ -15,9 +21,13 @@ export type SaleDetailRow = {
   id: string;
   label: string;
   kasDate: string;
+  /** Nilai nota setelah dikurangi barang yang kembali. */
   total: number;
+  /** Uang yang benar-benar dipegang toko (dibayar minus refund). */
   paid: number;
   unpaid: number;
+  /** Nilai barang yang sudah kembali. `total + returnedValue` = nilai nota asli. */
+  returnedValue: number;
   paymentStatus: string;
   paymentMethod: string;
   branchName: string;
@@ -29,6 +39,7 @@ export type SalePeriodGroup = {
   paid: number;
   unpaid: number;
   discount: number;
+  retur: number;
   count: number;
   sales: SaleDetailRow[];
 };
@@ -37,7 +48,7 @@ export type LaporanPenjualan = {
   harian: SalePeriodGroup[];
   bulanan: SalePeriodGroup[];
   sales: SaleDetailRow[];
-  summary: { omzet: number; paid: number; unpaid: number; discount: number; count: number };
+  summary: { omzet: number; paid: number; unpaid: number; discount: number; retur: number; count: number };
 };
 
 const NO_VALUE = "—";
@@ -72,7 +83,7 @@ function normalizeCalendarDate(value: unknown): string | null {
 function bucket(map: Map<string, SalePeriodGroup>, key: string): SalePeriodGroup {
   const existing = map.get(key);
   if (existing) return existing;
-  const created: SalePeriodGroup = { key, omzet: 0, paid: 0, unpaid: 0, discount: 0, count: 0, sales: [] };
+  const created: SalePeriodGroup = { key, omzet: 0, paid: 0, unpaid: 0, discount: 0, retur: 0, count: 0, sales: [] };
   map.set(key, created);
   return created;
 }
@@ -87,11 +98,17 @@ export function buildLaporanPenjualan(input: {
   const harianMap = new Map<string, SalePeriodGroup>();
   const bulananMap = new Map<string, SalePeriodGroup>();
   const details: SaleDetailRow[] = [];
-  const summary = { omzet: 0, paid: 0, unpaid: 0, discount: 0, count: 0 };
+  const summary = { omzet: 0, paid: 0, unpaid: 0, discount: 0, retur: 0, count: 0 };
 
   for (const sale of input.sales) {
-    const total = amount(sale.total);
-    const paid = amount(sale.paid);
+    // Barang yang sudah kembali tidak lagi jadi omzet. Nilainya dihitung
+    // proporsional terhadap total di database, jadi diskon ikut diperhitungkan.
+    const returnedValue = Math.max(0, amount(sale.returned_value));
+    // Uang yang keluar tidak pernah melebihi uang yang masuk (penjualan DP).
+    const refunded = Math.min(returnedValue, amount(sale.paid));
+
+    const total = Math.max(0, amount(sale.total) - returnedValue);
+    const paid = Math.max(0, amount(sale.paid) - refunded);
     // An overpaid sale must not report a negative balance.
     const unpaid = Math.max(0, total - paid);
     const discount = amount(sale.discount_total);
@@ -103,6 +120,7 @@ export function buildLaporanPenjualan(input: {
       total,
       paid,
       unpaid,
+      returnedValue,
       paymentStatus: paymentStatusLabel(sale.payment_status),
       paymentMethod: sale.payment_method?.trim() || NO_VALUE,
       branchName: sale.branch_id ? (branchNames.get(sale.branch_id) ?? NO_VALUE) : "Tanpa cabang",
@@ -114,6 +132,7 @@ export function buildLaporanPenjualan(input: {
     summary.paid += paid;
     summary.unpaid += unpaid;
     summary.discount += discount;
+    summary.retur += returnedValue;
 
     // kas_date adalah kolom `date`, jadi PostgREST mengirimnya sebagai string
     // "YYYY-MM-DD" yang sudah berupa kalender lokal - tidak perlu
@@ -138,6 +157,7 @@ export function buildLaporanPenjualan(input: {
       group.paid += paid;
       group.unpaid += unpaid;
       group.discount += discount;
+      group.retur += returnedValue;
       group.sales.push(detail);
     }
   }
