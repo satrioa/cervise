@@ -91,7 +91,6 @@ async function callRpc<T>(actor: Actor, name: string, args: Record<string, unkno
 
 export async function searchSparepartStock(q: string): Promise<SparepartStockRow[]> {
   const actor = await getActor();
-  // `.or()` menerima string filter mentah; lihat sanitizeSearchTerm.
   const term = sanitizeSearchTerm(q);
 
   let query = actor.supabase

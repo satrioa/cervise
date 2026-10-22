@@ -1,7 +1,7 @@
 ﻿import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createProduct, createSale } from "./actions";
 
-const { from, productQuery, productInsert, productUpdate, rpc, salesItemInsert, salesInsert, financeInsert, customerUpdate, getActiveTenant } = vi.hoisted(() => {
+const { from, productQuery, productInsert, productUpdate, rpc, salesItemInsert, salesInsert, getActiveTenant } = vi.hoisted(() => {
   const productQuery = { data: [] as any[], error: null as any };
   const customerSingle = { data: { id: "customer-1", tags: [] } as any, error: null as any };
   const salesSingle = { data: { id: "sale-1" } as any, error: null as any };
@@ -15,7 +15,14 @@ const { from, productQuery, productInsert, productUpdate, rpc, salesItemInsert, 
   const salesItemInsert = vi.fn(async () => ({ error: null }));
   const salesInsert = vi.fn((): any => ({ select: () => ({ single: async () => salesSingle }) }));
   const financeInsert = vi.fn(async () => ({ error: null }));
-  const rpc = vi.fn(async (..._args: any[]) => ({ data: 3, error: null }));
+  // create_sale_with_stock mengembalikan objek; fungsi lain (next_sale_number)
+  // mengembalikan teks. Bentuk balasan createSale dipakai di sini supaya test
+  // benar-benar melewati pengecekan "id tidak kosong".
+  const rpc = vi.fn(async (name: string, _args: Record<string, unknown>) =>
+    name === "create_sale_with_stock"
+      ? { data: { id: "sale-1", sale_number: "SLV-2026-0003", total: 200 }, error: null }
+      : { data: "SLV-2026-0003", error: null },
+  );
 
   const from = vi.fn((table: string) => {
     switch (table) {
@@ -44,7 +51,7 @@ const { from, productQuery, productInsert, productUpdate, rpc, salesItemInsert, 
     }
   });
 
-  return { from, productQuery, productInsert, productUpdate, rpc, salesItemInsert, salesInsert, financeInsert, customerUpdate, getActiveTenant: vi.fn() };
+  return { from, productQuery, productInsert, productUpdate, rpc, salesItemInsert, salesInsert, getActiveTenant: vi.fn() };
 });
 
 function supabaseStub() {
@@ -230,73 +237,64 @@ describe("createSale", () => {
     expect(salesInsert).not.toHaveBeenCalled();
   });
 
-  it("ignores client price tampering for frontliners", async () => {
+  it("menolak harga yang diketik kasir di luar harga_jual", async () => {
+    // Dulu test ini bernama "ignores client price tampering for frontliners" dan
+    // asserting harga 1 disimpan sebagai 100. Itu bukan perilaku yang ingin
+    // dijaga: keranjang mengirim paid = subtotal dari harga yang diketik, jadi
+    // kasir benar-benar menerima Rp 1 sementara sistem menunggu Rp 100.000.
+    // Diperbaiki dengan menolak, bukan menimpa.
     productQuery.data = [{ id: "product-1", name: "Layar", stock_qty: 5, is_serialized: false, price: 100, sku: "GD1", category: "Gadget", cost: 50 }];
 
-    await createSale({
-      customerId: "customer-1",
-      items: [{ product_id: "product-1", qty: 2, unit_price: 1 }],
-      payment_method: "Tunai",
-      paid: 200,
-      kas_date: "2026-01-01",
-    });
+    await expect(
+      createSale({
+        customerId: "customer-1",
+        items: [{ product_id: "product-1", qty: 2, unit_price: 1 }],
+        payment_method: "Tunai",
+        paid: 2,
+        kas_date: "2026-01-01",
+      })
+    ).rejects.toThrow("tidak boleh diubah");
 
-    expect(rpc).toHaveBeenCalledWith(
-      "create_sale_atomic",
-      expect.objectContaining({
-        p_items: [{ product_id: "product-1", qty: 2, unit_price: 100, imei1: "", imei2: "", warna: "" }],
-        p_paid: 200,
-        p_discount_total: 0,
-      }),
-    );
-    // Tidak ada tulisan langsung: header, item, stok, dan kas semuanya
-    // ditulis di dalam satu fungsi SQL.
     expect(salesInsert).not.toHaveBeenCalled();
     expect(salesItemInsert).not.toHaveBeenCalled();
+    expect(rpc).not.toHaveBeenCalled();
   });
 
-  it("menulis seluruh penjualan lewat satu rpc, bukan lima panggilan terpisah", async () => {
+  it("menyerahkan seluruh penulisan ke satu rpc transaksional", async () => {
+    // Bug yang diuji: createSale lama menulis header, tiap item, dan finance_tx
+    // sebagai permintaan terpisah. Gagal di tengah meninggalkan header dan
+    // stok yang sudah turun tanpa finance_tx - Laporan Shift menghitung
+    // penjualan itu (baca cervise_sales) sementara Arus Kas tidak (baca
+    // finance_tx), jadi dua laporan beda tanpa error. Penurunan stok juga
+    // pernah lewat RPC yang tidak menulis ledger.
     productQuery.data = [{ id: "product-1", name: "Layar", stock_qty: 5, is_serialized: false, price: 100, sku: "GD1", category: "Gadget", cost: 50 }];
 
     await createSale({
       customerId: "customer-1",
       items: [{ product_id: "product-1", qty: 2, unit_price: 100 }],
       payment_method: "Tunai",
-      paid: 200,
+      paid: 0,
       kas_date: "2026-01-01",
     });
 
-    // Satu-satunya tulisan adalah satu panggilan rpc. Kalau ini bocor ke
-    // insert terpisah, transaksi hilang dan penjualan bisa tertinggal
-    // setengah jadi.
-    expect(rpc).toHaveBeenCalledTimes(1);
-    expect(rpc.mock.calls[0][0]).toBe("create_sale_atomic");
-    expect(salesInsert).not.toHaveBeenCalled();
-    expect(salesItemInsert).not.toHaveBeenCalled();
-    expect(financeInsert).not.toHaveBeenCalled();
-    expect(customerUpdate).not.toHaveBeenCalled();
-    // Stok tidak pernah disentuh langsung dari server action.
+    // Penurunan stok TIDAK lagi dipanggil dari sini; create_sale_with_stock
+    // memakai apply_stock_delta di dalam transaksinya.
+    expect(rpc).not.toHaveBeenCalledWith("adjust_product_stock", expect.anything());
     expect(productUpdate).not.toHaveBeenCalled();
-  });
 
-  it("tidak mengirim subtotal atau total - SQL yang menghitung ulang", async () => {
-    productQuery.data = [{ id: "product-1", name: "Layar", stock_qty: 5, is_serialized: false, price: 100, sku: "GD1", category: "Gadget", cost: 50 }];
-
-    await createSale({
-      customerId: "customer-1",
-      items: [{ product_id: "product-1", qty: 2, unit_price: 100 }],
-      payment_method: "Tunai",
-      paid: 200,
-      kas_date: "2026-01-01",
+    const call = rpc.mock.calls.find(([name]) => name === "create_sale_with_stock");
+    expect(call).toBeDefined();
+    expect(call?.[1]).toMatchObject({
+      p_branch_id: "branch-1",
+      p_payload: expect.objectContaining({
+        customer_id: "customer-1",
+        payment_method: "Tunai",
+        kas_date: "2026-01-01",
+        items: [
+          expect.objectContaining({ product_id: "product-1", qty: 2, unit_price: 100 }),
+        ],
+      }),
     });
-
-    const args = rpc.mock.calls[0][1];
-    expect(args).not.toHaveProperty("p_subtotal");
-    expect(args).not.toHaveProperty("p_total");
-    expect(args).not.toHaveProperty("p_payment_status");
-    // Yang dikirim hanya item dan nominal yang perlu disentuh server.
-    expect(args.p_items[0]).not.toHaveProperty("sku");
-    expect(args.p_items[0]).not.toHaveProperty("cost");
   });
 
   it("rejects discounts from frontliners", async () => {

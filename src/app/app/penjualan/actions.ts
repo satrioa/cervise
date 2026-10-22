@@ -5,9 +5,10 @@ import { revalidatePath } from "next/cache";
 import { randomUUID } from "crypto";
 
 import { getActiveTenant } from "@/lib/supabase/actor";
-import { businessDate } from "@/lib/business-date";
 import { canAccess } from "@/lib/rbac";
 import { validateSaleItems } from "@/lib/sales/validation";
+import { sanitizeSearchTerm } from "@/lib/search-term";
+import { kalenderWIB } from "@/lib/operational/periode-bulan";
 
 async function getBranchUser() {
   const actor = await getActiveTenant();
@@ -19,13 +20,6 @@ async function getBranchUser() {
 
 function requireSalesAccess(role: string) {
   if (!canAccess(role, "penjualan")) throw new Error("Hanya frontliner/admin boleh transaksi penjualan");
-}
-
-function genNota(): string {
-  const d = new Date();
-  const ymd = `${d.getFullYear().toString().slice(2)}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}`;
-  const rand = Math.floor(1000 + Math.random() * 9000);
-  return `INV-S-${ymd}-${rand}`;
 }
 
 function genSku(category: string): string {
@@ -71,7 +65,7 @@ export async function searchProductsForSale(q: string, opts?: { variant_type?: "
     .order("variant_type", { ascending: true })
     .order("name")
     .limit(40);
-  const term = q.trim();
+  const term = sanitizeSearchTerm(q);
   if (term) {
     query = query.or(`sku.ilike.%${term}%,barcode.ilike.%${term}%,name.ilike.%${term}%,imei.ilike.%${term}%,storage.ilike.%${term}%,warna.ilike.%${term}%`);
   }
@@ -263,20 +257,22 @@ export async function createSale(input: {
   if (!Number.isFinite(input.paid) || input.paid < 0) throw new Error("Pembayaran tidak valid");
 
   const pIds = input.items.map((i) => i.product_id);
-  const { data: prods, error: pErr } = await supabase.from("cervise_products").select("id, sku, name, category, stock_qty, cost, price, is_serialized").in("id", pIds).eq("branch_id", branchId);
+  const { data: prods, error: pErr } = await supabase.from("cervise_products").select("id, sku, name, category, stock_qty, cost, price, is_serialized, imei").in("id", pIds).eq("branch_id", branchId);
   if (pErr) throw new Error(pErr.message);
   const pMap = new Map<string, any>();
   for (const p of (prods as any[]) ?? []) pMap.set(p.id, p);
 
   const canOverridePrice = canAccess(role, "harga_jual");
-  const saleItems = input.items.map((item) => {
-    const product = pMap.get(item.product_id);
-    return {
-      ...item,
-      qty: Number(item.qty),
-      unit_price: canOverridePrice ? Number(item.unit_price) : Number(product.price),
-    };
-  });
+  // Harga TIDAK lagi diganti dengan harga produk di sini. Dulu baris ini
+  // menimpanya diam-diam, jadi kasir melihat "Total Rp1" di layar sementara
+  // server menyimpan total Rp 100.000. validateSaleItems sekarang menolak
+  // harga yang berbeda kalau role tidak punya harga_jual, jadi menimpanya
+  // hanya akan menutupi penolakan itu.
+  const saleItems = input.items.map((item) => ({
+    ...item,
+    qty: Number(item.qty),
+    unit_price: Number(item.unit_price),
+  }));
 
   validateSaleItems(
     saleItems,
@@ -286,63 +282,74 @@ export async function createSale(input: {
       stock_qty: Number(product.stock_qty),
       is_serialized: Boolean(product.is_serialized),
       price: Number(product.price),
+      imei: product.imei ?? null,
     })),
+    { canOverridePrice },
   );
 
-  let subtotal = 0;
+  // Sisa satu loop: cek IMEI belum dipakai di penjualan lain. Validasi
+  // harga, stok, dan IMEI milik unit sudah dikerjakan validateSaleItems dan
+  // diulang lagi di dalam RPC.
   for (const it of saleItems) {
     const p = pMap.get(it.product_id);
     if (p.is_serialized && it.imei1) {
       const { data: dup } = await supabase.from("cervise_sales_items").select("id").eq("is_serialized", true).contains("item_meta", { imei1: it.imei1.trim() });
       if (dup && (dup as any[]).length) throw new Error(`IMEI ${it.imei1} sudah terpakai`);
     }
-    subtotal += Number(it.qty) * Number(it.unit_price);
   }
   const requestedDiscount = Number(input.discount_total ?? 0);
   if (!Number.isFinite(requestedDiscount) || requestedDiscount < 0) throw new Error("Diskon tidak valid");
+  // Diskon tidak boleh diberikan oleh role tanpa harga_jual. RPC tidak
+  // memeriksa ini: dia hanya memotong diskon dari total.
   if (!canOverridePrice && requestedDiscount > 0) throw new Error("Hanya admin yang boleh memberikan diskon");
-  const discount_total = Math.max(0, Math.min(requestedDiscount, subtotal));
-  const total = Math.max(0, subtotal - discount_total); // stack: promo di atas diskon per item
-  if (input.payment_method !== "Tunai" && input.paid > total) {
-    throw new Error("Pembayaran non-tunai tidak boleh melebihi total");
-  }
-  const paid = Math.min(input.paid, total);
-  const sale_number = genNota();
 
-  // Semua tulisan terjadi di dalam satu fungsi SQL, jadi satu transaksi.
-  // Dulu lima panggilan terpisah: tag customer, header sales, tiap item,
-  // stok, lalu finance_tx. Kalau finance_tx gagal, barang sudah keluar dan
-  // invoice sudah terbit tapi uang masuk tidak pernah tercatat.
-  //
-  // Fungsi itu juga menghitung ulang subtotal/total/paid dari item, jadi
-  // angka di bawah hanya dipakai untuk pesan error di UI - nilai yang
-  // tersimpan adalah hitungan SQL.
-  const { data: saleId, error: saleError } = await supabase.rpc("create_sale_atomic", {
+  // Subtotal, total, paid, dan payment_status tidak lagi dihitung di sini.
+  // RPC menghitung ulang semuanya dari cervise_products dalam satu transaksi;
+  // nilai yang dihitung di browser tidak menentukan apa yang tersimpan dan
+  // hanya bisa jadi angka yang berbeda dari yang disimpan.
+
+  // Subtotal, total, paid, dan payment_status sekarang dihitung ulang di dalam
+  // RPC dari cervise_products, jadi nilai yang dihitung di browser tidak lagi
+  // menentukan apa yang tersimpan.
+
+  // Tag "sales" ditulis setelah penjualan berhasil, bukan sebelumnya. Kalau
+  // penandaan gagal, penjualan tidak ikut batal - dan kalau ada yang menekan
+  // Beli dua kali, dua penjualan memang terjadi.
+  const { data: sale, error: sErr } = await supabase.rpc("create_sale_with_stock", {
     p_branch_id: branchId,
-    p_customer_id: input.customerId,
-    p_sale_number: sale_number,
-    p_kas_date: input.kas_date,
-    p_payment_method: input.payment_method,
-    p_paid: paid,
-    p_discount_total: discount_total,
-    p_notes: (input.promoCode ? `[Promo ${input.promoCode}] ` : "") + (input.notes?.trim() || ""),
-    p_items: saleItems.map((it) => {
-      return {
-        product_id: it.product_id,
-        qty: Number(it.qty),
-        unit_price: Number(it.unit_price),
-        imei1: it.imei1?.trim() || "",
-        imei2: it.imei2?.trim() || "",
-        warna: it.warna || "",
-      };
-    }),
-    p_created_by: userId,
-  } as any);
-  if (saleError) throw new Error(saleError.message);
+    p_payload: {
+      customer_id: input.customerId,
+      payment_method: input.payment_method,
+      kas_date: input.kas_date,
+      paid: input.paid,
+      discount_total: input.discount_total ?? 0,
+      notes: input.notes?.trim() || "",
+      promo_code: input.promoCode ?? "",
+      items: saleItems.map((item) => ({
+        product_id: item.product_id,
+        qty: item.qty,
+        unit_price: item.unit_price,
+        imei1: item.imei1 ?? "",
+        imei2: item.imei2 ?? "",
+        warna: item.warna ?? "",
+      })),
+    },
+  });
+  if (sErr) throw new Error(sErr.message);
+  const result = (sale ?? {}) as { id?: string; sale_number?: string; total?: number };
+  if (!result.id) throw new Error("Penjualan tidak berhasil disimpan");
+
+  // ensure customer exists and tag sales
+  const { data: cust } = await supabase.from("cervise_customers").select("id, tags").eq("id", input.customerId).eq("branch_id", branchId).maybeSingle();
+  if (cust) {
+    const tags = new Set<string>((cust as any)?.tags ?? []);
+    tags.add("sales");
+    await supabase.from("cervise_customers").update({ tags: Array.from(tags) } as any).eq("id", input.customerId);
+  }
 
   revalidatePath("/app/penjualan");
   revalidatePath("/app/laporan/penjualan");
-  return { id: saleId as unknown as string, sale_number };
+  return { id: result.id, sale_number: result.sale_number ?? "" };
 }
 
 export async function returnSaleItems(saleId: string, returns: { item_id: string; qty: number }[]) {
@@ -360,12 +367,8 @@ export async function returnSaleItems(saleId: string, returns: { item_id: string
   }
 
   // Seluruh penulisan dalam satu transaksi, dengan penjualan dan tiap item
-  // dikunci FOR UPDATE.
-  //
-  // Dulu urutannya: stok dikembalikan dulu, baru qty_returned ditulis. Kalau
-  // tulisan kedua gagal, stok sudah balik tanpa tercatat dan retur bisa
-  // diulang indefinitely. Ditambah qty_returned dibaca tanpa lock, jadi dua
-  // retur bersamaan bisa dua-duanya mengembalikan stok yang sama.
+  // dikunci FOR UPDATE. Stok, qty_returned, nilai retur, status, dan kas
+  // keluar ditulis bersama - kalau satu gagal, tidak ada yang tersisa.
   const { data: returned, error: returnError } = await supabase.rpc(
     "return_sale_items_atomic",
     {
@@ -374,7 +377,7 @@ export async function returnSaleItems(saleId: string, returns: { item_id: string
       p_items: returns.map((r) => ({ item_id: r.item_id, qty: Number(r.qty) })),
       // Tanggal bisnis WIB, bukan current_date di server UTC. Retur jam 1 pagi
       // tidak boleh tercatat sebagai kas keluar kemarin.
-      p_kas_date: businessDate(),
+      p_kas_date: kalenderWIB(),
     } as any,
   );
   if (returnError) throw new Error(returnError.message);

@@ -50,7 +50,7 @@ function report(overrides: Partial<ShiftReport> = {}): ShiftReport {
         forService: null,
       },
     ],
-    cashTx: [{ id: "c1", direction: "pemasukan", label: "Kas manual masuk", amount: 100_000 }],
+    cashTx: [{ id: "c1", direction: "pemasukan", label: "Kas manual masuk", amount: 100_000, source: "kas_manual", metode: null }],
     totals: {
       services: 950_000,
       sales: 150_000,

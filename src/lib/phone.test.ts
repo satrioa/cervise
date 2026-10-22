@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { normalizePhone62, phoneSearchDigits, toFonnteTarget, validatePhone } from "./phone";
+import { normalizePhone62, phoneSearchDigits, phoneStoredForms, toFonnteTarget, validatePhone } from "./phone";
 
 describe("phoneSearchDigits", () => {
   /**
@@ -9,28 +9,35 @@ describe("phoneSearchDigits", () => {
    * 6281277770001, jadi setiap orang yang mengetik nomor lokal 08... tidak
    * akan pernah menemukan customer yang sudah ada.
    *
-   * Bentuk ini harus cocok dengan apa yang ditulis `createCustomer`, yaitu
-   * `normalizePhone62`, TAPI tanpa batas panjang 10-15 digit - orang
-   * mengetik sebagian nomor saat mencari.
+   * Hasilnya sengaja BUKAN bentuk kanonik 62..., melainkan nomor tanpa awalan
+   * negara: itulah satu-satunya substring yang muncul di baris lama "08..."
+   * maupun baris baru "62..." sekaligus.
    */
-  it("mengubah nomor lokal 08... menjadi bentuk kanonik yang tersimpan", () => {
-    expect(phoneSearchDigits("081277770001")).toBe("6281277770001");
-    expect(phoneSearchDigits("81277770001")).toBe("6281277770001");
-    expect(phoneSearchDigits("6281277770001")).toBe("6281277770001");
-    expect(phoneSearchDigits("+62 812-7777-0001")).toBe("6281277770001");
+  it("membuang awalan negara, bukan menyeragamkan ke 62...", () => {
+    expect(phoneSearchDigits("081277770001")).toBe("81277770001");
+    expect(phoneSearchDigits("6281277770001")).toBe("81277770001");
+    expect(phoneSearchDigits("81277770001")).toBe("81277770001");
+    expect(phoneSearchDigits("+62 812-7777-0001")).toBe("81277770001");
+  });
+
+  it("cocok dengan baris lama yang tersimpan 08... dan baris baru 62...", () => {
+    const term = phoneSearchDigits("081277770001");
+    for (const stored of ["081277770001", "6281277770001"]) {
+      expect(stored.includes(term)).toBe(true);
+    }
   });
 
   it("tetap berguna untuk pencarian sebagian, tidak menolak input pendek", () => {
     // Batas 10-15 digit milik normalizePhone62 tidak boleh ikut di sini:
     // "812" belum cukup untuk disimpan tapi sudah cukup untuk mencari.
-    expect(phoneSearchDigits("0812")).toBe("62812");
-    expect(phoneSearchDigits("8")).toBe("628");
-    expect(phoneSearchDigits("62")).toBe("62");
+    expect(phoneSearchDigits("0812")).toBe("812");
+    expect(phoneSearchDigits("8")).toBe("8");
+    expect(phoneSearchDigits("62")).toBe("");
   });
 
   it("membuang semua non-digit supaya spasi dan tanda hubung tidak memutus", () => {
-    expect(phoneSearchDigits("0812 7777 0001")).toBe("6281277770001");
-    expect(phoneSearchDigits("(0812) 7777-0001")).toBe("6281277770001");
+    expect(phoneSearchDigits("0812 7777 0001")).toBe("81277770001");
+    expect(phoneSearchDigits("(0812) 7777-0001")).toBe("81277770001");
   });
 
   it("mengembalikan string kosong untuk input tanpa digit", () => {
@@ -40,10 +47,23 @@ describe("phoneSearchDigits", () => {
     expect(phoneSearchDigits(null)).toBe("");
   });
 
-  it("menyamakan hasilnya dengan normalizePhone62 untuk nomor penuh", () => {
+  it("menyamakan hasilnya dengan normalizePhone62 setelah awalan dibuang", () => {
     for (const raw of ["081234567890", "81234567890", "6281234567890", "+62 812-3456-7890"]) {
-      expect(phoneSearchDigits(raw)).toBe(normalizePhone62(raw));
+      expect(`62${phoneSearchDigits(raw)}`).toBe(normalizePhone62(raw));
     }
+  });
+});
+
+describe("phoneStoredForms", () => {
+  it("mengembalikan bentuk kanonik dan bentuk lama 08...", () => {
+    expect(phoneStoredForms("081277770001")).toEqual(["6281277770001", "081277770001"]);
+    expect(phoneStoredForms("6281277770001")).toEqual(["6281277770001", "081277770001"]);
+    expect(phoneStoredForms("+62 812-7777-0001")).toEqual(["6281277770001", "081277770001"]);
+  });
+
+  it("kosong untuk nomor yang tidak masuk akal", () => {
+    expect(phoneStoredForms("0812")).toEqual([]);
+    expect(phoneStoredForms("+1 202 555 0147")).toEqual([]);
   });
 });
 

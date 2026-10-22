@@ -23,6 +23,7 @@ import { haptic } from "@/lib/haptic";
 import { createSale, type ProductRow } from "@/app/app/penjualan/actions";
 import { searchCustomersByPhone, findOrCreateCustomer } from "@/app/app/customer/actions";
 import { cn } from "@/lib/utils";
+import { kalenderWIB } from "@/lib/operational/periode-bulan";
 
 const METODE = ["Tunai", "Debit", "Transfer", "QRIS", "E-Wallet"] as const;
 const METODE_META: { value: string; icon: any; desc: string }[] = [
@@ -144,7 +145,7 @@ export function PenjualanCartPanel({ onSuccess, customerId, customerPhone, custo
       if (c.product.is_serialized && !/^\d{15}$/.test(c.imei1!.trim())) { toast.error(`IMEI ${c.product.name} harus 15 digit`); return; }
     }
     const paid = total;
-    const kas_date = new Date().toISOString().slice(0, 10);
+    const kas_date = kalenderWIB();
     setSaving(true);
     try {
       const res = await createSale({ customerId: finalCustomerId!, items: cart.map((c) => ({ product_id: c.product.id, qty: c.qty, unit_price: c.unit_price, imei1: c.imei1, imei2: c.imei2, warna: c.warna })), payment_method: metode, kas_date, paid, notes: undefined, promoCode: promoDisc > 0 ? promoCode : null, discount_total: promoDisc });

@@ -2,14 +2,14 @@
 
 import { useState } from "react";
 import { formatCurrencyPlain, formatNumberPlain } from "@/lib/format";
-import { businessDate } from "@/lib/business-date";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectTrigger, SelectPopup, SelectItem, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { recordServisPayment } from "@/app/app/actions/cash";
+import { addPembayaran } from "@/app/app/servis/actions";
+import { kalenderWIB } from "@/lib/operational/periode-bulan";
 
 type Props = {
   servisId: string;
@@ -24,23 +24,35 @@ const METODE = ["Tunai", "Debit", "Transfer", "QRIS", "E-Wallet"] as const;
 export function ServisBayarForm({ servisId, estimasi, totalPaid = 0, onSuccess, onClose }: Props) {
   const [amount, setAmount] = useState<number | "">("");
   const [metode, setMetode] = useState<(typeof METODE)[number]>("Tunai");
-  const [kasDate, setKasDate] = useState(() => businessDate());
+  const [kasDate, setKasDate] = useState(() => kalenderWIB());
   const [keterangan, setKeterangan] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const sisa = estimasi != null ? Math.max(0, estimasi - totalPaid) : null;
 
-  // `recordServisPayment` menolak pembayaran baru begitu total yang dibayar
-  // sudah mencapai estimasi, tanpa melihat nominalnya. Dulu form tetap
-  // menampilkan semua field dan menjanjikan "melebihi sisa tetap bisa
-  // disimpan", jadi kasir isi form lalu/server menolak dengan "sudah lunas" -
-  // dua pesan bertentangan di layar yang sama.
-  //
-  // short: `sisa === 0` hanya terjadi kalau ada estimasi. Servis tanpa
-  // estimasi (null) tetap punya form terbuka, karena tidak ada patokan lunas
-  // dan kasir yang menilainya.
-  const sudahLunas = sisa === 0;
+  // Servis yang sudah lunas tidak menampilkan form lagi. RPC-nya memang
+  // menolak pembayaran setelah lunas, tapi pesan error setelah menekan
+  // "Simpan" lebih membingungkan daripada menjelaskan keadaannya di depan.
+  if (sisa === 0) {
+    return (
+      <div className="space-y-3">
+        <div className="flex flex-wrap gap-2 text-xs">
+          <Badge variant="outline">Estimasi {formatCurrencyPlain(estimasi ?? 0)}</Badge>
+          <Badge variant="secondary">Terbayar {formatCurrencyPlain(totalPaid)}</Badge>
+          <Badge>Tunai / lunas</Badge>
+        </div>
+        <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm">
+          Servis ini sudah lunas. Tidak ada yang perlu ditagih lagi.
+        </div>
+        {onClose && (
+          <div className="flex justify-end">
+            <Button type="button" variant="outline" onClick={onClose}>Tutup</Button>
+          </div>
+        )}
+      </div>
+    );
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -48,18 +60,8 @@ export function ServisBayarForm({ servisId, estimasi, totalPaid = 0, onSuccess, 
     if (amount === "" || Number(amount) <= 0) { setError("Nominal harus >0"); return; }
     setLoading(true);
     try {
-      const res = await recordServisPayment({
-        servisId,
-        amount: Number(amount),
-        metode,
-        kasDate,
-        note: keterangan.trim() || undefined,
-      });
-      if (!res.ok) {
-        setError(res.error);
-        return;
-      }
-      onSuccess?.(res.data.totalPaid);
+      const res = await addPembayaran({ servisId, amount: Number(amount), metode, kas_date: kasDate, keterangan: keterangan.trim() || undefined });
+      onSuccess?.(res.total);
       setAmount("");
       setKeterangan("");
     } catch (err: unknown) {
@@ -78,23 +80,11 @@ export function ServisBayarForm({ servisId, estimasi, totalPaid = 0, onSuccess, 
           {sisa !== null && <Badge variant={sisa === 0 ? "default" : "outline"}>Sisa {formatCurrencyPlain(sisa)}</Badge>}
         </div>
       )}
-
-      {sudahLunas ? (
-        <div className="space-y-3">
-          <p className="rounded-lg border border-border/60 bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
-            Servis ini sudah lunas. Pembayaran baru akan ditolak server, jadi form
-            tidak ditampilkan. Kalau ada selisih, catat lewat adjustment kas -
-            bukan di sini.
-          </p>
-          {onClose && <Button type="button" variant="outline" onClick={onClose}>Tutup</Button>}
-        </div>
-      ) : (
-        <>
       {error && <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">{error}</div>}
       <div className="grid gap-1.5">
         <Label>Nominal *</Label>
         <Input type="number" min={1} placeholder="Jumlah bayar, cth 150000" value={amount} onChange={(e) => { const v = e.target.value; if (v === "") setAmount(""); else setAmount(Math.max(0, Number(v))); }} />
-        {amount !== "" && sisa !== null && Number(amount) > sisa && <p className="text-[11px] text-amber-600 dark:text-amber-400">Melebihi sisa estimasi. Server akan menerimanya selama total terbayar belum mencapai estimasi - kalau tidak, tolak dan catat lewat adjustment kas.</p>}
+        {amount !== "" && sisa !== null && Number(amount) > sisa && <p className="text-[11px] text-amber-600 dark:text-amber-400">Melebihi sisa estimasi, tapi tetap bisa disimpan (mungkin ada tambahan part).</p>}
       </div>
       <div className="grid gap-1.5">
         <Label>Metode *</Label>
@@ -119,8 +109,6 @@ export function ServisBayarForm({ servisId, estimasi, totalPaid = 0, onSuccess, 
         <Button type="submit" disabled={loading}>{loading ? "Menyimpan..." : "Simpan Pembayaran"}</Button>
       </div>
       <p className="text-[11px] text-muted-foreground">Hanya admin/kasir boleh input. Pembayaran bisa DP awal atau di akhir.</p>
-        </>
-      )}
     </form>
   );
 }

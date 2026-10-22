@@ -1,7 +1,7 @@
 "use server";
 
 import { mapServisListRows, type ServisListRow } from "@/lib/operational/servis-list";
-import { addGaransiDays, normalizeGaransiUnit, toDays } from "@/lib/operational/garansi-list";
+import { kalenderWIB } from "@/lib/operational/periode-bulan";
 import { sanitizeSearchTerm } from "@/lib/search-term";
 
 export type KondisiStatus = "normal" | "tidak_normal";
@@ -33,7 +33,7 @@ export type CreateServisPayload = {
 export type UpdateServisPayload = Partial<CreateServisPayload> & { id: string };
 
 import { getActiveTenant } from "@/lib/supabase/actor";
-
+import { canAccess } from "@/lib/rbac";
 import { isManagerRole } from "@/lib/auth/authorization";
 
 async function getBranchAndUser() {
@@ -111,9 +111,6 @@ export async function getTeknisi() {
 
 export async function searchCustomers(q: string) {
   const { supabase, branchId } = await getBranchAndUser();
-  // `.or()` menerima string filter mentah, jadi koma dan kurung di term akan
-  // menambah atau menutup klausa - hasilnya error PostgREST atau daftar yang
-  // salah, bukan pesan yang bisa dimengerti kasir.
   const term = sanitizeSearchTerm(q);
   if (term.length < 1) return [];
   const { data, error } = await supabase
@@ -129,9 +126,9 @@ export async function searchCustomers(q: string) {
 /**
  * Tag kerusakan untuk form servis.
  *
- * Query-nya lewat `search_service_tags` supaya `%` dan `_` dari user dibaca
- * sebagai karakter biasa. Dengan `.ilike` langsung, mengetik `%` di kotak
- * pencarian menarik seluruh katalog tag cabang.
+ * Lewat `search_service_tags` supaya `%` dan `_` dari user dibaca sebagai
+ * karakter biasa. Dengan `.ilike` langsung, mengetik `%` di kotak pencarian
+ * menarik seluruh katalog tag cabang.
  */
 export async function searchTags(q: string) {
   const { supabase, branchId } = await getBranchAndUser();
@@ -226,14 +223,12 @@ export async function createServis(payload: CreateServisPayload) {
 
   const deviceLabel = `${payload.merk.trim()} ${payload.tipe.trim()}`.trim();
 
-  // cervise_services.garansi_until has no database trigger, so the expiry is
-  // computed here. Without this every new service reads as "Belum aktif" on
-  // the warranty page.
-  const garansiDays = toDays(payload.garansi_value, payload.garansi_unit);
-  const garansiUntil =
-    Number.isFinite(garansiDays) && garansiDays > 0
-      ? addGaransiDays(new Date(), garansiDays).toISOString()
-      : null;
+  // `garansi_until` SENGAJA tidak diisi di sini. Garansi mulai saat pelanggan
+  // mengambil perangkat, dan itu dihitung `set_service_status` ketika status
+  // jadi 'Sudah Diambil'. Mengisinya sekarang membuat tanggalnya dihitung dari
+  // saat servis masuk, jadi perbaikan yang butuh seminggu memotong garansi
+  // pelanggan seminggu. Sampai diambil, halaman garansi menampilkan
+  // "Belum aktif" - itu memang keadaannya.
 
   // Nomor servis dibuat di database supaya urutannya aman saat dua orang
   // membuat servis bersamaan di cabang yang sama.
@@ -264,7 +259,6 @@ export async function createServis(payload: CreateServisPayload) {
       password_value: payload.password_value.trim(),
       garansi_value: payload.garansi_value,
       garansi_unit: payload.garansi_unit,
-      garansi_until: garansiUntil,
       kondisi_awal: {},
       created_by: userId,
     })
@@ -341,15 +335,9 @@ export async function updateServis(payload: UpdateServisPayload) {
   if (payload.password_value) patch.password_value = payload.password_value.trim();
   if (payload.garansi_value !== undefined) patch.garansi_value = payload.garansi_value;
   if (payload.garansi_unit) patch.garansi_unit = payload.garansi_unit;
-  // keep the derived expiry in step with the warranty term
-  if (payload.garansi_value !== undefined || payload.garansi_unit) {
-    const days = toDays(
-      Number(payload.garansi_value ?? 0),
-      normalizeGaransiUnit(payload.garansi_unit),
-    );
-    patch.garansi_until =
-      Number.isFinite(days) && days > 0 ? addGaransiDays(new Date(), days).toISOString() : null;
-  }
+  // `garansi_until` tidak dihitung ulang di sini: mengubah nilai garansi tidak
+  // memindahkan tanggal mulai, karena tanggal itu ditetapkan saat perangkat
+  // diambil. Lihat createServis.
   if (payload.price_estimasi !== undefined) patch.price_estimasi = payload.price_estimasi;
   if (payload.teknisi_id) patch.teknisi_id = payload.teknisi_id;
   if (customerId) patch.customer_id = customerId;
@@ -470,14 +458,46 @@ export async function deleteServis(id: string) {
 }
 
 /**
- * Pembayaran servis dicatat oleh `recordServisPayment` di
- * `@/app/app/actions/cash`, bukan di file ini.
+ * Mencatat pembayaran servis.
  *
- * Fungsi lama (`addPembayaran`) hanya menulis `finance_tx`, sehingga pembayaran
- * dari drawer ini tidak pernah terlihat di Laporan Penjualan dan tetap muncul di
- * antrean "Bayar" kasir. Sekarang satu fungsi menulis keduanya, jadi tidak ada
- * lagi dua jalan pencatatan.
+ * Satu-satunya jalur: RPC `record_service_payment` menulis faktur
+ * (`cervise_sales` dengan `servis_id`), kas (`finance_tx`), dan total terbayar
+ * (`cervise_services.price`) dalam satu transaksi.
+ *
+ * Dulu ada dua jalur yang menulis ke tabel berbeda - dialog kasir menulis
+ * `cervise_sales`, drawer detail servis menulis `finance_tx` - jadi Laporan
+ * Penjualan tidak melihat yang lewat drawer dan Arus Kas tidak melihat yang
+ * lewat dialog. Sekarang keduanya melihat hal yang sama.
+ *
+ * `servis_id` di baris penjualan adalah pengait anti hitung-ganda di
+ * `buildLaporanShift`: servis yang sudah punya penjualan keluar dari
+ * `servicesTotal` dan masuk `salesTotal`, yang tahu metode pembayarannya.
+ *
+ * Konsekuensi: baris `cervise_sales` ini tidak punya `cervise_sales_items`,
+ * jadi `getSalesOrders()` menampilkannya dengan qty 0. Menambah item dengan
+ * produk dummy akan mengotori katalog stok, jadi itu dibiarkan.
  */
+export async function addPembayaran(params: { servisId: string; amount: number; metode: "Tunai" | "Debit" | "Transfer" | "QRIS" | "E-Wallet"; kas_date?: string; keterangan?: string }) {
+  const { supabase, branchId, userId, role } = await getBranchAndUser();
+  if (!canAccess(role, "keuangan_transaksi")) throw new Error("Hanya admin/kasir boleh input pembayaran");
+  if (!params.servisId) throw new Error("Servis ID wajib");
+  if (!params.amount || !Number.isFinite(params.amount) || params.amount <= 0) throw new Error("Nominal harus >0");
+  if (!["Tunai", "Debit", "Transfer", "QRIS", "E-Wallet"].includes(params.metode)) throw new Error("Metode tidak valid");
+
+  const { data, error } = await supabase.rpc("record_service_payment", {
+    p_branch_id: branchId,
+    p_servis_id: params.servisId,
+    p_amount: Math.round(params.amount),
+    p_metode: params.metode,
+    p_kas_date: params.kas_date ?? kalenderWIB(),
+    p_keterangan: params.keterangan?.trim() || null,
+    p_created_by: userId,
+  });
+  if (error) throw new Error(error.message);
+
+  const result = data as { total?: number } | null;
+  return { ok: true, total: Number(result?.total ?? 0) };
+}
 
 export async function getPembayaranHistory(servisId: string) {
   const { supabase, branchId } = await getBranchAndUser();

@@ -7,12 +7,6 @@ const mocks = vi.hoisted(() => {
     tag: null as { id: string; usage_count: number } | null,
     financeRows: [] as { amount: number }[],
     parts: [] as { id: string; name: string; qty: number }[],
-    /** Argumen `bump_service_tag_usage` per panggilan, urut. */
-    tagBumps: [] as { p_branch_id: string; p_name: string; p_delta: number }[],
-    /** Diset untuk menguji jalur error dari RPC. */
-    tagBumpError: null as { message: string } | null,
-    /** Diset untuk menguji baris tag yang sudah hilang. */
-    tagExists: true,
   };
 
   const serviceSingle = { get data() { return state.service; }, error: null };
@@ -21,15 +15,10 @@ const mocks = vi.hoisted(() => {
   }));
   const serviceDelete = vi.fn(() => ({ eq: () => ({ eq: async () => ({ error: null }) }) }));
 
-  // Counter tag lewat RPC `bump_service_tag_usage`, bukan baca-sulis di server
-  // action. Mock ini mencatat argumennya supaya test bisa memeriksa nama tag dan
-  // arah delta-nya.
-  const rpc = vi.fn((fn: string, args: { p_branch_id: string; p_name: string; p_delta: number }) => {
-    if (fn !== "bump_service_tag_usage") throw new Error(`unexpected rpc: ${fn}`);
-    if (!state.tagExists) return Promise.resolve({ data: null, error: null });
-    state.tagBumps.push(args);
-    return Promise.resolve({ data: state.tag?.usage_count ?? 1, error: state.tagBumpError });
-  });
+  const tagSelect = vi.fn(() => ({
+    eq: () => ({ ilike: () => ({ maybeSingle: async () => ({ data: state.tag, error: null }) }) }),
+  }));
+  const tagUpdate = vi.fn(() => ({ eq: async () => ({ error: null }) }));
 
   const financeSelect = vi.fn(() => ({
     eq: () => ({ eq: () => ({ eq: async () => ({ data: state.financeRows, error: null }) }) }),
@@ -39,19 +28,15 @@ const mocks = vi.hoisted(() => {
     eq: () => ({ eq: async () => ({ data: state.parts, error: null }) }),
   }));
 
+  // Counter tag sekarang lewat RPC, bukan baca-sulis di tabel.
+  const rpc = vi.fn(async () => ({ data: 0, error: null }));
+
   const from = vi.fn((table: string) => {
     switch (table) {
       case "cervise_services":
         return { select: serviceSelect, delete: serviceDelete };
       case "cervise_service_tags":
-        // Tidak ada lagi select/update langsung: semua perubahan counter lewat
-        // RPC. Stub di sini hanya menjaga `from("cervise_service_tags")` tidak
-        // melempar kalau ada pemanggil lama yang masih memakainya.
-        return {
-          select: vi.fn(() => ({
-            eq: () => ({ ilike: () => ({ maybeSingle: async () => ({ data: null, error: null }) }) }),
-          })),
-        };
+        return { select: tagSelect, update: tagUpdate };
       case "cervise_finance_tx":
         return { select: financeSelect };
       case "cervise_service_spareparts":
@@ -61,7 +46,7 @@ const mocks = vi.hoisted(() => {
     }
   });
 
-  return { state, from, rpc, serviceDelete, getActiveTenant: vi.fn() };
+  return { state, from, serviceDelete, tagUpdate, rpc, getActiveTenant: vi.fn() };
 });
 
 vi.mock("@/lib/supabase/actor", () => ({ getActiveTenant: mocks.getActiveTenant }));
@@ -86,9 +71,6 @@ describe("deleteServis", () => {
     mocks.state.tag = null;
     mocks.state.financeRows = [];
     mocks.state.parts = [];
-    mocks.state.tagBumps = [];
-    mocks.state.tagBumpError = null;
-    mocks.state.tagExists = true;
   });
 
   it("refuses to delete while spareparts are still consumed", async () => {
@@ -144,39 +126,28 @@ describe("deleteServis", () => {
     expect(result.orphanedPaymentTotal).toBe(200000);
   });
 
-  it("decrements tag usage counters through the atomic rpc", async () => {
+  it("menurunkan counter tag lewat rpc, bukan baca-sulis", async () => {
     mocks.getActiveTenant.mockResolvedValue(actorStub("ADMIN"));
-    mocks.state.tag = { id: "tag-1", usage_count: 3 };
 
     await deleteServis("servis-1");
 
-    // Penurunan dihitung di database (`greatest(..., 0)`), jadi TypeScript hanya
-    // mengirim arahnya.
-    expect(mocks.state.tagBumps).toEqual(
-      mocks.state.service!.kerusakan.map((name) => ({
-        p_branch_id: "branch-1",
-        p_name: name,
-        p_delta: -1,
-      })),
-    );
+    expect(mocks.rpc).toHaveBeenCalledWith("bump_service_tag_usage", {
+      p_branch_id: "branch-1",
+      p_name: "Layar retak",
+      p_delta: -1,
+    });
   });
 
-  it("skips the counter entirely when the tag row is already gone", async () => {
+  it("memanggil rpc sekali per tag, tidak memedulikan apakah tag-nya sudah ada", async () => {
     mocks.getActiveTenant.mockResolvedValue(actorStub("ADMIN"));
-    mocks.state.tagExists = false;
+    mocks.state.service = { id: "servis-1", device: "iPhone 13", kerusakan: ["Layar retak", "Baterai drop"] };
 
     await deleteServis("servis-1");
 
-    expect(mocks.state.tagBumps).toEqual([]);
-    expect(mocks.serviceDelete).toHaveBeenCalled();
-  });
-
-  it("propagates a counter failure instead of deleting the service anyway", async () => {
-    mocks.getActiveTenant.mockResolvedValue(actorStub("ADMIN"));
-    mocks.state.tagBumpError = { message: "branch tidak diizinkan" };
-
-    await expect(deleteServis("servis-1")).rejects.toThrow("branch tidak diizinkan");
-    expect(mocks.serviceDelete).not.toHaveBeenCalled();
+    // RPC-nya `on conflict` + `greatest(..., 0)`, jadi baris yang belum ada
+    // atau sudah nol tetap aman: tidak ada lagi cabang "tag tidak ditemukan"
+    // yang harus dilewati di sini.
+    expect(mocks.rpc).toHaveBeenCalledTimes(2);
   });
 
   it("still deletes when the service has no recorded tags", async () => {

@@ -1,0 +1,13 @@
+-- Buang jalur penjualan kedua yang tidak dipakai.
+--
+-- create_sale_atomic diterapkan ke produksi dari cabang satrioa/fix-servis-kas
+-- tapi tidak pernah dipanggil aplikasi: createSale tetap memakai
+-- create_sale_with_stock. Yang tertinggal hanya risikonya - SECURITY DEFINER,
+-- bisa dipanggil siapa pun yang login lewat REST, dan gerbang harganya lebih
+-- lemah daripada create_sale_with_stock (harga dari klien, tanpa validasi
+-- IMEI). Fungsi yang tidak dipakai tapi bisa dipanggil adalah permukaan
+-- serangan, bukan cadangan.
+--
+-- if exists supaya migration ini tidak gagal di database yang belum pernah
+-- menerimanya.
+drop function if exists public.create_sale_atomic(uuid, uuid, text, date, text, integer, integer, text, jsonb, uuid);

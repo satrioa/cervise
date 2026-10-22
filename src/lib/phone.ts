@@ -61,23 +61,44 @@ export function normalizePhone62(raw: string | null | undefined): string | null 
 }
 
 /**
- * Bentuk digit untuk MENCARI nomor di kolom yang tersimpan kanonik.
+ * Bentuk digit untuk MENCARI nomor di kolom `phone`.
  *
  * `normalizePhone62` tidak bisa dipakai untuk pencarian karena ia menolak
  * input di bawah 10 digit, sedangkan orang mengetik nomor sebagian saat
- * mencari. Fungsi ini memakai aturan awalan yang sama (0 dan 8 jadi 62)
- * tanpa batas panjang, jadi "0812" tetap dicari sebagai "62812".
+ * mencari.
  *
- * Yang penting: hasil fungsi ini harus bisa muncul sebagai substring dari
- * kolom `phone`. Ditemukan lewat test end-to-end - pencarian customer di POS
- * memakai bentuk mentah sehingga "081277770001" tidak pernah cocok dengan
- * yang tersimpan "6281277770001".
+ * Yang dikembalikan bukan bentuk kanonik `62...`, melainkan nomor tanpa
+ * awalan negara - bagian yang SAMA pada kedua bentuk yang ada di database.
+ * `customer.phone` sekarang ditulis kanonik oleh `normalizePhone62`, tapi
+ * baris lama masih tersimpan `08...`, dan dua-duanya harus tetap ketemu.
+ * Mencari "%62812%" tidak cocok dengan baris "0812...", dan sebaliknya.
+ * Mencari "%812%" cocok dengan keduanya.
+ *
+ * Ditemukan lewat test end-to-end: pencarian customer di POS memakai bentuk
+ * mentah sehingga "081277770001" tidak pernah cocok dengan yang tersimpan
+ * "6281277770001".
  */
 export function phoneSearchDigits(raw: string | null | undefined): string {
   let digits = String(raw ?? "").replace(/\D/g, "");
-  if (digits.startsWith("0")) digits = `62${digits.slice(1)}`;
-  else if (digits.startsWith("8")) digits = `62${digits}`;
+  if (digits.startsWith("62")) digits = digits.slice(2);
+  else if (digits.startsWith("0")) digits = digits.slice(1);
   return digits;
+}
+
+/**
+ * Semua bentuk yang mungkin tersimpan untuk satu nomor: kanonik `62...` yang
+ * ditulis sekarang, dan `08...` dari baris lama.
+ *
+ * Dipakai untuk mendeteksi customer duplikat. Perbandingan `eq("phone", norm)`
+ * saja melewatkan baris lama, jadi orang yang nomornya sudah terdaftar sebagai
+ * `08...` tetap bisa dibuatkan customer kedua dengan nomor yang sama - dan
+ * itulah yang membuat POS menolak dengan "HP sudah terdaftar" setelah
+ * menawarkan "buat customer baru".
+ */
+export function phoneStoredForms(raw: string | null | undefined): string[] {
+  const canonical = normalizePhone62(raw);
+  if (!canonical) return [];
+  return [canonical, `0${phoneSearchDigits(raw)}`];
 }
 
 export type PhoneValidation =

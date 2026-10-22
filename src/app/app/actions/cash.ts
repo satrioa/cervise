@@ -1,9 +1,7 @@
-"use server";
+﻿"use server";
 
 import { getActiveTenant } from "@/lib/supabase/actor";
 import { isManagerRole } from "@/lib/auth/authorization";
-import { canAccess } from "@/lib/nav/manifest";
-import { businessDate, businessDayStartIso } from "@/lib/business-date";
 import {
   buildFrontlinerKpi,
   type FrontlinerKpi,
@@ -16,6 +14,7 @@ import {
   type ShiftServiceRow,
   type ShiftSession,
 } from "@/lib/operational/laporan-shift";
+import { awalHariWIB, kalenderWIB } from "@/lib/operational/periode-bulan";
 
 /**
  * Sesi kas harian dan Laporan Shift.
@@ -43,13 +42,12 @@ async function cashContext() {
   return { supabase: actor.supabase, branchId: actor.branchId, userId: actor.userId, role: actor.role };
 }
 
-/**
- * Tanggal kalender untuk `kas_date` dan "hari ini".
- *
- * Dulu `toISOString().slice(0, 10)` dipakai langsung di file ini. Itu tanggal
- * UTC, sedangkan server produksi berjalan di UTC dan toko berada di WIB:
- * transaksi antara 00:00 dan 07:00 tercatat di laporan tanggal sebelumnya.
- */
+// Dipakai enam kali di file ini, jadi hanya satu definisi hari kalender.
+// toISOString().slice(0, 10) adalah hari UTC dan menggeser shift yang dibuka
+// antara 00:00 dan 07:00 WIB ke hari sebelumnya. Lihat kalenderWIB.
+function toCalendarDate(date: Date): string {
+  return kalenderWIB(date);
+}
 
 // ---------------------------------------------------------------------------
 // Sesi
@@ -58,7 +56,7 @@ async function cashContext() {
 /**
  * Sesi terbuka milik pengguna ini, atau null.
  *
- * `staleSession` mengembalikan sesi terbuka yang tanggalnya sudah lewat — tahu
+ * `staleSession` mengembalikan sesi terbuka yang tanggalnya sudah lewat â€” tahu
  * kalau ada shift yang ditinggalkan tanpa ditutup, supaya dialog saldo awal
  * bisa memperingatkan sebelum membuat sesi baru.
  */
@@ -87,7 +85,7 @@ export async function checkOpenCashSession(): Promise<
       variance: number | null;
     }[];
 
-    const today = businessDate();
+    const today = toCalendarDate(new Date());
     const hydrated = await hydrateSessions(rows);
 
     return {
@@ -95,8 +93,8 @@ export async function checkOpenCashSession(): Promise<
       data: {
         // Index unik `where closed_at is null` menjamin paling banyak satu,
         // tapi `limit(1)` tetap dipakai supaya tidak bergantung pada itu.
-        current: hydrated.find((row) => businessDate(new Date(row.openAt)) === today) ?? hydrated[0] ?? null,
-        stale: hydrated.find((row) => businessDate(new Date(row.openAt)) !== today) ?? null,
+        current: hydrated.find((row) => toCalendarDate(new Date(row.openAt)) === today) ?? hydrated[0] ?? null,
+        stale: hydrated.find((row) => toCalendarDate(new Date(row.openAt)) !== today) ?? null,
       },
     };
   } catch (cause) {
@@ -132,15 +130,15 @@ async function hydrateSessions(
     closedAt: row.closed_at,
     closingBalance: row.closing_balance,
     variance: row.variance,
-    branchName: branchName.get(row.branch_id) ?? "—",
-    employeeName: employeeName.get(row.employee_id) ?? "—",
+    branchName: branchName.get(row.branch_id) ?? "â€”",
+    employeeName: employeeName.get(row.employee_id) ?? "â€”",
   }));
 }
 
 /**
  * Membuka sesi kas. Wajib: tanpa ini Laporan Shift tidak punya pijakan.
  *
- * Record sesi dibuat, laporan TIDAK — di titik ini belum ada transaksi
+ * Record sesi dibuat, laporan TIDAK â€” di titik ini belum ada transaksi
  * untuk dilaporkan. Laporan dihitung live dari `open_at`.
  */
 export async function openCashSession(input: { openingBalance: number }): Promise<CashResult<CashSessionRow>> {
@@ -201,7 +199,7 @@ export async function closeCashSession(input: {
 
     // Verifikasi sesi masih terbuka sebelum update. Constraint database
     // `cervise_cash_sessions_closed_check` hanya menolak update yang
-    // meninggalkan kolom penutup kosong — ia tidak menolak update kedua atas
+    // meninggalkan kolom penutup kosong â€” ia tidak menolak update kedua atas
     // sesi yang sudah tertutup. Pemeriksaan ini yang menutup celah itu.
     const { data: row, error: readError } = await supabase
       .from("cervise_cash_sessions")
@@ -219,23 +217,40 @@ export async function closeCashSession(input: {
     const report = await computeReport(input.sessionId, row as SessionForReport);
     if (!report) return fail("Gagal menghitung laporan shift");
 
-    const { error: updateError } = await supabase
+    // `expected_cash` dan `variance` memakai report.expectedCash, bukan
+    // report.totals.expected. Yang kedua adalah omzet: penjualan non-Tunai dan
+    // pendapatan servis ikut di dalamnya, dan keduanya tidak pernah ada di
+    // tangan. Menyimpannya ke kolom `expected_cash` membuat angka di struk
+    // thermal dan di getShiftReport tidak cocok dengan isi laci sungguhan.
+    const { data: closed, error: updateError } = await supabase
       .from("cervise_cash_sessions")
       .update({
         closed_at: new Date().toISOString(),
         closing_balance: closing,
-        expected_cash: report.totals.expected,
-        variance: closing - report.totals.expected,
+        expected_cash: report.expectedCash,
+        variance: closing - report.expectedCash,
         snapshot: { ...report, reason: input.reason?.trim() || null },
       })
       .eq("id", input.sessionId)
-      .is("closed_at", null);
+      .is("closed_at", null)
+      // Tanpa select, update yang cocok 0 baris tetap dilaporkan PostgREST
+      // sebagai sukses. Dua admin menekan Tutup Toko pada sesi yang sama ->
+      // yang kedua menulis nol baris, tanpa error, lalu struk thermal
+      // dicetak untuk angka yang tidak pernah disimpan.
+      .select("id")
+      .maybeSingle();
 
     if (updateError) return fail(updateError.message);
+    if (!closed) return fail("Shift sudah ditutup oleh orang lain. Muat ulang.");
 
     return {
       ok: true,
-      data: { ...report, reason: input.reason?.trim() || null, closingBalance: closing, variance: closing - report.totals.expected },
+      data: {
+        ...report,
+        reason: input.reason?.trim() || null,
+        closingBalance: closing,
+        variance: closing - report.expectedCash,
+      },
     };
   } catch (cause) {
     return fail(cause instanceof Error ? cause.message : "Gagal menutup toko");
@@ -257,7 +272,7 @@ async function computeReport(sessionId: string, row: SessionForReport): Promise<
 
   const { supabase, branchId } = await cashContext();
   const now = new Date();
-  const date = businessDate(new Date(session.openAt));
+  const date = toCalendarDate(new Date(session.openAt));
 
   // Tiga query paralel. Setiap filter mengikuti bentuk kolomnya masing-masing:
   // servis pakai created_at (timestamptz, jamnya ada), penjualan dan kas
@@ -279,7 +294,7 @@ async function computeReport(sessionId: string, row: SessionForReport): Promise<
       .limit(SALE_ROW_CAP),
     supabase
       .from("cervise_finance_tx")
-      .select("id, type, amount, description, kas_date, source")
+      .select("id, type, amount, description, kas_date, source, metode")
       .eq("branch_id", branchId)
       .eq("kas_date", date)
       .in("source", ["kas_manual", "penyesuaian", "retur"])
@@ -381,7 +396,7 @@ export async function listShiftSessions(
  * Saldo masuk atau keluar di luar penjualan.
  *
  * Menulis ke `finance_tx` dengan `source = 'kas_manual'`, bukan ke tabel
- * terpisah — supaya Laporan Shift, Arus Kas, dan Laporan Keuangan membaca
+ * terpisah â€” supaya Laporan Shift, Arus Kas, dan Laporan Keuangan membaca
  * angka yang sama.
  */
 export async function addCashAdjustment(input: {
@@ -407,7 +422,7 @@ export async function addCashAdjustment(input: {
       type: input.direction,
       amount,
       description,
-      kas_date: input.kasDate ?? businessDate(),
+      kas_date: input.kasDate ?? toCalendarDate(new Date()),
       created_by: userId,
       source: "kas_manual",
     });
@@ -415,177 +430,6 @@ export async function addCashAdjustment(input: {
     return { ok: true, data: null };
   } catch (cause) {
     return fail(cause instanceof Error ? cause.message : "Gagal menyimpan transaksi kas");
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Antrean pembayaran
-// ---------------------------------------------------------------------------
-
-// ---------------------------------------------------------------------------
-// Pembayaran servis
-// ---------------------------------------------------------------------------
-
-export type PaymentMethod = "Tunai" | "Debit" | "Transfer" | "QRIS" | "E-Wallet";
-
-const PAYMENT_METHODS: PaymentMethod[] = ["Tunai", "Debit", "Transfer", "QRIS", "E-Wallet"];
-
-/**
- * Nomor penjualan dari tanggal + sufiks yang cukup panjang.
- *
- * `sale_number` punya UNIQUE. Versi lama memakai 4 karakter acak, yang pada
- * ~200 nota per hari punya peluang bentrok sekitar 2% per hari - dan bentrok
- * berarti kasir melihat error tanpa tahu kenapa.
- */
-function nextServisSaleNumber(date: Date = new Date()): string {
-  const stamp = `${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, "0")}${String(date.getDate()).padStart(2, "0")}`;
-  const suffix = `${date.getTime().toString(36)}${Math.floor(Math.random() * 1296).toString(36).padStart(2, "0")}`.toUpperCase();
-  return `SAL-${stamp}-${suffix}`;
-}
-
-/**
- * Satu-satunya jalan mencatat pembayaran servis.
- *
- * **Kenapa menulis dua tabel.** Pola yang sama dipakai `createSale`: baris
- * `cervise_sales` adalah faktur (yang dibaca Laporan Penjualan dan yang membuat
- * servis ini hilang dari antrean "Bayar"), sedangkan `finance_tx` adalah buku
- * kas (yang dibaca Arus Kas dan Laporan Keuangan). Sebelumnya tiap layar
- * menulis ke tabel yang berbeda, jadi kedua laporan tidak pernah seesama.
- *
- * `buildLaporanShift` tidak menghitung baris `source='transaksi'` - baik
- * pemasukan penjualan maupun pembayaran servis - karena uangnya sudah dihitung
- * lewat `cervise_sales`. Yang ikut dihitung hanya `kas_manual`, `penyesuaian`,
- * dan `retur`. Retur ikut dihitung karena uangnya keluar dari laci hari itu,
- * termasuk untuk penjualan dari hari sebelumnya yang tidak muncul di daftar
- * penjualan shift ini.
- *
- * **Konsekuensi yang disadari.** Baris `cervise_sales` ini tidak punya
- * `cervise_sales_items`, jadi `getSalesOrders()` menampilkannya dengan qty 0.
- *
- * **Patokan lunas adalah `price_estimasi`, bukan `price`.** `price` adalah
- * total yang sudah dibayar (lihat pembaruan di bawah), jadi memakainya sebagai
- * patokan akan membuat setiap pembayaran kedua ditolak.
- */
-export async function recordServisPayment(input: {
-  servisId: string;
-  amount?: number;
-  metode: PaymentMethod;
-  kasDate?: string;
-  note?: string;
-}): Promise<
-  CashResult<{
-    saleId: string;
-    saleNumber: string | null;
-    totalPaid: number;
-    alreadyPaid: number;
-  }>
-> {
-  if (!input.servisId) return fail("ID servis tidak valid");
-  if (!PAYMENT_METHODS.includes(input.metode)) return fail("Metode pembayaran tidak valid");
-
-  try {
-    const { supabase, branchId, userId, role } = await cashContext();
-
-    // `canAccess(role, "penjualan")` sudah menerima FRONTLINER
-    // (manifest Spec 1), jadi gerbang role tidak baru. Dicetak eksplisit supaya
-    // pembayaran servis tidak ikut ter-copy dari halaman penjualan tanpa gate.
-    if (!canAccess(role, "penjualan")) {
-      return fail("Role tidak diizinkan melakukan pembayaran");
-    }
-
-    const { data: service, error: serviceError } = await supabase
-      .from("cervise_services")
-      .select("id, price, price_estimasi, status, customer_id, branch_id, service_number")
-      .eq("id", input.servisId)
-      .eq("branch_id", branchId)
-      .maybeSingle();
-
-    if (serviceError) return fail(serviceError.message);
-    if (!service) return fail("Servis tidak ditemukan");
-    if (service.status === "Batal") return fail("Servis dibatalkan tidak bisa dibayar");
-
-    const { data: paidRows, error: paidError } = await supabase
-      .from("finance_tx")
-      .select("amount")
-      .eq("branch_id", branchId)
-      .eq("servis_id", input.servisId)
-      .eq("type", "pemasukan");
-    if (paidError) return fail(paidError.message);
-    const alreadyPaid = (paidRows ?? []).reduce(
-      (sum, row) => sum + Number(row.amount ?? 0),
-      0,
-    );
-
-    const quoted = Number(service.price_estimasi ?? 0);
-    if (quoted > 0 && alreadyPaid >= quoted) return fail("Servis ini sudah lunas");
-    const remaining = quoted > 0 ? quoted - alreadyPaid : 0;
-
-    const amount = Math.round(
-      input.amount === undefined ? remaining : Number(input.amount),
-    );
-    if (!Number.isFinite(amount) || amount <= 0) {
-      return fail("Nominal pembayaran tidak valid");
-    }
-
-    const kasDate = input.kasDate ?? businessDate();
-
-    const { data: sale, error: saleError } = await supabase
-      .from("cervise_sales")
-      .insert({
-        branch_id: branchId,
-        customer_id: service.customer_id,
-        sale_number: nextServisSaleNumber(),
-        subtotal: amount,
-        discount_total: 0,
-        total: amount,
-        paid: amount,
-        payment_status: "lunas",
-        payment_method: input.metode,
-        status: "selesai",
-        kas_date: kasDate,
-        notes:
-          input.note?.trim() ||
-          `Pembayaran servis ${service.service_number ?? ""}`.trim(),
-        created_by: userId,
-        servis_id: service.id,
-      })
-      .select("id, sale_number")
-      .single();
-
-    if (saleError) return fail(saleError.message);
-
-    const { error: financeError } = await supabase.from("finance_tx").insert({
-      branch_id: branchId,
-      servis_id: service.id,
-      type: "pemasukan",
-      amount,
-      kas_date: kasDate,
-      metode: input.metode,
-      description: `Pembayaran servis ${service.service_number ?? ""} - ${input.metode}`,
-      created_by: userId,
-    });
-    if (financeError) return fail(financeError.message);
-
-    const totalPaid = alreadyPaid + amount;
-    if (totalPaid !== Number(service.price ?? 0)) {
-      await supabase
-        .from("cervise_services")
-        .update({ price: totalPaid })
-        .eq("id", service.id)
-        .eq("branch_id", branchId);
-    }
-
-    return {
-      ok: true,
-      data: {
-        saleId: (sale as { id: string }).id,
-        saleNumber: (sale as { sale_number: string | null }).sale_number,
-        totalPaid,
-        alreadyPaid,
-      },
-    };
-  } catch (cause) {
-    return fail(cause instanceof Error ? cause.message : "Gagal menyimpan pembayaran");
   }
 }
 
@@ -603,7 +447,7 @@ export type { FrontlinerKpi } from "@/lib/operational/frontliner-dashboard";
  * Empat KPI untuk dashboard kasir.
  *
  * `summarizeDashboard` yang dipakai dashboard manajer tidak punya angka
- * "diambil" dan "batal" — isinya OMZET dan garansi, bukan status servis. Jadi
+ * "diambil" dan "batal" â€” isinya OMZET dan garansi, bukan status servis. Jadi
  * dihitung di sini dari baris yang sama, bukan diakal ulang dari bucket.
  */
 export async function getFrontlinerKpi(): Promise<CashResult<FrontlinerKpi>> {
@@ -613,7 +457,10 @@ export async function getFrontlinerKpi(): Promise<CashResult<FrontlinerKpi>> {
       .from("cervise_services")
       .select("status, created_at")
       .eq("branch_id", branchId)
-      .gte("created_at", businessDayStartIso())
+      // `T00:00:00.000Z` untuk hari yang sama berarti 07:00 WIB, jadi tujuh jam
+      // pertama hari lokal justru tidak ikut dihitung. awalHariWIB mengembalikan
+      // instant tengah malam WIB yang sebenarnya.
+      .gte("created_at", awalHariWIB(new Date()).toISOString())
       .limit(SERVICE_ROW_CAP);
     if (error) return fail(error.message);
 
@@ -631,19 +478,12 @@ export type FrontlinerQueueItem = {
   device: string;
   status: string;
   price: number;
-  /**
-   * Harga yang disepakati teknisi; null/0 = belum ada estimasi.
-   *
-   * Yang dibutuhkan kasir untuk prefilling nominal, karena `price` adalah total
-   * yang sudah dibayar, bukan sisa tagihan.
-   */
-  priceEstimasi: number | null;
   createdAt: string;
   customerName: string | null;
 };
 
 /**
- * Servis hari ini yang belum punya penjualan terkait — itu antrean "Bayar".
+ * Servis hari ini yang belum punya penjualan terkait â€” itu antrean "Bayar".
  */
 export async function getFrontlinerQueue(): Promise<CashResult<FrontlinerQueueItem[]>> {
   try {
@@ -651,7 +491,7 @@ export async function getFrontlinerQueue(): Promise<CashResult<FrontlinerQueueIt
 
     // Antrean = semua servis yang belum punya penjualan terkait, bukan hanya
     // hari ini. Membatasi ke hari ini akan menyembunyikan servis yang tertinggal
-    // dari kemarin dan tidak pernah dibayar — justru yang paling butuh ditagih.
+    // dari kemarin dan tidak pernah dibayar â€” justru yang paling butuh ditagih.
     // Urutan terbaru dulu, dan dibatasi supaya antrean panjang tidak
     // menjadi lambat.
     const { data, error } = await supabase
@@ -676,51 +516,16 @@ export async function getFrontlinerQueue(): Promise<CashResult<FrontlinerQueueIt
     }[];
 
     // Satu query untuk semua id, bukan N+1 per baris.
-    //
-    // KEDUA tabel wajib dibaca. Dulu hanya `cervise_sales` yang dicek, padahal
-    // pembayaran lewat drawer detail servis tercatat di `finance_tx` - jadi
-    // servis yang sudah lunas tetap muncul di antrean ini dan bisa dibayar
-    // lagi. Baris lama yang hanya ada di salah satu tabel harus tetap
-    // terhitung.
-    const [paidSales, paidFinance] = await Promise.all([
-      supabase
-        .from("cervise_sales")
-        .select("servis_id")
-        .eq("branch_id", branchId)
-        .not("servis_id", "is", null),
-      supabase
-        .from("finance_tx")
-        .select("servis_id, amount")
-        .eq("branch_id", branchId)
-        .eq("type", "pemasukan")
-        .not("servis_id", "is", null),
-    ]);
-    if (paidSales.error) return fail(paidSales.error.message);
-    if (paidFinance.error) return fail(paidFinance.error.message);
+    const paid = await supabase
+      .from("cervise_sales")
+      .select("servis_id")
+      .eq("branch_id", branchId)
+      .not("servis_id", "is", null);
+    if (paid.error) return fail(paid.error.message);
 
-    // Baris di `cervise_sales` berarti `recordServisPayment` sudah mencatat
-    // pembayaran, jadi possessingnya berarti sudah lunas. Baris `finance_tx`
-    // bisa DP atau pelunasan, jadi nilainya harus dibandingkan dengan estimasi.
-    const saleIds = new Set(
-      (paidSales.data ?? []).map((row) => row.servis_id as string).filter(Boolean),
+    const paidIds = new Set(
+      (paid.data ?? []).map((row) => row.servis_id as string).filter(Boolean),
     );
-
-    // DP yang sudah tercatat tidak boleh menghapus servis dari antrean - sisa
-    // tagihan masih harus bisa dibayar. Yang dikeluarkan hanya yang sudah
-    // lunas terhadap estimasinya. Servis tanpa estimasi tidak bisa dipastikan
-    // lunas, jadi tetap ditampilkan.
-    const paidAmountByService = new Map<string, number>();
-    for (const row of (paidFinance.data ?? []) as { servis_id: string; amount: number }[]) {
-      paidAmountByService.set(
-        row.servis_id,
-        (paidAmountByService.get(row.servis_id) ?? 0) + Number(row.amount ?? 0),
-      );
-    }
-    const isLunas = (service: (typeof services)[number]) => {
-      const estimasi = Number(service.price_estimasi ?? 0);
-      if (estimasi <= 0) return false;
-      return (paidAmountByService.get(service.id) ?? 0) >= estimasi;
-    };
 
     const customerIds = [...new Set(services.map((s) => s.customer_id).filter(Boolean))] as string[];
     const customers = customerIds.length
@@ -733,16 +538,15 @@ export async function getFrontlinerQueue(): Promise<CashResult<FrontlinerQueueIt
     return {
       ok: true,
       data: services
-        .filter((service) => !saleIds.has(service.id) && !isLunas(service))
+        .filter((service) => !paidIds.has(service.id))
         .map((service) => ({
           id: service.id,
           serviceNumber: service.service_number,
           device: service.device,
           status: service.status,
-          price: service.price,
-          priceEstimasi:
-            service.price_estimasi == null ? null : Number(service.price_estimasi),
-          alreadyPaid: paidAmountByService.get(service.id) ?? 0,
+          // `price` adalah total yang SUDAH dibayar, jadi untuk servis di
+          // antrean nilainya 0. Yang perlu ditagih adalah estimasinya.
+          price: service.price_estimasi ?? service.price,
           createdAt: service.created_at,
           customerName: service.customer_id ? (customerName.get(service.customer_id) ?? null) : null,
         })),

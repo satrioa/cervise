@@ -130,3 +130,159 @@ describe("invarian yang sudah diterapkan ke produksi", () => {
     expect(body).not.toContain("profile_id = check_user_id");
   });
 });
+
+describe("penutupan kas dan nomor nota", () => {
+  const cash = readFileSync(join(process.cwd(), "src", "app", "app", "actions", "cash.ts"), "utf8");
+  const penjualan = readFileSync(
+    join(process.cwd(), "src", "app", "app", "penjualan", "actions.ts"),
+    "utf8",
+  );
+  const servis = readFileSync(
+    join(process.cwd(), "src", "app", "app", "servis", "actions.ts"),
+    "utf8",
+  );
+  // Komentar ikut dibuang: nama fungsi yang sudah dihapus sering disebut di
+  // komentar penjelas, dan membacanya sebagai "masih dipakai" memberi alarm
+  // palsu.
+  const cashCode = cash.replace(/^\s*\/\/.*$/gm, "");
+  const penjualanCode = penjualan.replace(/^\s*\/\/.*$/gm, "");
+  const servisCode = servis.replace(/^\s*\/\/.*$/gm, "");
+
+  it("Tutup Toko gagal kalau update-nya tidak menyentuh baris", () => {
+    // Bug yang diuji: update memakai .is("closed_at", null). Dua admin menekan
+    // Tutup Toko pada sesi yang sama -> update kedua cocok 0 baris, PostgREST
+    // tidak melapor error, dan struk thermal dicetak untuk angka yang tidak
+    // pernah disimpan.
+    expect(cashCode).toContain('.is("closed_at", null)');
+    expect(cashCode).toMatch(/\.is\("closed_at", null\)[\s\S]{0,200}\.select\("id"\)/);
+    expect(cashCode).toMatch(/if \(!closed\) return fail\(/);
+  });
+
+  it("expected_cash di database diisi uang di laci, bukan omzet", () => {
+    // Bug yang diuji: kolom expected_cash diisi report.totals.expected, yang
+    // memuat penjualan non-Tunai dan pendapatan servis. Keduanya tidak pernah
+    // ada di tangan, jadi angka di struk dan di getShiftReport tidak cocok
+    // dengan isi laci.
+    expect(cashCode).toContain("expected_cash: report.expectedCash");
+    expect(cashCode).not.toContain("expected_cash: report.totals.expected");
+  });
+
+  it("nomor penjualan tidak lagi dari angka acak atau base36", () => {
+    // Bug yang diuji: empat angka acak punya 9000 kombinasi dengan UNIQUE
+    // global, dan base36 empat karakter mengulang setiap ~28 menit sehingga dua
+    // pembayaran 28 menit apart bentrok dan pembayaran hilang.
+    //
+    // Penjualan tidak lagi meminta nomor sendiri: create_sale_with_stock
+    // memanggil next_sale_number di dalam transaksinya, jadi kuncinya masih
+    // aktif dan dua kasir bersamaan tidak menerima nomor sama.
+    //
+    // cashCode dulu diperiksa untuk rpc next_sale_number. Jalur pembayaran
+    // servis sekarang pindah ke RPC record_service_payment, jadi yang
+    // diperiksa SQL-nya.
+    expect(cashCode).not.toContain("Date.now().toString(36)");
+    expect(cashCode).not.toContain('rpc("next_sale_number"');
+    expect(servisCode).toContain('rpc("record_service_payment"');
+    expect(penjualanCode).toContain('rpc("create_sale_with_stock"');
+    expect(penjualanCode).not.toContain('rpc("next_sale_number"');
+    expect(penjualanCode).not.toContain("Math.floor(1000 + Math.random() * 9000)");
+
+    const paymentSql = readFileSync(
+      join(MIGRATIONS_DIR, "20261019151703_record_service_payment.sql"),
+      "utf8",
+    );
+    expect(paymentSql).toContain("public.next_sale_number(p_branch_id)");
+  });
+
+  it("penjualan lewat satu rpc transaksional, bukan beberapa permintaan", () => {
+    // Bug yang diuji: header, tiap item, dan finance_tx ditulis sebagai
+    // permintaan terpisah. Gagal di tengah meninggalkan header dan stok yang
+    // sudah turun tanpa finance_tx, dan Laporan Shift menghitung penjualan itu
+    // sementara Arus Kas tidak.
+    // Hanya createSale yang dicek. returnSaleItems masih memakai
+    // adjust_product_stock dan tidak ikut transaksi ini.
+    const createSaleBody = penjualanCode.slice(
+      penjualanCode.indexOf("export async function createSale"),
+      penjualanCode.indexOf("export async function returnSaleItems"),
+    );
+    expect(createSaleBody).toContain("create_sale_with_stock");
+    expect(createSaleBody).not.toContain('from("cervise_sales_items").insert');
+    expect(createSaleBody).not.toContain('from("finance_tx").insert');
+    expect(createSaleBody).not.toContain('adjust_product_stock');
+  });
+});
+
+describe("set_service_status tidak boleh kehilangan completed_at", () => {
+  // Bug yang sudah terjadi di produksi: 20261018112050 menimpa set_service_status
+  // untuk menambahkan garansi dihitung dari waktu pengambilan. create or replace
+  // mengganti SELURUH badan fungsi, jadi completed_at ikut hilang. Kolomnya
+  // tidak pernah terisi lagi, dan Laporan Performa Teknisi beserta insentif
+  // bulanan menghitung nol.
+  //
+  // Fungsi ini didefinisikan di beberapa migration, jadi tidak cukup memeriksa
+  // satu file: setiap definisi yang muncul SETELAH 20260925340000 wajib
+  // tetap menyebut completed_at.
+  const redefinitions = readdirSync(MIGRATIONS_DIR)
+    .filter((file) => file.endsWith(".sql"))
+    .sort()
+    .filter((file) => file > "20260925340000")
+    .filter((file) =>
+      readFileSync(join(MIGRATIONS_DIR, file), "utf8").includes(
+        "create or replace function public.set_service_status",
+      ),
+    );
+
+  it("ada migration yang menimpanya, jadi penjaga ini bukan teori", () => {
+    expect(redefinitions.length).toBeGreaterThan(0);
+  });
+
+  it("setiap definisi yang menimpa tetap menyimpan completed_at", () => {
+    for (const file of redefinitions) {
+      const sql = readFileSync(join(MIGRATIONS_DIR, file), "utf8");
+      expect(`${file}: ${sql.includes("completed_at")}`).toBe(`${file}: true`);
+    }
+  });
+
+  it("completed_at terisi saat Selesai dan saat Sudah Diambil", () => {
+    const latest = readFileSync(
+      join(MIGRATIONS_DIR, redefinitions[redefinitions.length - 1]),
+      "utf8",
+    );
+    // Dulu hanya 'Selesai' yang mengisi, jadi servis yang dilompat ke
+    // 'Sudah Diambil' tidak pernah terhitung sebagai pekerjaan selesai.
+    expect(latest).toMatch(/p_status in \('Selesai', 'Sudah Diambil'\)/);
+  });
+
+  it("completed_at dikosongkan saat Batal", () => {
+    const latest = readFileSync(
+      join(MIGRATIONS_DIR, redefinitions[redefinitions.length - 1]),
+      "utf8",
+    );
+    // Dulu dibiarkan, jadi pekerjaan yang dibatalkan masih terhitung selesai.
+    expect(latest).toMatch(/when p_status = 'Batal' then null/);
+  });
+
+  it("payload log status tidak pernah null", () => {
+    // `cervise_service_logs.payload` NOT NULL default '{}'. Fungsinya dulu
+    // menulis null kalau tidak ada catatan, dan itulah cara UI memanggilnya -
+    // jadi setiap perubahan status tanpa catatan gagal dengan 23502.
+    //
+    // Hanya definisi TERAKHIR yang diperiksa: versi lama di 20260925340000
+    // memang masih membawa bug-nya, dan migration sesudahnya yang memperbaiki.
+    const latest = readFileSync(
+      join(MIGRATIONS_DIR, redefinitions[redefinitions.length - 1]),
+      "utf8",
+    );
+    expect(latest).toMatch(/coalesce\(/);
+    expect(latest).toMatch(/'{}'::jsonb/);
+  });
+
+  it("garansi mulai saat diambil, bukan dihitung di setiap status lain", () => {
+    const latest = readFileSync(
+      join(MIGRATIONS_DIR, redefinitions[redefinitions.length - 1]),
+      "utf8",
+    );
+    // Arah terbalik (`when p_status = 'Sudah Diambil' then v_service.garansi_until`)
+    // membuat garansi mulai dari 'Selesai' lalu dibekukan saat diambil.
+    expect(latest).toMatch(/when p_status <> 'Sudah Diambil' then v_service\.garansi_until/);
+  });
+});
