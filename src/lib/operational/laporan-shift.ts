@@ -76,6 +76,8 @@ export type ShiftSaleLine = {
   id: string;
   label: string;
   amount: number;
+  /** Uang yang benar-benar diterima. `amount` adalah nilai nota, ini yang masuk laci. */
+  paid: number;
   settled: boolean;
   method: string | null;
   forService: string | null;
@@ -210,6 +212,7 @@ export function buildLaporanShift(input: {
       id: row.id,
       label: saleLabel(row),
       amount: amount(row.total),
+      paid: amount(row.paid),
       settled: isSettled(row.payment_status),
       method: row.payment_method,
       forService: row.servis_id,
@@ -217,7 +220,12 @@ export function buildLaporanShift(input: {
     .sort((a, b) => a.label.localeCompare(b.label));
 
   const cashLines: ShiftCashLine[] = cashTx
-    .filter((row) => row.source === "kas_manual" || row.source === "penyesuaian")
+    .filter(
+      (row) =>
+        row.source === "kas_manual" ||
+        row.source === "penyesuaian" ||
+        row.source === "retur",
+    )
     .map((row) => ({
       id: row.id,
       direction: row.type,
@@ -232,9 +240,16 @@ export function buildLaporanShift(input: {
     .filter((line) => line.counted && DONE_STATUS.has(line.status))
     .reduce((sum, line) => sum + line.amount, 0);
 
-  const salesTotal = saleLines
-    .filter((line) => line.settled)
-    .reduce((sum, line) => sum + line.amount, 0);
+  // Kas yang masuk dari penjualan adalah uang yang benar-benar diterima
+  // (`paid`), bukan nilai nota. Penjualan DP menyetor deposit ke laci walau
+  // statusnya belum lunas; memakai `total` membuat deposit itu hilang dari
+  // rekap.
+  //
+  // Refund TIDAK dikurangkan di sini. Ia dihitung dari baris `finance_tx`
+  // tersendiri (source 'retur') di bawah, jadi kalau dikurangi di dua tempat
+  // uangnya terpotong dua kali. Cara ini juga menangani retur untuk penjualan
+  // dari hari sebelumnya, yang tidak muncul di daftar penjualan shift ini.
+  const salesTotal = saleLines.reduce((sum, line) => sum + line.paid, 0);
 
   const manualIn = cashLines
     .filter((line) => line.direction === "pemasukan")

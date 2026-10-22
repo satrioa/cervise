@@ -18,16 +18,19 @@ function formatHarian(iso: string) { return format(new Date(iso + "T12:00:00"), 
 function formatBulanan(iso: string) { return format(new Date(iso + "-01T12:00:00"), "MMMM yyyy", { locale: localeId }); }
 
 function printHtml(title: string, rows: SaleDetailRow[]) {
+  // Baris di bawah sudah net (lihat buildLaporanPenjualan), jadi angka ini
+  // sama dengan yang tampil di layar. Jangan menjumlahkan `total` mentah.
   const omzet = rows.reduce((sum, row) => sum + row.total, 0);
   const paid = rows.reduce((sum, row) => sum + row.paid, 0);
   const unpaid = rows.reduce((sum, row) => sum + row.unpaid, 0);
+  const retur = rows.reduce((sum, row) => sum + row.returnedValue, 0);
   const detail = rows
     .map(
       (row, i) =>
-        `<tr><td>${i + 1}</td><td style="font-family:monospace">${row.label}</td><td>${row.branchName}</td><td>${row.paymentMethod}</td><td>${row.paymentStatus}</td><td class="mono">${formatCurrencyPlain(row.total)}</td><td class="mono">${formatCurrencyPlain(row.paid)}</td><td class="mono">${formatCurrencyPlain(row.unpaid)}</td></tr>`,
+        `<tr><td>${i + 1}</td><td style="font-family:monospace">${row.label}</td><td>${row.branchName}</td><td>${row.paymentMethod}</td><td>${row.paymentStatus}</td><td class="mono">${formatCurrencyPlain(row.total)}</td><td class="mono">${formatCurrencyPlain(row.returnedValue)}</td><td class="mono">${formatCurrencyPlain(row.paid)}</td><td class="mono">${formatCurrencyPlain(row.unpaid)}</td></tr>`,
     )
-    .join("") || `<tr><td colspan="8" style="text-align:center;padding:16px;color:#6b7280">Tidak ada penjualan</td></tr>`;
-  return `<!doctype html><html><head><meta charset="utf-8"><title>${title}</title><style>body{font-family:system-ui;padding:32px}table{width:100%;border-collapse:collapse}th{background:#111827;color:#fff;padding:8px}td{padding:8px;border-bottom:1px solid #eee} .mono{font-family:monospace}</style></head><body><h1>Cervise — ${title}</h1><table><thead><tr><th>Transaksi</th><th>Omzet</th><th>Dibayar</th><th>Belum dibayar</th></tr></thead><tbody><tr><td>${title}</td><td>${rows.length}</td><td class="mono">${formatCurrencyPlain(omzet)}</td><td class="mono">${formatCurrencyPlain(paid)}</td><td class="mono">${formatCurrencyPlain(unpaid)}</td></tr></tbody></table><h3>Detail</h3><table><thead><tr><th>No</th><th>Nota</th><th>Cabang</th><th>Metode</th><th>Status</th><th>Total</th><th>Dibayar</th><th>Belum dibayar</th></tr></thead><tbody>${detail}</tbody></table><script>window.print()</script></body></html>`;
+    .join("") || `<tr><td colspan="9" style="text-align:center;padding:16px;color:#6b7280">Tidak ada penjualan</td></tr>`;
+  return `<!doctype html><html><head><meta charset="utf-8"><title>${title}</title><style>body{font-family:system-ui;padding:32px}table{width:100%;border-collapse:collapse}th{background:#111827;color:#fff;padding:8px}td{padding:8px;border-bottom:1px solid #eee} .mono{font-family:monospace}</style></head><body><h1>Cervise — ${title}</h1><table><thead><tr><th>Periode</th><th>Transaksi</th><th>Omzet</th><th>Retur</th><th>Dibayar</th><th>Belum dibayar</th></tr></thead><tbody><tr><td>${title}</td><td>${rows.length}</td><td class="mono">${formatCurrencyPlain(omzet)}</td><td class="mono">${formatCurrencyPlain(retur)}</td><td class="mono">${formatCurrencyPlain(paid)}</td><td class="mono">${formatCurrencyPlain(unpaid)}</td></tr></tbody></table><h3>Detail</h3><table><thead><tr><th>No</th><th>Nota</th><th>Cabang</th><th>Metode</th><th>Status</th><th>Total</th><th>Retur</th><th>Dibayar</th><th>Belum dibayar</th></tr></thead><tbody>${detail}</tbody></table><script>window.print()</script></body></html>`;
 }
 
 function openPrint(html: string) {
@@ -102,9 +105,10 @@ export default function LaporanPenjualanPage() {
         ) : null}
 
         {summary ? (
-          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
             {[
               { label: "Omzet", value: formatCurrencyPlain(summary.omzet), tone: "text-foreground" },
+              { label: "Retur", value: formatCurrencyPlain(summary.retur), tone: summary.retur > 0 ? "text-destructive" : "text-muted-foreground" },
               { label: "Sudah dibayar", value: formatCurrencyPlain(summary.paid), tone: "text-emerald-600 dark:text-emerald-400" },
               { label: "Belum dibayar", value: formatCurrencyPlain(summary.unpaid), tone: summary.unpaid > 0 ? "text-amber-600 dark:text-amber-400" : "text-muted-foreground" },
               { label: "Transaksi", value: formatNumberPlain(summary.count), tone: "text-foreground" },

@@ -282,7 +282,7 @@ async function computeReport(sessionId: string, row: SessionForReport): Promise<
       .select("id, type, amount, description, kas_date, source")
       .eq("branch_id", branchId)
       .eq("kas_date", date)
-      .in("source", ["kas_manual", "penyesuaian"])
+      .in("source", ["kas_manual", "penyesuaian", "retur"])
       .order("created_at", { ascending: false })
       .limit(CASH_ROW_CAP),
   ]);
@@ -452,10 +452,12 @@ function nextServisSaleNumber(date: Date = new Date()): string {
  * kas (yang dibaca Arus Kas dan Laporan Keuangan). Sebelumnya tiap layar
  * menulis ke tabel yang berbeda, jadi kedua laporan tidak pernah seesama.
  *
- * `buildLaporanShift` hanya menghitung `finance_tx` dengan `source` di
- * `('kas_manual','penyesuaian')`, jadi baris `source='transaksi'` ini tidak
- * menambah dua kali di shift — combined dengan `servis_id` yang mengisi
- * pengait anti-double-count.
+ * `buildLaporanShift` tidak menghitung baris `source='transaksi'` - baik
+ * pemasukan penjualan maupun pembayaran servis - karena uangnya sudah dihitung
+ * lewat `cervise_sales`. Yang ikut dihitung hanya `kas_manual`, `penyesuaian`,
+ * dan `retur`. Retur ikut dihitung karena uangnya keluar dari laci hari itu,
+ * termasuk untuk penjualan dari hari sebelumnya yang tidak muncul di daftar
+ * penjualan shift ini.
  *
  * **Konsekuensi yang disadari.** Baris `cervise_sales` ini tidak punya
  * `cervise_sales_items`, jadi `getSalesOrders()` menampilkannya dengan qty 0.

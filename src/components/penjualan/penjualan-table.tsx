@@ -17,6 +17,7 @@ type Row = {
   itemsQty: number;
   total: number;
   paid: number;
+  returned_value?: number | null;
   payment_method: string | null;
   payment_status: string;
   status: string;
@@ -70,6 +71,9 @@ export function PenjualanTable({ rows, onDetail, onPrint, onRetur }: { rows: Row
                   <span className={"size-1.5 rounded-full " + payTone(r.payment_status)} />
                   <Badge variant="outline" size="sm" className={"font-mono text-[10px] " + statusTone(r.status)}>{r.status}</Badge>
                 </div>
+                {Number(r.returned_value) > 0 ? (
+                  <div className="mt-0.5 font-mono text-[10px] text-destructive">retur {formatCurrencyPlain(Number(r.returned_value))}</div>
+                ) : null}
               </TableCell>
               <TableCell className="pe-4">
                 <Menu>

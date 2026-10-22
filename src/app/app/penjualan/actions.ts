@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { randomUUID } from "crypto";
 
 import { getActiveTenant } from "@/lib/supabase/actor";
+import { businessDate } from "@/lib/business-date";
 import { canAccess } from "@/lib/rbac";
 import { validateSaleItems } from "@/lib/sales/validation";
 
@@ -200,7 +201,7 @@ export async function createProduct(input: {
 export async function getSalesOrders(filters?: { q?: string; metode?: string; status?: string; from?: string; to?: string }) {
   const { supabase, branchId, role } = await getBranchUser();
   requireSalesAccess(role);
-  let q = supabase.from("cervise_sales").select("id, branch_id, customer_id, sale_number, subtotal, discount_total, total, paid, payment_status, payment_method, status, kas_date, notes, created_at, created_by").eq("branch_id", branchId).order("created_at", { ascending: false }).limit(100);
+  let q = supabase.from("cervise_sales").select("id, branch_id, customer_id, sale_number, subtotal, discount_total, total, paid, returned_value, payment_status, payment_method, status, kas_date, notes, created_at, created_by").eq("branch_id", branchId).order("created_at", { ascending: false }).limit(100);
   if (filters?.metode && filters.metode !== "semua") q = q.eq("payment_method", filters.metode);
   if (filters?.status && filters.status !== "semua") q = q.eq("status", filters.status);
   if (filters?.from) q = q.gte("kas_date", filters.from);
@@ -371,10 +372,15 @@ export async function returnSaleItems(saleId: string, returns: { item_id: string
       p_branch_id: branchId,
       p_sale_id: saleId,
       p_items: returns.map((r) => ({ item_id: r.item_id, qty: Number(r.qty) })),
+      // Tanggal bisnis WIB, bukan current_date di server UTC. Retur jam 1 pagi
+      // tidak boleh tercatat sebagai kas keluar kemarin.
+      p_kas_date: businessDate(),
     } as any,
   );
   if (returnError) throw new Error(returnError.message);
 
+  const result = (returned ?? {}) as { items?: number; refund?: number };
   revalidatePath("/app/penjualan");
-  return { ok: true, items: returned as unknown as number };
+  revalidatePath("/app/laporan/penjualan");
+  return { ok: true, items: Number(result.items ?? 0), refund: Number(result.refund ?? 0) };
 }

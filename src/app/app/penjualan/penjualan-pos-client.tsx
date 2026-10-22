@@ -14,6 +14,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Label } from "@/components/ui/label";
 import { useBranch } from "@/lib/branch-context";
 import { searchProductsForSale, getSaleDetail, returnSaleItems, type ProductRow } from "./actions";
+import { perkiraanRefund } from "@/lib/operational/retur";
 import { PenjualanProductGrid } from "@/components/penjualan/penjualan-product-grid";
 import { PenjualanTable } from "@/components/penjualan/penjualan-table";
 import { PenjualanCartPanel } from "@/components/penjualan/penjualan-cart-panel";
@@ -105,8 +106,16 @@ export function PenjualanPOSClient({ initialRows }: { initialRows: any[] }) {
   const handlePrint = async (id: string) => {
     try {
       const d = await getSaleDetail(id);
-      const itemsHtml = d.items.map((it: any, i: number) => `<tr><td>${i + 1}</td><td>${it.sku}</td><td>${it.name}</td><td>${it.qty}</td><td>${formatCurrencyPlain(Number(it.unit_price))}</td><td>${formatCurrencyPlain(Number(it.line_total))}</td></tr>`).join("");
-      const html = `<!doctype html><html><head><meta charset="utf-8"><title>${d.sale.sale_number}</title><style>body{font-family:system-ui;padding:32px}table{width:100%;border-collapse:collapse}th{background:#111827;color:#fff;padding:8px}td{padding:8px;border-bottom:1px solid #eee} .mono{font-family:monospace}</style></head><body><h1>Cervise — Nota ${d.sale.sale_number}</h1><p>${d.sale.kas_date} · ${branch.label} · ${d.customer?.name ?? ""}</p><table><thead><tr><th>No</th><th>SKU</th><th>Nama</th><th>Qty</th><th>Harga</th><th>Subtotal</th></tr></thead><tbody>${itemsHtml}</tbody></table><p class="mono">Total ${formatCurrencyPlain(Number(d.sale.total))}</p><script>window.print()</script></body></html>`;
+      const itemsHtml = d.items.map((it: any, i: number) => `<tr><td>${i + 1}</td><td>${it.sku}</td><td>${it.name}</td><td>${it.qty}${Number(it.qty_returned) > 0 ? ` (retur ${it.qty_returned})` : ""}</td><td>${formatCurrencyPlain(Number(it.unit_price))}</td><td>${formatCurrencyPlain(Number(it.line_total))}</td></tr>`).join("");
+      // Nota tetap mencetak total asli - itu dokumen historis. Baris retur
+      // hanya ditambahkan kalau memang ada, supaya pelanggan yang kembali
+      // membawa notanya melihat keadaan terakhir.
+      const returned = Number(d.sale.returned_value ?? 0);
+      const dibayarBersih = Math.max(0, Number(d.sale.paid) - Math.min(returned, Number(d.sale.paid)));
+      const footer = returned > 0
+        ? `<p class="mono">Total ${formatCurrencyPlain(Number(d.sale.total))}</p><p class="mono">Diretur ${formatCurrencyPlain(returned)}</p><p class="mono">Dibayar bersih ${formatCurrencyPlain(dibayarBersih)}</p>`
+        : `<p class="mono">Total ${formatCurrencyPlain(Number(d.sale.total))}</p>`;
+      const html = `<!doctype html><html><head><meta charset="utf-8"><title>${d.sale.sale_number}</title><style>body{font-family:system-ui;padding:32px}table{width:100%;border-collapse:collapse}th{background:#111827;color:#fff;padding:8px}td{padding:8px;border-bottom:1px solid #eee} .mono{font-family:monospace}</style></head><body><h1>Cervise — Nota ${d.sale.sale_number}</h1><p>${d.sale.kas_date} · ${branch.label} · ${d.customer?.name ?? ""}</p><table><thead><tr><th>No</th><th>SKU</th><th>Nama</th><th>Qty</th><th>Harga</th><th>Subtotal</th></tr></thead><tbody>${itemsHtml}</tbody></table>${footer}<script>window.print()</script></body></html>`;
       const w = window.open("", "_blank"); if (!w) return; w.document.write(html); w.document.close();
     } catch (e: any) { toast.error(e.message); }
   };
@@ -116,8 +125,33 @@ export function PenjualanPOSClient({ initialRows }: { initialRows: any[] }) {
   const handleRetur = async () => {
     const rets = returItems.filter((it) => it.returQty > 0).map((it) => ({ item_id: it.id, qty: it.returQty }));
     if (!rets.length) { toast.error("Pilih qty retur"); return; }
-    try { await returnSaleItems(returSale.id, rets); toast.success("Retur berhasil"); setReturOpen(false); router.refresh(); } catch (e: any) { toast.error(e.message); }
+    try {
+      const result = await returnSaleItems(returSale.id, rets);
+      // Nominal dari RPC, bukan dari perkiraan di layar - ini uang yang benar
+      // benar keluar dari laci.
+      toast.success(result.refund > 0 ? `Retur berhasil — uang kembali ${formatCurrencyPlain(result.refund)}` : "Retur berhasil — tanpa uang kembali");
+      setReturOpen(false);
+      router.refresh();
+    } catch (e: any) { toast.error(e.message); }
   };
+
+  // Perkiraan supaya kasir tahu nominal yang akan keluar sebelum menekan
+  // tombol. Angka final tetap dari RPC - ini cermin rumusnya saja.
+  const estimasiRefund = returSale
+    ? perkiraanRefund(
+        {
+          subtotal: Number(returSale.subtotal ?? 0),
+          total: Number(returSale.total ?? 0),
+          paid: Number(returSale.paid ?? 0),
+          returnedValue: Number(returSale.returned_value ?? 0),
+        },
+        returItems.map((it) => ({
+          qty: Number(it.qty ?? 0),
+          qtyReturned: Number(it.qty_returned ?? 0) + Math.max(0, Number(it.returQty) || 0),
+          unitPrice: Number(it.unit_price ?? 0),
+        })),
+      )
+    : 0;
 
   return (
     <>
@@ -271,7 +305,8 @@ export function PenjualanPOSClient({ initialRows }: { initialRows: any[] }) {
           <DialogPrimitive.Popup className="fixed left-1/2 top-1/2 z-50 w-[95vw] max-w-lg -translate-x-1/2 -translate-y-1/2 rounded-xl border bg-background p-6 shadow-lg max-h-[85vh] overflow-auto">
             <DialogPrimitive.Title className="font-semibold">Nota {detail?.sale?.sale_number}</DialogPrimitive.Title>
             <DialogPrimitive.Description className="text-sm text-muted-foreground">{detail?.customer?.name} · {detail?.sale?.kas_date}</DialogPrimitive.Description>
-            {detail && detail.items.map((it: any) => (<div key={it.id} className="flex justify-between border-b py-2 text-sm"><span>{it.name} ×{it.qty}</span><span className="font-mono">{formatCurrencyPlain(Number(it.line_total))}</span></div>))}
+            {detail && detail.items.map((it: any) => (<div key={it.id} className="flex justify-between border-b py-2 text-sm"><span>{it.name} ×{it.qty}{Number(it.qty_returned) > 0 ? ` · retur ${it.qty_returned}` : ""}</span><span className="font-mono">{formatCurrencyPlain(Number(it.line_total))}</span></div>))}
+            {detail && Number(detail.sale.returned_value) > 0 ? (<div className="mt-2 flex justify-between text-sm font-medium"><span>Diretur</span><span className="font-mono">{formatCurrencyPlain(Number(detail.sale.returned_value))}</span></div>) : null}
             <DialogPrimitive.Close className="absolute right-3 top-3 rounded-md p-1 text-muted-foreground hover:bg-muted">×</DialogPrimitive.Close>
           </DialogPrimitive.Popup>
         </DialogPrimitive.Portal>
@@ -283,6 +318,7 @@ export function PenjualanPOSClient({ initialRows }: { initialRows: any[] }) {
           <DialogPrimitive.Popup className="fixed left-1/2 top-1/2 z-50 w-[95vw] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-xl border bg-background p-6 shadow-lg">
             <DialogPrimitive.Title className="font-semibold">Retur Parsial — {returSale?.sale_number}</DialogPrimitive.Title>
             <div className="mt-4 space-y-2 max-h-64 overflow-auto">{returItems.map((it) => (<div key={it.id} className="flex items-center gap-2 border rounded-lg p-2"><div className="flex-1"><div className="font-medium text-sm">{it.name}</div><div className="font-mono text-xs">{it.sku} · qty {it.qty}</div></div><Input type="number" min={0} max={it.qty - it.qty_returned} value={it.returQty} onChange={(e) => setReturItems((prev) => prev.map((x) => x.id === it.id ? { ...x, returQty: Number(e.target.value) } : x))} className="h-7 w-16" /></div>))}</div>
+            <div className="mt-3 flex items-center justify-between rounded-lg bg-muted/60 px-3 py-2 text-sm"><span className="text-muted-foreground">Uang kembali (perkiraan)</span><span className="font-mono tabular-nums font-medium">{formatCurrencyPlain(estimasiRefund)}</span></div>
             <div className="mt-4 flex justify-end gap-2"><Button variant="outline" onClick={() => setReturOpen(false)}>Batal</Button><Button onClick={handleRetur}>Proses Retur</Button></div>
           </DialogPrimitive.Popup>
         </DialogPrimitive.Portal>
