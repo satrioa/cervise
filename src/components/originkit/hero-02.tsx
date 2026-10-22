@@ -220,11 +220,17 @@ const Navbar = ({ isLoggedIn, user }: { isLoggedIn?: boolean; user?: { name: str
         </>
       ) : (
         <>
-          <Button variant="candy" color="blue" size="sm" render={<Link href="/login">Login</Link>}>
-            Login
-          </Button>
           <Button variant="candy" color="blue" size="sm" render={<Link href="/signup">Coba Gratis</Link>}>
             Coba Gratis
+          </Button>
+          <Button
+            variant="candy"
+            color="neutral"
+            size="sm"
+            className="[--btn:#000] [--btn-hover:#171717] [--btn-fg:#fff]"
+            render={<Link href="/login">Login</Link>}
+          >
+            Login
           </Button>
         </>
       )}
