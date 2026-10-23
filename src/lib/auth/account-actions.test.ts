@@ -142,6 +142,32 @@ describe("updateKaryawan", () => {
     expect(after).toContain("restoreEmployee()");
     expect(after.indexOf("restoreProfile()")).toBeLessThan(after.indexOf("restoreEmployee()"));
   });
+
+  it("menolak email yang sudah dipakai akun lain sebelum menulis apa pun", () => {
+    const precheck = body.indexOf("findAuthUserByEmail");
+    const firstWrite = body.indexOf("const { data: updatedEmployee");
+    expect(precheck).toBeGreaterThan(-1);
+    // Pengecekan harus mendahului tulisan pertama, bukan sesudahnya: kalau
+    // tidak, employees/profiles sudah berubah saat email ditolak.
+    expect(firstWrite).toBeGreaterThan(-1);
+    expect(precheck).toBeLessThan(firstWrite);
+    expect(body).toContain("existingUser.id !== profileId");
+    expect(body).toContain("Email sudah terpakai akun lain. Gunakan email lain.");
+  });
+
+  it("tidak memanggil Auth API kalau email tidak berubah", () => {
+    // Menulis ulang email yang sama menghapus token recovery yang tertunda.
+    expect(body).toContain('email !== (previousProfile?.email ?? "").toLowerCase()');
+  });
+
+  it("mengonfirmasi email baru dan tidak membocorkan error mentah Supabase", () => {
+    const authUpdate = body.indexOf("updateUserById");
+    const after = body.slice(authUpdate);
+    expect(after).toContain("email_confirm: true");
+    // Pesan GoTrue ("Error updating user") tidak boleh sampai ke toast.
+    expect(after).not.toContain("throw new Error(authError.message)");
+    expect(after).toContain("Email gagal diubah");
+  });
 });
 
 describe("requireMasterAdmin", () => {

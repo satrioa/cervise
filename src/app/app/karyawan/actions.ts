@@ -11,6 +11,7 @@ import { EMPLOYEE_TO_PROFILE_ROLE, canManageEmployees } from "@/lib/auth/account
 import { publicPhotoUrl } from "@/lib/photos";
 import { validatePhone } from "@/lib/phone";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { findAuthUserByEmail } from "@/lib/supabase/admin-users";
 
 type BranchUser = { supabase: Actor["supabase"]; userId: string; employeeId: string; organizationId: string; branchId: string; role: string };
 
@@ -236,6 +237,25 @@ export async function updateKaryawan(input: UpdateKaryawanInput) {
     .maybeSingle();
   if (previousProfileError) throw new Error(previousProfileError.message);
 
+  // Email adalah identitas login. Supabase tidak memberi pesan yang jelas saat
+  // alamatnya sudah dipakai: API-nya membalas 500 "Error updating user".
+  // Karena itu kita cek lebih dulu - termasuk akun auth yatim yang tidak punya
+  // baris profiles sehingga tidak pernah muncul di daftar karyawan. Pemeriksaan
+  // ini sengaja sebelum tulisan apa pun supaya tidak ada data yang perlu
+  // dibatalkan saat email ditolak.
+  //
+  // Hanya dijalankan kalau email benar-benar berubah: edit nama/role/no. HP
+  // tidak perlu memindai seluruh daftar user auth.
+  const emailChanged =
+    Boolean(email) && email !== (previousProfile?.email ?? "").toLowerCase();
+
+  if (emailChanged && email) {
+    const existingUser = await findAuthUserByEmail(admin, email);
+    if (existingUser && existingUser.id !== profileId) {
+      throw new Error("Email sudah terpakai akun lain. Gunakan email lain.");
+    }
+  }
+
   const previousRole = String(employee.role);
   const previousBranchId = employee.branch_id as string | null;
 
@@ -301,14 +321,30 @@ export async function updateKaryawan(input: UpdateKaryawanInput) {
     throw new Error(profileError?.message ?? "Gagal memperbarui profile");
   }
 
-  if (email) {
-    const { error: authError } = await admin.auth.admin.updateUserById(profileId, { email });
+  // Hanya panggil Auth API kalau email benar-benar berubah. updateUserById
+  // dengan email yang sama tetap menghapus token recovery yang tertunda dan
+  // menambah satu round-trip yang tidak perlu.
+  if (emailChanged && email) {
+    const { error: authError } = await admin.auth.admin.updateUserById(profileId, {
+      email,
+      // Admin sudah memverifikasi identitas karyawan. Tandai email baru langsung
+      // terkonfirmasi supaya akun tidak tertahan alur konfirmasi email.
+      email_confirm: true,
+    });
     if (authError) {
       // profiles sudah ditulis email baru sementara auth masih email lama.
       // Kembalikan keduanya supaya tidak ada akun yang tidak bisa login.
       await restoreProfile();
       await restoreEmployee();
-      throw new Error(authError.message);
+      // Supabase membungkus hampir semua kegagalan update email menjadi 500
+      // generik, jadi pesan mentahnya tidak pernah layak ditampilkan ke user.
+      console.error("gagal mengubah email auth karyawan:", authError);
+      if (/already|exist|registered|duplicate/i.test(authError.message)) {
+        throw new Error("Email sudah terpakai akun lain. Gunakan email lain.");
+      }
+      throw new Error(
+        "Email gagal diubah. Kemungkinan email sudah terpakai akun lain; gunakan email lain.",
+      );
     }
   }
 
