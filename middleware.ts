@@ -45,6 +45,19 @@ export default async function middleware(request: NextRequest) {
 
   const protectedPathKind = getProtectedPathKind(pathname);
 
+  // /owner bukan "protected path kind" karena tidak punya alur onboarding
+  // sendiri, tapi tetap harus ditolak di middleware. Kalau hanya mengandalkan
+  // guard di layout, Next bisa mengirim shell 200 lebih dulu lalu melakukan
+  // redirect di client saat ada loading boundary — status HTTP-nya jadi tidak
+  // jujur dan halaman kosong kalau JS gagal dimuat.
+  const isPlatformPath = pathname === "/owner" || pathname.startsWith("/owner/");
+
+  if (isPlatformPath && !auth.user) {
+    const loginUrl = new URL("/login", request.url);
+    loginUrl.searchParams.set("next", pathname);
+    return NextResponse.redirect(loginUrl);
+  }
+
   if (protectedPathKind && !auth.user) {
     const loginUrl = new URL("/login", request.url);
     loginUrl.searchParams.set("next", pathname);
