@@ -123,14 +123,14 @@ export default function LaporanServisPage() {
               resultLabel={report ? `${report.services.length} servis` : undefined}
             />
             <Select value={cabang} onValueChange={(v) => setCabang((v as string) ?? "all")}>
-              <SelectTrigger size="sm" className="shrink-0"><SelectValue placeholder="Semua cabang" /></SelectTrigger>
+              <SelectTrigger size="sm" className="w-auto! shrink-0"><SelectValue placeholder="Semua cabang" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Semua cabang</SelectItem>
                 {branches.map((b) => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
               </SelectContent>
             </Select>
             <Select value={teknisi} onValueChange={(v) => setTeknisi((v as string) ?? "all")}>
-              <SelectTrigger size="sm" className="shrink-0"><SelectValue placeholder="Semua teknisi" /></SelectTrigger>
+              <SelectTrigger size="sm" className="w-auto! shrink-0"><SelectValue placeholder="Semua teknisi" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Semua teknisi</SelectItem>
                 {teknisis.map((t) => <SelectItem key={t.id} value={t.id}>{t.full_name ?? t.id.slice(0, 6)}</SelectItem>)}
