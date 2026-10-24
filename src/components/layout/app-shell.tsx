@@ -142,6 +142,9 @@ function BranchSwitcher({ canSwitch }: { canSwitch: boolean }) {
             <button
               key={b.id}
               type="button"
+              // Suara Dot sudah dimainkan oleh setBranch(); matikan suara
+              // generik dari SoundLayer agar tidak dobel.
+              data-sfx-silent
               onClick={() => {
                 setBranch(b);
                 setOpen(false);

@@ -212,6 +212,39 @@ export function playSound(name: SoundName, opts?: { volume?: number }): void {
 }
 
 /**
+ * Cek apakah salah satu sound baru saja dimainkan (default: 160 ms terakhir).
+ *
+ * Dipakai primitif overlayer untuk mencegah suara dobel, misalnya:
+ * - trigger menu sudah berbunyi click/Notch → suara "menu terbuka" dilewati;
+ * - item menu dipilih (dot) → Close1 saat menu menutup dilewati.
+ */
+export function playedRecently(
+  names: SoundName | SoundName[],
+  withinMs = 160,
+): boolean {
+  const list = Array.isArray(names) ? names : [names];
+  const now = Date.now();
+  return list.some((name) => {
+    const last = LAST_PLAYED.get(name);
+    return last !== undefined && now - last < withinMs;
+  });
+}
+
+/**
+ * True bila trigger sebuah overlayer adalah Button primitif (yang sudah
+ * memutar Notch). Dipakai handler buka Menu/Select/Popover supaya tidak
+ * menambah suara "muncul" di atas Notch — urutan handler React tidak bisa
+ * diandalkan, jadi kita periksa elemen trigger-nya, bukan timestamp.
+ */
+export function isFromManagedButton(
+  details: { trigger?: Element | null } | undefined,
+): boolean {
+  if (typeof Element === "undefined") return false;
+  const trigger = details?.trigger;
+  return trigger instanceof Element && Boolean(trigger.closest("[data-sfx-managed]"));
+}
+
+/**
  * API semantik — ini yang dipakai komponen. Nama fungsi menjelaskan INTENSI
  * interaksi, bukan file wav-nya. Pemetaan lengkap ada di docs/sound-design.md.
  */
@@ -339,4 +372,18 @@ const api = toast as unknown as ToastApi;
       return originalPromise(input, callbacks);
     };
   }
+}
+
+// Helper debug (hanya development). Dari console browser:
+//   __cerviseSfx.sfx.success()     → tes chime
+//   __cerviseSfx.sfx.tab()         → tes undo
+//   __cerviseSfx.isSoundEnabled()  → cek mute
+if (typeof window !== "undefined" && process.env.NODE_ENV !== "production") {
+  (window as typeof window & { __cerviseSfx?: unknown }).__cerviseSfx = {
+    playSound,
+    sfx,
+    setSoundEnabled,
+    isSoundEnabled,
+    playedRecently,
+  };
 }

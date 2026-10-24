@@ -2,8 +2,9 @@
 
 import { Dialog as CommandDialogPrimitive } from "@base-ui/react/dialog";
 import { SearchIcon } from "lucide-react";
-import type * as React from "react";
+import * as React from "react";
 import { cn } from "@/lib/utils";
+import { isFromManagedButton, playedRecently, sfx } from "@/lib/sound";
 import {
   Autocomplete,
   AutocompleteCollection,
@@ -16,8 +17,28 @@ import {
   AutocompleteSeparator,
 } from "@/components/ui/autocomplete";
 
-export const CommandDialog: typeof CommandDialogPrimitive.Root =
-  CommandDialogPrimitive.Root;
+/**
+ * Command palette (⌘K / Ctrl+K) adalah dialog, tetapi bukan komponen Dialog
+ * biasa. Suaranya disamakan: muncul → click, menutup → Close1 (kecuali
+ * ditutup karena item dipilih — Dot sudah mewakili).
+ */
+export const CommandDialog = (({ onOpenChange, ...props }: any) => {
+  const wasOpen = React.useRef(false);
+  return (
+    <CommandDialogPrimitive.Root
+      {...props}
+      onOpenChange={(open: boolean, details: any) => {
+        if (open && !wasOpen.current) {
+          if (!isFromManagedButton(details) && !playedRecently(["notch", "dew", "boop"], 180)) sfx.click();
+        } else if (!open && wasOpen.current) {
+          if (!playedRecently("dot", 260)) sfx.close();
+        }
+        wasOpen.current = open;
+        onOpenChange?.(open, details);
+      }}
+    />
+  );
+}) as unknown as typeof CommandDialogPrimitive.Root;
 
 export const CommandDialogPortal: typeof CommandDialogPrimitive.Portal =
   CommandDialogPrimitive.Portal;

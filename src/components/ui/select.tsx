@@ -11,22 +11,30 @@ import {
 } from "lucide-react";
 import type * as React from "react";
 import { cn } from "@/lib/utils";
-import { sfx } from "@/lib/sound";
+import { isFromManagedButton, playedRecently, sfx } from "@/lib/sound";
 
 /**
  * Wrapper typed as the original `SelectPrimitive.Root` supaya semua call site
  * lama tidak perlu berubah (inferensi generic value tetap sama).
  *
- * Suara: setiap kali pengguna memilih nilai → dot.wav ("select action").
- * Base UI hanya memanggil onValueChange saat interaksi pengguna (klik item /
- * keyboard), bukan saat value diset programmatically, jadi tidak ada suara
- * ketika form memprefill nilai.
+ * Suara:
+ * - dropdown MUNCUL → click (dew/boop), dilewati bila trigger baru bersuara.
+ * - memilih nilai → dot; menutup karena memilih tidak memutar Close1.
+ * - menutup karena Escape/klik luar → Close1.
  */
 export const Select = ((props: any) => {
-  const { onValueChange, ...rest } = props;
+  const { onValueChange, onOpenChange, ...rest } = props;
   return (
     <SelectPrimitive.Root
       {...rest}
+      onOpenChange={(open: boolean, eventDetails: { reason?: string; trigger?: Element | null }) => {
+        if (open) {
+          if (!isFromManagedButton(eventDetails) && !playedRecently(["dew", "boop", "notch"], 180)) sfx.click();
+        } else if (eventDetails?.reason !== "itemPress" && !playedRecently("dot", 260)) {
+          sfx.close();
+        }
+        onOpenChange?.(open, eventDetails);
+      }}
       onValueChange={(value: any, eventDetails: any) => {
         sfx.select();
         onValueChange?.(value, eventDetails);

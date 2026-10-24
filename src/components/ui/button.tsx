@@ -95,7 +95,14 @@ export function Button({
   // dipanggil setelahnya supaya sound tidak delay oleh handler berat.
   const { onClick: userOnClick, ...restProps } = props as React.ButtonHTMLAttributes<HTMLButtonElement>;
   const handleClick = (event: React.MouseEvent<HTMLButtonElement>) => {
-    if (!disabled && !loading && sound !== null) playSound(sound ?? "notch", { volume: SOUND_VOLUME[sound ?? "notch"] });
+    if (!disabled && !loading) {
+      if (sound !== null) {
+        playSound(sound ?? "notch", { volume: SOUND_VOLUME[sound ?? "notch"] });
+      }
+      // Tandai event asli supaya SoundLayer (delegasi global) tidak menambah
+      // suara generik — termasuk untuk tombol yang sengaja hening.
+      (event.nativeEvent as MouseEvent & { __cerviseSfx?: boolean }).__cerviseSfx = true;
+    }
     userOnClick?.(event);
   };
 
@@ -104,7 +111,7 @@ export function Button({
     // render is a ReactElement to use as Slot
     const renderClass = cn(smoothButtonVariants({ variant: resolvedVariant, size: resolvedSize, color: resolvedColor, shape, className }));
     return (
-      <Slot className={renderClass} onClick={handleClick} {...(restProps as any)}>
+      <Slot className={renderClass} data-sfx-managed="" onClick={handleClick} {...(restProps as any)}>
         {render}
       </Slot>
     );
@@ -123,6 +130,7 @@ export function Button({
       forcePress={forcePress}
       asChild={asChild}
       disabled={disabled}
+      data-sfx-managed=""
       onClick={handleClick}
       {...(restProps as any)}
     >

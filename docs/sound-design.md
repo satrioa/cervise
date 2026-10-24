@@ -67,6 +67,11 @@ Sudah otomatis di primitif:
 - `Dialog` (`ui/dialog.tsx`) → setiap transisi open → false.
 - `Sheet` (`ui/sheet.tsx`) → sama.
 - `Popover` (`ui/popover.tsx`) → sama.
+- `Menu` (`ui/menu.tsx`) → ditutup via Escape/klik luar; **tidak** saat menutup
+  karena item dipilih (Dot yang mewakili aksi itu).
+- `Select` (`ui/select.tsx`) → ditutup via Escape/klik luar; memilih nilai
+  hanya memutar Dot.
+- Command palette (`ui/command.tsx`) → Escape/klik luar.
 
 Tombol X bawaan pada `DialogContent`/`SheetContent` sengaja membisukan Notch
 (`sound={null}`) agar yang terdengar hanya Close1.
@@ -99,11 +104,14 @@ bisnis tiap form):
 > `toast.error` → shake secara global.
 
 ### `dew` + `boop` — klik generik (acak)
-Efek klik untuk elemen interaktif yang **bukan tombol** dan **bukan pilihan**:
+Efek klik untuk interaksi yang bukan "memilih" dan bukan tombol primitif:
+- **membuka dropdown/menu/select/popover** dari trigger tombol mentah — bunyi
+  "muncul" ini dilewati bila trigger-nya sudah berbunyi Notch/click;
+- menekan **tombol mentah** (bukan primitif `Button`) di mana pun: ikon
+  toolbar, tombol tutup kustom, tombol sort tabel, dll;
 - menekan card/panel yang bisa diklik (daftar servis di view grid),
 - chip/tag bermunculan (kerusakan tag),
-- item list yang bisa dipilih tapi tidak mengubah state form (mis. kartu
-  statistik histogram).
+- item list yang bisa dipilih tapi tidak mengubah state form.
 
 Dipilih acak per kali klik (`sfx.click()`), distribusi 50/50, supaya klik
 beruntun tidak membosankan seperti metronom. Kalau butuh pasti satu, panggil
@@ -114,21 +122,27 @@ Setiap kali pengguna memfinalkan pilihan antara beberapa opsi:
 - memilih nilai di **Select** (dropdown) → otomatis via `ui/select.tsx`.
 - **pilih cabang** di Branch Switcher (termasuk "Semua cabang") → di
   `lib/branch-context.tsx` saat `setBranch` dipanggil.
-- memilih item di tabel untuk di-render ringkasan (checkbox → selected row),
+- item **Menu** (aksi baris tabel: detail/edit/hapus) → otomatis lewat
+  SoundLayer (`role="menuitem"`).
+- opsi **autocomplete / command palette** → otomatis (`role="option"`).
+- **radio** pilihan tunggal → otomatis (`role="radio"`).
 - memilih teknisi/pelanggan dari hasil pencarian (autocomplete/select).
 
 Sengaja berbeda dari Undo: Dot menandai "saya menetapkan pilihan ini", Undo
 menandai "saya berpindah konteks".
 
-### `Undo` — berganti tab
-Berpindah antar tab konten:
+### `Undo` — berganti tab / pindah menu
+Berpindah konteks:
 - `Tabs` primitif (`ui/tabs.tsx`) → otomatis via onValueChange.
 - **bottom-tab navigation mobile** di `app-shell.tsx` (Beranda/Laporan/
   Inventori/… dan "Lainnya"-sheet) → otomatis saat klik tab non-aktif.
+- **semua tautan navigasi internal** — sidebar desktop, sheet menu mobile,
+  breadcrumb, pagination → otomatis lewat SoundLayer: klik `<a>` yang benar-
+  benar pindah halaman.
 - Tab pada preview dokumen/cetak (Ringkasan / Rincian).
 
-Tidak dipakai untuk: navigasi sidebar desktop (itu pindah halaman penuh, bukan
-tab), atau paginasi tabel.
+Tidak dipakai untuk: anchor di halaman yang sama (`#bagian`) dan tautan
+eksternal (keduanya sengaja hening).
 
 ### `Arrive` — notifikasi masuk
 Momen "ada yang datang untukmu":
@@ -152,8 +166,11 @@ Toggle bicara dengan dua nada yang berpasangan: menyalakan terdengar
 "klik-selak-terkunci" (clasp), mematikan terdengar "lepas" (unclasp).
 
 - `Switch` primitif (`ui/switch.tsx`) → otomatis; suara mengikuti nilai baru.
-- Toggle aktif/not aktif pie chart/grafik (show/hide dataset), jika memakai
-  `Switch` ikut otomatis; yang custom setState:
+- `Checkbox` (termasuk checkbox pilih-baris tabel) → otomatis: mencentang =
+  clasp, melepas = unclasp.
+- `Toggle` / `ToggleGroup` / segmented control (`aria-pressed`) → otomatis.
+- Disclosure/accordion (`aria-expanded`) → buka = clasp, tutup = unclasp.
+- Toggle aktif/not aktif pie chart/grafik yang custom setState:
   `checked ? sfx.toggleOn() : sfx.toggleOff()` di handler.
 
 ### `Shake` — aksi gagal
@@ -180,7 +197,6 @@ Do not: shake untuk pesan peringatan tidak memblokir (pakai Arrive).
 | Momen                            | Kenapa tidak otomatis                          | Cara mainkan |
 | -------------------------------- | ----------------------------------------------- | ------------ |
 | Batal / discard                  | Keputusan bisnis tiap form, tidak ada marker umum | `sfx.cancel()` |
-| Navigasi sidebar desktop         | Bukan tab, bisa jadi terlalu rame               | opsional `sfx.click()` |
 | Failed submit non-toast          | Tidak semua validasi lewat toast                | `sfx.error()` di handler |
 | Success submit non-toast         | Sama                                            | `sfx.success()` di handler |
 | Onboarding / sheet besar         | Satu momen spesial                              | `sfx.spring()` |
@@ -213,6 +229,9 @@ bukan Button, langsung panggil `playSound(name)` / `sfx.*`.
 - Kalau hening padahal ikon speaker aktif: pastikan build yang dijalankan
   memang memuat folder `public/sounds/` (cek `/sounds/notch.wav` → HTTP 200
   `audio/wav`) dan tab browser tidak di-mute.
+- Debug dari console browser (development): `__cerviseSfx.sfx.success()`,
+  `__cerviseSfx.sfx.tab()`, `__cerviseSfx.sfx.click()`,
+  `__cerviseSfx.isSoundEnabled()`, `__cerviseSfx.playedRecently("notch", 500)`.
 
 ---
 
@@ -241,3 +260,44 @@ Belum dipakai otomatis. Nomor-nya disiapkan untuk momen "transisi besar":
 drawer/sheet berlayar penuh, onboarding pertama kali. Dipanggil manual via
 `sfx.spring()` saat dirasa perlu, JANGAN dijadikan suara default buka/ tutup —
 terlalu berat untuk interaksi kecil.
+
+---
+
+## 9. Lapisan global (SoundLayer)
+
+`src/components/layout/sound-layer.tsx` dipasang sekali di root layout dan
+mengenali interaksi dari semantik DOM. Elemen "telanjang" (tanpa primitif)
+tetap bersuara tanpa menambah `onClick` di ratusan call site.
+
+| Yang diklik | Pengenal | Suara |
+| ----------- | -------- | ----- |
+| Tautan internal | `a[href]` origin sama, bukan `#anchor`, bukan tab baru/download | Undo |
+| Tab kustom | `[role="tab"]` | Undo |
+| Item menu | `[role="menuitem"]` / `menuitemcheckbox` / `menuitemradio` | Dot |
+| Opsi autocomplete / command palette | `[role="option"]` | Dot |
+| Radio | `[role="radio"]` | Dot |
+| Checkbox / switch | `[role="checkbox"]`, `[role="switch"]` | clasp / unclasp |
+| Toggle / segmented control | `[aria-pressed]` | clasp / unclasp |
+| Accordion / disclosure | `[aria-expanded]` | clasp / unclasp |
+| Tombol mentah | `button` (bukan primitif `Button`) | dew / boop acak |
+| Manual | `data-sfx="<nama>"` | sesuai nama |
+
+Catatan teknis:
+- Listener berjalan di **fase capture**. Ini penting: suara dari layer ini
+  sudah tercatat saat handler React milik Menu/Select/Popover memutuskan apakah
+  perlu memutar suara buka. Hasilnya satu klik tetap satu suara.
+- Tombol primitif ditandai `data-sfx-managed`; layer melewatinya karena Button
+  sudah menangani Notch — termasuk tombol yang sengaja `sound={null}`.
+- Klik kanan, klik sambil menyeleksi teks, dan kontrol `disabled`/`aria-disabled`
+  diabaikan.
+- `data-sfx-silent` mematikan suara untuk seluruh subtree (dipakai pada pilihan
+  cabang, yang suaranya sudah dimainkan `setBranch()`).
+
+```tsx
+// escape hatch untuk komponen yang tidak punya role/aria yang dikenali
+<div role="button" tabIndex={0} data-sfx="click">…</div>
+<span data-sfx="dot">…</span>
+
+// matikan suara pada subtree tertentu
+<div data-sfx-silent>…</div>
+```

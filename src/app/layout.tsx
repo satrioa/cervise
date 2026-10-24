@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/sonner";
+import { SoundLayer } from "@/components/layout/sound-layer";
 import { NextIntlClientProvider } from "next-intl";
 import { getLocale, getMessages } from "next-intl/server";
 import { ThemeProvider } from "next-themes";
@@ -43,6 +44,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
             kunjungan pertama, tanpa memaksa light. */}
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem storageKey="cervise-theme" disableTransitionOnChange={false}>
           <NextIntlClientProvider messages={messages}>{children}</NextIntlClientProvider>
+          <SoundLayer />
           <Toaster richColors position="top-right" />
         </ThemeProvider>
       </body>

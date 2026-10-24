@@ -3,18 +3,24 @@
 import * as React from "react"
 import { Popover as PopoverPrimitive } from "@base-ui/react/popover"
 import { cn } from "@/lib/utils"
-import { sfx } from "@/lib/sound"
+import { isFromManagedButton, playedRecently, sfx } from "@/lib/sound"
 
 function Popover({ onOpenChange, open, ...props }: PopoverPrimitive.Root.Props) {
-  // Close1 saat popover menutup. Membuka popover biasanya lewat klik tombol
-  // (sudah bersuara Notch), jadi open tidak diberi suara tambahan.
   const wasOpen = React.useRef(false)
   return (
     <PopoverPrimitive.Root
       data-slot="popover"
       open={open}
       onOpenChange={(nextOpen, eventDetails) => {
-        if (wasOpen.current && !nextOpen) sfx.close()
+        if (!wasOpen.current && nextOpen) {
+          // Popover muncul. Kalau trigger-nya Button (Notch) atau tombol
+          // mentah (click), biarkan suara trigger yang mewakili.
+          if (!isFromManagedButton(eventDetails) && !playedRecently(["notch", "dew", "boop"], 180)) sfx.click()
+        } else if (wasOpen.current && !nextOpen) {
+          // Tutup karena memilih item di dalamnya (mis. pilih cabang) → Dot
+          // sudah mewakili aksinya, Close1 akan terdengar dobel.
+          if (!playedRecently("dot", 260)) sfx.close()
+        }
         wasOpen.current = nextOpen
         onOpenChange?.(nextOpen, eventDetails)
       }}
