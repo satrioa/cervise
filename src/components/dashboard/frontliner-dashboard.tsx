@@ -17,6 +17,7 @@ import {
   useBentoStagger,
 } from "./bento-card";
 import { CandyButton } from "@/components/ui/candy-button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { TaskNoteCard } from "./task-note-card";
 import { AdjustmentDialog } from "@/components/cash/adjustment-dialog";
 import { ClosingDialog } from "@/components/cash/closing-dialog";
@@ -54,12 +55,13 @@ const BENTO_STAGGER = 0.04;
  *     │Penjualan│Ringkasan│          │  (2 baris) │
  *     │        │ Servis ├──────────┼────────────┤
  *     ├────────┴────────┤          │   TODAY    │
- *     │ Transaksi Terbaru│          │            │
+ *     │Servis Selesai   │          │            │
+ *     │Belum dibayar    │          │            │
  *     └──────────────────┴──────────┴────────────┘
  *
- * Pembayaran tidak ada di sini. Baris "Servis terbaru" dan "Transaksi
- * Terbaru" membuka `/app/servis/{id}`, dan pembayaran dilakukan di halaman
- * detail servis.
+ * Pembayaran tidak ada di sini. Baris "Servis terbaru" dan "Servis Selesai
+ * Belum dibayar" membuka `/app/servis/{id}`, dan pembayaran dilakukan di
+ * halaman detail servis.
  */
 
 export function FrontlinerDashboard({ fullName }: { fullName: string | null }) {
@@ -71,6 +73,12 @@ export function FrontlinerDashboard({ fullName }: { fullName: string | null }) {
   const [report, setReport] = useState<ShiftReport | null>(null);
   const [adjustOpen, setAdjustOpen] = useState(false);
   const [closingOpen, setClosingOpen] = useState(false);
+  /**
+   * True hanya sampai data pertama tiba. Refresh berikutnya (mis. setelah
+   * mencatat kas) tidak menyalakannya lagi, supaya angka yang sudah tampil
+   * tidak berkedip kembali menjadi skeleton.
+   */
+  const [loading, setLoading] = useState(true);
 
   /**
    * Semua data dashboard diambil lewat satu fungsi.
@@ -80,29 +88,39 @@ export function FrontlinerDashboard({ fullName }: { fullName: string | null }) {
    * servis atau mencatat kas, angka "Harus ada di laci" di Ringkasan Hari
    * ini tetap memakai nilai lama sampai halaman di-reload - terlihat seperti
    * datanya hardcoded padahal tidak.
+   *
+   * Ketiga query pertama berjalan paralel, lalu preview menyusul karena
+   * butuh id sesi. `finally` mematikan skeleton setelah SEMUA data siap,
+   * bukan setelah salah satu selesai - kalau tidak, kartu antrean sempat
+   * berkedip "Belum ada servis" padahal datanya masih di jalan.
    */
-  const reload = useCallback(() => {
-    getFrontlinerQueue().then((result) => {
-      if (result.ok) setQueue(result.data);
-    });
-    getFrontlinerKpi().then((result) => {
-      if (result.ok) setKpi(result.data);
-    });
-    checkOpenCashSession().then((result) => {
-      if (!result.ok) return;
-      setSession(result.data.current);
-      if (!result.data.current) {
+  const reload = useCallback(async () => {
+    try {
+      const [queueResult, kpiResult, sessionResult] = await Promise.all([
+        getFrontlinerQueue(),
+        getFrontlinerKpi(),
+        checkOpenCashSession(),
+      ]);
+
+      if (queueResult.ok) setQueue(queueResult.data);
+      if (kpiResult.ok) setKpi(kpiResult.data);
+      if (!sessionResult.ok) return;
+
+      setSession(sessionResult.data.current);
+      if (!sessionResult.data.current) {
         setReport(null);
         return;
       }
-      getShiftPreview(result.data.current.id).then((preview) => {
-        if (preview.ok) setReport(preview.data);
-      });
-    });
+
+      const preview = await getShiftPreview(sessionResult.data.current.id);
+      if (preview.ok) setReport(preview.data);
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   useEffect(() => {
-    reload();
+    void reload();
   }, [reload]);
 
   return (
@@ -151,7 +169,7 @@ export function FrontlinerDashboard({ fullName }: { fullName: string | null }) {
             {/* 3. Rekap kas hari ini, tiga baris. Di mobile menjadi kartu
                 selebar dua kolom. */}
             <BentoCard rowSpan={3} className="max-sm:col-span-2">
-              <RingkasanHariIni report={report} queue={queue} />
+              <RingkasanHariIni report={report} queue={queue} loading={loading} />
             </BentoCard>
 
             {/* 4. Daftar servis terbaru, dua baris. Putih di mobile seperti
@@ -161,7 +179,7 @@ export function FrontlinerDashboard({ fullName }: { fullName: string | null }) {
               className="max-sm:col-span-2 max-sm:bg-white max-sm:hover:bg-white max-sm:dark:bg-neutral-800 max-sm:dark:hover:bg-neutral-800"
             >
               <h2 className="text-[15px] font-medium tracking-tight">Servis terbaru</h2>
-              <TerbaruList queue={queue} />
+              <TerbaruList queue={queue} loading={loading} />
             </BentoCard>
 
             {/* 5. Kartu aksi. */}
@@ -174,10 +192,11 @@ export function FrontlinerDashboard({ fullName }: { fullName: string | null }) {
               <RingkasanServis kpi={kpi} />
             </BentoCard>
 
-            {/* 7. Transaksi terakhir, melebar dua kolom. `hug` supaya kartu
-                ikut tinggi daftarnya, bukan meregang sampai tinggi baris. */}
-            <BentoCard span={2} hug className="max-sm:col-span-2">
-              <TransaksiTerbaru queue={queue} />
+            {/* 7. Servis selesai yang belum dibayar, melebar dua kolom.
+                Tanpa `hug`: kartu mengisi sel bento dan daftarnya menggulir
+                di dalam, jadi tingginya selalu sama dengan kartu tetangga. */}
+            <BentoCard span={2} className="max-sm:col-span-2">
+              <ServisSelesaiBelumDibayar queue={queue} loading={loading} />
             </BentoCard>
 
             {/* 8. To-Do, satu sel di desktop; di mobile selebar dua kolom. */}
@@ -191,13 +210,13 @@ export function FrontlinerDashboard({ fullName }: { fullName: string | null }) {
       <AdjustmentDialog
         open={adjustOpen}
         onOpenChange={setAdjustOpen}
-        onSaved={reload}
+        onSaved={() => void reload()}
       />
       <ClosingDialog
         open={closingOpen}
         onOpenChange={setClosingOpen}
         session={session}
-        onClosed={reload}
+        onClosed={() => void reload()}
       />
     </div>
   );
@@ -215,14 +234,41 @@ export function FrontlinerDashboard({ fullName }: { fullName: string | null }) {
 function RingkasanHariIni({
   report,
   queue,
+  loading,
 }: {
   report: ShiftReport | null;
   queue: FrontlinerQueueItem[];
+  loading: boolean;
 }) {
+  // Skeleton hanya saat data pertama belum tiba. Tanpa cabang ini, kartu
+  // sempat menampilkan "Belum ada sesi kas terbuka" padahal sesinya ada dan
+  // laporan shift-nya masih diambil.
+  if (loading) {
+    return (
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden" aria-busy="true">
+        <h2 className="shrink-0 text-[15px] font-medium tracking-tight">Ringkasan Hari ini</h2>
+        <div className="mt-2 flex min-h-0 flex-1 flex-col gap-1.5" aria-hidden>
+          <Skeleton className="h-6 w-full rounded-lg" />
+          <Skeleton className="h-4 w-24" />
+          <Skeleton className="h-6 w-full rounded-lg" />
+          <Skeleton className="h-4 w-20" />
+          <Skeleton className="h-6 w-full rounded-lg" />
+        </div>
+        {/* Blok total tetap di dasar kartu, sama seperti posisi aslinya. */}
+        <div className="mt-2 flex shrink-0 flex-col gap-1.5" aria-hidden>
+          <Skeleton className="h-4 w-full" />
+          <Skeleton className="h-4 w-full" />
+          <Skeleton className="h-4 w-full" />
+          <Skeleton className="h-5 w-full rounded-md" />
+        </div>
+      </div>
+    );
+  }
+
   if (!report) {
     return (
       <>
-        <h2 className="text-[15px] font-medium tracking-tight">Ringkasan Hari ini</h2>
+        <h2 className="shrink-0 text-[15px] font-medium tracking-tight">Ringkasan Hari ini</h2>
         <p className="mt-2 text-sm opacity-60">
           Belum ada sesi kas terbuka. Buka kas untuk melihat rekap.
         </p>
@@ -235,8 +281,10 @@ function RingkasanHariIni({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-      <h2 className="text-[15px] font-medium tracking-tight">Ringkasan Hari ini</h2>
+      <h2 className="shrink-0 text-[15px] font-medium tracking-tight">Ringkasan Hari ini</h2>
 
+      {/* Hanya daftar ini yang menggulir. Blok total di bawah sengaja berada
+          di luar `<ul>` supaya tetap terlihat saat daftar transaksi panjang. */}
       <ul className="-mx-1 mt-1 flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto scrollbar-none text-[13px]">
         <Row label="Saldo Awal" value={rupiah(report.openingBalance)} boxed />
 
@@ -272,19 +320,21 @@ function RingkasanHariIni({
           }))}
           empty="Belum ada transaksi kas"
         />
-
-        {/*
-         * Keempat angka ini satu blok putih, bukan empat baris terpisah.
-         * kartu induknya sudah abu-abu, jadi latar putih di sini yang
-         * memisahkannya dari daftar di atas.
-         */}
-        <li className="mt-1 overflow-hidden rounded-xl bg-white text-neutral-900 ring-1 ring-black/5 dark:bg-white/95 dark:ring-white/10">
-          <TotalRow label="Omzet servis" value={rupiah(report.totals.services)} />
-          <TotalRow label="Omzet Penjualan" value={rupiah(report.totals.sales)} />
-          <TotalRow label="Transaksi Manual" value={rupiah(report.totals.manualNet)} />
-          <TotalRow label="Harus ada di laci" value={rupiah(report.expectedCash)} strong />
-        </li>
       </ul>
+
+      {/*
+       * Keempat angka ini satu blok, bukan empat baris terpisah.
+       * kartu induknya sudah abu-abu, jadi latarnya yang memisahkannya dari
+       * daftar di atas. Di dark mode blok ini satu tingkat lebih terang dari
+       * kartu (neutral-800 vs neutral-900) - bukan putih, karena putih penuh
+       * membuat mata sakit dan teksnya jadi gelap di tengah UI gelap.
+       */}
+      <div className="mt-1.5 shrink-0 overflow-hidden rounded-xl bg-white text-neutral-900 ring-1 ring-black/5 dark:bg-neutral-800 dark:text-neutral-100 dark:ring-white/10">
+        <TotalRow label="Omzet servis" value={rupiah(report.totals.services)} />
+        <TotalRow label="Omzet Penjualan" value={rupiah(report.totals.sales)} />
+        <TotalRow label="Transaksi Manual" value={rupiah(report.totals.manualNet)} />
+        <TotalRow label="Harus ada di laci" value={rupiah(report.expectedCash)} strong />
+      </div>
     </div>
   );
 }
@@ -390,41 +440,68 @@ function RingkasanServis({ kpi }: { kpi: FrontlinerKpi | null }) {
   );
 }
 
-/** Kartu horizontal servis terakhir, dengan tautan "Lihat semua". */
-function TransaksiTerbaru({ queue }: { queue: FrontlinerQueueItem[] }) {
+/**
+ * Servis berstatus `Selesai` yang belum dibayar.
+ *
+ * `queue` dari `getFrontlinerQueue()` sudah membuang servis yang punya
+ * penjualan terkait, jadi filter di sini cukup status saja: pekerjaan sudah
+ * selesai, barang belum diambil, dan belum ada nota yang menagihnya.
+ *
+ * Harga memakai `item.price` yang sudah diresolusi server menjadi
+ * `price_estimasi ?? price`. Servis tanpa estimasi dan tanpa harga tampil
+ * "Belum diisi", bukan "Rp0" - nol di sini berarti belum ditentukan, bukan
+ * gratis.
+ */
+function ServisSelesaiBelumDibayar({
+  queue,
+  loading,
+}: {
+  queue: FrontlinerQueueItem[];
+  loading: boolean;
+}) {
+  const items = queue.filter((item) => item.status === "Selesai");
+
   return (
-    // Tanpa `flex-1`/`min-h-0`: kartu ini sengaja hug, jadi tinggi wrapper
-    // ikut tinggi isinya dan tidak menarik ruang kosong.
-    <div className="flex flex-col">
-      <div className="flex items-baseline justify-between gap-2">
-        <h2 className="text-[15px] font-medium tracking-tight">Transaksi Terbaru</h2>
-        <Link href="/app/servis" className="text-xs underline underline-offset-2 opacity-70">
-          Lihat semua
-        </Link>
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div className="flex shrink-0 items-baseline justify-between gap-2">
+        <h2 className="min-w-0 truncate text-[15px] font-medium tracking-tight">
+          Servis Selesai Belum dibayar
+        </h2>
+        {loading ? null : (
+          <span className="shrink-0 text-[11px] tabular-nums opacity-60">
+            {items.length} servis
+          </span>
+        )}
       </div>
 
-      {queue.length === 0 ? (
-        <p className="mt-1 text-sm opacity-60">Belum ada servis hari ini.</p>
+      {loading ? (
+        <div className="mt-1.5 flex min-h-0 flex-1 flex-col gap-1.5" aria-hidden>
+          <Skeleton className="min-h-8 flex-1 rounded-xl" />
+          <Skeleton className="min-h-8 flex-1 rounded-xl" />
+          <Skeleton className="min-h-8 flex-1 rounded-xl" />
+        </div>
+      ) : items.length === 0 ? (
+        <p className="mt-1 text-sm opacity-60">
+          Tidak ada servis selesai yang belum dibayar.
+        </p>
       ) : (
-        <ul className="-mx-1 mt-1 flex gap-1.5 overflow-x-auto scrollbar-none">
-          {queue.map((item) => (
-            <li key={item.id} className="min-w-[8rem] shrink-0">
+        <ul className="-mx-1 mt-1 flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto scrollbar-none">
+          {items.map((item) => (
+            <li key={item.id} className="shrink-0">
               <Link
                 href={`/app/servis/${item.id}`}
-                className="flex min-w-0 flex-col rounded-xl border border-black/5 px-2.5 py-2 transition-colors hover:bg-black/[0.03] dark:border-white/10 dark:hover:bg-white/[0.05]"
+                className="flex items-center gap-2 rounded-xl border border-black/5 px-2.5 py-2 transition-colors hover:bg-black/[0.03] dark:border-white/10 dark:hover:bg-white/[0.05]"
               >
-                <span className="text-[10px] opacity-50 tabular-nums">
-                  {new Date(item.createdAt).toLocaleDateString("id-ID")}
-                </span>
-                <span className="mt-0.5 flex min-w-0 flex-1 items-center gap-1">
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-[13px] font-medium">
-                      {item.serviceNumber ?? "Tanpa nomor"}
-                    </span>
-                    <span className="block truncate text-[11px] opacity-60">{item.device}</span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-[13px] font-medium">
+                    {item.serviceNumber ?? "Tanpa nomor"}
                   </span>
-                  <ArrowRightIcon className="size-3.5 shrink-0 opacity-50" />
+                  <span className="block truncate text-[11px] opacity-60">{item.device}</span>
                 </span>
+                <span className="shrink-0 text-[12px] font-medium tabular-nums">
+                  {item.price > 0 ? rupiah(item.price) : "Belum diisi"}
+                </span>
+                <ArrowRightIcon className="size-3.5 shrink-0 opacity-50" />
               </Link>
             </li>
           ))}
@@ -435,7 +512,17 @@ function TransaksiTerbaru({ queue }: { queue: FrontlinerQueueItem[] }) {
 }
 
 /** Daftar servis terbaru; barisnya membuka detail servis. */
-function TerbaruList({ queue }: { queue: FrontlinerQueueItem[] }) {
+function TerbaruList({ queue, loading }: { queue: FrontlinerQueueItem[]; loading: boolean }) {
+  if (loading) {
+    return (
+      <div className="mt-1 flex min-h-0 flex-1 flex-col gap-1.5" aria-hidden>
+        <Skeleton className="min-h-9 flex-1 rounded-xl" />
+        <Skeleton className="min-h-9 flex-1 rounded-xl" />
+        <Skeleton className="min-h-9 flex-1 rounded-xl" />
+      </div>
+    );
+  }
+
   if (queue.length === 0) {
     return <p className="mt-2 text-sm opacity-60">Belum ada servis.</p>;
   }

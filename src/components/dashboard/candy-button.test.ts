@@ -301,7 +301,30 @@ describe("grid bento delapan sel", () => {
     // kartu yang isinya pendek, supaya tidak terlihat setengah kosong.
     expect(bentoCard).toMatch(/hug \? "h-fit" : "h-full"/);
     expect(bentoCard).toMatch(/hug && "self-start"/);
-    expect(frontliner).toMatch(/span=\{2\} hug/);
+    // "Servis Selesai Belum dibayar" mengisi selnya sendiri (tanpa `hug`),
+    // jadi tingginya mengikuti tinggi bento dan daftarnya menggulir di dalam.
+    expect(frontliner).not.toMatch(/span=\{2\} hug/);
+    expect(frontliner).toMatch(/<BentoCard span=\{2\} className="max-sm:col-span-2">/);
+  });
+
+  it("Servis Selesai Belum dibayar menggantikan Transaksi Terbaru", () => {
+    expect(frontliner).toMatch(/Servis Selesai Belum dibayar/);
+    expect(frontliner).not.toMatch(/Transaksi Terbaru/);
+    // Antrean dari getFrontlinerQueue sudah membuang servis yang punya nota,
+    // jadi filter yang tersisa cukup status selesai.
+    expect(frontliner).toMatch(/item\.status === "Selesai"/);
+    expect(frontliner).toMatch(/rupiah\(item\.price\)/);
+  });
+
+  it("kartu data memakai skeleton saat load pertama", () => {
+    expect(frontliner).toMatch(/Skeleton/);
+    expect(frontliner).toMatch(/aria-busy="true"/);
+    expect(frontliner).toMatch(/const \[loading, setLoading\] = useState\(true\)/);
+  });
+
+  it("To-Do hanya teks: tidak ada input tanggal", () => {
+    expect(taskNoteCard).not.toMatch(/type="date"/);
+    expect(taskNoteCard).toMatch(/dueAt: null/);
   });
 
   it("sel yang isinya panjang menggulir di dalam, kartunya tidak", () => {

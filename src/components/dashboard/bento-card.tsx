@@ -188,8 +188,8 @@ export type BentoCardProps = {
   surface?: "neutral" | "white" | "plain";
   /**
    * Kartu ini ikut tinggi isinya, bukan meregang sampai tinggi sel grid.
-   * Dipakai "Transaksi Terbaru": daftar horizontalnya pendek, dan meregang
-   * hanya membuat kartu terlihat setengah kosong.
+   * Dipakai kartu yang daftarnya pendek, dan meregang hanya membuatnya
+   * terlihat setengah kosong.
    */
   hug?: boolean;
   className?: string;

@@ -6,7 +6,6 @@ import { MentionComposerInput, NoteWithMentions, type ChipSource } from "./menti
 import { addTodoMentions, getTodoMentions, type TodoMention } from "@/app/app/actions/todo-mentions";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import {
@@ -93,7 +92,6 @@ export function TaskNoteCard({
   const [todos, setTodos] = useState<StaffTodo[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [draft, setDraft] = useState("");
-  const [due, setDue] = useState("");
   const [composing, setComposing] = useState(false);
   const [editing, setEditing] = useState<string | null>(null);
   // Mode edit eksplisit: di layar sentuh tidak ada hover, jadi tombol
@@ -152,14 +150,15 @@ export function TaskNoteCard({
   const submitDraft = async () => {
     const title = draft.trim();
     if (!title) return;
-    const result = await createTodo({ title, dueAt: due ? new Date(due).toISOString() : null });
+    // To-Do cukup teks. Kolom tenggat tetap ada di database untuk catatan
+    // lama, tapi catatan baru selalu tanpa tanggal.
+    const result = await createTodo({ title, dueAt: null });
     if (!result.ok) {
       toast.error(result.error);
       return;
     }
     setTodos((prev) => [result.data, ...prev]);
     setDraft("");
-    setDue("");
     setDraftMentions([]);
     setComposing(false);
 
@@ -258,13 +257,6 @@ export function TaskNoteCard({
         }}
       />
       <div className="flex flex-wrap items-center gap-2">
-        <Input
-          type="date"
-          value={due}
-          onChange={(e) => setDue(e.target.value)}
-          className="h-8 w-36"
-          aria-label="Tenggat"
-        />
         <Button size="sm" className="h-8" onClick={submitDraft}>
           Simpan
         </Button>
@@ -357,7 +349,7 @@ export function TaskNoteCard({
                   </AgendaTitle>
                 )}
 
-                {variant === "default" ? (
+                {variant === "default" && todo.dueAt ? (
                   <span className="ml-auto w-20 shrink-0 text-right font-mono text-[10px] text-muted-foreground/70 uppercase tracking-[0.2em]">
                     {dueLabel(todo.dueAt)}
                   </span>
@@ -439,9 +431,11 @@ export function TaskNoteCard({
                       <p className={cn("truncate text-sm", isDone && "text-muted-foreground line-through")}>
                         {todo.title}
                       </p>
-                      <span className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
-                        {dueLabel(todo.dueAt)}
-                      </span>
+                      {todo.dueAt ? (
+                        <span className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
+                          {dueLabel(todo.dueAt)}
+                        </span>
+                      ) : null}
                     </div>
                   </li>
                 );
