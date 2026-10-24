@@ -1,32 +1,35 @@
 "use client";
 
 import { useEffect, useState, type ReactNode } from "react";
+import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Menu } from "lucide-react";
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
-import { Button } from "@/components/ui/button";
+import { LayoutGrid } from "lucide-react";
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { CommandPaletteProvider, CommandSearchTrigger } from "@/components/layout/command-palette-provider";
-import { CompactSidebar, COMPACT_GRID_TEMPLATE } from "@/components/layout/compact-sidebar";
-import { ThemeToggle } from "@/components/layout/theme-toggle";
+import { FullscreenToggle } from "@/components/layout/fullscreen-toggle";
 import { ShellChromeProvider } from "@/components/layout/shell-chrome";
-import { BranchProvider, useBranch } from "@/lib/branch-context";
-import { TenantProvider, useTenant } from "@/lib/tenant-context";
+import { CompactMenuSheet } from "@/components/layout/compact-menu-sheet";
+import { CompactBottomBar } from "@/components/layout/compact-bottom-bar";
+import { BranchProvider } from "@/lib/branch-context";
+import { TenantProvider } from "@/lib/tenant-context";
 import { LocaleProvider } from "@/lib/localization-context";
 import { normalizeAppRole } from "@/lib/nav/manifest";
 import { OpeningBalanceDialog } from "@/components/cash/opening-balance-dialog";
 import { checkOpenCashSession, type CashSessionRow } from "@/app/app/actions/cash";
+import { useTranslations } from "next-intl";
+import { cn } from "@/lib/utils";
 
 /**
- * Shell kedua untuk Cervise, dipakai TEKNICIAN (dan FRONTLINER di Spec 3).
+ * Shell kedua untuk Cervise, dipakai TECHNICIAN dan FRONTLINER.
  *
  * Struktur provider-nya sama persis dengan `AppShell` — hanya isi yang
  * berbeda. Itu disengaja: `TenantProvider` dan `BranchProvider` sudah
  * mengunci org dan cabang untuk role non-MASTER_ADMIN, jadi teknisi
  * tidak bisa mengarahkan data ke tenant atau cabang lain.
  *
- * Mobile memakai pola `h-svh` + sheet + bottom tab, bukan grid dua kolom
- * seperti referensi devl, karena Cervise sudah punya navigasi mobile sendiri
- * yang tidak perlu digantikan.
+ * Tampilannya mengikuti frame Figma: navigasi tersegmentasi di atas,
+ * tombol grid untuk drawer menu lengkap, dan dua pil identitas mengambang
+ * di bawah. Rail 70px tidak dipakai lagi.
  */
 
 export type CompactShellActor = {
@@ -43,10 +46,11 @@ export function CompactShell({ children, actor }: { children: ReactNode; actor: 
       <TenantProvider fixedOrganizationId={actor.orgId}>
         <BranchProvider fixedBranchId={actor.branchId ?? "unassigned"}>
           <CommandPaletteProvider role={actor.role}>
-            {/* Header shell Compact sudah membawa search dan tombol tema, jadi
-                PageHeader di dalamnya harus melompat keduanya. Tanpa provider
-                ini, halaman Servis, Customer, dan Inventori menampilkan dua
-                header bertumpuk untuk TEKNICIAN dan FRONTLINER. */}
+            {/* Header shell Compact sudah membawa search dan tombol layar
+                penuh, jadi PageHeader di dalamnya harus melompat keduanya.
+                Tanpa provider ini, halaman Servis, Customer, dan Inventori
+                menampilkan dua header bertumpuk untuk TECHNICIAN dan
+                FRONTLINER. */}
             <ShellChromeProvider value>
               <CompactShellInner actor={actor}>{children}</CompactShellInner>
             </ShellChromeProvider>
@@ -54,37 +58,6 @@ export function CompactShell({ children, actor }: { children: ReactNode; actor: 
         </BranchProvider>
       </TenantProvider>
     </LocaleProvider>
-  );
-}
-
-/**
- * Nama tenant dan cabang untuk header shell compact.
- *
- * Rail 70px tidak muat nama, jadi identitas ini tampil di header. Sumbernya
- * context yang sama dengan sidebar, bukan dari actor: `TenantProvider` dan
- * `BranchProvider` sudah mengunci org dan cabang untuk role non-MASTER_ADMIN,
- * jadi teknisi dan frontliner hanya punya satu tenant dan satu cabang.
- */
-function TenantBranchLabel() {
-  const { tenants, activeOrgId } = useTenant();
-  const { branch } = useBranch();
-
-  const tenantName =
-    tenants.find((tenant) => tenant.id === activeOrgId)?.name ??
-    (tenants.length === 1 ? tenants[0]?.name : null);
-  const branchName = branch?.label ?? null;
-
-  if (!tenantName && !branchName) return null;
-
-  return (
-    <div className="hidden min-w-0 flex-col items-start leading-tight lg:flex">
-      {tenantName ? (
-        <span className="max-w-[22ch] truncate text-sm font-semibold">{tenantName}</span>
-      ) : null}
-      {branchName ? (
-        <span className="max-w-[22ch] truncate text-xs text-muted-foreground">{branchName}</span>
-      ) : null}
-    </div>
   );
 }
 
@@ -97,9 +70,23 @@ function CompactShellInner({
 }) {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
+  const t = useTranslations("nav");
   const role = normalizeAppRole(actor.role);
 
-  // Saldo awal hanya untuk role yang menjalankan shift kas. TEKNICIAN punya
+  const tabs =
+    role === "FRONTLINER"
+      ? [
+          { href: "/app", label: "Home" },
+          { href: "/app/servis", label: t("items.service") },
+          { href: "/app/penjualan", label: t("items.sales") },
+        ]
+      : [
+          { href: "/app", label: "Home" },
+          { href: "/app/servis", label: t("items.service") },
+          { href: "/app/kategori-sparepart", label: t("items.sparepart") },
+        ];
+
+  // Saldo awal hanya untuk role yang menjalankan shift kas. TECHNICIAN punya
   // To-Do sendiri dan tidak pernah membuka laci.
   const needsCashSession = role === "FRONTLINER";
   const [session, setSession] = useState<CashSessionRow | null>(null);
@@ -119,55 +106,86 @@ function CompactShellInner({
   }, [needsCashSession]);
 
   return (
-    <div
-      className="flex h-svh w-full overflow-hidden bg-background text-foreground lg:grid"
-      style={{ gridTemplateColumns: COMPACT_GRID_TEMPLATE }}
-    >
-      <aside className="hidden h-svh shrink-0 flex-col border-r border-border/60 bg-foreground/[0.02] lg:flex">
-        <CompactSidebar
-          role={actor.role}
-          fullName={actor.fullName}
-          avatarUrl={actor.avatarUrl}
-        />
-      </aside>
+    <div className="flex h-svh w-full flex-col overflow-hidden bg-[#EFEFEF] text-neutral-900 dark:bg-neutral-950 dark:text-neutral-100">
+      <header className="shrink-0 px-4 pt-3 sm:px-6 sm:pt-4 lg:px-8">
+        <div className="flex w-full items-center gap-2">
+          <nav
+            aria-label="Navigasi utama"
+            className="flex min-w-0 items-center gap-1 overflow-x-auto rounded-full bg-black/[0.055] p-1 scrollbar-none dark:bg-white/10"
+          >
+            {tabs.map((tab) => {
+              const active = isActive(pathname, tab.href);
+              return (
+                <Link
+                  key={tab.href}
+                  href={tab.href}
+                  aria-current={active ? "page" : undefined}
+                  className={cn(
+                    "shrink-0 rounded-full px-3 py-1.5 text-xs font-medium transition-colors sm:px-4 sm:text-sm",
+                    active
+                      ? "bg-white text-neutral-900 shadow-sm dark:bg-neutral-800 dark:text-white"
+                      : "text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white",
+                  )}
+                >
+                  {tab.label}
+                </Link>
+              );
+            })}
+          </nav>
 
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden lg:col-start-2">
-        <header className="flex h-14 shrink-0 items-center gap-3 border-b border-border/60 px-3 lg:px-4">
           <Sheet open={open} onOpenChange={setOpen}>
-            <SheetTrigger render={<Button variant="ghost" size="icon" className="size-8 lg:hidden" />}>
-              <Menu className="size-5" />
+            <SheetTrigger
+              render={
+                <button
+                  type="button"
+                  aria-label="Buka menu"
+                  title="Buka menu"
+                  className="flex size-10 shrink-0 items-center justify-center rounded-full bg-white text-neutral-700 shadow-sm ring-1 ring-black/5 transition-colors hover:bg-white dark:bg-neutral-900 dark:text-neutral-200 dark:ring-white/10 dark:hover:bg-neutral-800"
+                />
+              }
+            >
+              <LayoutGrid className="size-[18px]" />
             </SheetTrigger>
-            <SheetContent side="left" className="flex w-[86px] flex-col p-0">
-              <SheetHeader className="sr-only">
-                <SheetTitle>Menu Cervise</SheetTitle>
-              </SheetHeader>
-              <CompactSidebar
+            <SheetContent
+              side="left"
+              showCloseButton={false}
+              className="gap-0 overflow-hidden rounded-[28px] bg-[#F1F1F1] p-0 shadow-[0_30px_80px_-32px_rgba(0,0,0,0.55)] data-[side=left]:inset-y-4 data-[side=left]:left-4 data-[side=left]:h-[calc(100%-2rem)] data-[side=left]:w-[calc(100%-2rem)] data-[side=left]:border-0 dark:bg-neutral-950 data-[side=left]:sm:max-w-[420px]"
+            >
+              <CompactMenuSheet
                 role={actor.role}
-                fullName={actor.fullName}
-                avatarUrl={actor.avatarUrl}
                 onNavigate={() => setOpen(false)}
-                showLabels
+                onClose={() => setOpen(false)}
               />
             </SheetContent>
           </Sheet>
 
-          <TenantBranchLabel />
-
-          {/* Search dan tema diletakkan di shell, bukan di PageHeader, supaya
-              CompactShell punya satu header saja. Shell legacy tidak merender
-              header, jadi PageHeader tetap membawa keduanya di sana. */}
-          <div className="ml-auto flex items-center gap-1.5">
-            <ThemeToggle />
-            <div className="w-full max-w-[200px]">
-              <CommandSearchTrigger className="w-full" />
-            </div>
+          <div className="ml-auto flex shrink-0 items-center gap-2">
+            <CommandSearchTrigger
+              className="hidden h-10 w-[260px] justify-start rounded-full border-0 bg-white/80 px-4 shadow-sm ring-1 ring-black/5 hover:bg-white dark:bg-neutral-900/80 dark:ring-white/10 dark:hover:bg-neutral-900 lg:flex"
+              aria-label="Cari atau buka perintah"
+            />
+            <CommandSearchTrigger
+              className="flex size-10 items-center justify-center rounded-full border-0 bg-white p-0 shadow-sm ring-1 ring-black/5 hover:bg-white dark:bg-neutral-900 dark:ring-white/10 dark:hover:bg-neutral-800 lg:hidden [&>kbd]:hidden"
+              aria-label="Cari"
+            />
+            <FullscreenToggle className="hidden size-10 rounded-full border-0 bg-white shadow-sm ring-1 ring-black/5 dark:bg-neutral-900 dark:ring-white/10 md:inline-flex" />
           </div>
-        </header>
+        </div>
+      </header>
 
-        <main key={pathname} data-main-content className="min-h-0 flex-1 overflow-y-auto">
-          {children}
-        </main>
-      </div>
+      <main
+        key={pathname}
+        data-main-content
+        className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden pb-24 sm:pb-24"
+      >
+        {children}
+      </main>
+
+      <CompactBottomBar
+        role={actor.role}
+        fullName={actor.fullName}
+        avatarUrl={actor.avatarUrl}
+      />
 
       {/* Saldo awal wajib. Dialog ini yang menentukan boleh tidaknya
           dashboard dipakai: `cashChecked` menahan render sampai sesi dicek. */}
@@ -176,4 +194,9 @@ function CompactShellInner({
       ) : null}
     </div>
   );
+}
+
+function isActive(pathname: string, href: string): boolean {
+  if (href === "/app") return pathname === "/app";
+  return pathname === href || pathname.startsWith(`${href}/`);
 }

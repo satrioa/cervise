@@ -133,6 +133,23 @@ describe("manifest terhadap berkas i18n", () => {
     });
   }
 
+  it("label laporan servis tidak sama dengan menu servis", () => {
+    // `/app/servis` dan `/app/laporan/servis` dulu sama-sama tampil sebagai
+    // "Servis" di rail compact, sehingga tidak mungkin dibedakan. Label
+    // laporan harus tetap mengandung kata laporan/report.
+    for (const locale of ["id", "en"]) {
+      const messages = JSON.parse(
+        readFileSync(join(process.cwd(), "messages", `${locale}.json`), "utf8"),
+      ) as { nav: { items: Record<string, string> } };
+      const service = messages.nav.items.service;
+      const report = messages.nav.items.reportService;
+      expect(report, locale).not.toBe(service);
+      expect(report.toLowerCase(), locale).toContain(locale === "id" ? "laporan" : "report");
+    }
+
+    expect(entryForHref("/app/laporan/servis")?.label).toBe("Laporan Servis");
+  });
+
   it("group yang dilabeli punya kunci di nav.groups", () => {
     const messages = JSON.parse(
       readFileSync(join(process.cwd(), "messages", "id.json"), "utf8"),

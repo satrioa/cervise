@@ -6,17 +6,18 @@ const read = (relative: string) => readFileSync(join(process.cwd(), relative), "
 
 const pageHeader = read("src/components/layout/page-header.tsx");
 const compactShell = read("src/components/layout/compact-shell.tsx");
+const compactBottomBar = read("src/components/layout/compact-bottom-bar.tsx");
 const legacyShell = read("src/components/layout/app-shell.tsx");
 
 /**
  * Shell compact merender header sendiri (baris h-14 dengan kotak pencarian),
  * sementara `PageHeader` juga merender `<header>` yang memuat
- * `ThemeToggle` + `CommandSearchTrigger`. Di CompactShell keduanya muncul
- * bertumpuk -- header ganda.
+ * `ThemeToggle` + `CommandSearchTrigger`. Dulu keduanya muncul bertumpuk --
+ * header ganda.
  *
  * `AppShell` legacy tidak merender header, jadi `PageHeader` selalu jadi satu-
- * satunya header di sana. Karena itu duplikat ini hanya terlihat di shell
- * compact.
+ * satunya header di sana. Di compact, `ShellChromeProvider` mematikan chrome
+ * `PageHeader` supaya search dan tombol layar penuh hanya dirender sekali.
  */
 describe("shell chrome", () => {
   it("AppShell legacy tidak merender header sendiri", () => {
@@ -29,20 +30,35 @@ describe("shell chrome", () => {
     expect(compactShell.match(/<header/g) ?? []).toHaveLength(1);
   });
 
-  it("CompactShell menyediakan pencarian dan tema untuk menggantikan PageHeader", () => {
-    // Search dan ThemeToggle dilewati di shell compact, jadi keduanya harus
-    // pindah ke header CompactShell. Kalau tidak, teknisi dan frontliner
-    // kehilangan kotak pencarian dan tombol tema.
+  it("CompactShell menyediakan pencarian dan tombol layar penuh", () => {
+    // Search dan chrome PageHeader dilewati di shell compact, jadi search
+    // dan tombol layar penuh harus ada di header CompactShell. ThemeToggle
+    // sengaja tidak dipakai lagi di compact; legacy tetap memakainya.
     expect(compactShell).toMatch(/CommandSearchTrigger/);
-    expect(compactShell).toMatch(/ThemeToggle/);
+    expect(compactShell).toMatch(/FullscreenToggle/);
+    expect(compactShell).not.toMatch(/ThemeToggle/);
   });
 
-  it("header CompactShell menampilkan nama tenant dan cabang", () => {
-    // Rail 70px tidak muat nama, jadi identitas tenant pindah ke header.
-    // Tanpa ini, teknisi dan frontliner tidak tahu sedang bekerja untuk
-    // tenant dan cabang mana.
-    expect(compactShell).toMatch(/useTenant/);
-    expect(compactShell).toMatch(/useBranch/);
+  it("tombol layar penuh memakai Fullscreen API dan sinkron dengan Esc", () => {
+    const fullscreenToggle = read("src/components/layout/fullscreen-toggle.tsx");
+    expect(fullscreenToggle).toMatch(/requestFullscreen/);
+    expect(fullscreenToggle).toMatch(/exitFullscreen/);
+    expect(fullscreenToggle).toMatch(/fullscreenchange/);
+  });
+
+  it("header dan bottom bar compact memakai lebar penuh", () => {
+    expect(compactShell).not.toMatch(/max-w-\[1264px\]/);
+    expect(compactBottomBar).not.toMatch(/max-w-\[1264px\]/);
+  });
+
+  it("bar identitas CompactShell menampilkan nama tenant dan cabang", () => {
+    // Rail 70px tidak muat nama, jadi identitas tenant pindah ke pil
+    // mengambang di bawah. Tanpa ini, teknisi dan frontliner tidak tahu
+    // sedang bekerja untuk tenant dan cabang mana.
+    expect(compactShell).toMatch(/CompactBottomBar/);
+    expect(compactBottomBar).toMatch(/useTenant/);
+    expect(compactBottomBar).toMatch(/useBranch/);
+    expect(compactBottomBar).toMatch(/branchLabel/);
   });
 
   it("sidebar compact memakai ikon fill, sidebar legacy tetap garis", () => {

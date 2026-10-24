@@ -76,21 +76,14 @@ export function TechnicianDashboard({ fullName }: { fullName: string | null }) {
   const kpi = data?.kpi ?? null;
 
   return (
-    // Tinggi proporsional, bukan kunci viewport.
-    //
-    // Versi lama memakai `h-dvh` + `sm:grid-rows-3`, yang memaksa tiap sel
-    // menjadi tepat 1/3 layar: di monitor besar kartu jadi tinggi dan kosong,
-    // di laptop jadi gepeng. Sekarang `BENTO_GRID_CLASS` memakai
-    // `auto-rows-[minmax(8.5rem,1fr)]` - minimal 8.5rem per baris, maksimal
-    // mengisi sisa tinggi yang ada. Layar yang lebih pendek dari minimum
-    // boleh menggulir halaman, dan itu lebih baik daripada memampatkan
-    // semua kartu.
-    <div className="min-h-svh bg-background text-foreground">
-      <div className="px-6 py-6 lg:px-10 lg:py-8">
-        <div className="mx-auto w-full max-w-5xl">
+    // Latar halaman berasal dari shell (kanvas abu-abu di Figma). Kartu
+    // mengikuti tinggi isinya, jadi tidak ada lagi `h-dvh` atau max-height.
+    <div className="min-h-full text-foreground">
+      <div className="px-4 py-6 sm:px-6 sm:py-8 lg:px-8 lg:py-10">
+        <div className="mx-auto w-full max-w-[1264px]">
           <div>
             <DateLine />
-            <h1 className="mt-1 font-heading text-3xl tracking-tight lg:text-4xl">
+            <h1 className="mt-1 font-heading text-[2rem] font-normal leading-tight tracking-[-0.03em] sm:text-[2.5rem]">
               {greeting()}, {fullName ?? "Teknisi"}.
             </h1>
           </div>
@@ -116,23 +109,38 @@ export function TechnicianDashboard({ fullName }: { fullName: string | null }) {
             <StatTile label="Servis Masuk Hari ini" value={kpi?.masukHariIni} />
 
             {/* 4. Daftar servis terbaru, dua baris - halaman detail servis
-                adalah tempat pembayaran, jadi barisnya cuma membuka detail. */}
-            <BentoCard rowSpan={2} className="overflow-hidden">
+                adalah tempat pembayaran, jadi barisnya cuma membuka detail.
+                Di mobile kartu ini pindah ke urutan terakhir dan menjadi
+                kartu putih, mengikuti frame mobile Figma. */}
+            <BentoCard
+              rowSpan={2}
+              className="max-sm:order-7 max-sm:col-span-2 max-sm:max-h-[18rem] max-sm:bg-white max-sm:hover:bg-white max-sm:dark:bg-neutral-800 max-sm:dark:hover:bg-neutral-800"
+            >
               <CardTitle>Servis terbaru</CardTitle>
               <TerbaruList items={data?.terbaru} />
             </BentoCard>
 
-            {/* 5. To-Do, dua kolom kali dua baris. */}
-            <BentoCard span={2} rowSpan={2} className="overflow-visible">
-              <TaskNoteCard compact compactLimit={5} />
+            {/* 5. To-Do, dua kolom kali dua baris. Permukaan luar transparan;
+                TaskNoteCard menggambar satu kartu putih utuh di dalamnya. */}
+            <BentoCard
+              span={2}
+              rowSpan={2}
+              surface="plain"
+              className="max-sm:order-5 max-sm:col-span-2"
+            >
+              <TaskNoteCard variant="bento" compact compactLimit={5} />
             </BentoCard>
 
             {/* 6. Angka selesai hari ini. */}
-            <StatTile label="Servis Selesai Hari ini" value={kpi?.selesaiHariIni} />
+            <StatTile
+              label="Servis Selesai Hari ini"
+              value={kpi?.selesaiHariIni}
+              className="max-sm:order-4"
+            />
 
             {/* 7. Target bulanan, melebar dua kolom. Progress bar datar -
                 bukan gauge busur seperti versi sebelumnya. */}
-            <BentoCard span={2}>
+            <BentoCard span={2} className="max-sm:order-6 max-sm:col-span-2">
               <TargetTile kpi={kpi} />
             </BentoCard>
           </motion.div>
@@ -147,15 +155,28 @@ export function TechnicianDashboard({ fullName }: { fullName: string | null }) {
 // ---------------------------------------------------------------------------
 
 function CardTitle({ children }: { children: React.ReactNode }) {
-  return <h2 className="text-sm font-medium tracking-tight">{children}</h2>;
+  return <h2 className="text-[15px] font-medium tracking-tight">{children}</h2>;
 }
 
 /** Kartu angka: label di atas, angka besar di bawah. */
-function StatTile({ label, value }: { label: string; value: number | undefined }) {
+function StatTile({
+  label,
+  value,
+  className,
+}: {
+  label: string;
+  value: number | undefined;
+  className?: string;
+}) {
   return (
-    <BentoCard>
-      <p className="text-sm">{label}</p>
-      <p className="font-heading mt-auto text-5xl font-semibold leading-none tracking-tight">
+    <BentoCard
+      className={
+        "max-sm:bg-white max-sm:hover:bg-white max-sm:dark:bg-neutral-800 max-sm:dark:hover:bg-neutral-800 " +
+        (className ?? "")
+      }
+    >
+      <p className="text-[15px] font-medium leading-snug">{label}</p>
+      <p className="font-heading mt-auto text-5xl font-normal leading-none tracking-[-0.04em] tabular-nums sm:text-6xl">
         {value === undefined ? "—" : String(value)}
       </p>
     </BentoCard>
@@ -170,8 +191,8 @@ function TargetTile({ kpi }: { kpi: TechnicianKpi | null }) {
   if (!kpi) {
     return (
       <>
-        <p className="text-sm">Target saya</p>
-        <p className="font-heading mt-auto text-3xl font-semibold">—</p>
+        <p className="text-[15px] font-medium">Target saya</p>
+        <p className="font-heading mt-auto text-4xl font-normal">—</p>
       </>
     );
   }
@@ -184,7 +205,7 @@ function TargetTile({ kpi }: { kpi: TechnicianKpi | null }) {
   if (!kpi.applicable) {
     return (
       <>
-        <p className="text-sm">Target saya</p>
+        <p className="text-[15px] font-medium">Target saya</p>
         <p className="mt-auto text-sm text-muted-foreground">
           Cabang ini memakai insentif per servis, jadi tidak ada target bulanan.
         </p>
@@ -195,7 +216,7 @@ function TargetTile({ kpi }: { kpi: TechnicianKpi | null }) {
   if (kpi.unset || kpi.target === null) {
     return (
       <>
-        <p className="text-sm">Target saya</p>
+        <p className="text-[15px] font-medium">Target saya</p>
         <p className="mt-auto text-sm text-muted-foreground">
           Belum diatur oleh admin cabang ini.
         </p>
@@ -208,15 +229,15 @@ function TargetTile({ kpi }: { kpi: TechnicianKpi | null }) {
   return (
     <>
       <div className="flex items-baseline justify-between gap-2">
-        <p className="text-sm">Target saya</p>
-        <p className="font-heading text-sm font-semibold tabular-nums">{percent}%</p>
+        <p className="text-[15px] font-medium">Target saya</p>
+        <p className="font-heading text-sm font-medium tabular-nums">{percent}%</p>
       </div>
 
       <div className="mt-auto flex flex-wrap items-baseline gap-2">
-        <p className="font-heading text-4xl font-semibold leading-none tracking-tight tabular-nums">
+        <p className="font-heading text-5xl font-normal leading-none tracking-[-0.04em] tabular-nums">
           {kpi.selesai}/{kpi.target}
         </p>
-        <span className="rounded-full border border-emerald-600/40 px-2 py-0.5 text-[10px] font-medium text-emerald-700 dark:text-emerald-300">
+        <span className="rounded-full border border-emerald-600/40 px-2.5 py-1 text-[10px] font-medium text-emerald-700 dark:text-emerald-300">
           Servis selesai
         </span>
       </div>
@@ -264,10 +285,10 @@ function TerbaruList({
         <li key={item.id} className="shrink-0">
           <Link
             href={`/app/servis/${item.id}`}
-            className="flex items-center gap-2 rounded-lg border border-black/5 px-2.5 py-1.5 transition-colors hover:bg-black/[0.03] dark:border-white/10 dark:hover:bg-white/[0.05]"
+            className="flex items-center gap-2 rounded-xl border border-black/5 px-3 py-2 transition-colors hover:bg-black/[0.03] dark:border-white/10 dark:hover:bg-white/[0.05]"
           >
             <span className="min-w-0 flex-1">
-              <span className="block truncate text-xs font-medium">
+              <span className="block truncate text-[13px] font-medium">
                 {item.serviceNumber ?? "Tanpa nomor"}
               </span>
               <span className="block truncate text-[11px] opacity-60">{item.device}</span>

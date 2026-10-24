@@ -4,6 +4,7 @@ import { createContext, useCallback, useContext, useEffect, useState, type React
 import { Search } from "lucide-react";
 import { CerviseCommandPalette } from "./command-palette";
 import { useTranslations } from "next-intl";
+import { cn } from "@/lib/utils";
 
 type CommandPaletteContextValue = {
   openPalette: () => void;
@@ -46,19 +47,26 @@ export function CommandPaletteProvider({
   );
 }
 
-export function CommandSearchTrigger({ className }: { className?: string }) {
+export function CommandSearchTrigger({
+  className,
+  "aria-label": ariaLabel,
+}: {
+  className?: string;
+  "aria-label"?: string;
+}) {
   const { openPalette } = useCommandPalette();
   const t = useTranslations("nav");
   return (
     <button
       type="button"
       onClick={openPalette}
-      className={
-        "flex items-center gap-2 rounded-md border border-border/60 bg-background/60 px-2.5 py-1.5 text-left transition-colors hover:bg-foreground/[0.04] " +
-        (className ?? "")
-      }
+      aria-label={ariaLabel ?? t("search.placeholder")}
+      className={cn(
+        "flex items-center gap-2 rounded-md border border-border/60 bg-background/60 px-2.5 py-1.5 text-left transition-colors hover:bg-foreground/[0.04]",
+        className,
+      )}
     >
-      <Search className="size-3.5 opacity-50" />
+      <Search className="size-3.5 shrink-0 opacity-50" />
       <span className="hidden truncate text-xs text-muted-foreground md:inline">{t("search.placeholder")}</span>
       <kbd className="hidden rounded border border-border/60 bg-background/80 px-1 font-mono text-[9px] text-muted-foreground sm:inline">
         ⌘K

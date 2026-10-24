@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { useState } from "react";
 import { initialsOf } from "@/lib/photos";
+import { cn } from "@/lib/utils";
 
 type IdentityAvatarProps = {
   /** URL publik hasil-built server. null = belum ada foto. */
@@ -29,7 +30,10 @@ export function IdentityAvatar({ photoUrl, name, className, label }: IdentityAva
 
   return (
     <span
-      className={`relative flex shrink-0 items-center justify-center overflow-hidden rounded-full bg-muted font-medium text-muted-foreground ${className ?? "size-8 text-xs"}`}
+      className={cn(
+        "relative flex shrink-0 items-center justify-center overflow-hidden rounded-full bg-muted font-medium text-muted-foreground",
+        className ?? "size-8 text-xs",
+      )}
     >
       {showPhoto ? (
         <Image

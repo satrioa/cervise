@@ -220,7 +220,7 @@ export const NAV_ENTRIES: NavEntry[] = [
   {
     href: "/app/laporan/servis",
     key: "reportService",
-    label: "Servis",
+    label: "Laporan Servis",
     icon: Wrench,
     group: "laporan",
     roles: ALL,

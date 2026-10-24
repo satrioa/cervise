@@ -125,7 +125,7 @@ describe("grid bento delapan sel", () => {
     expect(technician).not.toMatch(/BentoAction/);
     expect(frontliner).not.toMatch(/BentoAction/);
     // To-Do 2x2, Servis terbaru 2 baris, Target saya 2 kolom.
-    expect(technician).toMatch(/span=\{2\} rowSpan=\{2\}/);
+    expect(technician).toMatch(/span=\{2\}\s+rowSpan=\{2\}/);
     expect(technician).toMatch(/rowSpan=\{2\}/);
   });
 
@@ -213,14 +213,16 @@ describe("grid bento delapan sel", () => {
     expect(bentoCard).not.toMatch(/TONE_BG/);
     expect(bentoCard).not.toMatch(/ACTION_COLOR|ACTION_IDLE|ACTION_RING/);
     expect(bentoCard).toMatch(/candy\?: CandyCardColor/);
-    expect(bentoCard).toMatch(/candy \? CANDY_CARD : NEUTRAL/);
+    expect(bentoCard).toMatch(
+      /candy \? CANDY_CARD : surface === "white" \? WHITE : surface === "plain" \? PLAIN : NEUTRAL/,
+    );
   });
 
-  it("hover datar: netral F1F1F3 ke F9F9F9, tanpa lift", () => {
+  it("hover datar: netral E7E7E7 ke ECECEC, tanpa lift", () => {
     // Keluhan sebelumnya: hover terlalu tebal dan besar. Sekarang kartu
     // hanya berganti warna satu tingkat, tanpa shadow yang menumpuk.
-    expect(bentoCard).toMatch(/#F1F1F3/);
-    expect(bentoCard).toMatch(/hover:bg-\[#F9F9F9\]/);
+    expect(bentoCard).toMatch(/#E7E7E7/);
+    expect(bentoCard).toMatch(/hover:bg-\[#ECECEC\]/);
     expect(bentoCard).not.toMatch(/hover:shadow/);
     expect(bentoCard).not.toMatch(/0_10px_28px|10px_28px/);
   });
@@ -275,12 +277,15 @@ describe("grid bento delapan sel", () => {
     }
   });
 
-  it("tinggi proporsional: minmax, bukan kunci viewport", () => {
+  it("tinggi mengikuti isi: baris tetap 10.5rem, bukan kunci viewport", () => {
     // `h-dvh` + `grid-rows-3` memaksa tiap sel jadi tepat 1/3 layar: di
     // monitor besar kartu jadi tinggi dan kosong, di laptop tergepeng.
-    // `auto-rows-[minmax(8.5rem,1fr)]` memberi batas bawah dan atas.
-    expect(bentoCard).toMatch(/auto-rows-\[minmax\(8\.5rem,1fr\)\]/);
-    expect(bentoCard).toMatch(/max-h-\[calc\(100dvh-11rem\)\]/);
+    // Frame Figma memakai baris tetap 10.5rem dan halaman boleh menggulir.
+    expect(bentoCard).toMatch(/sm:auto-rows-\[10\.5rem\]/);
+    expect(bentoCard).not.toMatch(/max-h-\[calc\(100dvh/);
+    // Mobile dua kolom, desktop empat kolom.
+    expect(bentoCard).toMatch(/grid-cols-2/);
+    expect(bentoCard).toMatch(/sm:grid-cols-4/);
     for (const source of [technicianCode, frontlinerCode]) {
       expect(source).toMatch(/BENTO_GRID_CLASS/);
       // Kunci viewport yang dihapus, dan `grid-rows-3` yang membagi rata.
@@ -296,7 +301,7 @@ describe("grid bento delapan sel", () => {
     // kartu yang isinya pendek, supaya tidak terlihat setengah kosong.
     expect(bentoCard).toMatch(/hug \? "h-fit" : "h-full"/);
     expect(bentoCard).toMatch(/hug && "self-start"/);
-    expect(frontliner).toMatch(/<BentoCard span=\{2\} hug>/);
+    expect(frontliner).toMatch(/span=\{2\} hug/);
   });
 
   it("sel yang isinya panjang menggulir di dalam, kartunya tidak", () => {

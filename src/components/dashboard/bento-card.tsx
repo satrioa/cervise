@@ -32,13 +32,29 @@ export { CANDY_CARD_COLOR };
 /**
  * Abu-abu netral untuk semua kartu data.
  *
- * Hover cuma naik satu tingkat dari `#F1F1F3` ke `#F9F9F9`. Kartu candy
- * tidak memakai ini - permukaannya sudah berwarna, dan hover-nya datang dari
- * gradien candy.
+ * Warna dan radius mengikuti frame Figma: permukaan abu-abu hangat di atas
+ * halaman yang sedikit lebih terang, sudut 22px, dan padding lega. Hover cuma
+ * naik satu tingkat - kartu tidak diangkat dengan bayangan.
+ *
+ * Kartu candy tidak memakai ini - permukaannya sudah berwarna, dan hover-nya
+ * datang dari gradien candy.
  */
 const NEUTRAL =
-  "bg-[#F1F1F3] text-neutral-900 hover:bg-[#F9F9F9] " +
+  "bg-[#E7E7E7] text-neutral-900 hover:bg-[#ECECEC] " +
   "dark:bg-neutral-900 dark:text-neutral-100 dark:hover:bg-neutral-800";
+
+/**
+ * Permukaan putih untuk kartu daftar/checklist.
+ *
+ * Di Figma kartu daftar sengaja putih agar terbaca sebagai lembar kerja di
+ * atas kanvas abu-abu. Di dark mode putih dipetakan ke neutral-800 supaya
+ * masih satu tingkat lebih terang dari kartu netral.
+ */
+const WHITE =
+  "bg-white text-neutral-900 hover:bg-white " +
+  "dark:bg-neutral-800 dark:text-neutral-100 dark:hover:bg-neutral-800";
+
+const PLAIN = "bg-transparent text-inherit";
 
 /**
  * Easing yang dipakai hero, stepper, dan kartu ini -- semuanya
@@ -51,20 +67,14 @@ const BENTO_EASE = [0.215, 0.61, 0.355, 1] as const;
 /**
  * Kelas grid bento, dipakai kedua dashboard.
  *
- * `auto-rows-[minmax(8.5rem,1fr)]` - bukan `grid-rows-3`. Yang lama membagi
- * tinggi layar tepat tiga bagian, sehingga di monitor besar kartu jadi tinggi
- * dan kosong, sedangkan di laptop kartu tergepeng. `minmax` memberi batas
- * bawah dan batas atas: minimal 8.5rem per baris, maksimal mengisi sisa
- * tinggi yang tersedia.
- *
- * `max-h` menjaga grid tetap muat di layar yang lebih tinggi dari diblutkan,
- * tapi bukan lagi `h-dvh` + `overflow-hidden` - halaman boleh menggulir kalau
- * viewport lebih pendek dari minimum, dan itu lebih baik daripada memampatkan
- * semua kartu.
+ * Di mobile grid dua kolom mengikuti frame Figma; di desktop empat kolom
+ * dengan tinggi baris tetap 10.5rem. Tinggi baris tidak lagi membagi tinggi
+ * viewport: kartu mengikuti tinggi isinya, dan halaman boleh menggulir.
+ * Baris tetap (bukan `1fr`) membuat kartu yang `rowSpan` dua baris punya
+ * proporsi yang sama di semua layar.
  */
 export const BENTO_GRID_CLASS =
-  "mt-6 grid grid-cols-1 gap-3 sm:grid-cols-4 " +
-  "sm:auto-rows-[minmax(8.5rem,1fr)] sm:max-h-[calc(100dvh-11rem)]";
+  "mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4 sm:auto-rows-[10.5rem] sm:gap-4";
 
 /**
  * Jarak naik kartu, dalam px.
@@ -172,6 +182,11 @@ export type BentoCardProps = {
   /** Permukaan candy SmoothUI. Kosongkan untuk kartu data netral. */
   candy?: CandyCardColor;
   /**
+   * Permukaan non-candy. `white` dipakai kartu daftar/checklist, `plain`
+   * untuk sel yang isinya mengatur permukaannya sendiri (To-Do bento).
+   */
+  surface?: "neutral" | "white" | "plain";
+  /**
    * Kartu ini ikut tinggi isinya, bukan meregang sampai tinggi sel grid.
    * Dipakai "Transaksi Terbaru": daftar horizontalnya pendek, dan meregang
    * hanya membuat kartu terlihat setengah kosong.
@@ -219,6 +234,7 @@ export function BentoCard({
   span = 1,
   rowSpan = 1,
   candy,
+  surface = "neutral",
   hug = false,
   className,
   onClick,
@@ -231,34 +247,23 @@ export function BentoCard({
     // `h-full` + `min-h-0`: mengisi sel grid, dan boleh menyusut kalau
     // isinya sendiri yang butuh scroll, bukan kartunya. `hug` membalik ini -
     // kartu ikut tinggi isinya dan tidak meregang sampai tinggi sel.
-    "group/bento relative flex min-h-0 w-full flex-col overflow-hidden rounded-2xl p-4",
+    "group/bento relative flex min-h-0 w-full flex-col overflow-hidden rounded-[22px] p-4 sm:p-5",
     hug ? "h-fit" : "h-full",
     // Hover netral sengaja datar: kartu hanya sedikit lebih terang. Versi
     // lama mengangkat kartu dengan `hover:shadow-lg` + bayangan 28px, dan
     // itu terasa "terlalu tebal dan besar". Kartu candy punya hover-nya
     // sendiri dari gradien SmoothUI.
     "transition-colors duration-200",
-    candy ? CANDY_CARD : NEUTRAL,
+    candy ? CANDY_CARD : surface === "white" ? WHITE : surface === "plain" ? PLAIN : NEUTRAL,
     candy && candyCardColorClass(candy),
-    // `rounded-2xl` di kartu mengalahkan `rounded-md` bawaan candy.
-    candy && "rounded-2xl",
+    // `rounded-[22px]` di kartu mengalahkan `rounded-md` bawaan candy.
+    candy && "rounded-[22px]",
     SPAN_CLASS[span],
     ROW_SPAN_CLASS[rowSpan],
     hug && "self-start",
+    surface === "plain" && "p-0",
     href || onClick ? "cursor-pointer" : "",
     className,
-  );
-
-  const inner = (
-    <>
-      {title ? (
-        <span
-          className="absolute -top-1.5 left-1/2 hidden h-1 w-10 -translate-x-1/2 rounded-full bg-foreground/10 lg:block"
-          aria-hidden
-        />
-      ) : null}
-      {children}
-    </>
   );
 
   // Kartu TIDAK memasang initial/animate -- lihat catatan di
@@ -269,7 +274,7 @@ export function BentoCard({
     return (
       <motion.div {...animation} className="h-full min-h-0 w-full">
         <Link href={href} className={classes} title={title}>
-          {inner}
+          {children}
         </Link>
       </motion.div>
     );
@@ -278,14 +283,14 @@ export function BentoCard({
     return (
       <motion.div {...animation} className="h-full min-h-0 w-full">
         <button type="button" onClick={onClick} className={classes} title={title}>
-          {inner}
+          {children}
         </button>
       </motion.div>
     );
   }
   return (
     <motion.div {...animation} className={classes}>
-      {inner}
+      {children}
     </motion.div>
   );
 }
@@ -305,9 +310,9 @@ export function BentoMenuItem({
   label: string;
 }) {
   return (
-    <span className="flex flex-1 flex-col items-center justify-center gap-2 text-center">
-      <Icon className="size-6 drop-shadow-sm" />
-      <span className="text-sm font-semibold">{label}</span>
+    <span className="flex flex-1 flex-col items-start justify-between gap-3">
+      <Icon className="size-7 drop-shadow-sm" />
+      <span className="text-[15px] font-medium leading-tight">{label}</span>
     </span>
   );
 }

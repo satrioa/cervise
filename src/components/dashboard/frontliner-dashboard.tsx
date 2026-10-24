@@ -106,12 +106,10 @@ export function FrontlinerDashboard({ fullName }: { fullName: string | null }) {
   }, [reload]);
 
   return (
-    // Tinggi proporsional, bukan kunci viewport - lihat catatan panjang di
-    // `BENTO_GRID_CLASS`. Ringkasan Hari ini dan daftar servis tetap
-    // menggulir di dalam kartunya, karena isinya memang panjang.
-    <div className="min-h-svh bg-background text-foreground">
-      <div className="px-6 py-6 lg:px-10 lg:py-8">
-        <div className="mx-auto w-full max-w-5xl">
+    // Latar halaman berasal dari shell; kartu mengikuti tinggi isinya.
+    <div className="min-h-full text-foreground">
+      <div className="px-4 py-6 sm:px-6 sm:py-8 lg:px-8 lg:py-10">
+        <div className="mx-auto w-full max-w-[1264px]">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <div className="font-mono text-[10px] text-muted-foreground uppercase tracking-[0.3em]">
@@ -121,7 +119,7 @@ export function FrontlinerDashboard({ fullName }: { fullName: string | null }) {
                   month: "long",
                 })}
               </div>
-              <h1 className="mt-1 font-heading text-3xl tracking-tight lg:text-4xl">
+              <h1 className="mt-1 font-heading text-[2rem] font-normal leading-tight tracking-[-0.03em] sm:text-[2.5rem]">
                 {greeting()}, {fullName ?? "Frontliner"}.
               </h1>
             </div>
@@ -129,6 +127,7 @@ export function FrontlinerDashboard({ fullName }: { fullName: string | null }) {
               tone="accent-amber"
               onClick={() => setClosingOpen(true)}
               disabled={!session}
+              className="rounded-full px-4 py-2 text-xs"
             >
               <LockIcon className="size-4" />
               Tutup Toko
@@ -149,14 +148,19 @@ export function FrontlinerDashboard({ fullName }: { fullName: string | null }) {
               <BentoMenuItem icon={WalletIcon} label="Catat Kas" />
             </BentoCard>
 
-            {/* 3. Rekap kas hari ini, tiga baris. */}
-            <BentoCard rowSpan={3}>
+            {/* 3. Rekap kas hari ini, tiga baris. Di mobile menjadi kartu
+                selebar dua kolom. */}
+            <BentoCard rowSpan={3} className="max-sm:col-span-2">
               <RingkasanHariIni report={report} queue={queue} />
             </BentoCard>
 
-            {/* 4. Daftar servis terbaru, dua baris. */}
-            <BentoCard rowSpan={2} className="overflow-hidden">
-              <h2 className="text-sm font-medium tracking-tight">Servis terbaru</h2>
+            {/* 4. Daftar servis terbaru, dua baris. Putih di mobile seperti
+                frame Figma. */}
+            <BentoCard
+              rowSpan={2}
+              className="max-sm:col-span-2 max-sm:bg-white max-sm:hover:bg-white max-sm:dark:bg-neutral-800 max-sm:dark:hover:bg-neutral-800"
+            >
+              <h2 className="text-[15px] font-medium tracking-tight">Servis terbaru</h2>
               <TerbaruList queue={queue} />
             </BentoCard>
 
@@ -165,27 +169,20 @@ export function FrontlinerDashboard({ fullName }: { fullName: string | null }) {
               <BentoMenuItem icon={ShoppingCartIcon} label="Penjualan" />
             </BentoCard>
 
-            {/*
-              * 6. Tiga angka servis. Satu kolom, tepat di sebelah kanan
-              * Penjualan. Sebelumnya `span={2}` - itu bukan sekadar "di
-              * samping", dan kolom ke-3 sudah dipakai Ringkasan Hari ini
-              * yang membentang tiga baris, jadi satu kolom justru satu-satunya
-              * penempatan yang tidak menyisakan sel kosong.
-              */}
+            {/* 6. Tiga angka servis, satu kolom. */}
             <BentoCard>
               <RingkasanServis kpi={kpi} />
             </BentoCard>
 
             {/* 7. Transaksi terakhir, melebar dua kolom. `hug` supaya kartu
-                ikut tinggi daftarnya, bukan meregang sampai tinggi baris -
-                kalau tidak, kartu ini terlihat setengah kosong. */}
-            <BentoCard span={2} hug>
+                ikut tinggi daftarnya, bukan meregang sampai tinggi baris. */}
+            <BentoCard span={2} hug className="max-sm:col-span-2">
               <TransaksiTerbaru queue={queue} />
             </BentoCard>
 
-            {/* 8. To-Do, satu sel. */}
-            <BentoCard className="overflow-visible">
-              <TaskNoteCard compact compactLimit={3} />
+            {/* 8. To-Do, satu sel di desktop; di mobile selebar dua kolom. */}
+            <BentoCard className="max-sm:col-span-2">
+              <TaskNoteCard variant="compact" compact compactLimit={1} />
             </BentoCard>
           </motion.div>
         </div>
@@ -225,7 +222,7 @@ function RingkasanHariIni({
   if (!report) {
     return (
       <>
-        <h2 className="text-sm font-medium tracking-tight">Ringkasan Hari ini</h2>
+        <h2 className="text-[15px] font-medium tracking-tight">Ringkasan Hari ini</h2>
         <p className="mt-2 text-sm opacity-60">
           Belum ada sesi kas terbuka. Buka kas untuk melihat rekap.
         </p>
@@ -238,9 +235,9 @@ function RingkasanHariIni({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-      <h2 className="text-sm font-medium tracking-tight">Ringkasan Hari ini</h2>
+      <h2 className="text-[15px] font-medium tracking-tight">Ringkasan Hari ini</h2>
 
-      <ul className="-mx-1 mt-1 flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto scrollbar-none">
+      <ul className="-mx-1 mt-1 flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto scrollbar-none text-[13px]">
         <Row label="Saldo Awal" value={rupiah(report.openingBalance)} boxed />
 
         <GroupLabel
@@ -281,7 +278,7 @@ function RingkasanHariIni({
          * kartu induknya sudah abu-abu, jadi latar putih di sini yang
          * memisahkannya dari daftar di atas.
          */}
-        <li className="mt-1 overflow-hidden rounded-lg bg-white text-neutral-900 ring-1 ring-black/5 dark:bg-white/95 dark:ring-white/10">
+        <li className="mt-1 overflow-hidden rounded-xl bg-white text-neutral-900 ring-1 ring-black/5 dark:bg-white/95 dark:ring-white/10">
           <TotalRow label="Omzet servis" value={rupiah(report.totals.services)} />
           <TotalRow label="Omzet Penjualan" value={rupiah(report.totals.sales)} />
           <TotalRow label="Transaksi Manual" value={rupiah(report.totals.manualNet)} />
@@ -378,11 +375,11 @@ function RingkasanServis({ kpi }: { kpi: FrontlinerKpi | null }) {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <h2 className="text-sm font-medium tracking-tight">Ringkasan Servis</h2>
+      <h2 className="text-[15px] font-medium tracking-tight">Ringkasan Servis</h2>
       <div className="-mx-1 mt-1 grid min-h-0 flex-1 grid-cols-3 divide-x divide-black/5 rounded-lg border border-black/5 dark:divide-white/10 dark:border-white/10">
         {items.map((item) => (
           <div key={item.label} className="flex min-w-0 flex-col items-center justify-center gap-0.5 px-1">
-            <span className="font-heading text-2xl font-semibold leading-none tabular-nums">
+            <span className="font-heading text-2xl font-normal leading-none tabular-nums">
               {item.value === undefined ? "—" : String(item.value)}
             </span>
             <span className="text-[10px] opacity-60">{item.label}</span>
@@ -400,7 +397,7 @@ function TransaksiTerbaru({ queue }: { queue: FrontlinerQueueItem[] }) {
     // ikut tinggi isinya dan tidak menarik ruang kosong.
     <div className="flex flex-col">
       <div className="flex items-baseline justify-between gap-2">
-        <h2 className="text-sm font-medium tracking-tight">Transaksi Terbaru</h2>
+        <h2 className="text-[15px] font-medium tracking-tight">Transaksi Terbaru</h2>
         <Link href="/app/servis" className="text-xs underline underline-offset-2 opacity-70">
           Lihat semua
         </Link>
@@ -414,14 +411,14 @@ function TransaksiTerbaru({ queue }: { queue: FrontlinerQueueItem[] }) {
             <li key={item.id} className="min-w-[8rem] shrink-0">
               <Link
                 href={`/app/servis/${item.id}`}
-                className="flex min-w-0 flex-col rounded-lg border border-black/5 px-2 py-1.5 transition-colors hover:bg-black/[0.03] dark:border-white/10 dark:hover:bg-white/[0.05]"
+                className="flex min-w-0 flex-col rounded-xl border border-black/5 px-2.5 py-2 transition-colors hover:bg-black/[0.03] dark:border-white/10 dark:hover:bg-white/[0.05]"
               >
                 <span className="text-[10px] opacity-50 tabular-nums">
                   {new Date(item.createdAt).toLocaleDateString("id-ID")}
                 </span>
                 <span className="mt-0.5 flex min-w-0 flex-1 items-center gap-1">
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate text-xs font-medium">
+                    <span className="block truncate text-[13px] font-medium">
                       {item.serviceNumber ?? "Tanpa nomor"}
                     </span>
                     <span className="block truncate text-[11px] opacity-60">{item.device}</span>
@@ -449,10 +446,10 @@ function TerbaruList({ queue }: { queue: FrontlinerQueueItem[] }) {
         <li key={item.id} className="shrink-0">
           <Link
             href={`/app/servis/${item.id}`}
-            className="flex items-center gap-2 rounded-lg border border-black/5 px-2.5 py-1.5 transition-colors hover:bg-black/[0.03] dark:border-white/10 dark:hover:bg-white/[0.05]"
+            className="flex items-center gap-2 rounded-xl border border-black/5 px-3 py-2 transition-colors hover:bg-black/[0.03] dark:border-white/10 dark:hover:bg-white/[0.05]"
           >
             <span className="min-w-0 flex-1">
-              <span className="block truncate text-xs font-medium">
+              <span className="block truncate text-[13px] font-medium">
                 {item.serviceNumber ?? "Tanpa nomor"}
               </span>
               <span className="block truncate text-[11px] opacity-60">{item.device}</span>
