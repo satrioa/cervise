@@ -69,7 +69,13 @@ let cachedEnabled: boolean | null = null;
 function readEnabled(): boolean {
   if (typeof window === "undefined") return true;
   if (cachedEnabled === null) {
-    cachedEnabled = window.localStorage.getItem(STORAGE_KEY) !== "off";
+    try {
+      cachedEnabled = window.localStorage.getItem(STORAGE_KEY) !== "off";
+    } catch {
+      // localStorage bisa diblokir (mode private/iframe ketat) — suara tetap
+      // aktif, hanya preferensinya tidak tersimpan.
+      cachedEnabled = true;
+    }
   }
   return cachedEnabled;
 }
@@ -81,7 +87,11 @@ export function isSoundEnabled(): boolean {
 export function setSoundEnabled(enabled: boolean): void {
   if (typeof window === "undefined") return;
   cachedEnabled = enabled;
-  window.localStorage.setItem(STORAGE_KEY, enabled ? "on" : "off");
+  try {
+    window.localStorage.setItem(STORAGE_KEY, enabled ? "on" : "off");
+  } catch {
+    // abaikan: preferensi berlaku untuk sesi ini saja
+  }
   for (const listener of settingsListeners) listener();
 }
 
@@ -110,21 +120,71 @@ export function useSoundEnabled(): boolean {
  */
 const LAST_PLAYED = new Map<SoundName, number>();
 
-// Pool elemen audio per sound. Elemen dasar di-preload setelah gesture pertama
-// agar pemutaran tidak tersendat di klik pertama.
-const AUDIO_BASES = new Map<SoundName, HTMLAudioElement>();
+/**
+ * Pool elemen audio per sound.
+ *
+ * Catatan penting dari debugging: `cloneNode(true)` pada elemen media bisa
+ * menghasilkan clone yang tidak pernah memuat resource di sebagian browser
+ * (clone mewarisi atribut `src` tetapi bukan status load-nya), sehingga
+ * `play()` reject dan terdengar hening. Karena itu tiap sound punya beberapa
+ * elemen nyata yang dipakai bergiliran: klik cepat tetap bisa tumpang tindih,
+ * tetapi elemennya selalu elemen yang benar-benar pernah `play()`.
+ */
+const POOL_SIZE = 3;
+const AUDIO_POOL = new Map<SoundName, HTMLAudioElement[]>();
+const POOL_CURSOR = new Map<SoundName, number>();
 let audioWarmedUp = false;
 
+function getPool(name: SoundName): HTMLAudioElement[] {
+  let pool = AUDIO_POOL.get(name);
+  if (!pool) {
+    pool = [];
+    AUDIO_POOL.set(name, pool);
+  }
+  return pool;
+}
+
+function acquireAudio(name: SoundName): HTMLAudioElement {
+  const pool = getPool(name);
+  if (pool.length < POOL_SIZE) {
+    const el = new window.Audio(SOUND_SRC[name]);
+    el.preload = "auto";
+    pool.push(el);
+    return el;
+  }
+  const cursor = POOL_CURSOR.get(name) ?? 0;
+  POOL_CURSOR.set(name, (cursor + 1) % pool.length);
+  const el = pool[cursor];
+  try {
+    el.pause();
+    el.currentTime = 0;
+  } catch {
+    // elemen belum siap — play() di bawah akan memuat ulang
+  }
+  return el;
+}
+
+/**
+ * Preload sisa sound di waktu idle setelah interaksi pertama. Tidak dilakukan
+ * saat mount supaya tidak ada 13 request audio + ~2 MB di first paint.
+ */
 function warmUpAudio() {
   if (typeof window === "undefined") return;
   if (audioWarmedUp) return;
   audioWarmedUp = true;
-  for (const [name, src] of Object.entries(SOUND_SRC)) {
-    const el = new window.Audio(src);
-    el.preload = "auto";
-    el.volume = SOUND_VOLUME[name as SoundName];
-    AUDIO_BASES.set(name as SoundName, el);
-  }
+  const load = () => {
+    for (const name of Object.keys(SOUND_SRC) as SoundName[]) {
+      const pool = getPool(name);
+      if (pool.length === 0) {
+        const el = new window.Audio(SOUND_SRC[name]);
+        el.preload = "auto";
+        pool.push(el);
+      }
+    }
+  };
+  const idle = window.requestIdleCallback;
+  if (typeof idle === "function") idle(load, { timeout: 2000 });
+  else window.setTimeout(load, 1200);
 }
 
 export function playSound(name: SoundName, opts?: { volume?: number }): void {
@@ -136,22 +196,19 @@ export function playSound(name: SoundName, opts?: { volume?: number }): void {
   if (now - last < 60) return;
   LAST_PLAYED.set(name, now);
 
-  warmUpAudio();
-  const base = AUDIO_BASES.get(name);
-  if (!base) return;
-  // cloneNode supaya sound yang sama bisa tumpang tindih saat spam klik.
-  const el = base.cloneNode(true) as HTMLAudioElement;
-  el.volume = opts?.volume ?? base.volume;
-  el.addEventListener(
-    "ended",
-    () => {
-      el.removeAttribute("src");
-    },
-    { once: true },
-  );
-  el.play().catch(() => {
-    // Autoplay/permission error — hening, jangan ganggu interaksi.
-  });
+  try {
+    const el = acquireAudio(name);
+    el.volume = opts?.volume ?? SOUND_VOLUME[name];
+    const played = el.play();
+    if (played && typeof played.catch === "function") {
+      played.catch(() => {
+        // Autoplay/permission error — hening, jangan ganggu interaksi.
+      });
+    }
+    warmUpAudio();
+  } catch {
+    // Jangan pernah melempar dari lapisan suara.
+  }
 }
 
 /**

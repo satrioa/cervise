@@ -21,6 +21,7 @@ import { CommandPaletteProvider } from "@/components/layout/command-palette-prov
 import { BranchProvider, useBranch } from "@/lib/branch-context";
 import { TenantProvider, useTenant } from "@/lib/tenant-context";
 import { TrialCard } from "@/components/layout/trial-card";
+import { SoundToggle } from "@/components/layout/sound-toggle";
 import { GROUP_LABEL_KEY, canAccess, navFor } from "@/lib/nav/manifest";
 import { LocaleProvider } from "@/lib/localization-context";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -267,6 +268,7 @@ function SidebarContent({
             <span className="truncate">{branch.label}</span>
           </div>
         </div>
+        <SoundToggle />
         <button
           type="button"
           onClick={async () => {
@@ -513,7 +515,7 @@ function AppShellInner({ children, actor }: { children: React.ReactNode; actor: 
             <span className="flex size-7 items-center justify-center rounded-md bg-primary text-primary-foreground">C</span>
             Cervise
           </div>
-          <div className="size-8" />
+          <SoundToggle />
         </div>
 
         <div

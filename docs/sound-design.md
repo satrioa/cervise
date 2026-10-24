@@ -43,11 +43,15 @@ bervariasi.
    Switch, Select, dan samakan untuk komponen overlayer baru yang akan dibuat.
 4. **Mute:** preferensi disimpan di `localStorage` key `cervise_sound`
    (`"on"`/`"off"`), dimatikan via `setSoundEnabled(false)`, dibaca via
-   `useSoundEnabled()`. Saat mute, seluruh `sfx.*` menjadi no-op.
+   `useSoundEnabled()`. Saat mute, seluruh `sfx.*` menjadi no-op. Kontrol
+   pengguna ada di `SoundToggle` (footer sidebar desktop + header mobile);
+   menyalakan kembali suara memainkan `chime` sebagai konfirmasi/tes.
 5. **Anti-dupe:** suara yang sama dalam jendela < 60 ms dipotong oleh
-   `playSound`. Ini melindungi dari event double-fire (mis. React 18 batching),
-   bukan dari tumpang tindih yang disengaja — untuk itu elemen audio di-clone
-   per putaran.
+   `playSound`. Setiap sound punya pool 3 elemen audio yang dipakai bergiliran,
+   jadi klik cepat tetap bisa tumpang tindih tanpa mengandalkan `cloneNode`
+   (clone elemen media tidak selalu memuat resource di beberapa browser dan
+   bisa membuat `play()` reject alias hening). Preload 13 file dilakukan di
+   waktu idle setelah interaksi pertama, bukan saat mount.
 6. **Error runtime hening.** Kegagalan `play()` (autoplay policy, tab tertutup)
    tidak pernah melempar; suara adalah pemanis, bukan jalur kritis.
 
@@ -203,9 +207,12 @@ bukan Button, langsung panggil `playSound(name)` / `sfx.*`.
 - Suara tidak diuji di vitest (membutuhkan peramban); yang diuji adalah
   perilaku "tidak melempar error saat SSR" — sudah dijaga guard
   `typeof window === "undefined"`.
-- QA manual: putar desktop + mobile; aktifkan/mute lewat console
-  `setSoundEnabled(false)`; klik tombol berkali-kali cepat (throttle 60 ms
-  tidak boleh membuat suara hilang sekejap).
+- QA manual: putar desktop + mobile; cek ikon speaker di footer sidebar /
+  header mobile untuk mute/unmute (unmute harus berbunyi `chime`); klik tombol
+  berkali-kali cepat (throttle 60 ms tidak boleh membuat suara hilang sekejap).
+- Kalau hening padahal ikon speaker aktif: pastikan build yang dijalankan
+  memang memuat folder `public/sounds/` (cek `/sounds/notch.wav` → HTTP 200
+  `audio/wav`) dan tab browser tidak di-mute.
 
 ---
 
