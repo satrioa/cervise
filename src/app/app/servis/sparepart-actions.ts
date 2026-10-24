@@ -200,6 +200,22 @@ export async function cancelServisWithSpareparts(
   return { ok: true };
 }
 
+export async function confirmServisPickup(servisId: string, signature: string, note?: string | null) {
+  if (!servisId) throw new Error("Servis wajib");
+  const actor = await getActor();
+  const svg = signature?.trim() ?? "";
+  if (!svg.startsWith("<svg")) throw new Error("Tanda tangan wajib");
+
+  await callRpc(actor, "set_service_picked_up", {
+    p_servis_id: servisId,
+    p_signature: svg,
+    p_note: note?.trim() ? note.trim() : null,
+  });
+
+  revalidatePath("/app/servis");
+  return { ok: true };
+}
+
 export async function updateServisStatus(servisId: string, nextStatus: string, note?: string | null) {
   if (!servisId) throw new Error("Servis wajib");
   const actor = await getActor();

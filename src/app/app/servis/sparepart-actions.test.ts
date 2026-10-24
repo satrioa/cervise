@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   addSparepartsToServis,
   cancelServisWithSpareparts,
+  confirmServisPickup,
   getServisSpareparts,
   searchSparepartStock,
   updateServisStatus,
@@ -174,4 +175,3 @@ describe("servis sparepart actions", () => {
 
     await expect(updateServisStatus("servis-1", "Dikerjakan")).rejects.toThrow("stok tidak cukup");
   });
-});

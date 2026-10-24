@@ -552,7 +552,7 @@ export async function getServisDetail(id: string) {
     supabase
       .from("cervise_services")
       .select(
-        "id, branch_id, service_number, tracking_code, device, complaint, status, price, price_estimasi, garansi_until, created_at, merk, tipe, imei1, imei2, kerusakan, kelengkapan, password_type, password_value, garansi_value, garansi_unit, kondisi_awal, customer_id, teknisi_id, created_by, cervise_customers(id, name, phone, address)"
+        "id, branch_id, service_number, tracking_code, device, complaint, status, price, price_estimasi, garansi_until, created_at, merk, tipe, imei1, imei2, kerusakan, kelengkapan, password_type, password_value, garansi_value, garansi_unit, kondisi_awal, customer_id, teknisi_id, created_by, pickup_signature, picked_up_at, cervise_customers(id, name, phone, address)"
       ),
     actor,
   );

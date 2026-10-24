@@ -33,6 +33,7 @@ import {
   ShieldIcon,
   UserPlusIcon,
   ChevronDownIcon,
+  PenLineIcon,
 } from "lucide-react";
 import type { ComponentType } from "react";
 import { KONDISI_ITEMS } from "@/lib/servis-constants";
@@ -375,6 +376,30 @@ export function ServisDetailView({ data }: Props) {
               ) : <span className="text-sm text-muted-foreground">—</span>}
             </CardContent>
           </Card>
+
+          {status === "Sudah Diambil" && (
+            <Card>
+              <CardHeader className="pb-3">
+                <div className="flex items-center gap-2">
+                  <div className="flex size-8 items-center justify-center rounded-lg bg-violet-500 text-white"><PenLineIcon className="size-4" /></div>
+                  <div><CardTitle className="text-base">Bukti Pengambilan</CardTitle><CardDescription>Customer menandatangani saat servis diambil</CardDescription></div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {d.pickup_signature ? (
+                  <div className="flex flex-col items-center gap-2 rounded-lg border bg-muted/20 p-4">
+                    {/* eslint-disable-next-line @next/next/no-img-element -- SVG tanda tangan via data URL, bukan asset asli */}
+                    <img src={`data:image/svg+xml;charset=utf-8,${encodeURIComponent(d.pickup_signature)}`} alt={`Tanda tangan ${customer?.name ?? "customer"}`} className="max-h-28 w-full bg-white rounded" />
+                    <div className="text-xs text-muted-foreground text-center">
+                      Ditandatangani oleh {customer?.name ?? "customer"} · {d.picked_up_at ? format(new Date(d.picked_up_at), "d MMM yyyy HH:mm", { locale: localeId }) : "—"}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="rounded-lg border border-dashed p-4 text-center text-sm text-muted-foreground">Tanda tangan tidak tersedia.</div>
+                )}
+              </CardContent>
+            </Card>
+          )}
 
           <Card>
             <CardHeader className="pb-3"><CardTitle className="text-base flex items-center gap-2"><ShieldCheckIcon className="size-4" /> Garansi</CardTitle></CardHeader>

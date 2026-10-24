@@ -28,12 +28,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import Link from "next/link";
 import { getServisDetail, getServisList, getServisDeleteImpact, deleteServis, type ServisDetail } from "@/app/app/servis/actions";
-import { updateServisStatus, getServisSpareparts } from "@/app/app/servis/sparepart-actions";
+import { updateServisStatus, getServisSpareparts, confirmServisPickup } from "@/app/app/servis/sparepart-actions";
 import { useBranch } from "@/lib/branch-context";
 import { useTenantOptional } from "@/lib/tenant-context";
 import { toPrintData, renderJetHtml, renderDotMatrixHtml, renderThermalHtml, type PrintContext } from "@/components/print-templates";
 import { cn } from "@/lib/utils";
 import { SparepartPickDialog, CancelSparepartDialog } from "@/components/servis/sparepart-dialogs";
+import { PickupSignatureDialog } from "@/components/servis/pickup-signature-dialog";
 import { PageHeader } from "@/components/layout/page-header";
 import { Skeleton } from "@/components/ui/skeleton";
 import { DOT_COLOR, STAGES, StageTrack, stageIndex, type Stage } from "@/lib/operational/stage-track";
@@ -191,6 +192,8 @@ export default function ServisPage() {
   const [cancelTarget, setCancelTarget] = useState<ServisItem | null>(null);
   const [cancelOpen, setCancelOpen] = useState(false);
   const [pendingBatal, setPendingBatal] = useState<ServisItem | null>(null);
+  const [pickupOpen, setPickupOpen] = useState(false);
+  const [pickupItems, setPickupItems] = useState<ServisItem[]>([]);
   const { branch } = useBranch();
   const tenantCtx = useTenantOptional();
   const activeTenant = useMemo(
@@ -322,6 +325,11 @@ export default function ServisPage() {
       setSparepartOpen(true);
       return;
     }
+    // Sudah Diambil -> wajib tanda tangan customer dulu lewat dialog signature
+    if (next === "Sudah Diambil") {
+      openPickup([s]);
+      return;
+    }
     // Batal setelah Dikerjakan/Selesai -> tanya kembalikan stok atau tetap terpakai
     if (next === "Batal" && (s.status === "Dikerjakan" || s.status === "Selesai")) {
       // cek apakah ada sparepart terpakai via server; jika tidak ada, langsung Batal
@@ -346,6 +354,14 @@ export default function ServisPage() {
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Gagal mengubah status");
     }
+  };
+  const openPickup = (items: ServisItem[]) => {
+    if (items.length === 0) return;
+    setPickupItems(items);
+    setPickupOpen(true);
+  };
+  const handlePickupSuccess = () => {
+    for (const it of pickupItems) applyLocalStatus(it, "Sudah Diambil");
   };
   const handleEdit = (s: ServisItem) => { setSelectedServis(s); setEditOpen(true); };
   const handleDelete = (s: ServisItem) => {
@@ -442,6 +458,12 @@ export default function ServisPage() {
 
   const handleBulkStatus = async (next: Stage) => {
     if (!canBulkStatus) return;
+    // Bulk ke Sudah Diambil -> satu tanda tangan customer untuk semua servis terpilih
+    if (next === "Sudah Diambil") {
+      openPickup(selectedData);
+      setBulkStatusOpen(false);
+      return;
+    }
     // Intercept bulk ke Dikerjakan: hanya Lewati tanpa sparepart (tidak bisa pilih per-servis)
     if (next === "Dikerjakan") {
       const ids = new Set(selectedIds);
@@ -771,6 +793,12 @@ export default function ServisPage() {
                   });
                 return;
               }
+              if (moved && moved.to === "Sudah Diambil") {
+                // Pickup via drag -> wajib signature dulu, kartu kembali ke
+                // kolom asal sampai tanda tangan dikonfirmasi.
+                openPickup([moved.item]);
+                return;
+              }
               // normal move
               if (moved) {
                 updateServisStatus(moved.item.id, moved.to)
@@ -886,6 +914,14 @@ export default function ServisPage() {
           </DialogPrimitive.Popup>
         </DialogPrimitive.Portal>
       </DialogPrimitive.Root>
+
+      {/* Pickup signature - wajib tanda tangan customer sebelum status -> Sudah Diambil */}
+      <PickupSignatureDialog
+        open={pickupOpen}
+        onOpenChange={setPickupOpen}
+        targets={pickupItems.map((it) => ({ id: it.id, servisLabel: it.serviceNumber ?? "Tanpa nomor", device: it.device }))}
+        onSuccess={handlePickupSuccess}
+      />
 
       {/* Edit modal - full form reuse, lock siapa yang input, kondisi readonly */}
       <DialogPrimitive.Root open={editOpen} onOpenChange={setEditOpen}>
