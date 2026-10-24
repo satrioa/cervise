@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { getActiveTenant } from "@/lib/supabase/actor";
 import { canAccess } from "@/lib/rbac";
+import { applyBranchScope } from "@/lib/supabase/branch-scope";
 import { phoneSearchDigits, phoneStoredForms } from "@/lib/phone";
 import {
   mapCustomerRows,
@@ -39,26 +40,29 @@ function formatPhoneDisplay(norm62: string): string {
 }
 
 export async function getCustomers(): Promise<CustomerListRow[]> {
-  const { supabase, branchId, role } = await getActiveTenant();
+  const actor = await getActiveTenant();
+  const { supabase, role } = actor;
   requireCustomerAccess(role);
-  if (!branchId) throw new Error("Branch not set for tenant");
-  const { data: customers, error } = await supabase
-    .from("cervise_customers")
-    .select("id, name, phone, created_at")
-    .eq("branch_id", branchId)
-    .order("created_at", { ascending: false });
+
+  const customersQuery = applyBranchScope(
+    supabase.from("cervise_customers").select("id, name, phone, created_at"),
+    actor,
+  );
+  const { data: customers, error } = await customersQuery.order("created_at", { ascending: false });
   if (error) throw new Error(error.message);
   const list = (customers ?? []) as CustomerInput[];
   if (list.length === 0) return [];
 
-  const { data: services, error: servicesError } = await supabase
-    .from("cervise_services")
-    .select("id, service_number, customer_id, status, created_at, price")
-    .eq("branch_id", branchId)
-    .in(
-      "customer_id",
-      list.map((customer) => customer.id),
-    );
+  const servicesQuery = applyBranchScope(
+    supabase
+      .from("cervise_services")
+      .select("id, service_number, customer_id, status, created_at, price"),
+    actor,
+  );
+  const { data: services, error: servicesError } = await servicesQuery.in(
+    "customer_id",
+    list.map((customer) => customer.id),
+  );
   if (servicesError) throw new Error(servicesError.message);
 
   return mapCustomerRows({ customers: list, services: (services ?? []) as CustomerServiceInput[] });
@@ -136,13 +140,16 @@ export type CustomerServisRow = {
 };
 
 export async function getCustomerServis(customerId: string): Promise<CustomerServisRow[]> {
-  const { supabase, branchId, role } = await getActiveTenant();
+  const actor = await getActiveTenant();
+  const { supabase, role } = actor;
   requireCustomerAccess(role);
-  if (!branchId) throw new Error("Branch not set");
-  const { data, error } = await supabase
-    .from("cervise_services")
-    .select("id, complaint, device, status, created_at, price")
-    .eq("branch_id", branchId)
+  const query = applyBranchScope(
+    supabase
+      .from("cervise_services")
+      .select("id, complaint, device, status, created_at, price"),
+    actor,
+  );
+  const { data, error } = await query
     .eq("customer_id", customerId)
     .order("created_at", { ascending: false })
     .limit(20);
@@ -156,9 +163,9 @@ export async function getCustomerServis(customerId: string): Promise<CustomerSer
   }));
 }
 export async function searchCustomersByPhone(q: string) {
-  const { supabase, branchId, role } = await getActiveTenant();
+  const actor = await getActiveTenant();
+  const { supabase, role } = actor;
   requireCustomerAccess(role);
-  if (!branchId) throw new Error("Branch not set");
   // `phone` ditulis kanonik `62...` oleh normalizePhone62, tapi baris lama
   // masih tersimpan `08...`. Ditemukan lewat test end-to-end: pencarian dulu
   // memakai digit mentah, jadi "081277770001" tidak pernah cocok dengan
@@ -168,7 +175,11 @@ export async function searchCustomersByPhone(q: string) {
   // terdaftar".
   const term = phoneSearchDigits(q);
   if (term.length < 3) return [];
-  const { data, error } = await supabase.from("cervise_customers").select("id, name, phone").eq("branch_id", branchId).ilike("phone", `%${term}%`).limit(5);
+  const query = applyBranchScope(
+    supabase.from("cervise_customers").select("id, name, phone"),
+    actor,
+  );
+  const { data, error } = await query.ilike("phone", `%${term}%`).limit(5);
   if (error) throw new Error(error.message);
   return (data ?? []).map((r: any) => {
     const norm = String(r.phone ?? "").replace(/\D/g, "");

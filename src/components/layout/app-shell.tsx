@@ -31,6 +31,7 @@ import { CheckIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { canSwitchBranch, canSwitchTenant } from "@/lib/auth/access";
 import { isMasterAdminRole } from "@/lib/auth/authorization";
+import type { BranchOption } from "@/lib/supabase/branch-scope";
 
 export const ROLE_LABEL: Record<string, string> = {
   MASTER_ADMIN: "Master Admin",
@@ -434,6 +435,10 @@ export type AppShellActor = {
   /** Identitas akun untuk sidebar. null = belum diketahui / belum diisi. */
   fullName: string | null;
   avatarUrl: string | null;
+  /** Cabang aktif milik organisasi; hanya diisi untuk MASTER_ADMIN. */
+  branches?: BranchOption[] | null;
+  /** Scope server: `all` atau id cabang. Dipakai agar label tidak berkedip. */
+  branchScope?: string | null;
 };
 
 function AppShellInner({ children, actor }: { children: React.ReactNode; actor: AppShellActor }) {
@@ -535,10 +540,15 @@ function AppShellInner({ children, actor }: { children: React.ReactNode; actor: 
 }
 
 export function AppShell({ children, actor }: { children: React.ReactNode; actor: AppShellActor }) {
+  const canSwitch = isMasterAdminRole(actor.role);
   return (
     <LocaleProvider>
-      <TenantProvider fixedOrganizationId={isMasterAdminRole(actor.role) ? null : actor.orgId}>
-        <BranchProvider fixedBranchId={isMasterAdminRole(actor.role) ? null : actor.branchId ?? "unassigned"}>
+      <TenantProvider fixedOrganizationId={canSwitch ? null : actor.orgId}>
+        <BranchProvider
+          fixedBranchId={canSwitch ? null : actor.branchId ?? "unassigned"}
+          initialBranches={actor.branches ?? null}
+          initialScope={actor.branchScope ?? null}
+        >
           <CommandPaletteProvider role={actor.role}>
             <AppShellInner actor={actor}>{children}</AppShellInner>
           </CommandPaletteProvider>

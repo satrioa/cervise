@@ -4,13 +4,15 @@ import { Suspense } from "react";
 import { AppShell } from "@/components/layout/app-shell";
 import { CompactShell } from "@/components/layout/compact-shell";
 import { QueryErrorToast } from "@/components/layout/query-error-toast";
-import { getTenantAccessRedirect } from "@/lib/auth/authorization";
+import { getTenantAccessRedirect, isMasterAdminRole } from "@/lib/auth/authorization";
 import {
   getActiveTenant,
   getActiveTenantForBilling,
   TenantAccessError,
 } from "@/lib/supabase/actor";
 import { surfaceFor } from "@/lib/nav/manifest";
+import { getBranchOptionsForActor } from "@/lib/supabase/branch-options";
+import { BRANCH_SCOPE_ALL } from "@/lib/supabase/branch-scope";
 
 /**
  * Halaman yang tetap boleh dibuka tenant yang langganannya sudah berakhir.
@@ -58,12 +60,22 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     },
   );
 
+  const branchOptions = isMasterAdminRole(actor.role)
+    ? await getBranchOptionsForActor(actor)
+    : [];
+  const branchScope =
+    actor.branchScope?.mode === "all"
+      ? BRANCH_SCOPE_ALL
+      : actor.branchId ?? branchOptions[0]?.id ?? null;
+
   const shellActor = {
     role: actor.role,
     orgId: actor.orgId,
     branchId: actor.branchId,
     fullName: actor.fullName,
     avatarUrl: actor.avatarUrl,
+    branches: branchOptions,
+    branchScope,
   };
 
   const shell =

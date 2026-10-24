@@ -1,7 +1,9 @@
 "use client";
 
 import * as React from "react";
+import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { setBranchScope } from "@/app/app/actions/branch-scope";
 
 export type Branch = {
   id: string;
@@ -10,9 +12,18 @@ export type Branch = {
   phone?: string | null;
 };
 
-export const BRANCHES: Branch[] = [
-  { id: "all", label: "Semua cabang", meta: "Semua cabang · live" },
-];
+/**
+ * "Semua cabang" bukan cabang sungguhan. Entri ini hanya muncul saat tenant
+ * punya lebih dari satu cabang, dan pilihannya disimpan di server sebagai
+ * mode baca-saja (`cervise_scope=all`).
+ */
+export const ALL_BRANCH: Branch = {
+  id: "all",
+  label: "Semua cabang",
+  meta: "Semua cabang · live",
+};
+
+export const BRANCHES: Branch[] = [ALL_BRANCH];
 
 type BranchContextValue = {
   branch: Branch;
@@ -29,12 +40,56 @@ function getActiveOrgId(): string | null {
   return localStorage.getItem("cervise_org");
 }
 
-export function BranchProvider({ children, fixedBranchId = null }: { children: React.ReactNode; fixedBranchId?: string | null }) {
-  const initialBranch: Branch = fixedBranchId
-    ? { id: fixedBranchId, label: "Cabang assigned", meta: "Assigned branch" }
-    : BRANCHES[0];
-  const [branches, setBranches] = React.useState<Branch[]>(fixedBranchId ? [initialBranch] : BRANCHES);
-  const [branch, setBranchState] = React.useState<Branch>(initialBranch);
+function decorate(realBranches: Branch[]): Branch[] {
+  return realBranches.length > 1 ? [ALL_BRANCH, ...realBranches] : realBranches;
+}
+
+function pickInitial(
+  branches: Branch[],
+  scope: string | null | undefined,
+  fixedBranchId: string | null,
+): Branch {
+  if (fixedBranchId) {
+    return { id: fixedBranchId, label: "Cabang assigned", meta: "Assigned branch" };
+  }
+  if (scope && scope !== "all") {
+    const byId = branches.find((b) => b.id === scope);
+    if (byId) return byId;
+  }
+  if (scope === "all") {
+    const all = branches.find((b) => b.id === ALL_BRANCH.id);
+    if (all) return all;
+  }
+  return branches[0] ?? ALL_BRANCH;
+}
+
+export function BranchProvider({
+  children,
+  fixedBranchId = null,
+  initialBranches = null,
+  initialScope = null,
+}: {
+  children: React.ReactNode;
+  fixedBranchId?: string | null;
+  /** Cabang aktif dari server. Dipakai supaya label tidak berkedip/keliru. */
+  initialBranches?: Branch[] | null;
+  /** Scope aktif dari server: `all` atau id cabang. */
+  initialScope?: string | null;
+}) {
+  const router = useRouter();
+  const hasServerBranches = Boolean(initialBranches && initialBranches.length > 0);
+
+  const seeded = React.useMemo(() => {
+    if (fixedBranchId) {
+      return [pickInitial([], initialScope, fixedBranchId)];
+    }
+    return decorate(initialBranches ?? []);
+  }, [fixedBranchId, initialBranches, initialScope]);
+
+  const [branches, setBranches] = React.useState<Branch[]>(fixedBranchId ? [] : seeded);
+  const [branch, setBranchState] = React.useState<Branch>(() =>
+    pickInitial(seeded, initialScope, fixedBranchId),
+  );
 
   React.useEffect(() => {
     const supabase = createClient();
@@ -59,6 +114,10 @@ export function BranchProvider({ children, fixedBranchId = null }: { children: R
         return;
       }
 
+      // Server sudah mengirim daftar cabang untuk request ini; tidak perlu
+      // fetch ulang dan tidak ada jendela saat UI salah menampilkan cabang.
+      if (hasServerBranches) return;
+
       const orgId = getActiveOrgId();
       if (!orgId) {
         setBranches(BRANCHES);
@@ -71,13 +130,22 @@ export function BranchProvider({ children, fixedBranchId = null }: { children: R
         .eq("is_active", true)
         .order("name");
       if (rows && rows.length) {
-        const mapped: Branch[] = ((rows ?? []) as { id: string; name: string; city: string | null; phone: string | null }[]).map((row) => ({ id: row.id, label: row.name, meta: row.city || "Project", phone: row.phone ?? null }));
-        const all = mapped.length > 1 ? BRANCHES.slice(0, 1).concat(mapped) : mapped;
+        const mapped: Branch[] = (rows as {
+          id: string;
+          name: string;
+          city: string | null;
+          phone: string | null;
+        }[]).map((row) => ({
+          id: row.id,
+          label: row.name,
+          meta: row.city || "Project",
+          phone: row.phone ?? null,
+        }));
+        const all = decorate(mapped);
         setBranches(all);
         const saved = localStorage.getItem("cervise-branch");
         const found = saved ? all.find((b) => b.id === saved) : null;
-        if (found) setBranchState(found);
-        else if (all.length) setBranchState(all[0]);
+        setBranchState(found ?? all[0]);
       } else {
         setBranches(BRANCHES);
       }
@@ -86,17 +154,30 @@ export function BranchProvider({ children, fixedBranchId = null }: { children: R
     const onOrgChange = () => load();
     window.addEventListener("cervise-org-change", onOrgChange);
     return () => window.removeEventListener("cervise-org-change", onOrgChange);
-  }, [fixedBranchId]);
+  }, [fixedBranchId, hasServerBranches]);
 
-  const setBranch = React.useCallback((b: Branch) => {
-    if (fixedBranchId) return;
-    setBranchState(b);
-    if (typeof window !== "undefined") {
-      window.localStorage.setItem("cervise-branch", b.id);
-      document.cookie = `cervise_branch=${encodeURIComponent(b.id)}; path=/; max-age=31536000`;
-      window.dispatchEvent(new CustomEvent("cervise-branch-change", { detail: b }));
-    }
-  }, [fixedBranchId]);
+  const setBranch = React.useCallback(
+    (next: Branch) => {
+      if (fixedBranchId) return;
+      const previous = branch;
+      setBranchState(next);
+      if (typeof window !== "undefined") {
+        window.localStorage.setItem("cervise-branch", next.id);
+        window.dispatchEvent(new CustomEvent("cervise-branch-change", { detail: next }));
+      }
+      // Sumber kebenaran adalah cookie server; label saja tidak cukup.
+      // `router.refresh()` membuat ulang server components dengan scope baru.
+      setBranchScope(next.id)
+        .then(() => router.refresh())
+        .catch(() => {
+          setBranchState(previous);
+          if (typeof window !== "undefined") {
+            window.localStorage.setItem("cervise-branch", previous.id);
+          }
+        });
+    },
+    [branch, fixedBranchId, router],
+  );
 
   // listen for external changes (e.g., from other tabs)
   React.useEffect(() => {
@@ -111,7 +192,10 @@ export function BranchProvider({ children, fixedBranchId = null }: { children: R
     return () => window.removeEventListener("storage", onStorage);
   }, [branches, fixedBranchId]);
 
-  const value = React.useMemo(() => ({ branch, setBranch, branches }), [branch, setBranch, branches]);
+  const value = React.useMemo(
+    () => ({ branch, setBranch, branches }),
+    [branch, setBranch, branches],
+  );
   return <BranchContext.Provider value={value}>{children}</BranchContext.Provider>;
 }
 

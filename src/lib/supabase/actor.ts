@@ -5,11 +5,17 @@ import {
   getSubscriptionAccessState,
   type SubscriptionLifecycleStatus,
 } from "@/lib/billing/renewal";
-import type { TenantAccessErrorCode } from "@/lib/auth/authorization";
+import { isMasterAdminRole, type TenantAccessErrorCode } from "@/lib/auth/authorization";
 import { publicPhotoUrl } from "@/lib/photos";
 import { canManageEmployees } from "@/lib/auth/account-input";
 import { resolveTargetOrganization } from "@/lib/supabase/org-resolution";
 import { isTenantOwner } from "@/lib/tenant-slug";
+import {
+  BRANCH_SCOPE_ALL,
+  BRANCH_SCOPE_COOKIE,
+  LEGACY_BRANCH_COOKIE,
+  type BranchScope,
+} from "@/lib/supabase/branch-scope";
 
 export class TenantAccessError extends Error {
   readonly code: TenantAccessErrorCode;
@@ -44,6 +50,16 @@ export type Actor = {
   branchId: string | null;
   employeeId: string;
   role: string;
+  /**
+   * Konteks cabang yang dipilih user (khusus MASTER_ADMIN), dibaca dari cookie
+   * di server. Staf biasa selalu `{ mode: "branch" }` ke cabangnya sendiri.
+   *
+   * Opsional supaya actor palsu di test lama tetap valid; helper di
+   * `branch-scope.ts` menurunkan scope dari `branchId` bila field ini kosong.
+   */
+  branchScope?: BranchScope | null;
+  /** Cabang dalam organisasi yang boleh dibaca. Satu elemen untuk staf. */
+  accessibleBranchIds?: string[];
   /**
    * Apakah user ini pemilik tenant yang tercatat di
    * organizations.owner_profile_id.
@@ -170,6 +186,13 @@ async function resolveTenant(options: { allowExpiredSubscription: boolean }): Pr
     throw new TenantAccessError("subscription_blocked", "Organisasi tenant tidak aktif");
   }
 
+  const role = (actorRow.role as string) ?? "TECHNICIAN";
+  const masterAdmin = isMasterAdminRole(role);
+
+  // Validasi cabang kepegawaian tetap berlaku untuk semua role. MASTER_ADMIN
+  // yang `employees.branch_id`-nya menunjuk cabang nonaktif tetap ditolak,
+  // sama seperti staf - kalau tidak, assignment rusak berubah jadi akses
+  // diam-diam ke cabang lain.
   if (actorRow.branch_id) {
     const { data: branch, error: branchError } = await supabase
       .from("branches")
@@ -181,6 +204,52 @@ async function resolveTenant(options: { allowExpiredSubscription: boolean }): Pr
     if (branchError) throw new TenantAccessError("lookup_failed", "Gagal memverifikasi cabang");
     if (!branch) throw new TenantAccessError("branch_invalid", "Cabang tidak valid untuk tenant ini");
   }
+
+  const requestedScopeRaw =
+    cookieStore.get(BRANCH_SCOPE_COOKIE)?.value ??
+    cookieStore.get(LEGACY_BRANCH_COOKIE)?.value ??
+    null;
+
+  let branchScope: BranchScope | null = null;
+  let accessibleBranchIds: string[] = [];
+
+  if (masterAdmin) {
+    const { data: branchRows, error: branchRowsError } = await supabase
+      .from("branches")
+      .select("id")
+      .eq("organization_id", targetOrgId)
+      .eq("is_active", true)
+      .order("name");
+    if (branchRowsError) throw new TenantAccessError("lookup_failed", "Gagal memuat daftar cabang");
+    accessibleBranchIds = ((branchRows ?? []) as { id: string }[]).map((row) => row.id);
+
+    const requestedBranch =
+      requestedScopeRaw && requestedScopeRaw !== BRANCH_SCOPE_ALL ? requestedScopeRaw : null;
+    const selectedBranch =
+      requestedBranch && accessibleBranchIds.includes(requestedBranch) ? requestedBranch : null;
+
+    // `all` hanya bermakna saat ada lebih dari satu cabang; kalau hanya satu,
+    // tetap pakai mode cabang supaya aksi tulis tidak ikut terkunci.
+    if (requestedScopeRaw === BRANCH_SCOPE_ALL && accessibleBranchIds.length > 1) {
+      branchScope = { mode: "all", organizationId: targetOrgId };
+    } else {
+      const fallbackBranch =
+        (actorRow.branch_id && accessibleBranchIds.includes(actorRow.branch_id)
+          ? actorRow.branch_id
+          : null) ?? accessibleBranchIds[0] ?? null;
+      const chosen = selectedBranch ?? fallbackBranch;
+      branchScope = chosen
+        ? { mode: "branch", organizationId: targetOrgId, branchId: chosen }
+        : null;
+    }
+  } else {
+    branchScope = actorRow.branch_id
+      ? { mode: "branch", organizationId: targetOrgId, branchId: actorRow.branch_id }
+      : null;
+    accessibleBranchIds = actorRow.branch_id ? [actorRow.branch_id] : [];
+  }
+
+  const effectiveBranchId = branchScope?.mode === "branch" ? branchScope.branchId : null;
 
   const { data: subscriptionRow, error: subscriptionError } = await supabase
     .from("tenant_subscriptions")
@@ -235,9 +304,11 @@ async function resolveTenant(options: { allowExpiredSubscription: boolean }): Pr
     supabase,
     userId: auth.user.id,
     orgId: actorRow.organization_id as string,
-    branchId: (actorRow.branch_id as string | null) ?? null,
+    branchId: effectiveBranchId,
+    branchScope,
+    accessibleBranchIds,
     employeeId: actorRow.id as string,
-    role: (actorRow.role as string) ?? "TECHNICIAN",
+    role,
     // Apakah user ini pemilik tenant yang tercatat, bukan sekadar admin
     // operasional. Sumbernya organizations.owner_profile_id, bukan
     // employees.role: MASTER_ADMIN berarti mengelola operasional, yang lain

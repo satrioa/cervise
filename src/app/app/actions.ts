@@ -18,6 +18,11 @@ import {
   type DashboardSummary,
 } from "@/lib/operational/dashboard";
 import { toLocalDateString } from "@/lib/operational/garansi-list";
+import {
+  applyBranchScope,
+  isAllBranchScope,
+  NEVER_MATCH_BRANCH_ID,
+} from "@/lib/supabase/branch-scope";
 
 // Keeps the payload bounded; the dashboard is a trend view, not an export.
 const SERVICE_ROW_CAP = 2000;
@@ -41,23 +46,41 @@ function periodStartIso(period: DashboardPeriod, now: Date): string {
 }
 
 export async function getDashboardData(period: DashboardPeriod): Promise<DashboardData> {
-  const { supabase, branchId } = await getActiveTenantBranch();
+  const { supabase, actor } = await getActiveTenantBranch();
+  const allScope = isAllBranchScope(actor);
   const now = new Date();
 
-  const [servicesResult, financeResult, branchResult] = await Promise.all([
+  const servicesQuery = applyBranchScope(
     supabase
       .from("cervise_services")
-      .select("id, device, status, created_at, updated_at, customer_id, teknisi_id, kerusakan, garansi_value, garansi_unit, garansi_until")
-      .eq("branch_id", branchId)
-      .order("created_at", { ascending: false })
-      .limit(SERVICE_ROW_CAP),
+      .select("id, device, status, created_at, updated_at, customer_id, teknisi_id, kerusakan, garansi_value, garansi_unit, garansi_until"),
+    actor,
+  );
+  const financeQuery = applyBranchScope(
     supabase
       .from("cervise_finance_tx")
-      .select("branch_id, type, amount, kas_date")
+      .select("branch_id, type, amount, kas_date"),
+    actor,
+  );
+  const branchQuery = allScope
+    ? supabase
+        .from("branches")
+        .select("id, name")
+        .in("id", actor.accessibleBranchIds ?? [])
+        .order("name")
+    : supabase
+        .from("branches")
+        .select("id, name")
+        .eq("id", actor.branchId ?? NEVER_MATCH_BRANCH_ID)
+        .maybeSingle();
+
+  const [servicesResult, financeResult, branchResult] = await Promise.all([
+    servicesQuery.order("created_at", { ascending: false }).limit(SERVICE_ROW_CAP),
+    financeQuery
       .gte("kas_date", toLocalDateString(new Date(periodStartIso(period, now))))
       .lte("kas_date", toLocalDateString(now))
       .limit(FINANCE_ROW_CAP),
-    supabase.from("branches").select("id, name").eq("id", branchId).maybeSingle(),
+    branchQuery,
   ]);
 
   if (servicesResult.error) throw new Error(servicesResult.error.message);
@@ -66,6 +89,11 @@ export async function getDashboardData(period: DashboardPeriod): Promise<Dashboa
 
   const services = (servicesResult.data ?? []) as DashboardService[];
   const finance = (financeResult.data ?? []) as DashboardFinance[];
+  const branchRows = allScope
+    ? ((branchResult.data ?? []) as { id: string; name: string }[])
+    : branchResult.data
+      ? [branchResult.data as { id: string; name: string }]
+      : [];
 
   const teknisiIds = Array.from(new Set(services.map((s) => s.teknisi_id).filter((id): id is string => Boolean(id))));
   const customerIds = Array.from(new Set(services.map((s) => s.customer_id).filter((id): id is string => Boolean(id))));
@@ -83,7 +111,7 @@ export async function getDashboardData(period: DashboardPeriod): Promise<Dashboa
 
   return {
     period,
-    branchLabel: (branchResult.data as { name: string } | null)?.name ?? "—",
+    branchLabel: allScope ? "Semua cabang" : branchRows[0]?.name ?? "—",
     summary: summarizeDashboard({ services, finance, period, now }),
     technicians: buildTechnicians({
       services,
@@ -94,7 +122,7 @@ export async function getDashboardData(period: DashboardPeriod): Promise<Dashboa
     problems: buildProblems({ services, period, now }),
     branches: buildBranches({
       finance,
-      branches: branchResult.data ? [branchResult.data as { id: string; name: string }] : [],
+      branches: branchRows,
       period,
       now,
     }),
@@ -108,6 +136,5 @@ export async function getDashboardData(period: DashboardPeriod): Promise<Dashboa
 
 async function getActiveTenantBranch() {
   const actor = await getActiveTenant();
-  if (!actor.branchId) throw new Error("Branch not set for tenant");
-  return { supabase: actor.supabase, branchId: actor.branchId };
+  return { supabase: actor.supabase, actor };
 }

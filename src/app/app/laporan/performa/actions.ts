@@ -2,6 +2,7 @@
 
 import { getActiveTenant } from "@/lib/supabase/actor";
 import { assertCanRead } from "@/lib/auth/require-menu";
+import { applyBranchScope } from "@/lib/supabase/branch-scope";
 import { rentangBulanSekarang } from "@/lib/operational/periode-bulan";
 import {
   buildPerformaTeknisi,
@@ -34,32 +35,42 @@ export async function getPerformaTeknisi(): Promise<PerformaTeknisiResult> {
     // employees.role is the authoritative upper-cased role; profiles.role is
     // legacy lower-case and must not be filtered on.
     const [employeesResult, branchesResult, servicesResult, undatedResult] = await Promise.all([
-      supabase
-        .from("employees")
-        .select("profile_id, branch_id, profiles(id, full_name)")
-        .eq("role", "TECHNICIAN")
-        .eq("is_active", true),
-      supabase
-        .from("branches")
-        .select("id, name, is_intensif_enabled, intensif_mode, intensif_value, intensif_target_count")
-        .order("name"),
-      supabase
-        .from("cervise_services")
-        .select("teknisi_id, status, price, completed_at")
-        .not("teknisi_id", "is", null)
-        .gte("completed_at", from.toISOString())
-        .lt("completed_at", to.toISOString())
-        .limit(ROW_CAP),
+      applyBranchScope(
+        supabase
+          .from("employees")
+          .select("profile_id, branch_id, profiles(id, full_name)")
+          .eq("role", "TECHNICIAN")
+          .eq("is_active", true),
+        actor,
+      ),
+      applyBranchScope(
+        supabase
+          .from("branches")
+          .select("id, name, is_intensif_enabled, intensif_mode, intensif_value, intensif_target_count"),
+        actor,
+        "id",
+      ).order("name"),
+      applyBranchScope(
+        supabase
+          .from("cervise_services")
+          .select("teknisi_id, status, price, completed_at")
+          .not("teknisi_id", "is", null)
+          .gte("completed_at", from.toISOString())
+          .lt("completed_at", to.toISOString()),
+        actor,
+      ).limit(ROW_CAP),
       // Servis selesai tanpa tanggal selesai tidak bisa difilter per periode,
       // jadi diambil terpisah lalu hanya dipakai untuk ditandai di UI. Jumlahnya
       // sedikit, dan cap ROW_CAP di sini hanya penjaga.
-      supabase
-        .from("cervise_services")
-        .select("teknisi_id, status, price, completed_at")
-        .not("teknisi_id", "is", null)
-        .is("completed_at", null)
-        .in("status", ["Selesai", "Sudah Diambil"])
-        .limit(ROW_CAP),
+      applyBranchScope(
+        supabase
+          .from("cervise_services")
+          .select("teknisi_id, status, price, completed_at")
+          .not("teknisi_id", "is", null)
+          .is("completed_at", null)
+          .in("status", ["Selesai", "Sudah Diambil"]),
+        actor,
+      ).limit(ROW_CAP),
     ]);
 
     if (employeesResult.error) throw new Error(employeesResult.error.message);

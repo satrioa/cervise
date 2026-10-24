@@ -1,5 +1,6 @@
 "use server";
 import { getActiveTenant } from "@/lib/supabase/actor";
+import { applyBranchScope } from "@/lib/supabase/branch-scope";
 import {
   buildLaporanPenjualan,
   type LaporanPenjualan,
@@ -21,13 +22,21 @@ export async function getLaporanPenjualan(query: {
     branches: [],
   };
   try {
-    const { supabase } = await getActiveTenant();
-    const branchesResult = await supabase.from("branches").select("id, name").order("name");
+    const actor = await getActiveTenant();
+    const { supabase } = actor;
+    const branchesResult = await applyBranchScope(
+      supabase.from("branches").select("id, name"),
+      actor,
+      "id",
+    ).order("name");
     if (branchesResult.error) throw new Error(branchesResult.error.message);
     const branches = (branchesResult.data ?? []) as { id: string; name: string }[];
-    let request = supabase
-      .from("cervise_sales")
-      .select("id, sale_number, kas_date, subtotal, discount_total, total, paid, returned_value, payment_status, payment_method, branch_id")
+    let request = applyBranchScope(
+      supabase
+        .from("cervise_sales")
+        .select("id, sale_number, kas_date, subtotal, discount_total, total, paid, returned_value, payment_status, payment_method, branch_id"),
+      actor,
+    )
       .order("kas_date", { ascending: false })
       .limit(ROW_CAP);
     if (query.from) request = request.gte("kas_date", query.from);
