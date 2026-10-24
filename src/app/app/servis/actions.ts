@@ -35,6 +35,7 @@ export type UpdateServisPayload = Partial<CreateServisPayload> & { id: string };
 import { getActiveTenant } from "@/lib/supabase/actor";
 import { canAccess } from "@/lib/rbac";
 import { isManagerRole } from "@/lib/auth/authorization";
+import { applyBranchScope } from "@/lib/supabase/branch-scope";
 
 async function getBranchAndUser() {
   const actor = await getActiveTenant();
@@ -42,12 +43,21 @@ async function getBranchAndUser() {
   return { supabase: actor.supabase, userId: actor.userId, branchId: actor.branchId, role: actor.role, orgId: actor.orgId };
 }
 
+/** Konteks baca: mengizinkan mode "Semua cabang" tanpa cabang tulis. */
+async function getServisReadContext() {
+  const actor = await getActiveTenant();
+  return { supabase: actor.supabase, actor };
+}
+
 export async function getServisList(): Promise<ServisListRow[]> {
-  const { supabase, branchId } = await getBranchAndUser();
-  const { data: services, error: servicesError } = await supabase
-    .from("cervise_services")
-    .select("id, service_number, tracking_code, device, complaint, status, price, customer_id, teknisi_id, created_at")
-    .eq("branch_id", branchId)
+  const { supabase, actor } = await getServisReadContext();
+  const servicesQuery = applyBranchScope(
+    supabase
+      .from("cervise_services")
+      .select("id, service_number, tracking_code, device, complaint, status, price, customer_id, teknisi_id, created_at"),
+    actor,
+  );
+  const { data: services, error: servicesError } = await servicesQuery
     .order("created_at", { ascending: false })
     .limit(500);
   if (servicesError) throw new Error(servicesError.message);
@@ -70,7 +80,14 @@ export async function getServisList(): Promise<ServisListRow[]> {
   const [customersResult, profilesResult, financeResult] = await Promise.all([
     customerIds.length ? supabase.from("cervise_customers").select("id, name, phone").in("id", customerIds) : Promise.resolve({ data: [], error: null }),
     teknisiIds.length ? supabase.from("profiles").select("id, full_name").in("id", teknisiIds) : Promise.resolve({ data: [], error: null }),
-    supabase.from("finance_tx").select("servis_id, amount").eq("branch_id", branchId).eq("type", "pemasukan").in("servis_id", serviceRows.map((service) => service.id)),
+    applyBranchScope(
+      supabase
+        .from("finance_tx")
+        .select("servis_id, amount")
+        .eq("type", "pemasukan")
+        .in("servis_id", serviceRows.map((service) => service.id)),
+      actor,
+    ),
   ]);
   if (customersResult.error) throw new Error(customersResult.error.message);
   if (profilesResult.error) throw new Error(profilesResult.error.message);
@@ -85,16 +102,19 @@ export async function getServisList(): Promise<ServisListRow[]> {
 }
 
 export async function getTeknisi() {
-  const { supabase, branchId, orgId } = await getBranchAndUser();
+  const { supabase, actor } = await getServisReadContext();
   // employees adalah sumber otoritas role dan cabang. profiles.branch_id tidak
   // pernah diisi createKaryawan, jadi memfilter profiles membuat dropdown ini
   // kosong. Yang dikembalikan tetap profiles.id karena
   // cervise_services.teknisi_id mereferensikan profiles(id).
-  const { data, error } = await supabase
-    .from("employees")
-    .select("profile_id, profiles!inner(id, full_name, phone)")
-    .eq("organization_id", orgId)
-    .eq("branch_id", branchId)
+  const query = applyBranchScope(
+    supabase
+      .from("employees")
+      .select("profile_id, profiles!inner(id, full_name, phone)")
+      .eq("organization_id", actor.orgId),
+    actor,
+  );
+  const { data, error } = await query
     .eq("role", "TECHNICIAN")
     .eq("is_active", true)
     .order("full_name", { referencedTable: "profiles" });
@@ -500,11 +520,14 @@ export async function addPembayaran(params: { servisId: string; amount: number; 
 }
 
 export async function getPembayaranHistory(servisId: string) {
-  const { supabase, branchId } = await getBranchAndUser();
-  const { data, error } = await supabase
-    .from("finance_tx")
-    .select("id, amount, metode, keterangan, description, kas_date, created_at, created_by")
-    .eq("branch_id", branchId)
+  const { supabase, actor } = await getServisReadContext();
+  const query = applyBranchScope(
+    supabase
+      .from("finance_tx")
+      .select("id, amount, metode, keterangan, description, kas_date, created_at, created_by"),
+    actor,
+  );
+  const { data, error } = await query
     .eq("servis_id", servisId)
     .order("kas_date", { ascending: true })
     .order("created_at", { ascending: true });
@@ -524,15 +547,16 @@ export async function updateKondisiAwal(serviceId: string, kondisi: KondisiAwal)
 }
 
 export async function getServisDetail(id: string) {
-  const { supabase, branchId } = await getBranchAndUser();
-  const { data, error } = await supabase
-    .from("cervise_services")
-    .select(
-      "id, branch_id, service_number, tracking_code, device, complaint, status, price, price_estimasi, garansi_until, created_at, merk, tipe, imei1, imei2, kerusakan, kelengkapan, password_type, password_value, garansi_value, garansi_unit, kondisi_awal, customer_id, teknisi_id, created_by, cervise_customers(id, name, phone, address)"
-    )
-    .eq("id", id)
-    .eq("branch_id", branchId)
-    .single();
+  const { supabase, actor } = await getServisReadContext();
+  const query = applyBranchScope(
+    supabase
+      .from("cervise_services")
+      .select(
+        "id, branch_id, service_number, tracking_code, device, complaint, status, price, price_estimasi, garansi_until, created_at, merk, tipe, imei1, imei2, kerusakan, kelengkapan, password_type, password_value, garansi_value, garansi_unit, kondisi_awal, customer_id, teknisi_id, created_by, cervise_customers(id, name, phone, address)"
+      ),
+    actor,
+  );
+  const { data, error } = await query.eq("id", id).single();
   if (error) throw new Error(error.message);
   // fetch teknisi & creator safely without FK alias guess
   let teknisi: { id: string; full_name: string | null; email: string | null } | null = null;
@@ -551,11 +575,14 @@ export async function getServisDetail(id: string) {
 export type ServisDetail = Awaited<ReturnType<typeof getServisDetail>>;
 
 export async function getServisLogs(servisId: string) {
-  const { supabase, branchId } = await getBranchAndUser();
-  const { data, error } = await supabase
-    .from("cervise_service_logs")
-    .select("id, action, from_value, to_value, payload, created_at, actor_id")
-    .eq("branch_id", branchId)
+  const { supabase, actor } = await getServisReadContext();
+  const query = applyBranchScope(
+    supabase
+      .from("cervise_service_logs")
+      .select("id, action, from_value, to_value, payload, created_at, actor_id"),
+    actor,
+  );
+  const { data, error } = await query
     .eq("servis_id", servisId)
     .order("created_at", { ascending: true });
   if (error) throw new Error(error.message);

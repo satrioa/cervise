@@ -2,13 +2,38 @@
 
 import { Menu as MenuPrimitive } from "@base-ui/react/menu";
 import { ChevronRightIcon } from "lucide-react";
-import type * as React from "react";
+import * as React from "react";
 import { cn } from "@/lib/utils";
+import { isFromManagedButton, playedRecently, sfx } from "@/lib/sound";
 
 export const MenuCreateHandle: typeof MenuPrimitive.createHandle =
   MenuPrimitive.createHandle;
 
-export const Menu: typeof MenuPrimitive.Root = MenuPrimitive.Root;
+/**
+ * Root menu dengan suara:
+ * - menu MUNCUL → click (dew/boop), dilewati bila trigger-nya Button primitif
+ *   (sudah Notch) atau baru saja ada suara klik;
+ * - menu menutup karena item dipilih → hening (yang terdengar hanya Dot dari
+ *   item), menutup karena Escape/klik luar → Close1.
+ */
+export const Menu = (({ onOpenChange, ...props }: any) => {
+  const wasOpen = React.useRef(false);
+  return (
+    <MenuPrimitive.Root
+      {...props}
+      onOpenChange={(open: boolean, details: { reason?: string; trigger?: Element | null }) => {
+        if (open && !wasOpen.current) {
+          if (!isFromManagedButton(details) && !playedRecently(["dew", "boop", "notch"], 180)) sfx.click();
+        } else if (!open && wasOpen.current) {
+          const selectedItem = details?.reason === "itemPress" || details?.reason === "closePress";
+          if (!selectedItem && !playedRecently("dot", 260)) sfx.close();
+        }
+        wasOpen.current = open;
+        onOpenChange?.(open, details);
+      }}
+    />
+  );
+}) as unknown as typeof MenuPrimitive.Root;
 
 export const MenuPortal: typeof MenuPrimitive.Portal = MenuPrimitive.Portal;
 

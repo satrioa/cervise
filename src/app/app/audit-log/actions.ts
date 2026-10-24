@@ -1,6 +1,7 @@
 "use server";
 
 import { getActiveTenant } from "@/lib/supabase/actor";
+import { applyBranchScope, isAllBranchScope, NEVER_MATCH_BRANCH_ID } from "@/lib/supabase/branch-scope";
 import { mapAuditRows, type AuditLogInput, type AuditRow } from "@/lib/operational/audit-log";
 
 const LOG_ROW_CAP = 500;
@@ -12,17 +13,30 @@ export type AuditLogData = {
 
 export async function getAuditLog(): Promise<AuditLogData> {
   const actor = await getActiveTenant();
-  if (!actor.branchId) throw new Error("Branch not set for tenant");
-  const { supabase, branchId } = actor;
+  const { supabase } = actor;
+  const allScope = isAllBranchScope(actor);
 
-  const [logsResult, branchResult] = await Promise.all([
+  const logsQuery = applyBranchScope(
     supabase
       .from("cervise_service_logs")
-      .select("id, created_at, action, from_value, to_value, payload, servis_id, branch_id, actor_id")
-      .eq("branch_id", branchId)
-      .order("created_at", { ascending: false })
-      .limit(LOG_ROW_CAP),
-    supabase.from("branches").select("id, name").eq("id", branchId).maybeSingle(),
+      .select("id, created_at, action, from_value, to_value, payload, servis_id, branch_id, actor_id"),
+    actor,
+  );
+  const branchQuery = allScope
+    ? supabase
+        .from("branches")
+        .select("id, name")
+        .in("id", actor.accessibleBranchIds ?? [])
+        .order("name")
+    : supabase
+        .from("branches")
+        .select("id, name")
+        .eq("id", actor.branchId ?? NEVER_MATCH_BRANCH_ID)
+        .maybeSingle();
+
+  const [logsResult, branchResult] = await Promise.all([
+    logsQuery.order("created_at", { ascending: false }).limit(LOG_ROW_CAP),
+    branchQuery,
   ]);
 
   if (logsResult.error) throw new Error(logsResult.error.message);
@@ -68,6 +82,8 @@ export async function getAuditLog(): Promise<AuditLogData> {
       actors: profiles,
       branches: (branchesResult.data ?? []) as { id: string; name: string }[],
     }),
-    branchName: (branchResult.data as { name: string } | null)?.name ?? "—",
+    branchName: allScope
+      ? "Semua cabang"
+      : ((branchResult.data as { name: string } | null)?.name ?? "—"),
   };
 }

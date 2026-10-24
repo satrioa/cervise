@@ -1,29 +1,85 @@
 "use client";
 
+import { useSyncExternalStore } from "react";
+import { toast } from "sonner";
+
 /**
- * Sound UI: nada pendek yang disintesis lewat Web Audio, bukan file audio.
+ * UI sound system (Cervise).
  *
- * Alasannya bukan malas menambah aset: satu `AudioContext` + `OscillatorNode`
- * memberi volume yang bisa diatur langsung dari slider (gain node), tanpa
- * latensi decode, tanpa request jaringan, dan tanpa biner di repo. Kalau nanti
- * mau suara asli, cukup ganti isi `playCue()`; semua call site tetap memanggil
- * `playCue("success")` dan seterusnya.
+ * Seluruh suara UI lewat modul ini. Analoginya seperti `cn()` untuk styling:
+ * komponen cukup memanggil `sfx.semantik()`, dan pemetaan nama semantik → file
+ * wav hidup di SATU tempat. Kalau mau ganti "notch.wav" untuk tombol, cukup
+ * ubah di sini tanpa menyentuh puluhan komponen.
  *
- * Preferensi disimpan di `localStorage["cervise-sound"]` dan dibagikan lewat
- * store kecil di bawah (`getSoundSnapshot` + `subscribeSoundStore`) supaya
- * semua komponen yang menampilkannya membaca angka yang sama, termasuk tab
- * lain lewat event `storage`.
+ * Design rules (detail di docs/sound-design.md):
+ * - Suara HANYA dimainkan saat interaksi pengguna — tidak ada suara on-load
+ *   (kebijakan autoplay browser).
+ * - Kalau dua trigger sama-sama menyalakan suara (mis. klik tombol X yang juga
+ *   menutup dialog), yang lebih spesifik menang: tombol X diberi
+ *   `sound={null}` supaya yang kedengaran hanya Close1.
+ * - Volume per sound dikendalikan di dalam playSound supaya variasi dB file
+ *   sumber tidak perlu dipikirkan pemanggil.
  */
 
-export type CueName = "tap" | "success" | "error" | "notify";
+/** Peta nama semantik → URL file di public/sounds (file aslinya di docs/Music). */
+export const SOUND_SRC = {
+  close1: "/sounds/Close1.wav",
+  close2: "/sounds/Close2.wav",
+  dew: "/sounds/dew.wav",
+  boop: "/sounds/boop.wav",
+  dot: "/sounds/dot.wav",
+  undo: "/sounds/undo.wav",
+  arrive: "/sounds/arrive.wav",
+  notch: "/sounds/notch.wav",
+  clasp: "/sounds/clasp.wav",
+  unclasp: "/sounds/unclasp.wav",
+  shake: "/sounds/shake.wav",
+  chime: "/sounds/chime.wav",
+  spring: "/sounds/spring.wav",
+} as const;
+
+export type SoundName = keyof typeof SOUND_SRC;
+
+/** Volume default per sound (0..1). Di-tune manual dari dB file sumbernya. */
+export const SOUND_VOLUME: Record<SoundName, number> = {
+  close1: 0.5,
+  close2: 0.55,
+  dew: 0.4,
+  boop: 0.4,
+  dot: 0.5,
+  undo: 0.5,
+  arrive: 0.7,
+  notch: 0.45,
+  clasp: 0.6,
+  unclasp: 0.6,
+  shake: 0.7,
+  chime: 0.7,
+  spring: 0.5,
+};
+
+// ---------------------------------------------------------------------------
+// Preferensi suara (persist di localStorage, dibaca semua komponen lewat hook)
+// ---------------------------------------------------------------------------
+
+/**
+ * Satu sumber kebenaran untuk mute + volume. Disimpan sebagai JSON supaya
+ * keduanya konsisten; key ini sama dengan yang dipakai shell baru, jadi
+ * preferensi pengguna ikut terbawa saat shell baru di-merge.
+ */
+const STORAGE_KEY = "cervise-sound";
+
+/**
+ * Key lama (sebelum ada slider volume): `"on"` / `"off"`. Tetap dibaca sekali
+ * lalu dimigrasikan ke format JSON, supaya pengguna yang sudah mematikan suara
+ * tidak tiba-tiba mendengar bunyi setelah update.
+ */
+const LEGACY_STORAGE_KEY = "cervise_sound";
 
 export type SoundSettings = {
   muted: boolean;
   /** 0..100, mengikuti satuan yang ditampilkan di slider. */
   volume: number;
 };
-
-const STORAGE_KEY = "cervise-sound";
 
 export const DEFAULT_SOUND: SoundSettings = { muted: false, volume: 50 };
 
@@ -36,15 +92,29 @@ export function readSoundSettings(): SoundSettings {
   if (typeof window === "undefined") return DEFAULT_SOUND;
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) return DEFAULT_SOUND;
-    const parsed = JSON.parse(raw) as Partial<SoundSettings> | null;
-    return {
-      muted: typeof parsed?.muted === "boolean" ? parsed.muted : DEFAULT_SOUND.muted,
-      volume: clampVolume(parsed?.volume ?? DEFAULT_SOUND.volume),
-    };
+    if (raw) {
+      const parsed = JSON.parse(raw) as Partial<SoundSettings> | null;
+      return {
+        muted:
+          typeof parsed?.muted === "boolean" ? parsed.muted : DEFAULT_SOUND.muted,
+        volume: clampVolume(parsed?.volume ?? DEFAULT_SOUND.volume),
+      };
+    }
+
+    const legacy = window.localStorage.getItem(LEGACY_STORAGE_KEY);
+    if (legacy !== null) {
+      const migrated: SoundSettings = {
+        muted: legacy === "off",
+        volume: DEFAULT_SOUND.volume,
+      };
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(migrated));
+      return migrated;
+    }
   } catch {
-    return DEFAULT_SOUND;
+    // localStorage bisa diblokir (mode private/iframe ketat) — suara tetap
+    // aktif, hanya preferensinya tidak tersimpan.
   }
+  return DEFAULT_SOUND;
 }
 
 /**
@@ -52,17 +122,20 @@ export function readSoundSettings(): SoundSettings {
  * jadi objek baru tiap panggilan akan membuat render berputar tanpa henti.
  */
 let cached: SoundSettings | null = null;
-const listeners = new Set<() => void>();
+const settingsListeners = new Set<() => void>();
 
 function publish(next: SoundSettings): void {
-  const changed = !cached || cached.muted !== next.muted || cached.volume !== next.volume;
+  const changed =
+    !cached || cached.muted !== next.muted || cached.volume !== next.volume;
   cached = next;
   if (!changed) return;
-  for (const listener of listeners) listener();
+  for (const listener of settingsListeners) listener();
 }
 
 function handleStorage(event: StorageEvent): void {
-  if (event.key !== STORAGE_KEY) return;
+  if (event.key !== STORAGE_KEY && event.key !== LEGACY_STORAGE_KEY) return;
+  // Buang cache supaya nilai dari tab lain benar-benar dibaca ulang.
+  cached = null;
   publish(readSoundSettings());
 }
 
@@ -72,23 +145,30 @@ export function getSoundSnapshot(): SoundSettings {
 }
 
 export function subscribeSoundStore(listener: () => void): () => void {
-  listeners.add(listener);
-  if (typeof window !== "undefined" && listeners.size === 1) {
+  if (typeof window === "undefined") return () => {};
+  settingsListeners.add(listener);
+  if (settingsListeners.size === 1) {
     window.addEventListener("storage", handleStorage);
   }
   return () => {
-    listeners.delete(listener);
-    if (typeof window !== "undefined" && listeners.size === 0) {
+    settingsListeners.delete(listener);
+    if (settingsListeners.size === 0) {
       window.removeEventListener("storage", handleStorage);
     }
   };
 }
 
 export function writeSoundSettings(next: SoundSettings): SoundSettings {
-  const normalized: SoundSettings = { muted: next.muted, volume: clampVolume(next.volume) };
+  const normalized: SoundSettings = {
+    muted: next.muted,
+    volume: clampVolume(next.volume),
+  };
   if (typeof window === "undefined") return normalized;
   try {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(normalized));
+    // Tetap tulis key lama: build lain (worktree/branch yang belum merge) masih
+    // membacanya, jadi preferensi tidak "hilang" saat berpindah server dev.
+    window.localStorage.setItem(LEGACY_STORAGE_KEY, normalized.muted ? "off" : "on");
   } catch {
     // Mode privat / storage penuh: preferensi tetap berlaku di sesi ini,
     // hanya tidak bertahan setelah reload.
@@ -97,85 +177,344 @@ export function writeSoundSettings(next: SoundSettings): SoundSettings {
   return normalized;
 }
 
-/**
- * Satu context untuk seluruh aplikasi. Membuat context per panggilan akan
- * menabrak batas jumlah `AudioContext` di Chrome setelah beberapa puluh cue.
- */
-let context: AudioContext | null = null;
-
-function audioContext(): AudioContext | null {
-  if (typeof window === "undefined") return null;
-  const Ctor =
-    window.AudioContext ??
-    (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-  if (!Ctor) return null;
-  if (!context) {
-    try {
-      context = new Ctor();
-    } catch {
-      return null;
-    }
-  }
-  // Chrome menangguhkan context sampai ada gesture user. Resume tidak
-  // menghasilkan bunyi untuk cue ini (masih dalam gesture yang sama), tapi
-  // cue berikutnya jalan.
-  if (context.state === "suspended") {
-    void context.resume().catch(() => {});
-  }
-  return context;
+/** Hook React untuk kontrol mute + volume (mis. `MenuSound` di shell baru). */
+export function useSoundSettings(): SoundSettings {
+  // Nilai server selalu default supaya render SSR dan hidrasi konsisten;
+  // pembacaan localStorage terjadi setelah mount.
+  return useSyncExternalStore(
+    subscribeSoundStore,
+    getSoundSnapshot,
+    () => DEFAULT_SOUND,
+  );
 }
 
-type Cue = {
-  /** Frekuensi tiap nada, Hz. */
-  notes: number[];
-  type: OscillatorType;
-  /** Jarak antar nada, detik. */
-  spacing: number;
-  /** Waktu luruh tiap nada, detik. */
-  decay: number;
-  /** Puncak gain sebelum dikalikan volume user. */
-  gain: number;
-};
+/**
+ * API lama (mute saja) — dipertahankan agar komponen yang belum memakai slider
+ * volume tetap berfungsi. Semua fungsi ini menulis ke store yang sama.
+ */
+export function isSoundEnabled(): boolean {
+  return !getSoundSnapshot().muted;
+}
 
-const CUES: Record<CueName, Cue> = {
-  tap: { notes: [660], type: "triangle", spacing: 0, decay: 0.07, gain: 0.5 },
-  notify: { notes: [784, 1046], type: "sine", spacing: 0.09, decay: 0.2, gain: 0.5 },
-  success: { notes: [659, 880, 1175], type: "sine", spacing: 0.075, decay: 0.16, gain: 0.55 },
-  error: { notes: [392, 294], type: "sawtooth", spacing: 0.11, decay: 0.18, gain: 0.32 },
-};
+export function setSoundEnabled(enabled: boolean): void {
+  writeSoundSettings({ ...getSoundSnapshot(), muted: !enabled });
+}
+
+export function useSoundEnabled(): boolean {
+  return useSyncExternalStore(
+    subscribeSoundStore,
+    () => !getSoundSnapshot().muted,
+    () => true,
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Playback
+// ---------------------------------------------------------------------------
 
 /**
- * Bunyikan cue. Aman dipanggil dari event handler mana pun: kalau preferensi
- * mute, volume 0, atau browser tidak punya Web Audio, fungsi ini tidak
- * melakukan apa-apa dan tidak melempar error.
+ * Throttle: suara yang sama beruntun dalam < 60ms dianggap satu klik
+ * (double-fire dari dua layer listener pada event yang sama).
  */
-export function playCue(name: CueName): void {
+const LAST_PLAYED = new Map<SoundName, number>();
+
+/**
+ * Pool elemen audio per sound.
+ *
+ * Catatan penting dari debugging: `cloneNode(true)` pada elemen media bisa
+ * menghasilkan clone yang tidak pernah memuat resource di sebagian browser
+ * (clone mewarisi atribut `src` tetapi bukan status load-nya), sehingga
+ * `play()` reject dan terdengar hening. Karena itu tiap sound punya beberapa
+ * elemen nyata yang dipakai bergiliran: klik cepat tetap bisa tumpang tindih,
+ * tetapi elemennya selalu elemen yang benar-benar pernah `play()`.
+ */
+const POOL_SIZE = 3;
+const AUDIO_POOL = new Map<SoundName, HTMLAudioElement[]>();
+const POOL_CURSOR = new Map<SoundName, number>();
+let audioWarmedUp = false;
+
+function getPool(name: SoundName): HTMLAudioElement[] {
+  let pool = AUDIO_POOL.get(name);
+  if (!pool) {
+    pool = [];
+    AUDIO_POOL.set(name, pool);
+  }
+  return pool;
+}
+
+function acquireAudio(name: SoundName): HTMLAudioElement {
+  const pool = getPool(name);
+  if (pool.length < POOL_SIZE) {
+    const el = new window.Audio(SOUND_SRC[name]);
+    el.preload = "auto";
+    pool.push(el);
+    return el;
+  }
+  const cursor = POOL_CURSOR.get(name) ?? 0;
+  POOL_CURSOR.set(name, (cursor + 1) % pool.length);
+  const el = pool[cursor];
+  try {
+    el.pause();
+    el.currentTime = 0;
+  } catch {
+    // elemen belum siap — play() di bawah akan memuat ulang
+  }
+  return el;
+}
+
+/**
+ * Preload sisa sound di waktu idle setelah interaksi pertama. Tidak dilakukan
+ * saat mount supaya tidak ada 13 request audio + ~2 MB di first paint.
+ */
+function warmUpAudio() {
+  if (typeof window === "undefined") return;
+  if (audioWarmedUp) return;
+  audioWarmedUp = true;
+  const load = () => {
+    for (const name of Object.keys(SOUND_SRC) as SoundName[]) {
+      const pool = getPool(name);
+      if (pool.length === 0) {
+        const el = new window.Audio(SOUND_SRC[name]);
+        el.preload = "auto";
+        pool.push(el);
+      }
+    }
+  };
+  const idle = window.requestIdleCallback;
+  if (typeof idle === "function") idle(load, { timeout: 2000 });
+  else window.setTimeout(load, 1200);
+}
+
+export function playSound(name: SoundName, opts?: { volume?: number }): void {
+  if (typeof window === "undefined") return;
+
   const settings = getSoundSnapshot();
   if (settings.muted || settings.volume <= 0) return;
 
-  const ctx = audioContext();
-  if (!ctx) return;
+  const now = Date.now();
+  const last = LAST_PLAYED.get(name) ?? 0;
+  if (now - last < 60) return;
+  LAST_PLAYED.set(name, now);
 
-  const cue = CUES[name];
-  const volume = settings.volume / 100;
-  // 0.2 adalah plafon: nada UI harus terdengar, bukan menutupi media user.
-  const peak = cue.gain * volume * 0.2;
-  const start = ctx.currentTime + 0.01;
+  try {
+    const el = acquireAudio(name);
+    // Master gain: volume per-sound (hasil tuning file) × volume slider user.
+    const base = opts?.volume ?? SOUND_VOLUME[name];
+    el.volume = Math.min(1, Math.max(0, base * (settings.volume / 100)));
+    const played = el.play();
+    if (played && typeof played.catch === "function") {
+      played.catch(() => {
+        // Autoplay/permission error — hening, jangan ganggu interaksi.
+      });
+    }
+    warmUpAudio();
+  } catch {
+    // Jangan pernah melempar dari lapisan suara.
+  }
+}
 
-  cue.notes.forEach((frequency, index) => {
-    const at = start + index * cue.spacing;
-    const oscillator = ctx.createOscillator();
-    const gain = ctx.createGain();
-    oscillator.type = cue.type;
-    oscillator.frequency.setValueAtTime(frequency, at);
-    // Attack singkat, lalu luruh eksponensial. Tanpa attack, speaker kecil
-    // menghasilkan klik di awal nada.
-    gain.gain.setValueAtTime(0.0001, at);
-    gain.gain.linearRampToValueAtTime(peak, at + 0.012);
-    gain.gain.exponentialRampToValueAtTime(0.0001, at + 0.012 + cue.decay);
-    oscillator.connect(gain);
-    gain.connect(ctx.destination);
-    oscillator.start(at);
-    oscillator.stop(at + 0.012 + cue.decay + 0.02);
+/**
+ * Cek apakah salah satu sound baru saja dimainkan (default: 160 ms terakhir).
+ *
+ * Dipakai primitif overlayer untuk mencegah suara dobel, misalnya:
+ * - trigger menu sudah berbunyi click/Notch → suara "menu terbuka" dilewati;
+ * - item menu dipilih (dot) → Close1 saat menu menutup dilewati.
+ */
+export function playedRecently(
+  names: SoundName | SoundName[],
+  withinMs = 160,
+): boolean {
+  const list = Array.isArray(names) ? names : [names];
+  const now = Date.now();
+  return list.some((name) => {
+    const last = LAST_PLAYED.get(name);
+    return last !== undefined && now - last < withinMs;
   });
+}
+
+/**
+ * True bila trigger sebuah overlayer adalah Button primitif (yang sudah
+ * memutar Notch). Dipakai handler buka Menu/Select/Popover supaya tidak
+ * menambah suara "muncul" di atas Notch — urutan handler React tidak bisa
+ * diandalkan, jadi kita periksa elemen trigger-nya, bukan timestamp.
+ */
+export function isFromManagedButton(
+  details: { trigger?: Element | null } | undefined,
+): boolean {
+  if (typeof Element === "undefined") return false;
+  const trigger = details?.trigger;
+  return trigger instanceof Element && Boolean(trigger.closest("[data-sfx-managed]"));
+}
+
+/**
+ * API semantik — ini yang dipakai komponen. Nama fungsi menjelaskan INTENSI
+ * interaksi, bukan file wav-nya. Pemetaan lengkap ada di docs/sound-design.md.
+ */
+export const sfx = {
+  /** Tutup popover, modal/dialog, sheet, dropdown, alert. */
+  close: () => playSound("close1"),
+  /** Aksi membatalkan: tombol "Batal", "Buang perubahan", "Discard", tutup tanpa simpan. */
+  cancel: () => playSound("close2"),
+  /** Klik generik non-tombol (card, baris tabel, chip, item list) — acak dew/boop. */
+  click: () => {
+    if (Math.random() < 0.5) playSound("dew");
+    else playSound("boop");
+  },
+  /** Aksi memilih/pick: select dropdown, radio, pilih cabang, pilih item. */
+  select: () => playSound("dot"),
+  /** Berganti tab. */
+  tab: () => playSound("undo"),
+  /** Notifikasi masuk / toast informasi. */
+  notify: () => playSound("arrive"),
+  /** Menekan tombol (primary/secondary/ghost). */
+  button: () => playSound("notch"),
+  /** Toggle dalam keadaan ON (fitur dinyalakan). */
+  toggleOn: () => playSound("clasp"),
+  /** Toggle dalam keadaan OFF (fitur dimatikan). */
+  toggleOff: () => playSound("unclasp"),
+  /** Aksi gagal: validasi menolak, request error, rules ditolak. */
+  error: () => playSound("shake"),
+  /** Aksi sukses: data tersimpan, pembayaran sukses, upload selesai. */
+  success: () => playSound("chime"),
+  /** Cadangan: transisi buka/animasi besar (sheet besar, onboarding). Belum dipakai otomatis. */
+  spring: () => playSound("spring", { volume: SOUND_VOLUME.spring }),
+};
+
+// ---------------------------------------------------------------------------
+// Kompatibilitas shell baru
+// ---------------------------------------------------------------------------
+
+/**
+ * Nama cue versi shell baru (Web Audio). Shell baru memanggil `playCue(...)`
+ * dari `MenuSound`, jadi nama-nama itu dipetakan ke file wav kita supaya
+ * call site di sana tidak perlu diubah saat merge.
+ */
+export type CueName = "tap" | "success" | "error" | "notify";
+
+const CUE_TO_SOUND: Record<CueName, SoundName> = {
+  tap: "notch",
+  success: "chime",
+  error: "shake",
+  notify: "arrive",
+};
+
+/** Alias `playCue` → `playSound` dengan pemetaan cue → wav. */
+export function playCue(name: CueName): void {
+  const sound = CUE_TO_SOUND[name];
+  if (!sound) return;
+  playSound(sound);
+}
+
+// ---------------------------------------------------------------------------
+// Jembatan sonner toast → suara
+// ---------------------------------------------------------------------------
+
+/**
+ * Dipasang SEKALI, otomatis dari `components/ui/sonner.tsx` (modul itu selalu
+ * termuat di root layout, jadi jembatan ini pasti aktif).
+ *
+ * Tidak semua call site toast perlu diubah: semua `toast.success(...)` /
+ * `toast.error(...)` di seluruh aplikasi otomatis bersuara. Semantik mengikuti
+ * warna toast: hijau = chime, merah = shake, lainnya = arrive (notifikasi).
+ */
+type ToastMethod = (message: unknown, data?: unknown) => unknown;
+
+type ToastApi = {
+  (message: unknown, data?: unknown): unknown;
+  success?: ToastMethod;
+  error?: ToastMethod;
+  warning?: ToastMethod;
+  message?: ToastMethod;
+  loading?: ToastMethod;
+  promise?: (input: unknown, data?: unknown) => unknown;
+};
+
+type PromiseCallbacks = {
+  success?: unknown;
+  error?: unknown;
+};
+
+export function installToastSoundBridge(): void {
+  if (typeof window === "undefined") return;
+  const globalWindow = window as typeof window & { __cerviseToastSfx?: boolean };
+  if (globalWindow.__cerviseToastSfx) return;
+  globalWindow.__cerviseToastSfx = true;
+
+  const api = toast as unknown as ToastApi;
+
+  if (typeof api.success === "function") {
+    const original = api.success.bind(api);
+    api.success = (message, data) => {
+      sfx.success();
+      return original(message, data);
+    };
+  }
+  if (typeof api.error === "function") {
+    const original = api.error.bind(api);
+    api.error = (message, data) => {
+      sfx.error();
+      return original(message, data);
+    };
+  }
+  if (typeof api.warning === "function") {
+    const original = api.warning.bind(api);
+    api.warning = (message, data) => {
+      sfx.notify();
+      return original(message, data);
+    };
+  }
+  if (typeof api.message === "function") {
+    const original = api.message.bind(api);
+    api.message = (message, data) => {
+      sfx.notify();
+      return original(message, data);
+    };
+  }
+  if (typeof api.loading === "function") {
+    const original = api.loading.bind(api);
+    api.loading = (message, data) => original(message, data); // toast loading hening
+  }
+
+  // toast.promise: bunyi mengikuti hasil (resolve → chime, reject → shake).
+  // Callback asli dipanggil apa adanya setelah suara (string, object, atau
+  // function diteruskan, jadi pesan kustom tidak hilang).
+  if (typeof api.promise === "function") {
+    const originalPromise = api.promise.bind(api);
+    api.promise = (input: unknown, data?: unknown) => {
+      const callbacks = (data ?? {}) as PromiseCallbacks;
+      const originalSuccess = callbacks.success;
+      const originalError = callbacks.error;
+      callbacks.success = (value: unknown) => {
+        sfx.success();
+        return typeof originalSuccess === "function"
+          ? (originalSuccess as (v: unknown) => unknown)(value)
+          : originalSuccess;
+      };
+      callbacks.error = (value: unknown) => {
+        sfx.error();
+        return typeof originalError === "function"
+          ? (originalError as (v: unknown) => unknown)(value)
+          : originalError;
+      };
+      return originalPromise(input, callbacks);
+    };
+  }
+}
+
+// Helper debug (hanya development). Dari console browser:
+//   __cerviseSfx.sfx.success()      → tes chime
+//   __cerviseSfx.sfx.tab()          → tes undo
+//   __cerviseSfx.playCue("notify")  → tes cue versi shell baru
+//   __cerviseSfx.getSoundSnapshot() → cek mute + volume
+if (typeof window !== "undefined" && process.env.NODE_ENV !== "production") {
+  (window as typeof window & { __cerviseSfx?: unknown }).__cerviseSfx = {
+    playSound,
+    playCue,
+    sfx,
+    setSoundEnabled,
+    isSoundEnabled,
+    getSoundSnapshot,
+    writeSoundSettings,
+    playedRecently,
+  };
 }

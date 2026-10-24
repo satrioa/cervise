@@ -3,12 +3,16 @@
 import { Tabs as TabsPrimitive } from "@base-ui/react/tabs"
 import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "@/lib/utils"
+import { sfx } from "@/lib/sound"
 
 function Tabs({
   className,
   orientation = "horizontal",
+  onValueChange,
   ...props
 }: TabsPrimitive.Root.Props) {
+  // Suara Undo untuk setiap ganti tab (interaksi pengguna: klik/keyboard).
+  // Base UI memanggil onValueChange hanya saat value berubah.
   return (
     <TabsPrimitive.Root
       data-slot="tabs"
@@ -17,6 +21,10 @@ function Tabs({
         "group/tabs flex gap-2 data-horizontal:flex-col",
         className
       )}
+      onValueChange={(value, eventDetails) => {
+        sfx.tab()
+        onValueChange?.(value, eventDetails)
+      }}
       {...props}
     />
   )

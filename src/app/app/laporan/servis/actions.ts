@@ -1,6 +1,7 @@
 "use server";
 
 import { getActiveTenant } from "@/lib/supabase/actor";
+import { applyBranchScope } from "@/lib/supabase/branch-scope";
 import {
   buildLaporanServis,
   type LaporanServis,
@@ -24,20 +25,27 @@ export type LaporanServisQuery = {
 
 export async function getLaporanServis(query: LaporanServisQuery): Promise<LaporanServisData> {
   const actor = await getActiveTenant();
-  if (!actor.branchId) throw new Error("Branch not set for tenant");
   const { supabase } = actor;
 
-  const branchesResult = await supabase.from("branches").select("id, name").order("name");
+  const branchesResult = await applyBranchScope(
+    supabase.from("branches").select("id, name"),
+    actor,
+    "id",
+  ).order("name");
   if (branchesResult.error) throw new Error(branchesResult.error.message);
   const branches = (branchesResult.data ?? []) as { id: string; name: string }[];
 
   // employees.role is the authoritative, upper-cased role column. profiles.role is
   // legacy lower-case, so filtering profiles by 'teknisi' silently returns nothing.
-  const techniciansResult = await supabase
-    .from("employees")
-    .select("profile_id, profiles(id, full_name)")
-    .eq("role", "TECHNICIAN")
-    .eq("is_active", true);
+  const techniciansQuery = applyBranchScope(
+    supabase
+      .from("employees")
+      .select("profile_id, profiles(id, full_name)")
+      .eq("role", "TECHNICIAN")
+      .eq("is_active", true),
+    actor,
+  );
+  const techniciansResult = await techniciansQuery;
   if (techniciansResult.error) throw new Error(techniciansResult.error.message);
   // PostgREST returns an embedded to-one relation as an array unless it can infer
   // the FK, so accept both shapes.
@@ -51,9 +59,12 @@ export async function getLaporanServis(query: LaporanServisQuery): Promise<Lapor
     .filter((profile): profile is { id: string; full_name: string | null } => Boolean(profile?.id))
     .map((profile) => ({ id: profile.id, full_name: profile.full_name }));
 
-  let request = supabase
-    .from("cervise_services")
-    .select("id, service_number, created_at, branch_id, teknisi_id, status, price, device")
+  let request = applyBranchScope(
+    supabase
+      .from("cervise_services")
+      .select("id, service_number, created_at, branch_id, teknisi_id, status, price, device"),
+    actor,
+  )
     .order("created_at", { ascending: false })
     .limit(ROW_CAP);
 

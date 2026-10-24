@@ -68,6 +68,7 @@ function cash(overrides: Partial<ShiftCashRow> = {}): ShiftCashRow {
     description: "Setoran owner",
     kas_date: "2026-09-28",
     source: "kas_manual",
+    metode: null,
     ...overrides,
   };
 }

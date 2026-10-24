@@ -19,8 +19,10 @@ describe("sumber data dropdown teknisi", () => {
   });
 
   it("memfilter organisasi dan cabang", () => {
-    expect(getTeknisi).toContain('.eq("organization_id", orgId)');
-    expect(getTeknisi).toContain('.eq("branch_id", branchId)');
+    expect(getTeknisi).toContain('.eq("organization_id", actor.orgId)');
+    // Cabang disaring lewat helper scope supaya mode "Semua cabang" tetap
+    // membaca cabang yang boleh diakses, bukan seluruh tabel.
+    expect(getTeknisi).toContain("applyBranchScope(");
     expect(getTeknisi).toContain('.eq("is_active", true)');
   });
 

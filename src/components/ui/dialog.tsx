@@ -5,10 +5,25 @@ import { Dialog as DialogPrimitive } from "@base-ui/react/dialog"
 import { cn } from "@/lib/utils"
 
 import { Button } from "@/components/ui/button"
+import { sfx } from "@/lib/sound"
 import { XIcon } from "lucide-react"
 
-function Dialog({ ...props }: DialogPrimitive.Root.Props) {
-  return <DialogPrimitive.Root data-slot="dialog" {...props} />
+function Dialog({ onOpenChange, open, ...props }: DialogPrimitive.Root.Props) {
+  // Suara Close1 saat dialog tertutup (X, tombol Batal, Escape, klik backdrop).
+  // Ref mencegah bunyi ganda ketika onOpenChange dipanggil beruntun.
+  const wasOpen = React.useRef(false)
+  return (
+    <DialogPrimitive.Root
+      data-slot="dialog"
+      open={open}
+      onOpenChange={(nextOpen, details) => {
+        if (wasOpen.current && !nextOpen) sfx.close()
+        wasOpen.current = nextOpen
+        onOpenChange?.(nextOpen, details)
+      }}
+      {...props}
+    />
+  )
 }
 
 function DialogTrigger({ ...props }: DialogPrimitive.Trigger.Props) {
@@ -67,6 +82,8 @@ function DialogContent({
                 variant="ghost"
                 className="absolute top-2 right-2"
                 size="icon-sm"
+                // Menutup dialog → Close1 dari <Dialog>, jadi Notch dimatikan di sini.
+                sound={null}
               />
             }
           >
@@ -109,7 +126,7 @@ function DialogFooter({
     >
       {children}
       {showCloseButton && (
-        <DialogPrimitive.Close render={<Button variant="outline" />}>
+        <DialogPrimitive.Close render={<Button variant="outline" sound={null} />}>
           Close
         </DialogPrimitive.Close>
       )}

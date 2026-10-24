@@ -58,6 +58,8 @@ export type ShiftCashRow = {
   description: string | null;
   kas_date: string;
   source: string;
+  /** Metode pembayaran asal untuk baris retur; null untuk kas manual. */
+  metode: string | null;
 };
 
 export type ShiftServiceLine = {
@@ -91,6 +93,8 @@ export type ShiftCashLine = {
   direction: "pemasukan" | "pengeluaran";
   label: string;
   amount: number;
+  source: string;
+  metode: string | null;
 };
 
 export type ShiftTotals = {
@@ -240,6 +244,8 @@ export function buildLaporanShift(input: {
       direction: row.type,
       label: cashLabel(row),
       amount: amount(row.amount),
+      source: row.source,
+      metode: row.metode,
     }))
     .sort((a, b) => a.direction.localeCompare(b.direction) || a.label.localeCompare(b.label));
 
@@ -272,12 +278,22 @@ export function buildLaporanShift(input: {
   const manualIn = cashLines
     .filter((line) => line.direction === "pemasukan")
     .reduce((sum, line) => sum + line.amount, 0);
+  // Retur dipisah dari kas manual: ia bukan pengeluaran biasa, melainkan
+  // pembatalan pendapatan. Uangnya keluar dari laci hanya kalau penjualannya
+  // dibayar Tunai; retur penjualan Transfer tidak mengurangi uang fisik.
   const manualOut = cashLines
     .filter((line) => line.direction === "pengeluaran")
     .reduce((sum, line) => sum + line.amount, 0);
+  const refundOut = cashLines
+    .filter((line) => line.source === "retur")
+    .reduce((sum, line) => sum + line.amount, 0);
+  const refundCash = cashLines
+    .filter((line) => line.source === "retur" && line.metode === "Tunai")
+    .reduce((sum, line) => sum + line.amount, 0);
 
   // Pendapatan: semua penjualan yang sudah dibayar apa pun metodenya, plus
-  // servis selesai yang belum punya penjualan. Ini yang dipakai untuk omzet.
+  // servis selesai yang belum punya penjualan, dikurangi uang yang
+  // dikembalikan lewat retur.
   const expected =
     amount(session.openingBalance) + servicesTotal + salesTotal + manualIn - manualOut;
 
@@ -293,7 +309,7 @@ export function buildLaporanShift(input: {
   // jalur drawer sebelum perubahan ini tetap muncul di sini, dan itu benar:
   // `finance_tx`-nya tanpa `source` sehingga tidak ikut `cashLines`.
   const expectedCash =
-    amount(session.openingBalance) + cashSalesTotal + servicesTotal + manualIn - manualOut;
+    amount(session.openingBalance) + cashSalesTotal + servicesTotal + manualIn - manualOut + refundOut - refundCash;
 
   return {
     schemaVersion: SHIFT_SNAPSHOT_VERSION,

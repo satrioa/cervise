@@ -3,7 +3,6 @@
 import { useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
-import { playCue } from "@/lib/sound";
 
 /**
  * Pesan untuk param `?error=` yang dikirim middleware dan helper redirect.
@@ -36,9 +35,9 @@ export function QueryErrorToast() {
     if (!code || !message) return;
 
     toast.error(message);
-    // Nada error mengikuti preferensi Sound System; kalau user memilih Mute,
-    // `playCue` tidak melakukan apa-apa.
-    playCue("error");
+    // Bunyi error tidak dipanggil di sini: `installToastSoundBridge()` di
+    // `components/ui/sonner.tsx` sudah memetakan toast.error → sfx.error, dan
+    // memanggil `playCue("error")` juga hanya akan ditahan throttle 60ms.
 
     // Bersihkan URL supaya toast tidak muncul lagi saat di-refresh. Pakai
     // window.history, bukan router.replace, supaya tidak memicu navigasi

@@ -7,6 +7,7 @@ import { LayoutGrid } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { CommandPaletteProvider, CommandSearchTrigger } from "@/components/layout/command-palette-provider";
 import { FullscreenToggle } from "@/components/layout/fullscreen-toggle";
+import { SoundToggle } from "@/components/layout/sound-toggle";
 import { ShellChromeProvider } from "@/components/layout/shell-chrome";
 import { CompactMenuSheet } from "@/components/layout/compact-menu-sheet";
 import { CompactBottomBar } from "@/components/layout/compact-bottom-bar";
@@ -188,6 +189,9 @@ function CompactShellInner({
               className="flex size-10 items-center justify-center rounded-full border-0 bg-white p-0 shadow-sm ring-1 ring-black/5 hover:bg-white dark:bg-neutral-900 dark:ring-white/10 dark:hover:bg-neutral-800 lg:hidden [&>kbd]:hidden"
               aria-label="Cari"
             />
+            {/* Mute cepat. Kontrol lengkap (mute + volume) ada di section
+                "Sound System" drawer; keduanya membaca store yang sama. */}
+            <SoundToggle className="size-10 rounded-full border-0 bg-white shadow-sm ring-1 ring-black/5 dark:bg-neutral-900 dark:ring-white/10" />
             <FullscreenToggle className="hidden size-10 rounded-full border-0 bg-white shadow-sm ring-1 ring-black/5 dark:bg-neutral-900 dark:ring-white/10 md:inline-flex" />
           </div>
         </div>

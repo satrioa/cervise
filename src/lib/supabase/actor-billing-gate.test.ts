@@ -104,13 +104,26 @@ function useScenario(scenario: Scenario) {
             }),
         };
       case "branches":
-        return {
-          select: () =>
-            queryChain({
-              data: scenario.branchValid === false ? null : { id: "branch-1" },
+        // Dua bentuk dipakai `resolveTenant`:
+        //   - validasi cabang kepegawaian: `.eq(id).eq(org).eq(active).maybeSingle()`
+        //   - daftar cabang organisasi untuk MASTER_ADMIN: `...order("name")` lalu await
+        // Keduanya harus jalan di stub ini supaya invarian gerbang tetap teruji.
+        return (() => {
+          const rows =
+            scenario.branchValid === false ? [] : [{ id: "branch-1" }];
+          const chain: Record<string, unknown> = {
+            select: () => chain,
+            eq: () => chain,
+            order: () => Promise.resolve({ data: rows, error: null }),
+            maybeSingle: async () => ({
+              data: rows[0] ?? null,
               error: null,
             }),
-        };
+            then: (resolve: (value: { data: unknown; error: unknown }) => unknown) =>
+              resolve({ data: rows, error: null }),
+          };
+          return { select: () => chain };
+        })();
       case "tenant_subscriptions":
         return {
           select: () =>

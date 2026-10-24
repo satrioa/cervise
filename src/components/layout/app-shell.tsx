@@ -13,6 +13,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { sfx } from "@/lib/sound";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -20,6 +21,7 @@ import { CommandPaletteProvider } from "@/components/layout/command-palette-prov
 import { BranchProvider, useBranch } from "@/lib/branch-context";
 import { TenantProvider, useTenant } from "@/lib/tenant-context";
 import { TrialCard } from "@/components/layout/trial-card";
+import { SoundToggle } from "@/components/layout/sound-toggle";
 import { GROUP_LABEL_KEY, canAccess, navFor } from "@/lib/nav/manifest";
 import { LocaleProvider } from "@/lib/localization-context";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -31,6 +33,7 @@ import { CheckIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { canSwitchBranch, canSwitchTenant } from "@/lib/auth/access";
 import { isMasterAdminRole } from "@/lib/auth/authorization";
+import type { BranchOption } from "@/lib/supabase/branch-scope";
 
 export const ROLE_LABEL: Record<string, string> = {
   MASTER_ADMIN: "Master Admin",
@@ -139,6 +142,9 @@ function BranchSwitcher({ canSwitch }: { canSwitch: boolean }) {
             <button
               key={b.id}
               type="button"
+              // Suara Dot sudah dimainkan oleh setBranch(); matikan suara
+              // generik dari SoundLayer agar tidak dobel.
+              data-sfx-silent
               onClick={() => {
                 setBranch(b);
                 setOpen(false);
@@ -265,6 +271,7 @@ function SidebarContent({
             <span className="truncate">{branch.label}</span>
           </div>
         </div>
+        <SoundToggle />
         <button
           type="button"
           onClick={async () => {
@@ -385,6 +392,10 @@ function CerviseBottomNav({ pathname, role }: { pathname: string; role: string }
               href={tab.href!}
               aria-label={label}
               aria-current={isActive ? "page" : undefined}
+              // Ganti tab navigasi → undo.wav. Tab aktif diklik ulang: hening.
+              onClick={() => {
+                if (!isActive) sfx.tab();
+              }}
               className={`relative flex flex-col items-center justify-center gap-0.5 flex-1 py-2 cursor-pointer transition-colors ${isActive ? "text-foreground" : "text-muted-foreground"}`}
             >
               {isActive ? <span className="absolute top-0 left-1/2 -translate-x-1/2 h-0.5 w-6 rounded-full bg-foreground" /> : null}
@@ -434,6 +445,10 @@ export type AppShellActor = {
   /** Identitas akun untuk sidebar. null = belum diketahui / belum diisi. */
   fullName: string | null;
   avatarUrl: string | null;
+  /** Cabang aktif milik organisasi; hanya diisi untuk MASTER_ADMIN. */
+  branches?: BranchOption[] | null;
+  /** Scope server: `all` atau id cabang. Dipakai agar label tidak berkedip. */
+  branchScope?: string | null;
 };
 
 function AppShellInner({ children, actor }: { children: React.ReactNode; actor: AppShellActor }) {
@@ -503,7 +518,7 @@ function AppShellInner({ children, actor }: { children: React.ReactNode; actor: 
             <span className="flex size-7 items-center justify-center rounded-md bg-primary text-primary-foreground">C</span>
             Cervise
           </div>
-          <div className="size-8" />
+          <SoundToggle />
         </div>
 
         <div
@@ -535,10 +550,15 @@ function AppShellInner({ children, actor }: { children: React.ReactNode; actor: 
 }
 
 export function AppShell({ children, actor }: { children: React.ReactNode; actor: AppShellActor }) {
+  const canSwitch = isMasterAdminRole(actor.role);
   return (
     <LocaleProvider>
-      <TenantProvider fixedOrganizationId={isMasterAdminRole(actor.role) ? null : actor.orgId}>
-        <BranchProvider fixedBranchId={isMasterAdminRole(actor.role) ? null : actor.branchId ?? "unassigned"}>
+      <TenantProvider fixedOrganizationId={canSwitch ? null : actor.orgId}>
+        <BranchProvider
+          fixedBranchId={canSwitch ? null : actor.branchId ?? "unassigned"}
+          initialBranches={actor.branches ?? null}
+          initialScope={actor.branchScope ?? null}
+        >
           <CommandPaletteProvider role={actor.role}>
             <AppShellInner actor={actor}>{children}</AppShellInner>
           </CommandPaletteProvider>

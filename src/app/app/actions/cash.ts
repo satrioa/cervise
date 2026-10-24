@@ -294,7 +294,7 @@ async function computeReport(sessionId: string, row: SessionForReport): Promise<
       .limit(SALE_ROW_CAP),
     supabase
       .from("cervise_finance_tx")
-      .select("id, type, amount, description, kas_date, source")
+      .select("id, type, amount, description, kas_date, source, metode")
       .eq("branch_id", branchId)
       .eq("kas_date", date)
       .in("source", ["kas_manual", "penyesuaian", "retur"])

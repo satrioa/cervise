@@ -7,6 +7,7 @@ import { randomUUID } from "crypto";
 import { getActiveTenant } from "@/lib/supabase/actor";
 import { kalenderWIB } from "@/lib/operational/periode-bulan";
 import { canAccess } from "@/lib/rbac";
+import { applyBranchScope } from "@/lib/supabase/branch-scope";
 import { validateSaleItems } from "@/lib/sales/validation";
 import { sanitizeSearchTerm } from "@/lib/search-term";
 
@@ -16,6 +17,12 @@ async function getBranchUser() {
   if (!actor.branchId) throw new Error("Branch not set for tenant");
   const supabase = actor.supabase;
   return { supabase, userId: actor.userId, branchId: actor.branchId, organizationId: actor.orgId, role: actor.role, email: "" };
+}
+
+/** Konteks baca untuk POS/riwayat; mode "Semua cabang" boleh membaca. */
+async function getSalesReadContext() {
+  const actor = await getActiveTenant();
+  return { supabase: actor.supabase, actor };
 }
 
 function requireSalesAccess(role: string) {
@@ -54,13 +61,16 @@ function slugParent(name: string): string {
 }
 
 export async function searchProductsForSale(q: string, opts?: { variant_type?: "BARU" | "BEKAS" | "semua" }): Promise<ProductRow[]> {
-  const { supabase, branchId, role } = await getBranchUser();
+  const { supabase, actor } = await getSalesReadContext();
+  const { role } = actor;
   requireSalesAccess(role);
-  let query = supabase
-    .from("cervise_products")
-    .select("id, branch_id, sku, barcode, name, category, stock_qty, cost, price, is_serialized, is_active, variant_type, storage, warna, bh_percent, kondisi_notes, garansi_days, imei, parent_key")
-    .eq("branch_id", branchId)
-    .eq("is_active", true)
+  let query = applyBranchScope(
+    supabase
+      .from("cervise_products")
+      .select("id, branch_id, sku, barcode, name, category, stock_qty, cost, price, is_serialized, is_active, variant_type, storage, warna, bh_percent, kondisi_notes, garansi_days, imei, parent_key")
+      .eq("is_active", true),
+    actor,
+  )
     .order("parent_key", { ascending: true })
     .order("variant_type", { ascending: true })
     .order("name")
@@ -193,9 +203,16 @@ export async function createProduct(input: {
 }
 
 export async function getSalesOrders(filters?: { q?: string; metode?: string; status?: string; from?: string; to?: string }) {
-  const { supabase, branchId, role } = await getBranchUser();
-  requireSalesAccess(role);
-  let q = supabase.from("cervise_sales").select("id, branch_id, customer_id, sale_number, subtotal, discount_total, total, paid, returned_value, payment_status, payment_method, status, kas_date, notes, created_at, created_by").eq("branch_id", branchId).order("created_at", { ascending: false }).limit(100);
+  const { supabase, actor } = await getSalesReadContext();
+  requireSalesAccess(actor.role);
+  let q = applyBranchScope(
+    supabase
+      .from("cervise_sales")
+      .select("id, branch_id, customer_id, sale_number, subtotal, discount_total, total, paid, returned_value, payment_status, payment_method, status, kas_date, notes, created_at, created_by"),
+    actor,
+  )
+    .order("created_at", { ascending: false })
+    .limit(100);
   if (filters?.metode && filters.metode !== "semua") q = q.eq("payment_method", filters.metode);
   if (filters?.status && filters.status !== "semua") q = q.eq("status", filters.status);
   if (filters?.from) q = q.gte("kas_date", filters.from);
@@ -230,9 +247,10 @@ export async function getSalesOrders(filters?: { q?: string; metode?: string; st
 }
 
 export async function getSaleDetail(saleId: string) {
-  const { supabase, branchId, role } = await getBranchUser();
-  requireSalesAccess(role);
-  const { data: sale, error } = await supabase.from("cervise_sales").select("*").eq("id", saleId).eq("branch_id", branchId).maybeSingle();
+  const { supabase, actor } = await getSalesReadContext();
+  requireSalesAccess(actor.role);
+  const saleQuery = applyBranchScope(supabase.from("cervise_sales").select("*"), actor);
+  const { data: sale, error } = await saleQuery.eq("id", saleId).maybeSingle();
   if (error || !sale) throw new Error("Sale not found");
   const { data: items } = await supabase.from("cervise_sales_items").select("*").eq("sale_id", saleId);
   const { data: cust } = sale.customer_id ? await supabase.from("cervise_customers").select("id, name, phone, address").eq("id", sale.customer_id).maybeSingle() : { data: null } as any;
@@ -367,7 +385,9 @@ export async function returnSaleItems(saleId: string, returns: { item_id: string
   }
 
   // Seluruh penulisan dalam satu transaksi, dengan penjualan dan tiap item
-  // dikunci FOR UPDATE.
+  // Seluruh penulisan dalam satu transaksi, dengan penjualan dan tiap item
+  // dikunci FOR UPDATE. Stok, qty_returned, nilai retur, status, dan kas
+  // keluar ditulis bersama - kalau satu gagal, tidak ada yang tersisa.
   //
   // Dulu urutannya: stok dikembalikan dulu, baru qty_returned ditulis. Kalau
   // tulisan kedua gagal, stok sudah balik tanpa tercatat dan retur bisa

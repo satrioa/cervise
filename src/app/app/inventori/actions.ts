@@ -2,6 +2,7 @@
 
 import { getActiveTenant } from "@/lib/supabase/actor";
 import { canAccess } from "@/lib/rbac";
+import { applyBranchScope } from "@/lib/supabase/branch-scope";
 import { groupInventoryProducts, summarizeInventory, type InventoryGroup, type InventoryProduct, type InventorySummary } from "@/lib/operational/inventori";
 
 /**
@@ -29,12 +30,14 @@ function requireInventoryAccess(role: string) {
 export async function getInventori(): Promise<InventoriData> {
   const actor = await getActiveTenant();
   requireInventoryAccess(actor.role);
-  if (!actor.branchId) throw new Error("Branch not set for tenant");
 
-  const { data, error } = await actor.supabase
-    .from("cervise_products")
-    .select(COLUMNS)
-    .eq("branch_id", actor.branchId)
+  const query = applyBranchScope(
+    actor.supabase
+      .from("cervise_products")
+      .select(COLUMNS),
+    actor,
+  );
+  const { data, error } = await query
     .order("parent_key", { ascending: true })
     .order("variant_type", { ascending: true })
     .order("name")

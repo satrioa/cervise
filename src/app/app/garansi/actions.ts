@@ -2,6 +2,7 @@
 
 import { getActiveTenant } from "@/lib/supabase/actor";
 import { isManagerRole } from "@/lib/auth/authorization";
+import { applyBranchScope } from "@/lib/supabase/branch-scope";
 import {
   addGaransiDays,
   mapGaransiListRows,
@@ -19,11 +20,15 @@ async function getBranchAndUser() {
 }
 
 export async function getGaransiList(): Promise<GaransiListRow[]> {
-  const { supabase, branchId } = await getBranchAndUser();
-  const { data, error } = await supabase
-    .from("cervise_services")
-    .select("id, device, status, garansi_value, garansi_unit, garansi_until, created_at, customer_id, branch_id")
-    .eq("branch_id", branchId)
+  const actor = await getActiveTenant();
+  const { supabase } = actor;
+  const query = applyBranchScope(
+    supabase
+      .from("cervise_services")
+      .select("id, device, status, garansi_value, garansi_unit, garansi_until, created_at, customer_id, branch_id"),
+    actor,
+  );
+  const { data, error } = await query
     .not("garansi_value", "is", null)
     .order("created_at", { ascending: false })
     .limit(500);
