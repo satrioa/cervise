@@ -20,7 +20,7 @@ export default async function InventoriPage({
   const { q = "", tipe = "", stok = "" } = await searchParams;
 
   return (
-    <div className="min-h-svh bg-background text-foreground">
+    <div className="min-h-svh bg-transparent text-foreground">
       <PageHeader
         title="Inventori"
         titleClassName="font-heading text-2xl"

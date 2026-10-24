@@ -6,7 +6,7 @@ import { PageHeader } from "@/components/layout/page-header";
 
 export default function BaruServisPage() {
   return (
-    <div className="bg-background text-foreground min-h-svh">
+    <div className="bg-transparent text-foreground min-h-svh">
       <PageHeader
         title="Tambah Servis"
         containerClassName="max-w-3xl"

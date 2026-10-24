@@ -106,7 +106,7 @@ export default function LaporanServisPage() {
   const bulanan = report?.bulanan ?? [];
 
   return (
-    <div className="min-h-svh bg-background text-foreground">
+    <div className="min-h-svh bg-transparent text-foreground">
       <PageHeader
         title="Laporan Servis"
         titleClassName="font-heading text-2xl"

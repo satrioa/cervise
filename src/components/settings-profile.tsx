@@ -93,7 +93,7 @@ export function SettingsProfileCervise({
   const cabangLabel = initial.cabangOptions.find((b) => b.id === branchId)?.name ?? initial.cabangOptions.find((b) => b.id === initial.branchId)?.name ?? "-";
 
   return (
-    <div className="min-h-svh bg-background text-foreground">
+    <div className="min-h-svh bg-transparent text-foreground">
       <PageHeader
         title="Profil Anda"
         titleClassName="font-heading text-2xl"

@@ -162,7 +162,7 @@ export default function GaransiPage() {
   })();
 
   return (
-    <div className="bg-background text-foreground">
+    <div className="bg-transparent text-foreground">
       <PageHeader
         title="Cek Garansi"
         titleClassName="font-heading text-2xl"

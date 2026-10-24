@@ -108,7 +108,7 @@ export default function KategoriSparepartPage() {
   };
 
   return (
-    <div className="min-h-svh bg-background">
+    <div className="min-h-svh bg-transparent">
       <PageHeader
         title="Kategori Sparepart"
         titleClassName="font-heading text-2xl"

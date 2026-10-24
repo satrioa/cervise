@@ -28,7 +28,7 @@ export default async function ServisDetailPage({ params }: { params: Promise<{ i
   const invoiceNo = formatInvoiceNo(data.created_at as any, data.id);
 
   return (
-    <div className="bg-background text-foreground min-h-svh">
+    <div className="bg-transparent text-foreground min-h-svh">
       <PageHeader
         title={`Detail ${invoiceNo}`}
         containerClassName="max-w-4xl"

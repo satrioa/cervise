@@ -127,7 +127,7 @@ export default function TransaksiPage() {
   })();
 
   return (
-    <div className="min-h-svh bg-background text-foreground">
+    <div className="min-h-svh bg-transparent text-foreground">
       <PageHeader
         title="Transaksi"
         titleClassName="font-heading text-2xl"

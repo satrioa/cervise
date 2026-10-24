@@ -79,7 +79,7 @@ export default function LaporanPenjualanPage() {
   const summary = report?.summary;
 
   return (
-    <div className="min-h-svh bg-background text-foreground">
+    <div className="min-h-svh bg-transparent text-foreground">
       <PageHeader
         title="Laporan Penjualan"
         titleClassName="font-heading text-2xl"

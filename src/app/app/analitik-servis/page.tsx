@@ -60,7 +60,7 @@ export default function AnalitikServisPage() {
   }, [period]);
 
   return (
-    <div className="min-h-svh bg-background text-foreground">
+    <div className="min-h-svh bg-transparent text-foreground">
       <PageHeader
         title="Analitik Servis"
         titleClassName="font-heading text-2xl"

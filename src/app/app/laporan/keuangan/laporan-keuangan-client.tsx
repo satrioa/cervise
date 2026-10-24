@@ -178,7 +178,7 @@ export default function LaporanKeuanganPage() {
   }, [rows, branches]);
 
   return (
-    <div className="min-h-svh bg-background text-foreground">
+    <div className="min-h-svh bg-transparent text-foreground">
       <PageHeader
         title="Laporan Keuangan"
         titleClassName="font-heading text-2xl"

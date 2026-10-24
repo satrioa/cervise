@@ -106,7 +106,10 @@ function CompactShellInner({
   }, [needsCashSession]);
 
   return (
-    <div className="flex h-svh w-full flex-col overflow-hidden bg-[#EFEFEF] text-neutral-900 dark:bg-neutral-950 dark:text-neutral-100">
+    <div
+      data-shell="compact"
+      className="flex h-svh w-full flex-col overflow-hidden bg-canvas text-neutral-900 dark:text-neutral-100"
+    >
       <header className="shrink-0 px-4 pt-3 sm:px-6 sm:pt-4 lg:px-8">
         <div className="flex w-full items-center gap-2">
           <nav

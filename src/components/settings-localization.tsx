@@ -109,7 +109,7 @@ export function SettingsLocalizationShowcasePage() {
   const handleDiscard = () => setDraft(locale);
 
   return (
-    <div className="min-h-svh bg-background text-foreground">
+    <div className="min-h-svh bg-transparent text-foreground">
       <PageHeader
         title="Localization"
         titleClassName="font-heading text-2xl"

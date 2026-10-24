@@ -76,9 +76,9 @@ export function TechnicianDashboard({ fullName }: { fullName: string | null }) {
   const kpi = data?.kpi ?? null;
 
   return (
-    // Latar halaman berasal dari shell (kanvas abu-abu di Figma). Kartu
+    // Latar halaman memakai kanvas shell (abu-abu di Figma). Kartu
     // mengikuti tinggi isinya, jadi tidak ada lagi `h-dvh` atau max-height.
-    <div className="min-h-full text-foreground">
+    <div className="min-h-full bg-canvas text-foreground">
       <div className="px-4 py-6 sm:px-6 sm:py-8 lg:px-8 lg:py-10">
         <div className="mx-auto w-full max-w-[1264px]">
           <div>

@@ -11,6 +11,8 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-canvas: var(--canvas);
+  --color-header: var(--header);
   --font-sans: var(--font-sans);
   --font-mono: var(--font-geist-mono);
   --font-heading: var(--font-sans);
@@ -94,6 +96,8 @@
 .lacak-light {
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
+  --canvas: #EFEFEF;
+  --header: var(--background);
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.145 0 0);
   --popover: oklch(1 0 0);
@@ -162,6 +166,8 @@
 .lacak-dark {
   --background: oklch(0.145 0 0);
   --foreground: oklch(0.985 0 0);
+  --canvas: oklch(0.145 0 0);
+  --header: var(--background);
   --card: oklch(0.205 0 0);
   --card-foreground: oklch(0.985 0 0);
   --popover: oklch(0.205 0 0);
@@ -221,6 +227,15 @@
   --smooth-900: oklch(0.74 0 0);
   --smooth-950: oklch(0.85 0 0);
   --smooth-1000: oklch(0.96 0 0);
+}
+
+/*
+ * Shell Compact (TECHNICIAN/FRONTLINER) memakai kanvas abu-abu, jadi header
+ * halaman ikut kanvas supaya tidak muncul pita putih. Shell lama tetap
+ * memakai `--background`.
+ */
+[data-shell="compact"] {
+  --header: var(--canvas);
 }
 
 /*

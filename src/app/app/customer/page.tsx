@@ -25,7 +25,7 @@ export default async function CustomerPage({ searchParams }: { searchParams: Pro
   const { data: live, error } = await getCustomersSafe();
   if (error) {
     return (
-      <div className="bg-background text-foreground">
+      <div className="bg-transparent text-foreground">
         <PageHeader title="Customer" titleClassName="font-heading text-2xl" />
         <main className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-10 py-8">
           <div role="alert" className="rounded-xl border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
@@ -62,7 +62,7 @@ export default async function CustomerPage({ searchParams }: { searchParams: Pro
   const totalCount = base.length;
 
   return (
-    <div className="min-h-svh bg-background">
+    <div className="min-h-svh bg-transparent">
       <PageHeader
         title="Customer"
         description={`Menampilkan ${sorted.length} dari ${totalCount} customer · isolasi per cabang`}

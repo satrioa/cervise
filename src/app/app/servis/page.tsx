@@ -611,7 +611,7 @@ export default function ServisPage() {
   }, [viewOpen, editOpen, selectedServis]);
 
   return (
-    <div className="bg-background text-foreground">
+    <div className="bg-transparent text-foreground">
       <PageHeader
         title="Servis"
         titleClassName="font-heading text-2xl"

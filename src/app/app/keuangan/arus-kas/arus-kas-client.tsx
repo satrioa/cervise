@@ -154,7 +154,7 @@ export default function ArusKasPage() {
   };
 
   return (
-    <div className="min-h-svh bg-background">
+    <div className="min-h-svh bg-transparent">
       <PageHeader
         title="Arus Kas"
         description="Grouped by hari · collapsed semua · multi open"
