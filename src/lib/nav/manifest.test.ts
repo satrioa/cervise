@@ -284,13 +284,22 @@ describe("canAccess", () => {
     }
   });
 
-  it("semua role boleh profil, lokalisasi, garansi, inventori", () => {
+  it("semua role boleh profil, garansi, inventori", () => {
     for (const role of APP_ROLE) {
       expect(canAccess(role, "/app/pengaturan/profil")).toBe(true);
-      expect(canAccess(role, "pengaturan_lokalisasi")).toBe(true);
       expect(canAccess(role, "garansi")).toBe(true);
       expect(canAccess(role, "inventory")).toBe(true);
     }
+  });
+
+  it("lokalisasi hanya untuk manajer — teknisi & frontliner mengatur bahasa dari drawer", () => {
+    // Halaman Lokalisasi menyimpan preferensi milik user, bukan tenant, tapi
+    // menampilkannya untuk role compact berarti sub-sidebar /app/pengaturan
+    // berisi satu item saja. Bahasa untuk mereka ada di System Preferences.
+    expect(canAccess("MASTER_ADMIN", "pengaturan_lokalisasi")).toBe(true);
+    expect(canAccess("ADMIN", "pengaturan_lokalisasi")).toBe(true);
+    expect(canAccess("FRONTLINER", "pengaturan_lokalisasi")).toBe(false);
+    expect(canAccess("TECHNICIAN", "pengaturan_lokalisasi")).toBe(false);
   });
 
   it("menolak role null, kosong, dan huruf kecil yang tidak dikenal", () => {
@@ -363,11 +372,13 @@ describe("menu per role", () => {
     ]);
   });
 
-  it("profil dan lokalisasi disembunyikan dari sidebar compact tapi tetap boleh dibuka", () => {
+  it("profil disembunyikan dari sidebar compact tapi tetap boleh dibuka", () => {
     const sidebar = sidebarHrefsFor("TECHNICIAN", COMPACT);
     expect(sidebar).not.toContain("/app/pengaturan/profil");
-    expect(sidebar).not.toContain("/app/pengaturan/lokalisasi");
     expect(hrefsFor("TECHNICIAN", COMPACT)).toContain("/app/pengaturan/profil");
+    // Lokalisasi bukan lagi "disembunyikan tapi boleh dibuka": role compact
+    // memang tidak berhak, jadi ia hilang dari daftar yang boleh dibuka juga.
+    expect(hrefsFor("TECHNICIAN", COMPACT)).not.toContain("/app/pengaturan/lokalisasi");
   });
 
   it("profil dan lokalisasi disembunyikan dari sidebar legacy tapi tetap boleh dibuka", () => {

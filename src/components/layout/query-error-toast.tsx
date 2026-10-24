@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
+import { playCue } from "@/lib/sound";
 
 /**
  * Pesan untuk param `?error=` yang dikirim middleware dan helper redirect.
@@ -21,6 +22,9 @@ const MESSAGES: Record<string, string> = {
   "tenant-access-denied": "Akses ke tenant ini ditolak. Hubungi admin tenant kalau ini tidak sesuai.",
   "tenant-access-check-failed": "Gagal memverifikasi akses tenant. Muat ulang sekali lagi.",
   "subscription-blocked": "Langganan tenant ini sedang tidak aktif.",
+  // Dilempar `requireMenu()` ketika role membuka halaman yang bukan haknya
+  // lewat URL langsung (mis. Teknisi membuka /app/pengaturan/lokalisasi).
+  forbidden: "Halaman itu tidak tersedia untuk role kamu.",
 };
 
 export function QueryErrorToast() {
@@ -32,6 +36,9 @@ export function QueryErrorToast() {
     if (!code || !message) return;
 
     toast.error(message);
+    // Nada error mengikuti preferensi Sound System; kalau user memilih Mute,
+    // `playCue` tidak melakukan apa-apa.
+    playCue("error");
 
     // Bersihkan URL supaya toast tidak muncul lagi saat di-refresh. Pakai
     // window.history, bukan router.replace, supaya tidak memicu navigasi

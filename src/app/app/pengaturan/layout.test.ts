@@ -85,6 +85,15 @@ describe("isi sub-sidebar", () => {
     expect(hrefs).not.toContain("/app/pengaturan/profil");
   });
 
+  it("TECHNICIAN dan FRONTLINER tidak punya sub-sidebar sama sekali", () => {
+    // Setelah Lokalisasi dipindah ke System Preferences drawer, tidak ada lagi
+    // item pengaturan untuk dua role ini. Layout memakai daftar kosong ini
+    // untuk melepas sidebar "Pengaturan Sistem".
+    for (const role of ["TECHNICIAN", "FRONTLINER"] as const) {
+      expect(buildSettingsGroups(entriesForRole(role)), role).toEqual([]);
+    }
+  });
+
   it("ADMIN hanya melihat Lokalisasi, tanpa halaman pengaturan", () => {
     const groups = buildSettingsGroups(entriesForRole("ADMIN"));
     expect(groups).toHaveLength(1);

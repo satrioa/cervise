@@ -8,7 +8,8 @@ import { TenantLogo } from "@/components/layout/tenant-logo";
 import { useBranch } from "@/lib/branch-context";
 import { useTenant } from "@/lib/tenant-context";
 import { createClient } from "@/lib/supabase/client";
-import { normalizeAppRole } from "@/lib/nav/manifest";
+import { normalizeAppRole, ROLE_LABEL } from "@/lib/nav/manifest";
+import { cn } from "@/lib/utils";
 
 /**
  * Dua pil mengambang di bawah layar, seperti frame Figma:
@@ -16,15 +17,25 @@ import { normalizeAppRole } from "@/lib/nav/manifest";
  *
  * Pil ini menggantikan footer rail 70px. Di layar sempit teks nama
  * disembunyikan agar dua pil tetap muat tanpa saling menimpa.
+ *
+ * `hidden` dipakai `CompactShell` untuk auto-hide: seluruh bar memudar dan
+ * menjadi `inert`, tapi ruangnya tidak dihapus dari layout karena bar ini
+ * `fixed` — tidak ada yang bergeser.
  */
 export function CompactBottomBar({
   role,
   fullName,
   avatarUrl,
+  hidden = false,
+  onPointerEnter,
+  onPointerLeave,
 }: {
   role: string;
   fullName: string | null;
   avatarUrl: string | null;
+  hidden?: boolean;
+  onPointerEnter?: () => void;
+  onPointerLeave?: () => void;
 }) {
   const { tenants, activeOrgId } = useTenant();
   const { branch } = useBranch();
@@ -35,15 +46,21 @@ export function CompactBottomBar({
   const tenantName = tenant?.name ?? "Cervise";
   const branchLabel = branch?.label ?? null;
   const normalized = normalizeAppRole(role);
-  const roleLabel =
-    normalized === "TECHNICIAN"
-      ? "Teknisi"
-      : normalized === "FRONTLINER"
-        ? "Frontliner"
-        : (normalized ?? "Anggota");
+  // Label dari map bersama, bukan rantai `if` lokal: role yang belum punya
+  // label akan jatuh ke "Anggota", bukan diam-diam jadi "Teknisi".
+  const roleLabel = normalized ? ROLE_LABEL[normalized] : "Anggota";
 
   return (
-    <div className="pointer-events-none fixed inset-x-0 bottom-0 z-40 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:px-6 sm:pb-4 lg:px-8">
+    <div
+      onPointerEnter={onPointerEnter}
+      onPointerLeave={onPointerLeave}
+      // Saat tersembunyi, pil tidak boleh menangkap klik maupun fokus Tab.
+      inert={hidden}
+      className={cn(
+        "pointer-events-none fixed inset-x-0 bottom-0 z-40 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] transition-opacity duration-500 ease-out motion-reduce:transition-none sm:px-6 sm:pb-4 lg:px-8",
+        hidden ? "opacity-0" : "opacity-100",
+      )}
+    >
       <div className="flex w-full items-center justify-between gap-2">
         <div className="pointer-events-auto flex min-w-0 items-center gap-2 rounded-full bg-white p-1.5 pr-2 shadow-[0_16px_38px_-24px_rgba(0,0,0,0.55)] ring-1 ring-black/5 dark:bg-neutral-900 dark:ring-white/10 sm:pr-3">
           <TenantLogo

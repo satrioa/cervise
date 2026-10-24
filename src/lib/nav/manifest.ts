@@ -297,7 +297,11 @@ export const NAV_ENTRIES: NavEntry[] = [
     label: "Lokalisasi",
     icon: Settings,
     group: "akun",
-    roles: ALL,
+    // Hanya manajer. Untuk TEKNICIAN dan FRONTLINER, bahasa diatur dari
+    // section "System Preferences" di drawer compact — satu pengaturan, satu
+    // pintu. Membiarkan halaman ini terbuka untuk mereka berarti sub-sidebar
+    // /app/pengaturan terisi satu item saja.
+    roles: ["MASTER_ADMIN", "ADMIN"],
     surface: ["legacy", "compact"],
     menuKeys: ["pengaturan_lokalisasi"],
   },
@@ -366,6 +370,24 @@ export const GROUP_LABEL_KEY: Record<NavGroup, string | null> = {
   layanan: "groups.services",
   akun: null,
   pengaturan: null,
+};
+
+/**
+ * Label role untuk ditampilkan di UI.
+ *
+ * Satu sumber, bukan cabang `if` di tiap komponen: sebelumnya bottom bar
+ * compact menulis sendiri rantai `TECHNICIAN ? "Teknisi" : ...`, dan label itu
+ * tidak pernah ikut berubah kalau daftar role bertambah.
+ *
+ * Nilai di sini HANYA label tampilan. Role sebenarnya tetap dibaca dari
+ * `employees.role` lewat `getActiveTenant()`; kalau akun tampil sebagai
+ * "Teknisi", berarti kolomnya memang TECHNICIAN.
+ */
+export const ROLE_LABEL: Record<AppRole, string> = {
+  MASTER_ADMIN: "Master Admin",
+  ADMIN: "Admin",
+  FRONTLINER: "Frontliner",
+  TECHNICIAN: "Teknisi",
 };
 
 export function isAppRole(value: string | null | undefined): value is AppRole {

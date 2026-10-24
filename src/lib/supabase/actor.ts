@@ -10,6 +10,7 @@ import { publicPhotoUrl } from "@/lib/photos";
 import { canManageEmployees } from "@/lib/auth/account-input";
 import { resolveTargetOrganization } from "@/lib/supabase/org-resolution";
 import { isTenantOwner } from "@/lib/tenant-slug";
+import { normalizeAppRole } from "@/lib/nav/manifest";
 
 export class TenantAccessError extends Error {
   readonly code: TenantAccessErrorCode;
@@ -89,6 +90,24 @@ export async function getActiveTenant(): Promise<Actor> {
  */
 export async function getActiveTenantForBilling(): Promise<Actor> {
   return resolveTenant({ allowExpiredSubscription: true });
+}
+
+/**
+ * Role dari `employees.role`, dinormalkan ke bentuk manifest.
+ *
+ * Fallback TECHNICIAN dipertahankan karena itu role dengan akses paling sempit
+ * — lebih baik kehilangan fitur daripada mendapat akses — tetapi tidak lagi
+ * diam-diam: role kosong atau tak dikenal dicatat, supaya laporan "akun
+ * frontliner tampil sebagai teknisi" bisa ditelusuri ke baris database yang
+ * salah, bukan dituduhkan ke UI.
+ */
+function resolveActorRole(row: EmployeeRow): string {
+  const normalized = normalizeAppRole(row.role);
+  if (normalized) return normalized;
+  console.warn(
+    `employees.role tidak dikenali (employee ${row.id}): ${JSON.stringify(row.role)}. Memakai TECHNICIAN.`,
+  );
+  return "TECHNICIAN";
 }
 
 async function resolveTenant(options: { allowExpiredSubscription: boolean }): Promise<Actor> {
@@ -237,7 +256,7 @@ async function resolveTenant(options: { allowExpiredSubscription: boolean }): Pr
     orgId: actorRow.organization_id as string,
     branchId: (actorRow.branch_id as string | null) ?? null,
     employeeId: actorRow.id as string,
-    role: (actorRow.role as string) ?? "TECHNICIAN",
+    role: resolveActorRole(actorRow),
     // Apakah user ini pemilik tenant yang tercatat, bukan sekadar admin
     // operasional. Sumbernya organizations.owner_profile_id, bukan
     // employees.role: MASTER_ADMIN berarti mengelola operasional, yang lain

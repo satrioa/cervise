@@ -10,6 +10,7 @@ import { FullscreenToggle } from "@/components/layout/fullscreen-toggle";
 import { ShellChromeProvider } from "@/components/layout/shell-chrome";
 import { CompactMenuSheet } from "@/components/layout/compact-menu-sheet";
 import { CompactBottomBar } from "@/components/layout/compact-bottom-bar";
+import { useIdleVisibility } from "@/hooks/use-idle-visibility";
 import { BranchProvider } from "@/lib/branch-context";
 import { TenantProvider } from "@/lib/tenant-context";
 import { LocaleProvider } from "@/lib/localization-context";
@@ -70,6 +71,12 @@ function CompactShellInner({
 }) {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
+
+  // Header dan bottom bar memudar sendiri setelah 5 detik tanpa aktivitas.
+  // `suspended: open` menahannya selama drawer menu terbuka: saat itu user
+  // sedang berinteraksi dengan chrome yang sama.
+  const chrome = useIdleVisibility({ suspended: open });
+  const chromeFade = "transition-opacity duration-500 ease-out motion-reduce:transition-none";
   const t = useTranslations("nav");
   const role = normalizeAppRole(actor.role);
 
@@ -110,7 +117,18 @@ function CompactShellInner({
       data-shell="compact"
       className="flex h-svh w-full flex-col overflow-hidden bg-canvas text-neutral-900 dark:text-neutral-100"
     >
-      <header className="shrink-0 px-4 pt-3 sm:px-6 sm:pt-4 lg:px-8">
+      <header
+        onPointerEnter={chrome.holdPointer}
+        onPointerLeave={chrome.releasePointer}
+        // `inert` saat tersembunyi: tombol yang opacity-nya 0 tetap bisa
+        // dijangkau Tab dan diklik kalau tidak dimatikan.
+        inert={!chrome.visible}
+        className={cn(
+          "shrink-0 px-4 pt-3 sm:px-6 sm:pt-4 lg:px-8",
+          chromeFade,
+          chrome.visible ? "opacity-100" : "pointer-events-none opacity-0",
+        )}
+      >
         <div className="flex w-full items-center gap-2">
           <nav
             aria-label="Navigasi utama"
@@ -147,17 +165,16 @@ function CompactShellInner({
                 />
               }
             >
-              <LayoutGrid className="size-[18px]" />
+              <LayoutGrid fill="currentColor" className="size-[18px]" />
             </SheetTrigger>
             <SheetContent
               side="left"
               showCloseButton={false}
-              className="gap-0 overflow-hidden rounded-[28px] bg-[#F1F1F1] p-0 shadow-[0_30px_80px_-32px_rgba(0,0,0,0.55)] data-[side=left]:inset-y-4 data-[side=left]:left-4 data-[side=left]:h-[calc(100%-2rem)] data-[side=left]:w-[calc(100%-2rem)] data-[side=left]:border-0 dark:bg-neutral-950 data-[side=left]:sm:max-w-[420px]"
+              className="gap-0 overflow-hidden rounded-[28px] bg-[#F1F1F1] p-0 shadow-[0_30px_80px_-32px_rgba(0,0,0,0.55)] duration-300 ease-[linear(0,0.35,0.85,1.06,1.02,0.995,1)] data-[side=left]:inset-y-4 data-[side=left]:left-4 data-[side=left]:h-[calc(100%-2rem)] data-[side=left]:w-[calc(100%-2rem)] data-[side=left]:border-0 dark:bg-neutral-950 data-[side=left]:sm:max-w-[340px] data-[side=left]:data-starting-style:translate-x-[-110%]! data-[side=left]:data-ending-style:translate-x-[-110%]!"
             >
               <CompactMenuSheet
                 role={actor.role}
                 onNavigate={() => setOpen(false)}
-                onClose={() => setOpen(false)}
               />
             </SheetContent>
           </Sheet>
@@ -188,6 +205,9 @@ function CompactShellInner({
         role={actor.role}
         fullName={actor.fullName}
         avatarUrl={actor.avatarUrl}
+        hidden={!chrome.visible}
+        onPointerEnter={chrome.holdPointer}
+        onPointerLeave={chrome.releasePointer}
       />
 
       {/* Saldo awal wajib. Dialog ini yang menentukan boleh tidaknya
