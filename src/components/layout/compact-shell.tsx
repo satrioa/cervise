@@ -116,7 +116,10 @@ function CompactShellInner({
   return (
     <div
       data-shell="compact"
-      className="flex h-svh w-full flex-col overflow-hidden bg-canvas text-neutral-900 dark:text-neutral-100"
+      // `group/shell` dipakai halaman yang butuh mengisi sisa tinggi `main`
+      // (lihat Penjualan POS). Dinamai supaya tidak bentrok dengan `group`
+      // milik kartu/baris di dalam halaman.
+      className="group/shell flex h-svh w-full flex-col overflow-hidden bg-canvas text-neutral-900 dark:text-neutral-100"
     >
       <header
         onPointerEnter={chrome.holdPointer}

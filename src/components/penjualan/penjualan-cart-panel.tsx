@@ -263,7 +263,7 @@ export function PenjualanCartPanel({ onSuccess, customerId, customerPhone, custo
                   onKeyDown={(e) => { if (e.key === "Enter" && newCustomerName.trim()) { (document.activeElement as HTMLElement)?.blur(); } }}
                   autoFocus
                 />
-                <p className="text-[11px] text-muted-foreground">Wajib — akan dibuat saat Bayar & Cetak (tunda).</p>
+                <p className="text-[11px] text-muted-foreground">Wajib — akan dibuat saat Bayar (tunda).</p>
               </div>
             ) : customerId ? (
               <div className="text-xs text-emerald-600">✓ Terpilih — siap checkout</div>
@@ -382,9 +382,18 @@ export function PenjualanCartPanel({ onSuccess, customerId, customerPhone, custo
           </div>
         )}
 
-        <div className="border-t bg-muted/20 p-3 flex justify-end gap-2">
-          <Button variant="outline" onClick={() => { haptic(20); setCart([]); clearPromo(); }} disabled={saving || cart.length === 0}>Kosongkan</Button>
-          <Button onClick={handleCheckout} disabled={saving || cart.length === 0} loading={saving}>Bayar & Cetak</Button>
+        <div className="border-t bg-muted/20 p-3 flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="icon"
+            aria-label="Kosongkan keranjang"
+            title="Kosongkan keranjang"
+            onClick={() => { haptic(20); setCart([]); clearPromo(); }}
+            disabled={saving || cart.length === 0}
+          >
+            <TrashIcon className="size-4" />
+          </Button>
+          <Button className="flex-1" onClick={handleCheckout} disabled={saving || cart.length === 0} loading={saving}>Bayar</Button>
         </div>
       </Card>
     </CardFrame>

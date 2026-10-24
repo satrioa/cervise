@@ -155,7 +155,11 @@ export function PenjualanPOSClient({ initialRows }: { initialRows: any[] }) {
 
   return (
     <>
-      <div className="mx-auto grid max-w-[1600px] gap-4 px-4 lg:px-6 py-3 lg:h-dvh lg:grid-cols-[1fr_360px] xl:grid-cols-[1fr_380px] lg:items-stretch items-start overflow-hidden">
+      {/* Compact shell: akar mengisi sisa tinggi `main` supaya frame produk dan
+          keranjang berhenti di atas bottom bar — tombol Bayar tidak perlu
+          di-scroll. `lg:h-dvh` tetap dipakai AppShell (legacy), di sana
+          `[data-main-content]` hanya `min-h-full` sehingga `h-full` = auto. */}
+      <div className="mx-auto grid max-w-[1600px] gap-4 px-4 lg:px-6 py-3 lg:h-dvh lg:grid-cols-[1fr_360px] xl:grid-cols-[1fr_380px] lg:grid-rows-[minmax(0,1fr)] lg:items-stretch items-start lg:overflow-hidden lg:group-data-[shell=compact]/shell:h-full">
         <CardFrame className="min-w-0 flex flex-col h-[calc(100dvh-96px)] max-h-[calc(100dvh-96px)] overflow-hidden lg:h-full lg:max-h-full">
           <CardFrameHeader className="grid-rows-1 py-3 px-4 gap-2">
             <CardFrameTitle className="text-[15px]">Produk</CardFrameTitle>
