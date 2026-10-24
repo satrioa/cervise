@@ -3,9 +3,24 @@
 import * as React from "react"
 import { Popover as PopoverPrimitive } from "@base-ui/react/popover"
 import { cn } from "@/lib/utils"
+import { sfx } from "@/lib/sound"
 
-function Popover({ ...props }: PopoverPrimitive.Root.Props) {
-  return <PopoverPrimitive.Root data-slot="popover" {...props} />
+function Popover({ onOpenChange, open, ...props }: PopoverPrimitive.Root.Props) {
+  // Close1 saat popover menutup. Membuka popover biasanya lewat klik tombol
+  // (sudah bersuara Notch), jadi open tidak diberi suara tambahan.
+  const wasOpen = React.useRef(false)
+  return (
+    <PopoverPrimitive.Root
+      data-slot="popover"
+      open={open}
+      onOpenChange={(nextOpen, eventDetails) => {
+        if (wasOpen.current && !nextOpen) sfx.close()
+        wasOpen.current = nextOpen
+        onOpenChange?.(nextOpen, eventDetails)
+      }}
+      {...props}
+    />
+  )
 }
 
 function PopoverTrigger({ ...props }: PopoverPrimitive.Trigger.Props) {

@@ -4,6 +4,7 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { setBranchScope } from "@/app/app/actions/branch-scope";
+import { sfx } from "@/lib/sound";
 
 export type Branch = {
   id: string;
@@ -159,6 +160,9 @@ export function BranchProvider({
   const setBranch = React.useCallback(
     (next: Branch) => {
       if (fixedBranchId) return;
+      // Memilih cabang = aksi "select" (dot), bukan tab-switch: pengguna
+      // memilih satu item dari daftar.
+      sfx.select();
       const previous = branch;
       setBranchState(next);
       if (typeof window !== "undefined") {

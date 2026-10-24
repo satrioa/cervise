@@ -5,10 +5,24 @@ import { Dialog as SheetPrimitive } from "@base-ui/react/dialog"
 import { cn } from "@/lib/utils"
 
 import { Button } from "@/components/ui/button"
+import { sfx } from "@/lib/sound"
 import { XIcon } from "lucide-react"
 
-function Sheet({ ...props }: SheetPrimitive.Root.Props) {
-  return <SheetPrimitive.Root data-slot="sheet" {...props} />
+function Sheet({ onOpenChange, open, ...props }: SheetPrimitive.Root.Props) {
+  // Sama seperti Dialog: Close1 saat sheet tertutup (X, swipe, Escape).
+  const wasOpen = React.useRef(false)
+  return (
+    <SheetPrimitive.Root
+      data-slot="sheet"
+      open={open}
+      onOpenChange={(nextOpen, details) => {
+        if (wasOpen.current && !nextOpen) sfx.close()
+        wasOpen.current = nextOpen
+        onOpenChange?.(nextOpen, details)
+      }}
+      {...props}
+    />
+  )
 }
 
 function SheetTrigger({ ...props }: SheetPrimitive.Trigger.Props) {
@@ -67,6 +81,7 @@ function SheetContent({
                 variant="ghost"
                 className="absolute top-3 right-3"
                 size="icon-sm"
+                sound={null}
               />
             }
           >

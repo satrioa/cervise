@@ -13,6 +13,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { sfx } from "@/lib/sound";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -386,6 +387,10 @@ function CerviseBottomNav({ pathname, role }: { pathname: string; role: string }
               href={tab.href!}
               aria-label={label}
               aria-current={isActive ? "page" : undefined}
+              // Ganti tab navigasi → undo.wav. Tab aktif diklik ulang: hening.
+              onClick={() => {
+                if (!isActive) sfx.tab();
+              }}
               className={`relative flex flex-col items-center justify-center gap-0.5 flex-1 py-2 cursor-pointer transition-colors ${isActive ? "text-foreground" : "text-muted-foreground"}`}
             >
               {isActive ? <span className="absolute top-0 left-1/2 -translate-x-1/2 h-0.5 w-6 rounded-full bg-foreground" /> : null}

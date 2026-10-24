@@ -3,6 +3,11 @@
 import { useTheme } from "next-themes"
 import { Toaster as Sonner, type ToasterProps } from "sonner"
 import { CircleCheckIcon, InfoIcon, TriangleAlertIcon, OctagonXIcon, Loader2Icon } from "lucide-react"
+// Modul ini selalu termuat oleh root layout — tempat yang aman memasang
+// jembatan toast → suara (chime/shake/arrive) tanpa menyentuh call site toast.
+import { installToastSoundBridge } from "@/lib/sound"
+
+installToastSoundBridge()
 
 const Toaster = ({ ...props }: ToasterProps) => {
   const { theme = "system" } = useTheme()

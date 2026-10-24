@@ -2,6 +2,7 @@
 
 import { Slot } from "@radix-ui/react-slot";
 import { cn } from "@/lib/utils";
+import { sfx, playSound, SOUND_VOLUME, type SoundName } from "@/lib/sound";
 import SmoothButton, { smoothButtonVariants } from "@/components/smoothui/smooth-button";
 import type { VariantProps } from "class-variance-authority";
 import type * as React from "react";
@@ -57,6 +58,12 @@ export interface ButtonProps extends Omit<React.ButtonHTMLAttributes<HTMLButtonE
   forcePress?: boolean;
   asChild?: boolean;
   render?: React.ReactElement;
+  /**
+   * Suara saat tombol ditekan (sistem sound UI). Default: `notch`.
+   * Set `null` untuk menonaktifkan — dipakai tombol yang menutup overlayer
+   * (X pada modal) supaya tidak tumpang tindih dengan Close1 dari Dialog.
+   */
+  sound?: SoundName | null;
 }
 
 export function Button({
@@ -73,6 +80,7 @@ export function Button({
   render,
   children,
   disabled,
+  sound,
   ...props
 }: ButtonProps): React.ReactElement {
   const mapped = variant ? (variantMap as any)[variant as string] : undefined;
@@ -83,12 +91,20 @@ export function Button({
   const rawSize = size as string | undefined;
   const resolvedSize = (rawSize ? ((sizeMap as any)[rawSize] as any) : undefined) ?? (size as any) ?? "sm";
 
+  // Suara klik tombol. Biasakan default: klik → notch.wav. onClick pengguna
+  // dipanggil setelahnya supaya sound tidak delay oleh handler berat.
+  const { onClick: userOnClick, ...restProps } = props as React.ButtonHTMLAttributes<HTMLButtonElement>;
+  const handleClick = (event: React.MouseEvent<HTMLButtonElement>) => {
+    if (!disabled && !loading && sound !== null) playSound(sound ?? "notch", { volume: SOUND_VOLUME[sound ?? "notch"] });
+    userOnClick?.(event);
+  };
+
   // base-ui render prop (Slot-like) — support both APIs
   if (render) {
     // render is a ReactElement to use as Slot
     const renderClass = cn(smoothButtonVariants({ variant: resolvedVariant, size: resolvedSize, color: resolvedColor, shape, className }));
     return (
-      <Slot className={renderClass} {...(props as any)}>
+      <Slot className={renderClass} onClick={handleClick} {...(restProps as any)}>
         {render}
       </Slot>
     );
@@ -107,7 +123,8 @@ export function Button({
       forcePress={forcePress}
       asChild={asChild}
       disabled={disabled}
-      {...props}
+      onClick={handleClick}
+      {...(restProps as any)}
     >
       {children}
     </SmoothButton>

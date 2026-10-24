@@ -1,0 +1,236 @@
+# Sound Design — Cervise UI
+
+Sistem suara UI untuk seluruh aplikasi Cervise (desktop + mobile). Sumber file:
+`docs/Music/*.wav` (di-replikasi ke `public/sounds/`). Seluruh pemutarannya
+diatur oleh satu modul: **`src/lib/sound.ts`**, dan komponen cukup memanggil
+API semantik `sfx.*`.
+
+---
+
+## 1. Peta sound pool
+
+| File              | Nama semantik | Volume default | Peran di produk                          |
+| ----------------- | ------------- | -------------- | ---------------------------------------- |
+| `Close1.wav`      | `close1`      | 50%            | Menutup popover / modal / sheet / alert  |
+| `Close2.wav`      | `close2`      | 55%            | Batal, buang perubahan, discard          |
+| `dew.wav`         | `dew`         | 40%            | Klik generik (varian A, acak)            |
+| `boop.wav`        | `boop`        | 40%            | Klik generik (varian B, acak)            |
+| `dot.wav`         | `dot`         | 50%            | Aksi memilih / pick                      |
+| `undo.wav`        | `undo`        | 50%            | Berganti tab                             |
+| `arrive.wav`      | `arrive`      | 70%            | Notifikasi masuk                         |
+| `notch.wav`       | `notch`       | 45%            | Menekan tombol                           |
+| `clasp.wav`       | `clasp`       | 60%            | Toggle ON (menyalakan)                   |
+| `unclasp.wav`     | `unclasp`     | 60%            | Toggle OFF (mematikan)                   |
+| `shake.wav`       | `shake`       | 70%            | Aksi gagal                               |
+| `chime.wav`       | `chime`       | 70%            | Aksi sukses                              |
+| `spring.wav`      | `spring`      | 50%            | Cadangan (lihat §8) — belum otomatis     |
+
+Volume ditetapkan di dalam `playSound` (SOUND_VOLUME) supaya kesamaan dB antar
+file tidak perlu dipikirkan pemanggil; file sumber memang punya loudness yang
+bervariasi.
+
+---
+
+## 2. Aturan main
+
+1. **Suara hanya lahir dari interaksi pengguna.** Tidak ada suara saat halaman
+   dimuat, saat refetch latar belakang, atau saat render. Ini juga syarat
+   kebijakan autoplay browser.
+2. **Satu interaksi = satu suara.** Ketika satu klik memicu dua peristiwa
+   (mis. klik tombol X menutup dialog), nada yang lebih spesifik menang:
+   tombol X diberi prop `sound={null}` sehingga hanya Close1 yang terdengar.
+3. **Primitif yang membawa suara:** Button, Dialog, Sheet, Popover, Tabs,
+   Switch, Select, dan samakan untuk komponen overlayer baru yang akan dibuat.
+4. **Mute:** preferensi disimpan di `localStorage` key `cervise_sound`
+   (`"on"`/`"off"`), dimatikan via `setSoundEnabled(false)`, dibaca via
+   `useSoundEnabled()`. Saat mute, seluruh `sfx.*` menjadi no-op.
+5. **Anti-dupe:** suara yang sama dalam jendela < 60 ms dipotong oleh
+   `playSound`. Ini melindungi dari event double-fire (mis. React 18 batching),
+   bukan dari tumpang tindih yang disengaja — untuk itu elemen audio di-clone
+   per putaran.
+6. **Error runtime hening.** Kegagalan `play()` (autoplay policy, tab tertutup)
+   tidak pernah melempar; suara adalah pemanis, bukan jalur kritis.
+
+---
+
+## 3. Detail pemakaian per sound
+
+### `Close1` — menutup overlayer
+Menutup **popover, modal/dialog, sheet, dropdown, alert** — apapun cara
+menutupnya (tombol X, tombol "Tutup", Escape, klik backdrop/backdrop blur).
+
+Sudah otomatis di primitif:
+- `Dialog` (`ui/dialog.tsx`) → setiap transisi open → false.
+- `Sheet` (`ui/sheet.tsx`) → sama.
+- `Popover` (`ui/popover.tsx`) → sama.
+
+Tombol X bawaan pada `DialogContent`/`SheetContent` sengaja membisukan Notch
+(`sound={null}`) agar yang terdengar hanya Close1.
+
+Jangan dipakai untuk menutup yang disertai aksi (simpan lalu tutup): gunakan
+Chime/Close2 sesuai hasi aksinya.
+
+### `Close2` — batal, buang, discard
+Sengaja dipisah dari Close1 karena maknanya berbeda: Close1 = "kembali ke mana
+kita tadi" (netral), Close2 = "yang saya isi tadi tidak jadi disimpan". Tempat
+pemakaiannya:
+
+- Tombol **Batal** pada form create/edit (servis baru, produk, karyawan).
+- **Buang perubahan** pada dialog konfirmasi keluar tanpa menyimpan.
+- **Discard draft** pada komposer (mention/notes sangat panjang).
+- Tombol **tutup tanpa simpan** di drawer cetak/preview.
+
+Cara pakai di call site (belum otomatis, karena "batal" adalah keputusan
+bisnis tiap form):
+
+```tsx
+<Button variant="outline" onClick={() => { sfx.cancel(); setOpen(false); }}>
+  Batal
+</Button>
+// Jika alur batal memunculkan toast.error, shake tetap bersuara — itu memang
+// disengaja (lihat shake).
+```
+
+> Catatan: `installToastSoundBridge` di `src/lib/sound.ts` mengaitkan
+> `toast.error` → shake secara global.
+
+### `dew` + `boop` — klik generik (acak)
+Efek klik untuk elemen interaktif yang **bukan tombol** dan **bukan pilihan**:
+- menekan card/panel yang bisa diklik (daftar servis di view grid),
+- chip/tag bermunculan (kerusakan tag),
+- item list yang bisa dipilih tapi tidak mengubah state form (mis. kartu
+  statistik histogram).
+
+Dipilih acak per kali klik (`sfx.click()`), distribusi 50/50, supaya klik
+beruntun tidak membosankan seperti metronom. Kalau butuh pasti satu, panggil
+`playSound("dew")` langsung.
+
+### `Dot` — aksi memilih
+Setiap kali pengguna memfinalkan pilihan antara beberapa opsi:
+- memilih nilai di **Select** (dropdown) → otomatis via `ui/select.tsx`.
+- **pilih cabang** di Branch Switcher (termasuk "Semua cabang") → di
+  `lib/branch-context.tsx` saat `setBranch` dipanggil.
+- memilih item di tabel untuk di-render ringkasan (checkbox → selected row),
+- memilih teknisi/pelanggan dari hasil pencarian (autocomplete/select).
+
+Sengaja berbeda dari Undo: Dot menandai "saya menetapkan pilihan ini", Undo
+menandai "saya berpindah konteks".
+
+### `Undo` — berganti tab
+Berpindah antar tab konten:
+- `Tabs` primitif (`ui/tabs.tsx`) → otomatis via onValueChange.
+- **bottom-tab navigation mobile** di `app-shell.tsx` (Beranda/Laporan/
+  Inventori/… dan "Lainnya"-sheet) → otomatis saat klik tab non-aktif.
+- Tab pada preview dokumen/cetak (Ringkasan / Rincian).
+
+Tidak dipakai untuk: navigasi sidebar desktop (itu pindah halaman penuh, bukan
+tab), atau paginasi tabel.
+
+### `Arrive` — notifikasi masuk
+Momen "ada yang datang untukmu":
+- toast informasi (`toast(...)`, `toast.info(...)`, `toast.warning`) →
+  otomatis lewat sound-bridge di `ui/sonner.tsx`,
+- notifikasi WhatsApp/customer masuk (float banner, badge berubah),
+- notifikasi servis baru ditugaskan ke teknisi.
+
+### `Notch` — menekan tombol
+Suara default SEMUA `<Button>` (via `ui/button.tsx`). Termasuk primary,
+secondary, outline, ghost — logikanya "sesuatu tertekan dengan bahagia".
+
+Pengecualian yang wajib dibisukan (`sound={null}`) supaya tidak bertumpuk:
+- tombol X bawaan Dialog/Sheet (Close1 yang menang),
+- tombol "Close" pada DialogFooter,
+- trigger popover yang membuka editor besar (agar suara buka tidak dobel dengan
+  Notch trigger), masih boleh di-alihkan ke `spring` bila momennya besar.
+
+### `Clasp` / `Unclasp` — toggle ON / OFF
+Toggle bicara dengan dua nada yang berpasangan: menyalakan terdengar
+"klik-selak-terkunci" (clasp), mematikan terdengar "lepas" (unclasp).
+
+- `Switch` primitif (`ui/switch.tsx`) → otomatis; suara mengikuti nilai baru.
+- Toggle aktif/not aktif pie chart/grafik (show/hide dataset), jika memakai
+  `Switch` ikut otomatis; yang custom setState:
+  `checked ? sfx.toggleOn() : sfx.toggleOff()` di handler.
+
+### `Shake` — aksi gagal
+Selalu bersuara ketika aksi gagal:
+- `toast.error(...)` → otomatis (sound-bridge).
+- Validasi form menolak inline tetapi TIDAK memunculkan toast (mis. border
+  merah dobel): panggil `sfx.error()` di handler submit saat validasi menolak.
+- Aksi bulk/remote gagal di grid (konflik stok, koneksi putus).
+
+Do not: shake untuk pesan peringatan tidak memblokir (pakai Arrive).
+
+### `Chime` — aksi sukses
+- `toast.success(...)` → otomatis (sound-bridge).
+- Pembayaran/transaksi berhasil tersimpan (POS, bayar servis, retur).
+- Upload foto selesai, backup/export selesai.
+- Branch switch tersimpan server-side (setelah `router.refresh()`, suara Dot
+  sudah dimainkan saat memilih; jangan dobel dengan chime — Dot telah
+  menjadi konfirmasi).
+
+---
+
+## 4. Suara yang sengaja TIDAK otomatis
+
+| Momen                            | Kenapa tidak otomatis                          | Cara mainkan |
+| -------------------------------- | ----------------------------------------------- | ------------ |
+| Batal / discard                  | Keputusan bisnis tiap form, tidak ada marker umum | `sfx.cancel()` |
+| Navigasi sidebar desktop         | Bukan tab, bisa jadi terlalu rame               | opsional `sfx.click()` |
+| Failed submit non-toast          | Tidak semua validasi lewat toast                | `sfx.error()` di handler |
+| Success submit non-toast         | Sama                                            | `sfx.success()` di handler |
+| Onboarding / sheet besar         | Satu momen spesial                              | `sfx.spring()` |
+
+---
+
+## 5. Menonaktifkan suara per komponen
+
+```tsx
+<Button sound={null}>          // tombol hening (tapi tetap reaktif)
+<Button sound="dot">           // override suara tombol jadi dot
+<Button sound="error">         // tombol merah gagal, biar shake, bukan notch
+```
+
+`sound` bertipe `SoundName | null` (`src/lib/sound.ts`). Untuk komponen yang
+bukan Button, langsung panggil `playSound(name)` / `sfx.*`.
+
+---
+
+## 6. Testing & QA
+
+- Type & suara: `src/lib/sound.ts` adalah satu-satunya lapisan yang menyentuh
+  file wav; untuk mengganti file cukup ubah `SOUND_SRC`.
+- Suara tidak diuji di vitest (membutuhkan peramban); yang diuji adalah
+  perilaku "tidak melempar error saat SSR" — sudah dijaga guard
+  `typeof window === "undefined"`.
+- QA manual: putar desktop + mobile; aktifkan/mute lewat console
+  `setSoundEnabled(false)`; klik tombol berkali-kali cepat (throttle 60 ms
+  tidak boleh membuat suara hilang sekejap).
+
+---
+
+## 7. Jembatan toast (sinkron warna → suara)
+
+Dipasang otomatis oleh `src/components/ui/sonner.tsx` (root layout yang selalu
+memuat modul itu). Semantiknya:
+
+| Call site                 | Suara   |
+| ------------------------- | ------- |
+| `toast.success(...)`      | chime   |
+| `toast.error(...)`        | shake   |
+| `toast.warning(...)`      | arrive  |
+| `toast.info/...`/default  | arrive  |
+| `toast.loading(...)`      | hening  |
+| `toast.promise(p, {...})` | resolve → chime, reject → shake |
+
+Semua call site toast lama otomatis bersuara tanpa perlu diubah — bridge
+membungkus method `toast` pada module singleton sonner.
+
+---
+
+## 8. Cadangan: `spring.wav`
+
+Belum dipakai otomatis. Nomor-nya disiapkan untuk momen "transisi besar":
+drawer/sheet berlayar penuh, onboarding pertama kali. Dipanggil manual via
+`sfx.spring()` saat dirasa perlu, JANGAN dijadikan suara default buka/ tutup —
+terlalu berat untuk interaksi kecil.
