@@ -41,11 +41,17 @@ bervariasi.
    tombol X diberi prop `sound={null}` sehingga hanya Close1 yang terdengar.
 3. **Primitif yang membawa suara:** Button, Dialog, Sheet, Popover, Tabs,
    Switch, Select, dan samakan untuk komponen overlayer baru yang akan dibuat.
-4. **Mute:** preferensi disimpan di `localStorage` key `cervise_sound`
-   (`"on"`/`"off"`), dimatikan via `setSoundEnabled(false)`, dibaca via
-   `useSoundEnabled()`. Saat mute, seluruh `sfx.*` menjadi no-op. Kontrol
-   pengguna ada di `SoundToggle` (footer sidebar desktop + header mobile);
-   menyalakan kembali suara memainkan `chime` sebagai konfirmasi/tes.
+4. **Mute + volume:** satu store di `localStorage` key `cervise-sound`
+   (JSON `{ muted, volume }`), dibaca via `useSoundSettings()` /
+   `getSoundSnapshot()` dan ditulis via `writeSoundSettings()`. Volume adalah
+   master gain (0–100) yang dikalikan dengan volume per-sound di `playSound`;
+   mute membuat seluruh `sfx.*` no-op. Key lama `cervise_sound`
+   (`"on"`/`"off"`) masih dibaca sekali lalu dimigrasikan, dan `setSoundEnabled`
+   / `useSoundEnabled` tetap tersedia sebagai pembungkus mute saja. Perubahan
+   dari tab lain ikut tersinkron lewat event `storage`. Kontrol pengguna:
+   `SoundToggle` (header compact shell) untuk mute cepat, dan `MenuSound`
+   (section "Sound System" di drawer menu) untuk mute + slider volume —
+   keduanya memakai store yang sama sehingga selalu sinkron.
 5. **Anti-dupe:** suara yang sama dalam jendela < 60 ms dipotong oleh
    `playSound`. Setiap sound punya pool 3 elemen audio yang dipakai bergiliran,
    jadi klik cepat tetap bisa tumpang tindih tanpa mengandalkan `cloneNode`
@@ -231,7 +237,8 @@ bukan Button, langsung panggil `playSound(name)` / `sfx.*`.
   `audio/wav`) dan tab browser tidak di-mute.
 - Debug dari console browser (development): `__cerviseSfx.sfx.success()`,
   `__cerviseSfx.sfx.tab()`, `__cerviseSfx.sfx.click()`,
-  `__cerviseSfx.isSoundEnabled()`, `__cerviseSfx.playedRecently("notch", 500)`.
+  `__cerviseSfx.isSoundEnabled()`, `__cerviseSfx.playedRecently("notch", 500)`,
+  `__cerviseSfx.playCue("notify")`, `__cerviseSfx.getSoundSnapshot()`.
 
 ---
 
@@ -301,3 +308,37 @@ Catatan teknis:
 // matikan suara pada subtree tertentu
 <div data-sfx-silent>…</div>
 ```
+
+---
+
+## 10. Kompatibilitas shell baru
+
+Shell baru (drawer menu + bottom bar) sempat memakai sistem suara sintesis Web
+Audio dengan API `playCue("tap" | "success" | "error" | "notify")`. Sistem wav
+ini sekarang menyediakan **shim** dengan nama yang sama, jadi call site di shell
+baru tidak perlu diubah:
+
+| `playCue(...)` | Suara wav |
+| -------------- | --------- |
+| `"tap"`        | Notch     |
+| `"success"`    | Chime     |
+| `"error"`      | Shake     |
+| `"notify"`     | Arrive    |
+
+Store preferensi juga disamakan: key `cervise-sound` dengan bentuk
+`{ muted, volume }`, plus `DEFAULT_SOUND`, `getSoundSnapshot()`,
+`subscribeSoundStore()`, `readSoundSettings()`, `writeSoundSettings()`, dan
+`useSoundSettings()` — persis API yang dipakai `MenuSound` di shell baru.
+`playCue` ikut menghormati mute dan volume karena memanggil `playSound`.
+
+Saat menggabungkan shell baru:
+
+1. Jangan menambah `SoundLayer` kedua — cukup yang di root layout.
+2. Pertahankan `SoundToggle` di header (mute cepat) dan `MenuSound` di drawer
+   (mute + slider); keduanya berbagi store.
+3. Jika shell baru membuat primitif overlay sendiri (drawer/dropdown custom),
+   ikuti pola `menu.tsx`/`popover.tsx`: `sfx.click()` saat buka,
+   `sfx.close()` saat tutup, dengan guard `isFromManagedButton` /
+   `playedRecently`.
+4. Untuk item bottom-nav berbentuk `<button>` + `router.push`, beri
+   `role="tab"` (otomatis Undo) atau `data-sfx="undo"`.

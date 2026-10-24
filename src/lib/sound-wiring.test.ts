@@ -12,6 +12,8 @@ const select = read("src/components/ui/select.tsx");
 const popover = read("src/components/ui/popover.tsx");
 const command = read("src/components/ui/command.tsx");
 const compactShell = read("src/components/layout/compact-shell.tsx");
+const sound = read("src/lib/sound.ts");
+const soundToggle = read("src/components/layout/sound-toggle.tsx");
 
 /**
  * Penjaga regresi sistem suara. Tes ini membaca sumber (bukan merender DOM)
@@ -55,5 +57,27 @@ describe("sound wiring", () => {
 
   it("shell compact juga punya kontrol mute", () => {
     expect(compactShell).toContain("SoundToggle");
+  });
+
+  it("store suara memakai key kanonik dan memigrasikan key lama", () => {
+    expect(sound).toContain('"cervise-sound"');
+    expect(sound).toContain('"cervise_sound"');
+    expect(sound).toContain("export function writeSoundSettings");
+    expect(sound).toContain("export function getSoundSnapshot");
+    expect(sound).toContain("export function subscribeSoundStore");
+    expect(sound).toContain("export function useSoundSettings");
+  });
+
+  it("playCue kompatibel dengan shell baru dan menghormati volume", () => {
+    expect(sound).toContain(
+      'export type CueName = "tap" | "success" | "error" | "notify"',
+    );
+    expect(sound).toContain("export function playCue");
+    expect(sound).toContain("settings.volume / 100");
+  });
+
+  it("kontrol suara memakai store yang sama", () => {
+    expect(soundToggle).toContain("useSoundSettings");
+    expect(soundToggle).toContain("writeSoundSettings");
   });
 });

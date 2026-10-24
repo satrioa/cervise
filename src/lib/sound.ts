@@ -57,57 +57,155 @@ export const SOUND_VOLUME: Record<SoundName, number> = {
   spring: 0.5,
 };
 
-const STORAGE_KEY = "cervise_sound";
-
 // ---------------------------------------------------------------------------
-// Preferensi mute (persist di localStorage, dibaca semua komponen lewat hook)
+// Preferensi suara (persist di localStorage, dibaca semua komponen lewat hook)
 // ---------------------------------------------------------------------------
 
-const settingsListeners = new Set<() => void>();
-let cachedEnabled: boolean | null = null;
+/**
+ * Satu sumber kebenaran untuk mute + volume. Disimpan sebagai JSON supaya
+ * keduanya konsisten; key ini sama dengan yang dipakai shell baru, jadi
+ * preferensi pengguna ikut terbawa saat shell baru di-merge.
+ */
+const STORAGE_KEY = "cervise-sound";
 
-function readEnabled(): boolean {
-  if (typeof window === "undefined") return true;
-  if (cachedEnabled === null) {
-    try {
-      cachedEnabled = window.localStorage.getItem(STORAGE_KEY) !== "off";
-    } catch {
-      // localStorage bisa diblokir (mode private/iframe ketat) — suara tetap
-      // aktif, hanya preferensinya tidak tersimpan.
-      cachedEnabled = true;
-    }
-  }
-  return cachedEnabled;
+/**
+ * Key lama (sebelum ada slider volume): `"on"` / `"off"`. Tetap dibaca sekali
+ * lalu dimigrasikan ke format JSON, supaya pengguna yang sudah mematikan suara
+ * tidak tiba-tiba mendengar bunyi setelah update.
+ */
+const LEGACY_STORAGE_KEY = "cervise_sound";
+
+export type SoundSettings = {
+  muted: boolean;
+  /** 0..100, mengikuti satuan yang ditampilkan di slider. */
+  volume: number;
+};
+
+export const DEFAULT_SOUND: SoundSettings = { muted: false, volume: 50 };
+
+function clampVolume(value: number): number {
+  if (!Number.isFinite(value)) return DEFAULT_SOUND.volume;
+  return Math.min(100, Math.max(0, Math.round(value)));
 }
 
-export function isSoundEnabled(): boolean {
-  return readEnabled();
-}
-
-export function setSoundEnabled(enabled: boolean): void {
-  if (typeof window === "undefined") return;
-  cachedEnabled = enabled;
+export function readSoundSettings(): SoundSettings {
+  if (typeof window === "undefined") return DEFAULT_SOUND;
   try {
-    window.localStorage.setItem(STORAGE_KEY, enabled ? "on" : "off");
+    const raw = window.localStorage.getItem(STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw) as Partial<SoundSettings> | null;
+      return {
+        muted:
+          typeof parsed?.muted === "boolean" ? parsed.muted : DEFAULT_SOUND.muted,
+        volume: clampVolume(parsed?.volume ?? DEFAULT_SOUND.volume),
+      };
+    }
+
+    const legacy = window.localStorage.getItem(LEGACY_STORAGE_KEY);
+    if (legacy !== null) {
+      const migrated: SoundSettings = {
+        muted: legacy === "off",
+        volume: DEFAULT_SOUND.volume,
+      };
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(migrated));
+      return migrated;
+    }
   } catch {
-    // abaikan: preferensi berlaku untuk sesi ini saja
+    // localStorage bisa diblokir (mode private/iframe ketat) — suara tetap
+    // aktif, hanya preferensinya tidak tersimpan.
   }
+  return DEFAULT_SOUND;
+}
+
+/**
+ * Cache identitas. `useSyncExternalStore` membandingkan snapshot dengan `===`,
+ * jadi objek baru tiap panggilan akan membuat render berputar tanpa henti.
+ */
+let cached: SoundSettings | null = null;
+const settingsListeners = new Set<() => void>();
+
+function publish(next: SoundSettings): void {
+  const changed =
+    !cached || cached.muted !== next.muted || cached.volume !== next.volume;
+  cached = next;
+  if (!changed) return;
   for (const listener of settingsListeners) listener();
 }
 
-function subscribeSettings(listener: () => void): () => void {
+function handleStorage(event: StorageEvent): void {
+  if (event.key !== STORAGE_KEY && event.key !== LEGACY_STORAGE_KEY) return;
+  // Buang cache supaya nilai dari tab lain benar-benar dibaca ulang.
+  cached = null;
+  publish(readSoundSettings());
+}
+
+export function getSoundSnapshot(): SoundSettings {
+  if (!cached) cached = readSoundSettings();
+  return cached;
+}
+
+export function subscribeSoundStore(listener: () => void): () => void {
   if (typeof window === "undefined") return () => {};
   settingsListeners.add(listener);
+  if (settingsListeners.size === 1) {
+    window.addEventListener("storage", handleStorage);
+  }
   return () => {
     settingsListeners.delete(listener);
+    if (settingsListeners.size === 0) {
+      window.removeEventListener("storage", handleStorage);
+    }
   };
 }
 
-/** Hook React untuk komponen yang menampilkan toggle mute suara. */
-export function useSoundEnabled(): boolean {
-  // Nilai server selalu "aktif" supaya render SSR dan hidrasi konsisten;
+export function writeSoundSettings(next: SoundSettings): SoundSettings {
+  const normalized: SoundSettings = {
+    muted: next.muted,
+    volume: clampVolume(next.volume),
+  };
+  if (typeof window === "undefined") return normalized;
+  try {
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(normalized));
+    // Tetap tulis key lama: build lain (worktree/branch yang belum merge) masih
+    // membacanya, jadi preferensi tidak "hilang" saat berpindah server dev.
+    window.localStorage.setItem(LEGACY_STORAGE_KEY, normalized.muted ? "off" : "on");
+  } catch {
+    // Mode privat / storage penuh: preferensi tetap berlaku di sesi ini,
+    // hanya tidak bertahan setelah reload.
+  }
+  publish(normalized);
+  return normalized;
+}
+
+/** Hook React untuk kontrol mute + volume (mis. `MenuSound` di shell baru). */
+export function useSoundSettings(): SoundSettings {
+  // Nilai server selalu default supaya render SSR dan hidrasi konsisten;
   // pembacaan localStorage terjadi setelah mount.
-  return useSyncExternalStore(subscribeSettings, readEnabled, () => true);
+  return useSyncExternalStore(
+    subscribeSoundStore,
+    getSoundSnapshot,
+    () => DEFAULT_SOUND,
+  );
+}
+
+/**
+ * API lama (mute saja) — dipertahankan agar komponen yang belum memakai slider
+ * volume tetap berfungsi. Semua fungsi ini menulis ke store yang sama.
+ */
+export function isSoundEnabled(): boolean {
+  return !getSoundSnapshot().muted;
+}
+
+export function setSoundEnabled(enabled: boolean): void {
+  writeSoundSettings({ ...getSoundSnapshot(), muted: !enabled });
+}
+
+export function useSoundEnabled(): boolean {
+  return useSyncExternalStore(
+    subscribeSoundStore,
+    () => !getSoundSnapshot().muted,
+    () => true,
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -189,7 +287,9 @@ function warmUpAudio() {
 
 export function playSound(name: SoundName, opts?: { volume?: number }): void {
   if (typeof window === "undefined") return;
-  if (!readEnabled()) return;
+
+  const settings = getSoundSnapshot();
+  if (settings.muted || settings.volume <= 0) return;
 
   const now = Date.now();
   const last = LAST_PLAYED.get(name) ?? 0;
@@ -198,7 +298,9 @@ export function playSound(name: SoundName, opts?: { volume?: number }): void {
 
   try {
     const el = acquireAudio(name);
-    el.volume = opts?.volume ?? SOUND_VOLUME[name];
+    // Master gain: volume per-sound (hasil tuning file) × volume slider user.
+    const base = opts?.volume ?? SOUND_VOLUME[name];
+    el.volume = Math.min(1, Math.max(0, base * (settings.volume / 100)));
     const played = el.play();
     if (played && typeof played.catch === "function") {
       played.catch(() => {
@@ -279,6 +381,31 @@ export const sfx = {
 };
 
 // ---------------------------------------------------------------------------
+// Kompatibilitas shell baru
+// ---------------------------------------------------------------------------
+
+/**
+ * Nama cue versi shell baru (Web Audio). Shell baru memanggil `playCue(...)`
+ * dari `MenuSound`, jadi nama-nama itu dipetakan ke file wav kita supaya
+ * call site di sana tidak perlu diubah saat merge.
+ */
+export type CueName = "tap" | "success" | "error" | "notify";
+
+const CUE_TO_SOUND: Record<CueName, SoundName> = {
+  tap: "notch",
+  success: "chime",
+  error: "shake",
+  notify: "arrive",
+};
+
+/** Alias `playCue` → `playSound` dengan pemetaan cue → wav. */
+export function playCue(name: CueName): void {
+  const sound = CUE_TO_SOUND[name];
+  if (!sound) return;
+  playSound(sound);
+}
+
+// ---------------------------------------------------------------------------
 // Jembatan sonner toast → suara
 // ---------------------------------------------------------------------------
 
@@ -313,7 +440,7 @@ export function installToastSoundBridge(): void {
   if (globalWindow.__cerviseToastSfx) return;
   globalWindow.__cerviseToastSfx = true;
 
-const api = toast as unknown as ToastApi;
+  const api = toast as unknown as ToastApi;
 
   if (typeof api.success === "function") {
     const original = api.success.bind(api);
@@ -375,15 +502,19 @@ const api = toast as unknown as ToastApi;
 }
 
 // Helper debug (hanya development). Dari console browser:
-//   __cerviseSfx.sfx.success()     → tes chime
-//   __cerviseSfx.sfx.tab()         → tes undo
-//   __cerviseSfx.isSoundEnabled()  → cek mute
+//   __cerviseSfx.sfx.success()      → tes chime
+//   __cerviseSfx.sfx.tab()          → tes undo
+//   __cerviseSfx.playCue("notify")  → tes cue versi shell baru
+//   __cerviseSfx.getSoundSnapshot() → cek mute + volume
 if (typeof window !== "undefined" && process.env.NODE_ENV !== "production") {
   (window as typeof window & { __cerviseSfx?: unknown }).__cerviseSfx = {
     playSound,
+    playCue,
     sfx,
     setSoundEnabled,
     isSoundEnabled,
+    getSoundSnapshot,
+    writeSoundSettings,
     playedRecently,
   };
 }
