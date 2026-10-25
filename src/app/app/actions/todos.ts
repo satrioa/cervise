@@ -28,15 +28,29 @@ export type StaffTodo = {
   createdAt: string;
 };
 
-export type TodoResult<T> = { ok: true; data: T } | { ok: false; error: string };
+/**
+ * Kode kegagalan yang perlu	client membedakan.
+ *
+ * "not_found" berarti barisnya sudah tidak ada di server: sudah dihapus,
+ * atau selesai pada hari sebelumnya lalu dibersihkan `loadTodos`. Client
+ * HARUS menghapus baris itu dari daftar, bukan menampilkannya lagi - kalau
+ * tidak, baris yang sudah tidak ada itu tetap terlihat dan setiap aksi
+ * padanya berakhir dengan pesan yang sama, sehingga baris itu tidak pernah
+ * bisa dihapus dari layar.
+ */
+export type TodoErrorCode = "not_found";
+
+export type TodoResult<T> =
+  | { ok: true; data: T }
+  | { ok: false; error: string; code?: TodoErrorCode };
 
 const TITLE_MIN = 1;
 const TITLE_MAX = 600;
 /** Batas teks yang terlihat pengguna. Batas kasar di bawah hanya pengaman. */
 const TITLE_VISIBLE_MAX = 200;
 
-function fail<T>(error: string): TodoResult<T> {
-  return { ok: false, error };
+function fail<T>(error: string, code?: TodoErrorCode): TodoResult<T> {
+  return code ? { ok: false, error, code } : { ok: false, error };
 }
 
 function cleanTitle(value: unknown): string | null {
@@ -121,7 +135,7 @@ export async function updateTodo(input: {
       .maybeSingle();
 
     if (error) return fail(error.message);
-    if (!data) return fail("Tugas tidak ditemukan");
+    if (!data) return fail("Tugas tidak ditemukan", "not_found");
     return { ok: true, data: toTodo(data as TodoRow) };
   } catch (cause) {
     return fail(cause instanceof Error ? cause.message : "Gagal menyimpan tugas");
@@ -145,7 +159,7 @@ export async function toggleTodo(input: {
       .maybeSingle();
 
     if (error) return fail(error.message);
-    if (!data) return fail("Tugas tidak ditemukan");
+    if (!data) return fail("Tugas tidak ditemukan", "not_found");
     return {
       ok: true,
       data: { id: (data as { id: string }).id, doneAt: (data as { done_at: string | null }).done_at },
@@ -169,7 +183,7 @@ export async function deleteTodo(input: { id: string }): Promise<TodoResult<null
       .maybeSingle();
 
     if (error) return fail(error.message);
-    if (!data) return fail("Tugas tidak ditemukan");
+    if (!data) return fail("Tugas tidak ditemukan", "not_found");
     return { ok: true, data: null };
   } catch (cause) {
     return fail(cause instanceof Error ? cause.message : "Gagal menghapus tugas");

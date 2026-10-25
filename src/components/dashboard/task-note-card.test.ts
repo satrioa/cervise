@@ -58,4 +58,39 @@ describe("kartu To-Do: editor tidak men-toggle, satu tombol edit", () => {
     expect(source).toMatch(/if \(initialTodos !== undefined\) return;/);
     expect(source).toContain("groupMentions(");
   });
+
+  it("menyamakan daftar lokal dengan payload server yang baru", () => {
+    // `router.refresh()` mengirim daftar baru tanpa me-mount ulang kartu.
+    // Tanpa penyamaan ini, kartu tetap menampilkan baris yang SUDAH dihapus
+    // di server, dan setiap aksi padanya berakhir "Tugas tidak ditemukan".
+    expect(source).toContain("syncedFrom");
+    expect(source).toMatch(/if \(initialTodos !== undefined && syncedFrom !== initialTodos\)/);
+    expect(source).toMatch(/setTodos\(initialTodos\);/);
+    expect(source).toMatch(/setMentionsByTodo\(groupMentions\(initialMentions \?\? \[\]\)\);/);
+  });
+
+  it("baris yang sudah dihapus di server dibuang, bukan dikembalikan", () => {
+    // Aksi atas baris yang sudah tidak ada gagal dengan `not_found`.
+    // Kalau baris itu dikembalikan ke daftar, baris yang sama akan gagal
+    // terus-menerus dan tidak pernah bisa dihapus dari layar.
+    expect(source).toContain('result.code === "not_found"');
+    expect(source).toContain("onStaleTodo(");
+    // `onStaleTodo` harus membuang baris dari daftar DAN mention-nya.
+    expect(source).toMatch(/const onStaleTodo = \(id: string\) => \{[\s\S]*setTodos\(\(prev\) => prev\.filter\(\(t\) => t\.id !== id\)\);[\s\S]*delete next\[id\];/);
+    // Daftar basi lain ikut hilang: daftar dimuat ulang dari server.
+    expect(source).toMatch(/const onStaleTodo = \(id: string\) => \{[\s\S]*void syncFromServer\(\);/);
+  });
+
+  it("tidak mengembalikan baris yang gagal dihapus", () => {
+    // Rollback `setTodos(previous)` mengembalikan baris yangserver sudah
+    // hapus. Untuk `not_found` baris itu justru dibuang.
+    const deleteHandler = source.slice(
+      source.indexOf("const onDelete = async"),
+      source.indexOf("const onRename = async"),
+    );
+    expect(deleteHandler).toContain('result.code === "not_found"');
+    // Setelah `not_found` tidak boleh ada rollback.
+    const notFoundBranch = deleteHandler.slice(deleteHandler.indexOf('result.code === "not_found"'));
+    expect(notFoundBranch.slice(0, notFoundBranch.indexOf("}"))).not.toContain("setTodos(previous)");
+  });
 });

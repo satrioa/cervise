@@ -131,7 +131,52 @@ export function TaskNoteCard({
     groupMentions(initialMentions ?? []),
   );
 
+  // `router.refresh()` (dan navigasi biasa) mengirim daftar To-Do baru tanpa
+  // me-mount ulang kartu. Tanpa sinkronisasi di sini, kartu tetap menampilkan
+  // baris yang SUDAH dihapus di server - misalnya tugas selesai yang
+  // dibersihkan `loadTodos` - dan setiap aksi padanya berakhir dengan
+  // "Tugas tidak ditemukan" yang tidak bisa diperbaiki dari layar.
+  //
+  // Pola yang sama dipakai `frontliner-dashboard` dan `technician-dashboard`
+  // untuk `data` mereka: state lokal disamakan dengan payload server selama
+  // render, tanpa efek.
+  const [syncedFrom, setSyncedFrom] = useState(initialTodos);
+  if (initialTodos !== undefined && syncedFrom !== initialTodos) {
+    setSyncedFrom(initialTodos);
+    setTodos(initialTodos);
+    setMentionsByTodo(groupMentions(initialMentions ?? []));
+  }
+
   const loading = !loaded;
+
+  /**
+   * Muat ulang daftar dan mention dari server.
+   *
+   * Dipakai saat daftar di layar terbukti sudah basi: baris yang diklik
+   * ternyata sudah tidak ada di server. Daftar lain belum tentu bersih, jadi
+   * memuat ulang semuanya membuat isi DAN hitungan di kartu sesuai dengan
+   * server - bukan hanya satu baris yang hilang.
+   */
+  const syncFromServer = async () => {
+    const result = await getMyTodos();
+    if (!result.ok) {
+      toast.error(result.error);
+      return;
+    }
+    setTodos(result.data);
+    // Mention dimuat terpisah dan setelah daftar tugas, supaya satu
+    // catatan tanpa mention tidak membuat seluruh daftar gagal tampil.
+    if (result.data.length === 0) {
+      setMentionsByTodo({});
+      return;
+    }
+    const mentions = await getTodoMentions(result.data.map((t) => t.id));
+    if (!mentions.ok) {
+      toast.error(mentions.error);
+      return;
+    }
+    setMentionsByTodo(groupMentions(mentions.data));
+  };
 
   useEffect(() => {
     // Data awal sudah dari server. Meminta ulang di sini hanya menambah satu
@@ -203,6 +248,24 @@ export function TaskNoteCard({
     }
   };
 
+  /**
+   * Tangani baris yang sudah tidak ada di server.
+   *
+   * Memperbaiki baris yang sudah dihapus hanya memunculkan baris yang
+   * mustahil dihapus: setiap aksi berikutnya akan berakhir "Tugas tidak
+   * ditemukan" juga. Jadi daftar dimuat ulang dari server - baris basi yang
+   * lain ikut hilang dan hitungan di kartu kembali benar.
+   */
+  const onStaleTodo = (id: string) => {
+    setTodos((prev) => prev.filter((t) => t.id !== id));
+    setMentionsByTodo((prev) => {
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
+    void syncFromServer();
+  };
+
   const onToggle = async (todo: StaffTodo) => {
     // Optimistic: centang terasa instan, dan di-rollback kalau server menolak.
     const nextDone = todo.doneAt === null;
@@ -214,6 +277,13 @@ export function TaskNoteCard({
     );
     const result = await toggleTodo({ id: todo.id, done: nextDone });
     if (!result.ok) {
+      // Barisnya sudah tidak ada di server, jadi tidak ada yang perlu
+      // di-rollback: yang tersisa hanya baris basi di layar.
+      if (result.code === "not_found") {
+        onStaleTodo(todo.id);
+        toast.info("Tugas itu sudah tidak ada, jadi dihapus dari daftar.");
+        return;
+      }
       setTodos(previous);
       toast.error(result.error);
       return;
@@ -233,6 +303,13 @@ export function TaskNoteCard({
     });
     const result = await deleteTodo({ id: todo.id });
     if (!result.ok) {
+      // Sudah dihapus (mungkin oleh perangkat lain) - memunculkan kembali
+      // berarti tugas yang sama tidak akan pernah bisa dihapus.
+      if (result.code === "not_found") {
+        onStaleTodo(todo.id);
+        toast.info("Tugas itu sudah tidak ada.");
+        return;
+      }
       setTodos(previous);
       toast.error(result.error);
     }
@@ -245,6 +322,12 @@ export function TaskNoteCard({
     }
     const result = await updateTodo({ id: todo.id, title });
     if (!result.ok) {
+      if (result.code === "not_found") {
+        onStaleTodo(todo.id);
+        setEditing(null);
+        toast.info("Tugas itu sudah tidak ada, jadi dihapus dari daftar.");
+        return;
+      }
       toast.error(result.error);
       return;
     }
