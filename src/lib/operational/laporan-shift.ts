@@ -142,13 +142,40 @@ function isSettled(status: string | null | undefined): boolean {
   return status === "lunas" || status === "dp";
 }
 
-/** Tanggal kalender shift, dari `open_at`. */
-function shiftDate(session: ShiftSession, now: Date): string {
+/**
+ * Rentang tanggal kalender yang dicakup satu sesi kas.
+ *
+ * `kas_date` bertipe `date`, jadi jamnya hilang dan laporan hanya bisa
+ * mengambil per tanggal. Shift yang dibuka 24 Okt dan masih terbuka sampai
+ * 25 Okt mencakup DUA tanggal. Memakai tanggal buka saja membuat penjualan
+ * dan kas manual hari ini hilang dari rekap, padahal servisnya tetap masuk -
+ * servis memakai `created_at` yang jamnya masih tersimpan. Akibatnya angka
+ * rekap tidak konsisten: servis hari ini terhitung, uangnya tidak.
+ *
+ * Shift normal (buka dan tutup di hari yang sama) menghasilkan `from === to`,
+ * jadi perilakunya tidak berubah.
+ */
+export function shiftDateWindow(
+  session: Pick<ShiftSession, "openAt" | "closedAt">,
+  now: Date,
+): { from: string; to: string } {
   const opened = new Date(session.openAt);
-  const base = Number.isNaN(opened.getTime()) ? now : opened;
   // Hari UTC akan menaruh shift yang dibuka jam 00:00-07:00 WIB di tanggal
   // sebelumnya, jadi shift itu terpotong oleh hari yang salah di laporan.
-  return kalenderWIB(base);
+  const from = kalenderWIB(Number.isNaN(opened.getTime()) ? now : opened);
+
+  const closed = session.closedAt ? new Date(session.closedAt) : now;
+  const to = kalenderWIB(Number.isNaN(closed.getTime()) ? now : closed);
+
+  // Baris lama bisa punya `closed_at` sebelum `open_at`. Rentang terbalik
+  // membuat query mengembalikan nol baris, jadi jendelanya dipersempit ke
+  // satu tanggal buka.
+  return to < from ? { from, to: from } : { from, to };
+}
+
+/** Tanggal kalender shift, dari `open_at`. */
+function shiftDate(session: ShiftSession, now: Date): string {
+  return shiftDateWindow(session, now).from;
 }
 
 function serviceLabel(row: ShiftServiceRow): string {

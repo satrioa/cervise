@@ -17,6 +17,7 @@ import {
 } from "@/lib/operational/frontliner-dashboard";
 import {
   buildLaporanShift,
+  shiftDateWindow,
   type ShiftCashRow,
   type ShiftReport,
   type ShiftSaleRow,
@@ -396,11 +397,15 @@ export async function computeShiftReport(
 ): Promise<ShiftReport> {
   const { supabase, branchId } = ctx;
   const now = new Date();
-  const date = kalenderWIB(new Date(session.openAt));
+  // Satu shift bisa mencakup lebih dari satu tanggal: shift kemarin yang masih
+  // terbuka sampai hari ini harus memuat penjualan dan kas manual hari ini.
+  // Memakai tanggal buka saja membuat uang hari ini hilang dari rekap sementara
+  // servisnya tetap masuk (servis memakai `created_at` yang jamnya tersimpan).
+  const { from: openDate, to: closeDate } = shiftDateWindow(session, now);
 
   // Tiga query paralel. Setiap filter mengikuti bentuk kolomnya masing-masing:
   // servis pakai created_at (timestamptz, jamnya ada), penjualan dan kas pakai
-  // kas_date (date, jamnya hilang) jadi satu hari penuh.
+  // kas_date (date, jamnya hilang) jadi satu rentang tanggal shift.
   const [servicesResult, salesResult, cashResult] = await Promise.all([
     supabase
       .from("cervise_services")
@@ -413,14 +418,16 @@ export async function computeShiftReport(
       .from("cervise_sales")
       .select("id, sale_number, total, paid, payment_status, payment_method, kas_date, servis_id")
       .eq("branch_id", branchId)
-      .eq("kas_date", date)
+      .gte("kas_date", openDate)
+      .lte("kas_date", closeDate)
       .order("created_at", { ascending: false })
       .limit(SALE_ROW_CAP),
     supabase
       .from("cervise_finance_tx")
       .select("id, type, amount, description, kas_date, source, metode")
       .eq("branch_id", branchId)
-      .eq("kas_date", date)
+      .gte("kas_date", openDate)
+      .lte("kas_date", closeDate)
       .in("source", ["kas_manual", "penyesuaian", "retur"])
       .order("created_at", { ascending: false })
       .limit(CASH_ROW_CAP),
