@@ -55,8 +55,12 @@ describe("sound wiring", () => {
     }
   });
 
-  it("shell compact juga punya kontrol mute", () => {
-    expect(compactShell).toContain("SoundToggle");
+  it("kontrol mute compact ada di drawer Sound System", () => {
+    // Header compact tidak lagi memuat toggle suara di samping tombol layar
+    // penuh; mute dan volume tetap tersedia di section "Sound System".
+    const menuSheet = read("src/components/layout/compact-menu-sheet.tsx");
+    expect(menuSheet).toContain("MenuSound");
+    expect(compactShell).not.toContain("SoundToggle");
   });
 
   it("store suara memakai key kanonik dan memigrasikan key lama", () => {

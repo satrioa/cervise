@@ -499,7 +499,7 @@ function AppShellInner({ children, actor }: { children: React.ReactNode; actor: 
       </aside>
 
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden lg:col-start-2">
-        <div className="lg:hidden sticky top-0 z-40 flex h-16 shrink-0 items-center justify-between border-b border-border/60 bg-background px-3">
+        <div className="lg:hidden sticky top-0 z-40 flex h-16 shrink-0 items-center justify-start gap-2 border-b border-border/60 bg-background px-3">
           <Sheet open={open} onOpenChange={setOpen}>
             <SheetTrigger render={<Button variant="ghost" size="icon" className="size-8" />}>
               <Wrench className="size-5" />
@@ -520,7 +520,6 @@ function AppShellInner({ children, actor }: { children: React.ReactNode; actor: 
             <span className="flex size-7 items-center justify-center rounded-md bg-primary text-primary-foreground">C</span>
             Cervise
           </div>
-          <SoundToggle />
         </div>
 
         <div
