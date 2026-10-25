@@ -553,6 +553,13 @@ export function NoteWithMentions({
 }) {
   const router = useRouter();
   const map = mentionMap(mentions);
+  const open = (mention: ChipSource) => {
+    if (onOpen) {
+      onOpen(mention);
+      return;
+    }
+    router.push(mention.kind === "servis" ? `/app/servis/${mention.id}` : "/app/customer");
+  };
   return (
     <span className={cn("whitespace-pre-wrap break-words", className)}>
       {parseMentionText(value).map((segment, i) => {
@@ -561,14 +568,29 @@ export function NoteWithMentions({
         if (!mention) return <span key={i}>{toMentionToken(segment.token)}</span>;
         return (
           <span key={i}>
-            <button
-              type="button"
-              onClick={() => {
-                if (onOpen) {
-                  onOpen(mention);
-                  return;
-                }
-                router.push(mention.kind === "servis" ? `/app/servis/${mention.id}` : "/app/customer");
+            {/*
+              Chip ini adalah SPAN ber-peran button, bukan elemen button.
+              Di dashboard chip ini duduk DI DALAM tombol judul, jadi
+              elemen button di dalam elemen button - HTML yang tidak valid.
+              Browser menutup tombol luar lebih dulu, hydration React gagal,
+              dan tombol yang dirender bukan yang ditulis server.
+
+              Peran button tetap dipertahankan supaya chip tetap bisa
+              diklik dan dibaca screen reader. `stopPropagation` mencegah
+              klik chip ikut mencentang tugasnya.
+            */}
+            <span
+              role="button"
+              tabIndex={0}
+              onClick={(event) => {
+                event.stopPropagation();
+                open(mention);
+              }}
+              onKeyDown={(event) => {
+                if (event.key !== "Enter" && event.key !== " ") return;
+                event.preventDefault();
+                event.stopPropagation();
+                open(mention);
               }}
               className={cn(
                 "mx-0.5 inline-flex items-center gap-1 rounded-full px-1.5 py-0 align-baseline text-[11px] font-medium transition-colors",
@@ -577,7 +599,7 @@ export function NoteWithMentions({
               )}
             >
               {mention.label}
-            </button>
+            </span>
           </span>
         );
       })}

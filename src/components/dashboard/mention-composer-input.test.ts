@@ -120,3 +120,43 @@ describe("kartu catatan", () => {
     expect(card).toMatch(/draftMentions\.map/);
   });
 });
+
+/**
+ * Chip mention duduk DI DALAM tombol judul (tombol yang mencentang tugas).
+ * Kalau chip itu `<button>`, HTML-nya jadi `<button>` di dalam `<button>` -
+ * tidak valid. Browser menutup tombol luar lebih dulu, jadi DOM yang
+ * dirender bukan yang ditulis server dan hydration React gagal.
+ *
+ * Peran button tetap dipakai supaya chip tetap bisa diklik dan dibaca
+ * screen reader; hanya elemennya yang diganti dari `<button>` jadi `<span>`.
+ */
+describe("chip mention tidak jadi button di dalam button", () => {
+  function noteWithMentionsBody() {
+    const start = composer.indexOf("export function NoteWithMentions");
+    expect(start, "NoteWithMentions harus ada").toBeGreaterThan(-1);
+    // Ambil sampai akhir file: NoteWithMentions adalah komponen terakhir.
+    return composer.slice(start);
+  }
+
+  it("chip dirender sebagai span ber-peran button, bukan button", () => {
+    const body = noteWithMentionsBody();
+    // Tidak boleh ada <button> di dalam NoteWithMentions.
+    expect(body).not.toContain("<button");
+    // Tapi perannya tetap button supaya bisa diklik dan dibaca a11y.
+    expect(body).toContain('role="button"');
+    expect(body).toContain("tabIndex={0}");
+  });
+
+  it("klik chip tidak ikut mencentang tugasnya", () => {
+    // Chip ada di dalam tombol judul yang men-toggle. Kalau kliknya
+    // merambat, satu klik jadi dua aksi: buka customer DAN centang tugas.
+    const body = noteWithMentionsBody();
+    expect(body).toContain("event.stopPropagation()");
+  });
+
+  it("tombol judul memuat chip, jadi nesting-nya yang caurok", () => {
+    // Penjaga: kalau chip nanti dipindah keluar dari tombol judul, span
+    // ber-peran button tetap valid dan test ini bisa dilonggarkan.
+    expect(card).toMatch(/<NoteWithMentions[\s\S]{0,200}value=\{todo\.title\}/);
+  });
+});

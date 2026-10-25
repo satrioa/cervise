@@ -583,7 +583,13 @@ export function TaskNoteCard({
                     </button>
                     <div className="min-w-0 flex-1">
                       <p className={cn("truncate text-sm", isDone && "text-muted-foreground line-through")}>
-                        {todo.title}
+                        {/* Chip mention, bukan teks mentah: `todo.title`
+                            menyimpan token `{{m:xxxxxx}}` yang harus
+                            dirender sebagai label. */}
+                        <NoteWithMentions
+                          value={todo.title}
+                          mentions={mentionsByTodo[todo.id] ?? []}
+                        />
                       </p>
                       {todo.dueAt ? (
                         <span className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
