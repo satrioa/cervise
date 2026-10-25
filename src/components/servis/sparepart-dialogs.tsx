@@ -146,7 +146,33 @@ export function SparepartPickDialog({
             <div className="space-y-1">
               <div className="text-xs font-medium text-muted-foreground">{loading ? <Skeleton className="h-3 w-20" /> : `${rows.length} sparepart`}</div>
               <div className="divide-y rounded-lg border overflow-hidden">
-                {rows.length === 0 && !loading ? (
+                {loading ? (
+                  // Bentuk baris sparepart yang akan dirender: nama + SKU/harga,
+                  // badge stok, dan kotak centang.
+                  <ul aria-hidden>
+                    {Array.from({ length: 3 }, (_, row) => (
+                      <li
+                        key={row}
+                        className="flex w-full items-center justify-between gap-3 px-3 py-2.5"
+                      >
+                        <div className="min-w-0 flex-1 space-y-1.5">
+                          <Skeleton
+                            className="h-3.5"
+                            style={{ width: `${48 + ((row * 11) % 32)}%` }}
+                          />
+                          <Skeleton
+                            className="h-2.5"
+                            style={{ width: `${30 + ((row * 7) % 26)}%` }}
+                          />
+                        </div>
+                        <div className="flex shrink-0 items-center gap-2">
+                          <Skeleton className="h-5 w-14 rounded-full" />
+                          <Skeleton className="size-4 rounded border" />
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                ) : rows.length === 0 ? (
                   <div className="p-6 text-center text-sm text-muted-foreground">Tidak ada sparepart yang cocok</div>
                 ) : (
                   rows.map((r) => {
@@ -254,7 +280,18 @@ export function CancelSparepartDialog({
 
           <div className="mt-4">
             {loading ? (
-              <Skeleton className="h-24" rows={12} />
+              // Bentuk daftar sparepart: nama di kiri, jumlah di kanan.
+              <div aria-hidden className="rounded-lg border divide-y">
+                {[0, 1].map((row) => (
+                  <div key={row} className="flex justify-between px-3 py-2">
+                    <Skeleton
+                      className="h-3"
+                      style={{ width: `${45 + ((row * 13) % 30)}%` }}
+                    />
+                    <Skeleton className="h-3 w-8" />
+                  </div>
+                ))}
+              </div>
             ) : rows.length === 0 ? (
               <div className="rounded-md border border-dashed p-3 text-center text-sm text-muted-foreground">Tidak ada sparepart tercatat — akan langsung Batal.</div>
             ) : (

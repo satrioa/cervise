@@ -460,7 +460,35 @@ export function ServisDetailView({ data }: Props) {
                 </CardHeader>
                 <CardContent>
                   {spLoading ? (
-                    <Skeleton className="h-28" rows={14} />
+                    // Bentuk tabel sparepart: header 5 kolom + baris data.
+                    <div aria-hidden className="overflow-hidden rounded-lg border">
+                      <div className="hidden sm:grid grid-cols-[1fr_90px_80px_90px_110px] gap-2 bg-muted/50 px-3 py-2">
+                        {[0, 1, 2, 3, 4].map((column) => (
+                          <Skeleton
+                            key={column}
+                            className="h-2.5"
+                            style={{ width: `${40 + ((column * 17) % 40)}%` }}
+                          />
+                        ))}
+                      </div>
+                      <div className="divide-y">
+                        {[0, 1].map((row) => (
+                          <div
+                            key={row}
+                            className="grid grid-cols-1 sm:grid-cols-[1fr_90px_80px_90px_110px] gap-1 sm:gap-2 px-3 py-2.5 items-center"
+                          >
+                            <Skeleton
+                              className="h-3.5"
+                              style={{ width: `${45 + ((row * 13) % 35)}%` }}
+                            />
+                            <Skeleton className="h-3 w-16" />
+                            <Skeleton className="h-3 w-6" />
+                            <Skeleton className="h-3 w-14" />
+                            <Skeleton className="mx-auto h-5 w-20 rounded-full" />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
                   ) : spareparts.length === 0 ? (
                     <div className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">Belum ada sparepart dipakai. {canAdd ? "Klik + Tambah Sparepart atau ubah status ke Dikerjakan untuk memilih." : "Sparepart dipilih saat status Dikerjakan."}</div>
                   ) : (
@@ -494,7 +522,35 @@ export function ServisDetailView({ data }: Props) {
             <CardHeader className="pb-3"><CardTitle className="text-base">Timeline</CardTitle><CardDescription>Status, pembayaran, edit field, ganti teknisi — reten 30 hari</CardDescription></CardHeader>
             <CardContent>
               {logsLoading ? (
-                <Skeleton className="h-48" rows={20} />
+                // Bentuk timeline: lingkaran ikon + garis vertikal, baris
+                // teks, dan waktu di kanan.
+                <div aria-hidden className="rounded-xl border border-border/60 bg-background/40 px-5 py-3">
+                  <ol className="relative">
+                    <span className="absolute top-2 bottom-2 left-[1.0625rem] w-px bg-border/50" />
+                    {[0, 1, 2].map((row) => (
+                      <li
+                        key={row}
+                        className="relative grid grid-cols-[34px_1fr_auto] items-start gap-3 py-3"
+                      >
+                        <Skeleton className="z-10 size-[34px] rounded-full" />
+                        <div className="min-w-0 space-y-1.5 pt-1.5">
+                          <div className="flex items-center gap-2">
+                            <Skeleton className="size-5 rounded-full" />
+                            <Skeleton
+                              className="h-3.5"
+                              style={{ width: `${35 + ((row * 13) % 30)}%` }}
+                            />
+                          </div>
+                          <Skeleton
+                            className="h-2.5"
+                            style={{ width: `${45 + ((row * 7) % 30)}%` }}
+                          />
+                        </div>
+                        <Skeleton className="h-2.5 w-16 shrink-0" />
+                      </li>
+                    ))}
+                  </ol>
+                </div>
               ) : timelineEvents.length === 0 ? (
                 <div className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">Belum ada aktivitas. Timeline akan terisi saat status/pembayaran/edit terjadi.</div>
               ) : (
@@ -558,7 +614,34 @@ export function ServisDetailView({ data }: Props) {
                 {d.price != null && <Badge variant="outline" className="font-mono">Total di DB {formatCurrencyPlain(Number(d.price))}</Badge>}
               </div>
               {historyLoading ? (
-                <Skeleton className="h-24" rows={12} />
+                // Bentuk tabel pembayaran: header 4 kolom + baris data.
+                <div aria-hidden className="overflow-hidden rounded-lg border">
+                  <div className="hidden sm:grid grid-cols-[110px_100px_1fr_90px] gap-2 bg-muted/50 px-3 py-2">
+                    {[0, 1, 2, 3].map((column) => (
+                      <Skeleton
+                        key={column}
+                        className="h-2.5"
+                        style={{ width: `${45 + ((column * 17) % 40)}%` }}
+                      />
+                    ))}
+                  </div>
+                  <div className="divide-y">
+                    {[0, 1, 2].map((row) => (
+                      <div
+                        key={row}
+                        className="grid grid-cols-1 sm:grid-cols-[110px_100px_1fr_90px] gap-1 sm:gap-2 px-3 py-2.5 items-center"
+                      >
+                        <Skeleton className="h-3 w-20" />
+                        <Skeleton className="h-5 w-16 rounded-full" />
+                        <Skeleton
+                          className="h-3"
+                          style={{ width: `${40 + ((row * 13) % 35)}%` }}
+                        />
+                        <Skeleton className="h-3.5 w-16" />
+                      </div>
+                    ))}
+                  </div>
+                </div>
               ) : history.length === 0 ? (
                 <div className="rounded-lg border border-dashed p-4 text-center text-sm text-muted-foreground">Belum ada pembayaran. Bisa DP awal atau bayar di akhir.</div>
               ) : (

@@ -21,6 +21,7 @@ import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
 import { ServisForm } from "@/components/servis/servis-form";
 import { EditServisForm } from "@/components/servis/edit-servis-form";
 import { ServisDetailView } from "@/components/servis/servis-detail-view";
+import { ServisDetailSkeleton, ServisFormSkeleton } from "@/components/servis/servis-detail-skeleton";
 import { ServisContextMenu } from "@/components/servis-context-menu";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -925,7 +926,7 @@ export default function ServisPage() {
             </div>
             <div className="flex-1 min-h-0 overflow-hidden p-4 sm:p-6 flex flex-col">
               {detailLoading ? (
-                <Skeleton className="h-64" rows={26} />
+                <ServisDetailSkeleton />
               ) : (
                 <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
                   <ServisDetailView data={detailData} />
@@ -956,7 +957,7 @@ export default function ServisPage() {
             <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain">
               <div className="px-4 sm:px-6 py-4">
                 {detailLoading ? (
-                  <Skeleton className="h-64" rows={26} />
+                  <ServisFormSkeleton />
                 ) : detailData ? (
                   <EditServisForm servisId={detailData.id} initial={detailData as ServisDetail} onSuccess={() => { setEditOpen(false); // refresh detail & list
                     if (detailData) {

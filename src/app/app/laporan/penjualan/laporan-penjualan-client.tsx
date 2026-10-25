@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { DownloadIcon } from "lucide-react";
-import { Skeleton } from "@/components/ui/skeleton";
+import { StatValueSkeleton, TableRowsSkeleton } from "@/components/ui/skeleton-shapes";
 import { format } from "date-fns";
 import { id as localeId } from "date-fns/locale";
 import { PageHeader } from "@/components/layout/page-header";
@@ -120,15 +120,57 @@ export default function LaporanPenjualanPage() {
               </div>
             ))}
           </div>
+        ) : loading ? (
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+            {["Omzet", "Retur", "Sudah dibayar", "Belum dibayar", "Transaksi"].map((label) => (
+              <div key={label} className="rounded-xl border border-border/60 bg-background/40 p-4">
+                <div className="font-mono text-[10px] text-muted-foreground uppercase tracking-[0.25em]">{label}</div>
+                <StatValueSkeleton className="mt-2" valueClassName="h-6 w-28" />
+              </div>
+            ))}
+          </div>
         ) : null}
 
         <Card>
           <CardHeader><CardTitle className="text-base">Laporan Harian</CardTitle><CardDescription>Per hari (kas_date)</CardDescription></CardHeader>
           <CardContent>
-            {loading ? <Skeleton className="h-40" rows={18} /> : harian.length === 0 ? <div className="py-8 text-center text-sm text-muted-foreground">{report?.sales.length === 0 ? "Belum ada penjualan pada periode ini" : "Tidak ada penjualan yang cocok"}</div> : (
+            {!loading && harian.length === 0 ? (
+              <div className="py-8 text-center text-sm text-muted-foreground">
+                {report?.sales.length === 0 ? "Belum ada penjualan pada periode ini" : "Tidak ada penjualan yang cocok"}
+              </div>
+            ) : (
               <Table>
-                <TableHeader><TableRow><TableHead>Tanggal</TableHead><TableHead className="text-right">Transaksi</TableHead><TableHead className="text-right">Omzet</TableHead><TableHead className="text-right">Belum dibayar</TableHead><TableHead className="w-10" /></TableRow></TableHeader>
-                <TableBody>{harian.map((r) => (<TableRow key={r.key}><TableCell className="font-medium">{formatHarian(r.key)}</TableCell><TableCell className="text-right font-mono tabular-nums">{formatNumberPlain(r.count)}</TableCell><TableCell className="text-right font-mono tabular-nums">{formatCurrencyPlain(r.omzet)}</TableCell><TableCell className="text-right font-mono tabular-nums text-amber-600">{formatCurrencyPlain(r.unpaid)}</TableCell><TableCell><Button size="icon-sm" variant="ghost" aria-label={`Download ${r.key}`} onClick={() => openPrint(printHtml(formatHarian(r.key), r.sales))}><DownloadIcon className="size-4" /></Button></TableCell></TableRow>))}</TableBody>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Tanggal</TableHead>
+                    <TableHead className="text-right">Transaksi</TableHead>
+                    <TableHead className="text-right">Omzet</TableHead>
+                    <TableHead className="text-right">Belum dibayar</TableHead>
+                    <TableHead className="w-10" />
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {loading ? (
+                    <TableRowsSkeleton
+                      cells={["text", "money", "money", "money", "icon"]}
+                      rows={5}
+                    />
+                  ) : (
+                    harian.map((r) => (
+                      <TableRow key={r.key}>
+                        <TableCell className="font-medium">{formatHarian(r.key)}</TableCell>
+                        <TableCell className="text-right font-mono tabular-nums">{formatNumberPlain(r.count)}</TableCell>
+                        <TableCell className="text-right font-mono tabular-nums">{formatCurrencyPlain(r.omzet)}</TableCell>
+                        <TableCell className="text-right font-mono tabular-nums text-amber-600">{formatCurrencyPlain(r.unpaid)}</TableCell>
+                        <TableCell>
+                          <Button size="icon-sm" variant="ghost" aria-label={`Download ${r.key}`} onClick={() => openPrint(printHtml(formatHarian(r.key), r.sales))}>
+                            <DownloadIcon className="size-4" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
               </Table>
             )}
           </CardContent>
@@ -137,10 +179,43 @@ export default function LaporanPenjualanPage() {
         <Card>
           <CardHeader><CardTitle className="text-base">Laporan Bulanan</CardTitle><CardDescription>Per bulan</CardDescription></CardHeader>
           <CardContent>
-            {loading ? <Skeleton className="h-40" rows={18} /> : bulanan.length === 0 ? <div className="py-8 text-center text-sm text-muted-foreground">{report?.sales.length === 0 ? "Belum ada penjualan pada periode ini" : "Tidak ada penjualan yang cocok"}</div> : (
+            {!loading && bulanan.length === 0 ? (
+              <div className="py-8 text-center text-sm text-muted-foreground">
+                {report?.sales.length === 0 ? "Belum ada penjualan pada periode ini" : "Tidak ada penjualan yang cocok"}
+              </div>
+            ) : (
               <Table>
-                <TableHeader><TableRow><TableHead>Bulan</TableHead><TableHead className="text-right">Transaksi</TableHead><TableHead className="text-right">Omzet</TableHead><TableHead className="text-right">Belum dibayar</TableHead><TableHead className="w-10" /></TableRow></TableHeader>
-                <TableBody>{bulanan.map((r) => (<TableRow key={r.key}><TableCell className="font-medium">{formatBulanan(r.key)}</TableCell><TableCell className="text-right font-mono tabular-nums">{formatNumberPlain(r.count)}</TableCell><TableCell className="text-right font-mono tabular-nums">{formatCurrencyPlain(r.omzet)}</TableCell><TableCell className="text-right font-mono tabular-nums text-amber-600">{formatCurrencyPlain(r.unpaid)}</TableCell><TableCell><Button size="icon-sm" variant="ghost" aria-label={`Download ${r.key}`} onClick={() => openPrint(printHtml(formatBulanan(r.key), r.sales))}><DownloadIcon className="size-4" /></Button></TableCell></TableRow>))}</TableBody>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Bulan</TableHead>
+                    <TableHead className="text-right">Transaksi</TableHead>
+                    <TableHead className="text-right">Omzet</TableHead>
+                    <TableHead className="text-right">Belum dibayar</TableHead>
+                    <TableHead className="w-10" />
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {loading ? (
+                    <TableRowsSkeleton
+                      cells={["text", "money", "money", "money", "icon"]}
+                      rows={5}
+                    />
+                  ) : (
+                    bulanan.map((r) => (
+                      <TableRow key={r.key}>
+                        <TableCell className="font-medium">{formatBulanan(r.key)}</TableCell>
+                        <TableCell className="text-right font-mono tabular-nums">{formatNumberPlain(r.count)}</TableCell>
+                        <TableCell className="text-right font-mono tabular-nums">{formatCurrencyPlain(r.omzet)}</TableCell>
+                        <TableCell className="text-right font-mono tabular-nums text-amber-600">{formatCurrencyPlain(r.unpaid)}</TableCell>
+                        <TableCell>
+                          <Button size="icon-sm" variant="ghost" aria-label={`Download ${r.key}`} onClick={() => openPrint(printHtml(formatBulanan(r.key), r.sales))}>
+                            <DownloadIcon className="size-4" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
               </Table>
             )}
           </CardContent>

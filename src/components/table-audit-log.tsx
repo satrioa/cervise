@@ -15,6 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { getAuditLog } from "@/app/app/audit-log/actions";
 import { Skeleton } from "@/components/ui/skeleton";
+import { TableRowsSkeleton } from "@/components/ui/skeleton-shapes";
 import {
   auditActionLabel,
   auditActionsFrom,
@@ -278,11 +279,10 @@ export function CerviseAuditLogTable({ cabangFilter }: { cabangFilter?: string }
           </TableHeader>
           <TableBody>
             {loading ? (
-              <TableRow>
-                <TableCell colSpan={5} className="px-3 py-3">
-                  <Skeleton className="h-32" rows={16} />
-                </TableCell>
-              </TableRow>
+              <TableRowsSkeleton
+                cells={["text", "avatar", "badge", "text", "text"]}
+                rows={5}
+              />
             ) : filtered.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={5} className="py-10 text-center text-sm text-muted-foreground">

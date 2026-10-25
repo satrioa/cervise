@@ -263,6 +263,19 @@ export function TaskNoteCard({
   const hiddenCount = ordered.length - visible.length;
   const doneLabel = loading ? "—" : `${done.length}/${todos.length}`;
 
+  /**
+   * Angka "2/9" saat loading belum ada isinya, jadi menampilkan "—" chilly
+   * membuat kartu terlihat kosong. Bar skeleton sized seperti angka besarnya
+   * lebih jujur: bentuknya sama, isinya belum dimuat.
+   */
+  const counter = loading ? (
+    <Skeleton className="h-8 w-14 shrink-0 rounded-md sm:h-10 sm:w-20" />
+  ) : (
+    <p className="font-heading shrink-0 text-4xl font-normal leading-none tracking-tight tabular-nums sm:text-5xl">
+      {doneLabel}
+    </p>
+  );
+
   const composer = composing ? (
     <div className="flex shrink-0 flex-col gap-2 pb-2">
       <MentionComposerInput
@@ -298,11 +311,38 @@ export function TaskNoteCard({
   ) : null;
 
   const listBody = loading ? (
-    <div className="flex flex-1 flex-col gap-1.5 py-1">
-      <Skeleton className="h-7 rounded-lg" />
-      <Skeleton className="h-7 rounded-lg" />
-      <Skeleton className="h-7 rounded-lg" />
-    </div>
+    // Bentuknya mengikuti baris tugas yang dirender: tombol centang bulat,
+    // judul, tanggal jatuh tempo (hanya varian default), pensil, dan hapus.
+    <ul
+      aria-hidden
+      className={cn(
+        "flex min-h-0 flex-1 flex-col divide-y divide-black/5 dark:divide-white/10",
+        variant === "default" ? "mt-3" : "mt-1",
+      )}
+    >
+      {[0, 1, 2].map((row) => (
+        <li
+          key={row}
+          className={cn(
+            "flex items-center gap-2 px-1.5",
+            variant === "default" ? "py-1.5" : "py-1",
+          )}
+        >
+          <Skeleton className="size-5 shrink-0 rounded-full" />
+          <div className="flex min-w-0 flex-1 items-center gap-2">
+            <Skeleton
+              className="h-3"
+              style={{ width: `${48 + ((row * 13) % 34)}%` }}
+            />
+          </div>
+          {variant === "default" ? (
+            <Skeleton className="h-2.5 w-12 shrink-0" />
+          ) : null}
+          <Skeleton className="size-3.5 shrink-0 rounded-full" />
+          <Skeleton className="size-3.5 shrink-0 rounded-full" />
+        </li>
+      ))}
+    </ul>
   ) : ordered.length === 0 ? (
     <p className="flex flex-1 items-center justify-center px-2 text-center text-xs text-muted-foreground">
       Belum ada tugas.
@@ -507,9 +547,7 @@ export function TaskNoteCard({
             <h2 className="text-[15px] font-medium tracking-tight">TodoList</h2>
             <p className="mt-1 text-[11px] leading-snug text-muted-foreground">Tugas selesai</p>
           </div>
-          <p className="font-heading shrink-0 text-4xl font-normal leading-none tracking-tight tabular-nums sm:text-5xl">
-            {doneLabel}
-          </p>
+          {counter}
         </div>
 
         <div className="mt-3">{toolbar}</div>
@@ -527,9 +565,13 @@ export function TaskNoteCard({
       <div className="flex h-full min-h-0 flex-col">
         <div className="flex items-center justify-between gap-2">
           <h2 className="text-[15px] font-medium tracking-tight">TodoList</h2>
-          <p className="font-heading text-2xl font-normal leading-none tracking-tight tabular-nums">
-            {doneLabel}
-          </p>
+          {loading ? (
+            <Skeleton className="h-6 w-12 shrink-0 rounded-md" />
+          ) : (
+            <p className="font-heading text-2xl font-normal leading-none tracking-tight tabular-nums">
+              {doneLabel}
+            </p>
+          )}
         </div>
         <div className="mt-1.5">{toolbar}</div>
         {composer}

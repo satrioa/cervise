@@ -10,7 +10,8 @@ import {
   XIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { AsciiSkeleton } from "@/components/ui/ascii";
+import { ChartSkeleton, ListRowsSkeleton } from "@/components/ui/skeleton-shapes";
+import { Skeleton } from "@/components/ui/skeleton";
 import { CerviseAnalyticsSection } from "@/components/dashboards-analytics";
 import { PageHeader } from "@/components/layout/page-header";
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
@@ -123,8 +124,20 @@ export default function DashboardOwnerClient() {
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
           {loading && !summary
             ? Array.from({ length: 4 }, (_, index) => (
-                <div key={index} className="rounded-xl border border-border/60 bg-background/40 p-4">
-                  <AsciiSkeleton lines={3} widths={["44%", "66%", "32%"]} seed={index + 2} />
+                <div
+                  key={index}
+                  aria-hidden
+                  className="rounded-xl border border-border/60 bg-background/40 p-4"
+                >
+                  <div className="flex items-center justify-between">
+                    <Skeleton className="h-2.5 w-24" />
+                    <Skeleton className="size-4 rounded-full" />
+                  </div>
+                  <Skeleton className="mt-2 h-8 w-28" />
+                  <div className="mt-2 flex items-center gap-1.5">
+                    <Skeleton className="h-4 w-16 rounded" />
+                    <Skeleton className="h-3 w-20" />
+                  </div>
                 </div>
               ))
             : cards.map((card) => (
@@ -267,7 +280,7 @@ function ChartCard({ data, total, period, loading }: { data: number[]; total: st
       </div>
       <div className="mt-6 h-44 w-full">
         {loading ? (
-          <AsciiSkeleton rows={18} seed={8} className="h-full w-full rounded-lg text-[8px]" />
+          <ChartSkeleton shape="naik" />
         ) : data.length > 0 ? (
           <Sparkline data={data} />
         ) : (
@@ -314,15 +327,13 @@ function ActivityCard({ items, loading }: { items: { id: string; device: string;
       <div className="flex items-center justify-between">
         <div className="font-mono text-[10px] text-muted-foreground uppercase tracking-[0.25em]">Recent activity</div>
       </div>
-      <ul className="mt-4 flex flex-col gap-3.5">
-        {loading ? (
-          <li>
-            <AsciiSkeleton lines={5} widths={["78%", "62%", "86%", "70%", "52%"]} seed={11} />
-          </li>
-        ) : items.length === 0 ? (
-          <li className="text-sm text-muted-foreground">Belum ada aktivitas</li>
-        ) : (
-          items.map((item) => (
+      {loading ? (
+        <ListRowsSkeleton rows={4} leading="initial" lines={2} className="mt-4" />
+      ) : items.length === 0 ? (
+        <p className="mt-4 text-sm text-muted-foreground">Belum ada aktivitas</p>
+      ) : (
+        <ul className="mt-4 flex flex-col gap-3.5">
+          {items.map((item) => (
             <li key={item.id} className="flex items-start gap-3 text-sm">
               <span className="mt-1 flex size-6 items-center justify-center rounded-full bg-foreground/[0.06] font-medium text-[10px]">
                 {(item.customer || item.device).slice(0, 1).toUpperCase()}
@@ -336,9 +347,9 @@ function ActivityCard({ items, loading }: { items: { id: string; device: string;
                 </div>
               </div>
             </li>
-          ))
-        )}
-      </ul>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }

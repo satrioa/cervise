@@ -31,6 +31,14 @@ type SkeletonProps = Omit<React.ComponentProps<"div">, "children"> &
  * panel setinggi `h-40`), karena generator menggambar 96–120 glyph per baris
  * dan baris yang berlebih dipotong `overflow-hidden`.
  *
+ * PENTING: `Skeleton` hanya mengisi KOTAK. Ia tidak tahu bentuk apa yang akan
+ * menggantikannya. Kalau area itu sebenarnya tabel, daftar, grafik, atau
+ * kartu, bentukkan dari markup yang sama dengan hasil render — pakai
+ * primitive di `@/components/ui/skeleton-shapes` (`TableRowsSkeleton`,
+ * `ListRowsSkeleton`, `ChartSkeleton`, `StatValueSkeleton`, `TimelineSkeleton`)
+ * atau `loading.tsx` route. Baris placeholder tunggal (jumlah, tombol, teks
+ * pendek) tetap cocok memakai `Skeleton` biasa.
+ *
  * Di dalam `<p>`/`<span>` pakai `as="span"` supaya tidak memecah nesting HTML
  * (div di dalam p membuat browser menutup paragraf lebih awal).
  */

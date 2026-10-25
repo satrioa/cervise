@@ -1,7 +1,8 @@
 import { MoreHorizontalIcon, StoreIcon, WrenchIcon, UsersIcon } from "lucide-react";
 import { formatCurrencyPlain, formatNumberPlain } from "@/lib/format";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { AsciiSkeleton } from "@/components/ui/ascii";
+import { ChartSkeleton } from "@/components/ui/skeleton-shapes";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Line, LineChart } from "recharts";
 import { ChartAxis, ChartContainer, ChartGrid, ChartTooltip, chartColor } from "@/components/chart";
 import type {
@@ -138,7 +139,7 @@ function AnalyticsContent({
 
         <ChartContainer className="mt-4 h-72 w-full min-w-0">
           {loading ? (
-            <AsciiSkeleton rows={24} seed={4} className="h-full w-full rounded-lg text-[8px]" />
+            <ChartSkeleton shape={period === "90d" ? "datar" : "naik"} />
           ) : data.length === 0 ? (
             <div className="flex h-full items-center justify-center text-sm text-muted-foreground">Belum ada data</div>
           ) : (
@@ -167,7 +168,23 @@ function AnalyticsContent({
       <div className="mt-6 grid grid-cols-1 gap-3 lg:grid-cols-2">
         <BreakdownCard title="Top teknisi">
           {loading ? (
-            <AsciiSkeleton className="mt-4" lines={5} seed={5} widths={["72%", "58%", "80%", "64%", "48%"]} />
+            <ul aria-hidden className="mt-4 flex flex-col gap-3">
+              {Array.from({ length: 5 }, (_, row) => (
+                <li key={row} className="text-sm">
+                  <div className="flex items-center gap-2">
+                    <Skeleton className="size-6 shrink-0 rounded-full" />
+                    <div className="min-w-0 flex-1">
+                      <Skeleton
+                        className="h-3"
+                        style={{ width: `${45 + ((row * 11) % 35)}%` }}
+                      />
+                    </div>
+                    <Skeleton className="h-3 w-14 shrink-0" />
+                  </div>
+                  <Skeleton className="mt-1.5 h-1 w-full rounded-full" />
+                </li>
+              ))}
+            </ul>
           ) : technicians.length === 0 ? (
             <Empty>Belum ada servis dengan teknisiassigned</Empty>
           ) : (
@@ -200,7 +217,20 @@ function AnalyticsContent({
 
         <BreakdownCard title="Top masalah servis">
           {loading ? (
-            <AsciiSkeleton className="mt-4" lines={6} seed={6} widths={["86%", "70%", "78%", "62%", "74%", "54%"]} />
+            <ul aria-hidden className="mt-4 flex flex-col gap-1">
+              {Array.from({ length: 6 }, (_, row) => (
+                <li
+                  key={row}
+                  className="flex items-center justify-between gap-3 px-2 py-2"
+                >
+                  <Skeleton
+                    className="h-3"
+                    style={{ width: `${42 + ((row * 9) % 32)}%` }}
+                  />
+                  <Skeleton className="h-3 w-16 shrink-0" />
+                </li>
+              ))}
+            </ul>
           ) : problems.length === 0 ? (
             <Empty>Belum ada keluhan tercatat</Empty>
           ) : (
@@ -224,7 +254,29 @@ function AnalyticsContent({
 
       <BreakdownCard title="Performa cabang" className="mt-3">
         {loading ? (
-          <AsciiSkeleton className="mt-4" lines={4} seed={7} widths={["90%", "76%", "84%", "66%"]} />
+          <ul
+            aria-hidden
+            className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-5"
+          >
+            {Array.from({ length: 5 }, (_, row) => (
+              <li
+                key={row}
+                className="flex items-center gap-2.5 rounded-md border border-border/40 bg-background/40 px-3 py-2.5"
+              >
+                <Skeleton className="size-8 shrink-0 rounded-full" />
+                <div className="min-w-0 flex-1">
+                  <Skeleton
+                    className="h-3"
+                    style={{ width: `${50 + ((row * 7) % 30)}%` }}
+                  />
+                  <div className="mt-1 flex items-center gap-1.5">
+                    <Skeleton className="h-1 flex-1 rounded-full" />
+                    <Skeleton className="h-2.5 w-10 shrink-0" />
+                  </div>
+                </div>
+              </li>
+            ))}
+          </ul>
         ) : branches.length === 0 ? (
           <Empty>Belum ada pemasukan pada periode ini</Empty>
         ) : (

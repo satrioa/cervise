@@ -12,7 +12,7 @@ import { Menu, MenuItem, MenuPopup, MenuTrigger } from "@/components/ui/menu";
 import { PerformaExport } from "@/components/performa-export";
 import { PageHeader } from "@/components/layout/page-header";
 import { getPerformaTeknisi } from "@/app/app/laporan/performa/actions";
-import { Skeleton } from "@/components/ui/skeleton";
+import { StatValueSkeleton, TableRowsSkeleton } from "@/components/ui/skeleton-shapes";
 import type { TeknisiPerformanceRow } from "@/lib/operational/performa-teknisi";
 
 const NAMA_BULAN = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
@@ -150,6 +150,15 @@ export default function PerformaPage() {
               </div>
             ))}
           </div>
+        ) : loading ? (
+          <div className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
+            {["Teknisi", "Servis selesai", "Pendapatan", "Total insentif"].map((label) => (
+              <div key={label} className="rounded-xl border border-border/60 bg-background/40 p-4">
+                <div className="font-mono text-[10px] text-muted-foreground uppercase tracking-[0.25em]">{label}</div>
+                <StatValueSkeleton className="mt-2" valueClassName="h-6 w-24" />
+              </div>
+            ))}
+          </div>
         ) : null}
         {summary && summary.selesaiTanpaTanggal > 0 && (
           <p className="mb-4 rounded-lg border border-dashed border-border bg-muted/30 px-4 py-3 text-xs text-muted-foreground">
@@ -173,11 +182,14 @@ export default function PerformaPage() {
             </TableHeader>
             <TableBody>
               {loading ? (
-                <TableRow>
-                  <TableCell colSpan={showProgress ? 7 : 6} className="px-3 py-3">
-                    <Skeleton className="h-24" />
-                  </TableCell>
-                </TableRow>
+                <TableRowsSkeleton
+                  cells={
+                    showProgress
+                      ? ["text", "text", "badge", "money", "badge", "progress", "icon"]
+                      : ["text", "text", "badge", "money", "badge", "icon"]
+                  }
+                  rows={5}
+                />
               ) : filtered.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={showProgress ? 7 : 6} className="py-8 text-center text-sm text-muted-foreground">

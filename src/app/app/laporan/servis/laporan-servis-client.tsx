@@ -10,7 +10,7 @@ import { DownloadIcon } from "lucide-react";
 import { format } from "date-fns";
 import { id as localeId } from "date-fns/locale";
 import { PageHeader } from "@/components/layout/page-header";
-import { Skeleton } from "@/components/ui/skeleton";
+import { TableRowsSkeleton } from "@/components/ui/skeleton-shapes";
 import { DateRangeFilter } from "@/components/date-range-filter";
 import { getLaporanServis } from "@/app/app/laporan/servis/actions";
 import { toLocalDateString } from "@/lib/operational/garansi-list";
@@ -156,9 +156,7 @@ export default function LaporanServisPage() {
             <CardDescription>Per hari (kas_date) — klik download di baris tanggal</CardDescription>
           </CardHeader>
           <CardContent>
-            {loading ? (
-              <Skeleton className="h-40" rows={18} />
-            ) : harian.length === 0 ? (
+            {!loading && harian.length === 0 ? (
               <div className="py-8 text-center text-sm text-muted-foreground">Tidak ada servis pada periode ini</div>
             ) : (
               <Table>
@@ -176,7 +174,13 @@ export default function LaporanServisPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {harian.map((r) => (
+                  {loading ? (
+                    <TableRowsSkeleton
+                      cells={["text", "text", "text", "money", "money", "money", "money", "money", "icon"]}
+                      rows={5}
+                    />
+                  ) : (
+                    harian.map((r) => (
                     <TableRow key={r.key}>
                       <TableCell className="font-medium whitespace-nowrap">{formatHarian(r.key)}</TableCell>
                       <TableCell className="text-muted-foreground text-sm">{cabangLabel}</TableCell>
@@ -205,7 +209,8 @@ export default function LaporanServisPage() {
                         </Button>
                       </TableCell>
                     </TableRow>
-                  ))}
+                    ))
+                  )}
                 </TableBody>
               </Table>
             )}
@@ -219,9 +224,7 @@ export default function LaporanServisPage() {
             <CardDescription>Per bulan — klik download di baris bulan</CardDescription>
           </CardHeader>
           <CardContent>
-            {loading ? (
-              <Skeleton className="h-40" rows={18} />
-            ) : bulanan.length === 0 ? (
+            {!loading && bulanan.length === 0 ? (
               <div className="py-8 text-center text-sm text-muted-foreground">Tidak ada servis pada periode ini</div>
             ) : (
               <Table>
@@ -239,7 +242,13 @@ export default function LaporanServisPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {bulanan.map((r) => (
+                  {loading ? (
+                    <TableRowsSkeleton
+                      cells={["text", "text", "text", "money", "money", "money", "money", "money", "icon"]}
+                      rows={5}
+                    />
+                  ) : (
+                    bulanan.map((r) => (
                     <TableRow key={r.key}>
                       <TableCell className="font-medium whitespace-nowrap">{formatBulanan(r.key)}</TableCell>
                       <TableCell className="text-muted-foreground text-sm">{cabangLabel}</TableCell>
@@ -268,7 +277,8 @@ export default function LaporanServisPage() {
                         </Button>
                       </TableCell>
                     </TableRow>
-                  ))}
+                    ))
+                  )}
                 </TableBody>
               </Table>
             )}

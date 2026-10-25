@@ -13,6 +13,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { getFinanceLedger } from "@/app/app/keuangan/actions";
 import { Skeleton } from "@/components/ui/skeleton";
+import { StatValueSkeleton, TableRowsSkeleton } from "@/components/ui/skeleton-shapes";
 import type { FinanceTx } from "@/lib/operational/laporan-keuangan";
 import { TransaksiExportButton } from "@/components/transaksi-export-button";
 import { PageHeader } from "@/components/layout/page-header";
@@ -219,9 +220,9 @@ export default function TransaksiPage() {
           </div>
         ) : null}
         <div className="mb-4 grid grid-cols-3 gap-3">
-          <SummaryTile label="Pemasukan" amount={inflow} tone="positive" />
-          <SummaryTile label="Pengeluaran" amount={outflow} tone="negative" />
-          <SummaryTile label="Net" amount={inflow - outflow} tone="neutral" />
+          <SummaryTile label="Pemasukan" amount={inflow} tone="positive" loading={loading} />
+          <SummaryTile label="Pengeluaran" amount={outflow} tone="negative" loading={loading} />
+          <SummaryTile label="Net" amount={inflow - outflow} tone="neutral" loading={loading} />
         </div>
 
         <div className="rounded-xl border bg-card shadow-xs/5">
@@ -232,17 +233,15 @@ export default function TransaksiPage() {
                 <TableHead>Deskripsi</TableHead>
                 <TableHead>Cabang</TableHead>
                 <TableHead>Metode</TableHead>
-                <TableHead>Status</TableHead>
                 <TableHead className="pe-4 text-right">Nominal</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {loading ? (
-                <TableRow>
-                  <TableCell colSpan={5} className="px-3 py-3">
-                    <Skeleton className="h-32" rows={16} />
-                  </TableCell>
-                </TableRow>
+                <TableRowsSkeleton
+                  cells={["text", "avatar", "text", "badge", "money"]}
+                  rows={5}
+                />
               ) : txs.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={5} className="py-10 text-center text-sm text-muted-foreground">
@@ -288,9 +287,13 @@ export default function TransaksiPage() {
           </Table>
 
           <div className="flex items-center justify-between border-t p-3">
-            <span className="text-muted-foreground text-xs">
-              Menampilkan <span className="text-foreground tabular-nums">{start}–{end}</span> dari {txs.length} (halaman {page} dari {totalPages})
-            </span>
+            {loading ? (
+              <Skeleton className="h-3 w-40" />
+            ) : (
+              <span className="text-muted-foreground text-xs">
+                Menampilkan <span className="text-foreground tabular-nums">{start}–{end}</span> dari {txs.length} (halaman {page} dari {totalPages})
+              </span>
+            )}
             <Pagination>
               <PaginationContent>
                 <PaginationItem>
@@ -326,13 +329,32 @@ export default function TransaksiPage() {
   );
 }
 
-function SummaryTile({ label, amount, tone }: { label: string; amount: number; tone: "positive" | "negative" | "neutral" }) {
+function SummaryTile({
+  label,
+  amount,
+  tone,
+  loading = false,
+}: {
+  label: string;
+  amount: number;
+  tone: "positive" | "negative" | "neutral";
+  loading?: boolean;
+}) {
   const sign = tone === "negative" ? "−" : "+";
   const cls = tone === "positive" ? "text-emerald-600 dark:text-emerald-400" : tone === "negative" ? "text-foreground" : "text-foreground";
   return (
     <div className="rounded-xl border bg-card p-4 shadow-xs/5">
       <div className="font-mono text-[10px] text-muted-foreground uppercase tracking-[0.2em]">{label}</div>
-      <div className={"mt-1.5 font-heading font-semibold text-2xl tabular-nums " + cls}>{sign}{formatCurrencyPlain(Math.abs(amount))}</div>
+      {loading ? (
+        // Angka "Rp 0" saat loading terbaca seperti data asli. Bar nilai lebih
+        // jujur: bentuknya sama, isinya belum ada.
+        <StatValueSkeleton className="mt-1.5" valueClassName="h-6 w-28" />
+      ) : (
+        <div className={"mt-1.5 font-heading font-semibold text-2xl tabular-nums " + cls}>
+          {sign}
+          {formatCurrencyPlain(Math.abs(amount))}
+        </div>
+      )}
     </div>
   );
 }

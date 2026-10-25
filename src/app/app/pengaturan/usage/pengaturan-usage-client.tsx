@@ -10,6 +10,7 @@ import { id as localeId } from "date-fns/locale";
 import { BarChart3Icon, PackageIcon, WalletIcon } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
 import { Skeleton } from "@/components/ui/skeleton";
+import { StatValueSkeleton, TableRowsSkeleton } from "@/components/ui/skeleton-shapes";
 
 export default function UsagePage() {
   const [rows, setRows] = useState<any[]>([]);
@@ -64,18 +65,42 @@ export default function UsagePage() {
       <div className="grid gap-3 sm:grid-cols-3">
         <Card>
           <CardHeader className="pb-2"><CardTitle className="text-sm flex items-center gap-2"><BarChart3Icon className="size-4" /> Hari ini</CardTitle></CardHeader>
-          <CardContent><div className="font-heading text-2xl tabular-nums">{rows.filter((r) => new Date(r.created_at).toISOString().slice(0, 10) === new Date().toISOString().slice(0, 10)).length}</div><div className="text-xs text-muted-foreground">servis</div></CardContent>
+          <CardContent>
+            {loading ? (
+              <StatValueSkeleton valueClassName="h-6 w-12" />
+            ) : (
+              <>
+                <div className="font-heading text-2xl tabular-nums">{rows.filter((r) => new Date(r.created_at).toISOString().slice(0, 10) === new Date().toISOString().slice(0, 10)).length}</div>
+                <div className="text-xs text-muted-foreground">servis</div>
+              </>
+            )}
+          </CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-2"><CardTitle className="text-sm flex items-center gap-2"><PackageIcon className="size-4" /> Bulan ini</CardTitle></CardHeader>
-          <CardContent><div className="font-heading text-2xl tabular-nums">{rows.filter((r) => new Date(r.created_at).toISOString().slice(0, 7) === new Date().toISOString().slice(0, 7)).length}</div><div className="text-xs text-muted-foreground">dari {quota} kuota</div></CardContent>
+          <CardContent>
+            {loading ? (
+              <StatValueSkeleton valueClassName="h-6 w-12" />
+            ) : (
+              <>
+                <div className="font-heading text-2xl tabular-nums">{rows.filter((r) => new Date(r.created_at).toISOString().slice(0, 7) === new Date().toISOString().slice(0, 7)).length}</div>
+                <div className="text-xs text-muted-foreground">dari {quota} kuota</div>
+              </>
+            )}
+          </CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-2"><CardTitle className="text-sm flex items-center gap-2"><WalletIcon className="size-4" /> Sisa kuota</CardTitle></CardHeader>
           <CardContent>
-            <div className="font-heading text-2xl tabular-nums">{sisa}</div>
-            <div className="mt-2 h-2 overflow-hidden rounded-full bg-foreground/10"><div className="h-full bg-emerald-500" style={{ width: `${pct}%` }} /></div>
-            <div className="mt-1 text-xs text-muted-foreground">{pct}% terpakai ({total}/{quota})</div>
+            {loading ? (
+              <StatValueSkeleton valueClassName="h-6 w-12" progress />
+            ) : (
+              <>
+                <div className="font-heading text-2xl tabular-nums">{sisa}</div>
+                <div className="mt-2 h-2 overflow-hidden rounded-full bg-foreground/10"><div className="h-full bg-emerald-500" style={{ width: `${pct}%` }} /></div>
+                <div className="mt-1 text-xs text-muted-foreground">{pct}% terpakai ({total}/{quota})</div>
+              </>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -83,9 +108,7 @@ export default function UsagePage() {
       <Card>
         <CardHeader><CardTitle className="text-base">7 Hari Terakhir (count)</CardTitle><CardDescription>Jumlah servis per kas_date</CardDescription></CardHeader>
         <CardContent>
-          {loading ? (
-            <Skeleton className="h-40" rows={18} />
-          ) : last7.length === 0 ? (
+          {!loading && last7.length === 0 ? (
             <div className="py-6 text-center text-sm text-muted-foreground">Belum ada data</div>
           ) : (
             <Table>
@@ -93,13 +116,17 @@ export default function UsagePage() {
                 <TableRow><TableHead>Tanggal</TableHead><TableHead className="text-right">Count</TableHead><TableHead className="text-right">Bar</TableHead></TableRow>
               </TableHeader>
               <TableBody>
-                {last7.map(([date, cnt]) => (
-                  <TableRow key={date}>
-                    <TableCell className="font-mono text-xs">{format(new Date(date + "T12:00:00"), "EEEE, d MMM yyyy", { locale: localeId })}</TableCell>
-                    <TableCell className="text-right font-mono tabular-nums">{cnt}</TableCell>
-                    <TableCell className="text-right"><div className="ml-auto h-2 w-24 overflow-hidden rounded-full bg-foreground/10"><div className="h-full bg-primary" style={{ width: `${Math.min(100, (cnt / Math.max(1, Math.max(...last7.map(([, c]) => c)))) * 100)}%` }} /></div></TableCell>
-                  </TableRow>
-                ))}
+                {loading ? (
+                  <TableRowsSkeleton cells={["text", "money", "progress"]} rows={7} />
+                ) : (
+                  last7.map(([date, cnt]) => (
+                    <TableRow key={date}>
+                      <TableCell className="font-mono text-xs">{format(new Date(date + "T12:00:00"), "EEEE, d MMM yyyy", { locale: localeId })}</TableCell>
+                      <TableCell className="text-right font-mono tabular-nums">{cnt}</TableCell>
+                      <TableCell className="text-right"><div className="ml-auto h-2 w-24 overflow-hidden rounded-full bg-foreground/10"><div className="h-full bg-primary" style={{ width: `${Math.min(100, (cnt / Math.max(1, Math.max(...last7.map(([, c]) => c)))) * 100)}%` }} /></div></TableCell>
+                    </TableRow>
+                  ))
+                )}
               </TableBody>
             </Table>
           )}
@@ -110,7 +137,16 @@ export default function UsagePage() {
         <CardHeader><CardTitle className="text-base">Per Cabang</CardTitle><CardDescription>Count per cabang — untuk hitung kuota</CardDescription></CardHeader>
         <CardContent>
           <div className="space-y-2">
-            {branchCounts.length === 0 ? (
+            {loading ? (
+              <ul aria-hidden className="space-y-2">
+                {[0, 1, 2].map((row) => (
+                  <li key={row} className="flex items-center justify-between rounded-lg border p-3">
+                    <Skeleton className="h-3 w-20" />
+                    <Skeleton className="h-5 w-16 rounded-full" />
+                  </li>
+                ))}
+              </ul>
+            ) : branchCounts.length === 0 ? (
               <div className="text-sm text-muted-foreground">Belum ada cabang dengan servis</div>
             ) : (
               branchCounts.map(([branch, cnt]) => (

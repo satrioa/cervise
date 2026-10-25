@@ -16,6 +16,7 @@ import { getShiftPreview, getShiftReport, listShiftSessions, type CashSessionRow
 import { ShiftReportView } from "@/components/cash/shift-report";
 import { ShiftExportBar } from "@/components/cash/shift-export-bar";
 import { Skeleton } from "@/components/ui/skeleton";
+import { PlainTableRowsSkeleton } from "@/components/ui/skeleton-shapes";
 import { PageHeader } from "@/components/layout/page-header";
 
 function sessionDate(session: CashSessionRow): string {
@@ -28,6 +29,55 @@ function varianceTone(variance: number | null): string {
   if (variance === 0) return "text-emerald-600 dark:text-emerald-400";
   if (variance < 0) return "text-destructive";
   return "text-amber-600 dark:text-amber-400";
+}
+
+/** Kerangka isi laporan shift: header, saldo awal, 3 section, lalu total. */
+function ShiftReportSkeleton() {
+  return (
+    <div aria-hidden className="space-y-4 text-sm">
+      <div>
+        <Skeleton className="h-2.5 w-28" />
+        <Skeleton className="mt-2 h-5 w-40" />
+        <Skeleton className="mt-2 h-3 w-56" />
+      </div>
+
+      <div className="flex items-center justify-between rounded-lg border border-border/60 px-3 py-2">
+        <Skeleton className="h-3 w-32" />
+        <Skeleton className="h-3 w-20" />
+      </div>
+
+      {[0, 1, 2].map((section) => (
+        <div key={section} className="space-y-2">
+          <Skeleton className="h-3 w-40" />
+          {[0, 1].map((row) => (
+            <div key={row} className="flex items-center justify-between gap-3">
+              <Skeleton
+                className="h-3"
+                style={{ width: `${40 + ((section * 9 + row * 13) % 30)}%` }}
+              />
+              <Skeleton className="h-3 w-16 shrink-0" />
+            </div>
+          ))}
+        </div>
+      ))}
+
+      <div className="space-y-1.5 border-t border-border/60 pt-3">
+        {[0, 1, 2].map((row) => (
+          <div key={row} className="flex items-center justify-between gap-3">
+            <Skeleton
+              className="h-3"
+              style={{ width: `${35 + ((row * 11) % 25)}%` }}
+            />
+            <Skeleton className="h-3 w-16 shrink-0" />
+          </div>
+        ))}
+        <div className="flex items-center justify-between border-t border-border/60 pt-2">
+          <Skeleton className="h-4 w-28" />
+          <Skeleton className="h-4 w-20" />
+        </div>
+      </div>
+    </div>
+  );
 }
 
 /**
@@ -86,9 +136,7 @@ export default function LaporanShiftClient() {
       <main className="mx-auto max-w-6xl px-6 py-6">
         {error ? <p className="mb-4 text-sm text-destructive">{error}</p> : null}
 
-        {loading ? (
-          <Skeleton className="h-48" rows={20} />
-        ) : sessions.length === 0 ? (
+        {sessions.length === 0 && !loading ? (
           <p className="text-sm text-muted-foreground">Belum ada shift kas tercatat.</p>
         ) : (
           <div className="overflow-hidden rounded-lg border border-border/60">
@@ -105,7 +153,15 @@ export default function LaporanShiftClient() {
                 </tr>
               </thead>
               <tbody>
-                {sessions.map((session) => {
+                {loading ? (
+                  <PlainTableRowsSkeleton
+                    cells={["text", "text", "text", "money", "money", "money", "icon"]}
+                    rows={5}
+                    rowClassName="border-b border-border/60"
+                    cellClassName="px-3 py-2"
+                  />
+                ) : (
+                  sessions.map((session) => {
                   const closed = session.closedAt !== null;
                   return (
                     <tr key={session.id} className="border-b border-border/60 last:border-0">
@@ -152,7 +208,8 @@ export default function LaporanShiftClient() {
                       </td>
                     </tr>
                   );
-                })}
+                })
+                )}
               </tbody>
             </table>
           </div>
@@ -173,7 +230,7 @@ export default function LaporanShiftClient() {
           </DialogHeader>
 
           {viewLoading ? (
-            <Skeleton className="h-56" rows={22} />
+            <ShiftReportSkeleton />
           ) : report ? (
             <>
               <ShiftReportView report={report} showClosing={viewing?.closedAt !== null} />

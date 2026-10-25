@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { DownloadIcon, ArrowUpRightIcon, ArrowDownRightIcon } from "lucide-react";
-import { Skeleton } from "@/components/ui/skeleton";
+import { PlainTableRowsSkeleton, TableRowsSkeleton } from "@/components/ui/skeleton-shapes";
 import { format } from "date-fns";
 import { id as localeId } from "date-fns/locale";
 import { Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
@@ -327,11 +327,12 @@ export default function LaporanKeuanganPage() {
               </thead>
               <tbody>
                 {loading ? (
-                  <tr>
-                    <td colSpan={5} className="px-5 py-3">
-                      <Skeleton className="h-20" />
-                    </td>
-                  </tr>
+                  <PlainTableRowsSkeleton
+                    cells={["text", "money", "money", "money", "money"]}
+                    rows={3}
+                    rowClassName="border-border/30 border-b"
+                    cellClassName="px-5 py-2.5"
+                  />
                 ) : (report?.byBranch ?? []).length === 0 ? (
                   <tr>
                     <td colSpan={5} className="px-5 py-10 text-center text-sm text-muted-foreground">
@@ -387,9 +388,7 @@ export default function LaporanKeuanganPage() {
             <CardDescription>Per hari (kas_date) — klik download di baris tanggal</CardDescription>
           </CardHeader>
           <CardContent>
-            {loading ? (
-              <Skeleton className="h-40" rows={18} />
-            ) : harian.length === 0 ? (
+            {!loading && harian.length === 0 ? (
               <div className="py-8 text-center text-sm text-muted-foreground">Tidak ada data untuk filter ini</div>
             ) : (
               <Table>
@@ -405,7 +404,13 @@ export default function LaporanKeuanganPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {harian.map((r) => (
+                  {loading ? (
+                    <TableRowsSkeleton
+                      cells={["text", "text", "money", "money", "money", "money", "icon"]}
+                      rows={5}
+                    />
+                  ) : (
+                    harian.map((r) => (
                     <TableRow key={r.date}>
                       <TableCell className="font-medium whitespace-nowrap">{formatHarian(r.date)}</TableCell>
                       <TableCell className="text-muted-foreground text-sm">{cabangLabel}</TableCell>
@@ -427,7 +432,8 @@ export default function LaporanKeuanganPage() {
                         </Button>
                       </TableCell>
                     </TableRow>
-                  ))}
+                    ))
+                  )}
                 </TableBody>
               </Table>
             )}
@@ -441,9 +447,7 @@ export default function LaporanKeuanganPage() {
             <CardDescription>Per bulan — klik download di baris bulan</CardDescription>
           </CardHeader>
           <CardContent>
-            {loading ? (
-              <Skeleton className="h-40" rows={18} />
-            ) : bulanan.length === 0 ? (
+            {!loading && bulanan.length === 0 ? (
               <div className="py-8 text-center text-sm text-muted-foreground">Tidak ada data</div>
             ) : (
               <Table>
@@ -459,7 +463,13 @@ export default function LaporanKeuanganPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {bulanan.map((r) => (
+                  {loading ? (
+                    <TableRowsSkeleton
+                      cells={["text", "text", "money", "money", "money", "money", "icon"]}
+                      rows={5}
+                    />
+                  ) : (
+                    bulanan.map((r) => (
                     <TableRow key={r.month}>
                       <TableCell className="font-medium whitespace-nowrap">{formatBulanan(r.month)}</TableCell>
                       <TableCell className="text-muted-foreground text-sm">{cabangLabel}</TableCell>
@@ -481,7 +491,8 @@ export default function LaporanKeuanganPage() {
                         </Button>
                       </TableCell>
                     </TableRow>
-                  ))}
+                    ))
+                  )}
                 </TableBody>
               </Table>
             )}

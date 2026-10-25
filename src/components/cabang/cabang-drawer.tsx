@@ -311,7 +311,36 @@ export function CabangDrawer({ branch, open, onOpenChange }: { branch: BranchIte
             </div>
 
             {loading ? (
-              <Skeleton className="mt-3 h-32" rows={16} />
+              // Bentuk kartu anggota yang akan dirender: avatar + dot status,
+              // nama/@email, baris status, kolom role, dan tombol aksi.
+              <ul aria-hidden className="mt-3 flex flex-col gap-2">
+                {Array.from({ length: 3 }, (_, row) => (
+                  <li
+                    key={row}
+                    className="grid grid-cols-[44px_1fr_28px] items-center gap-2 rounded-xl border bg-background px-3 py-2.5 shadow-sm sm:grid-cols-[44px_1fr_110px_28px]"
+                  >
+                    <div className="relative">
+                      <Skeleton className="size-10 rounded-full" />
+                      <Skeleton className="absolute right-0 bottom-0 size-3 rounded-full" />
+                    </div>
+                    <div className="min-w-0 space-y-1">
+                      <Skeleton
+                        className="h-3.5"
+                        style={{ width: `${45 + ((row * 13) % 30)}%` }}
+                      />
+                      <Skeleton
+                        className="h-2.5"
+                        style={{ width: `${30 + ((row * 7) % 25)}%` }}
+                      />
+                    </div>
+                    <div className="hidden sm:block space-y-1">
+                      <Skeleton className="h-3 w-16" />
+                      <Skeleton className="h-2.5 w-14" />
+                    </div>
+                    <Skeleton className="size-4 rounded-full" />
+                  </li>
+                ))}
+              </ul>
             ) : members.length === 0 ? (
               <div className="mt-3 rounded-xl border border-dashed p-8 text-center text-sm text-muted-foreground">Belum ada teknisi di cabang ini</div>
             ) : (

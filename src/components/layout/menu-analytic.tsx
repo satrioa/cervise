@@ -7,6 +7,7 @@ import { useTranslations } from "next-intl";
 import { getDashboardData, type DashboardData } from "@/app/app/actions";
 import { playCue } from "@/lib/sound";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ChartSkeleton } from "@/components/ui/skeleton-shapes";
 
 /**
  * Isi section "Analytic Servis": tiga counter, sparkline 30 hari, dan tautan
@@ -66,7 +67,7 @@ export function MenuAnalytic({ onNavigate }: { onNavigate?: () => void }) {
         </p>
         <div className="mt-1.5 h-16 w-full text-[#2F80ED]">
           {loading ? (
-            <Skeleton className="h-full w-full rounded-md" rows={6} />
+            <ChartSkeleton variant="sparkline" shape="naik" />
           ) : series.length > 1 ? (
             <Sparkline data={series} />
           ) : (

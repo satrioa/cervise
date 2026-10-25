@@ -53,8 +53,12 @@ function TenantSwitcher({ canSwitchTenant: canSwitchTenantValue }: { canSwitchTe
   const { tenants, activeOrgId, setActiveOrg, loading, isPlatformAdmin } = useTenant();
   if (loading) {
     return (
-      <div className="w-full px-3.5 py-3">
-        <Skeleton className="h-4 w-32" />
+      <div className="flex w-full items-center gap-2.5 px-3.5 py-2" aria-hidden>
+        <Skeleton className="size-8 shrink-0 rounded-lg" />
+        <div className="min-w-0 flex-1">
+          <Skeleton className="h-2 w-20" />
+          <Skeleton className="mt-1.5 h-3.5 w-32" />
+        </div>
       </div>
     );
   }

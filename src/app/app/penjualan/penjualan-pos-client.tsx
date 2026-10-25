@@ -19,7 +19,8 @@ import { PenjualanProductGrid } from "@/components/penjualan/penjualan-product-g
 import { PenjualanTable } from "@/components/penjualan/penjualan-table";
 import { PenjualanCartPanel } from "@/components/penjualan/penjualan-cart-panel";
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
-import { Skeleton } from "@/components/ui/skeleton";
+import { ProductCardsSkeleton } from "@/components/ui/route-skeleton";
+import { TableRowsSkeleton } from "@/components/ui/skeleton-shapes";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import JellyRadio from "@/components/ui/jelly-radio";
@@ -233,7 +234,33 @@ export function PenjualanPOSClient({ initialRows }: { initialRows: any[] }) {
                   {productsError}
                 </div>
               ) : productsLoading ? (
-                <Skeleton className="h-40" rows={18} />
+                view === "grid" ? (
+                  // Bentuk grid produk: kartu dengan ikon besar + 2 baris teks
+                  // dan baris harga/stok.
+                  <ProductCardsSkeleton count={6} />
+                ) : (
+                  // Bentuk tabel produk: kolom produk (ikon + 2 baris), varian,
+                  // stok (badge), harga, dan tombol tambah.
+                  <div className="rounded-xl border overflow-hidden bg-card">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Produk</TableHead>
+                          <TableHead>Varian</TableHead>
+                          <TableHead>Stok</TableHead>
+                          <TableHead className="text-right">Harga Jual</TableHead>
+                          <TableHead className="w-px" />
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        <TableRowsSkeleton
+                          cells={["avatar", "text", "badge", "money", "icon"]}
+                          rows={5}
+                        />
+                      </TableBody>
+                    </Table>
+                  </div>
+                )
               ) : products.length === 0 ? (
                 <div className="flex h-40 flex-col items-center justify-center gap-1 px-4 text-center">
                   <p className="text-sm font-medium">Belum ada produk untuk dijual</p>

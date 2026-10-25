@@ -107,7 +107,29 @@ export function CustomerRowActions({ customer }: { customer: Customer }) {
             </div>
             <div className="flex-1 overflow-y-auto p-4">
               {loadingServis ? (
-                <Skeleton className="h-32" rows={16} />
+                // Bentuk kartu riwayat servis: 3 baris teks kiri, badge nominal
+                // di kanan.
+                <ul aria-hidden className="space-y-2">
+                  {Array.from({ length: 3 }, (_, row) => (
+                    <li
+                      key={row}
+                      className="flex items-center justify-between gap-3 rounded-lg border bg-card p-3"
+                    >
+                      <div className="min-w-0 flex-1 space-y-1.5">
+                        <Skeleton
+                          className="h-2.5"
+                          style={{ width: `${38 + ((row * 11) % 22)}%` }}
+                        />
+                        <Skeleton
+                          className="h-3.5"
+                          style={{ width: `${55 + ((row * 7) % 30)}%` }}
+                        />
+                        <Skeleton className="h-2.5 w-24" />
+                      </div>
+                      <Skeleton className="h-5 w-20 shrink-0 rounded-full" />
+                    </li>
+                  ))}
+                </ul>
               ) : servis.length === 0 ? (
                 <div className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">Belum ada servis — 0 / Rp 0 / —</div>
               ) : (
