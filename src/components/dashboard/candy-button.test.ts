@@ -175,16 +175,22 @@ describe("grid bento delapan sel", () => {
     // `neutral` sengaja tidak ada - tidak ada kartu yang maknanya "bahaya".
     expect([...CANDY_CARD_COLOR]).toEqual(["accent", "amber", "green", "blue"]);
     expect(new Set(CANDY_CARD_COLOR).size).toBe(CANDY_CARD_COLOR.length);
-    for (const source of [technician, frontliner]) {
+    for (const source of [technicianCode, frontlinerCode]) {
       // Hex warna tidak boleh ditulis di dashboard; semuanya lewat prop
-      // `candy` yang warnanya milik SmoothUI.
+      // `candy` yang warnanya milik SmoothUI. Kode tanpa komentar: komentar
+      // boleh menyebut hex lama sebagai penjelasan, asalkan kelasnya tidak
+      // memakainya.
       expect(source).not.toMatch(/#[0-9A-Fa-f]{6}/);
       expect(source).not.toMatch(/action="/);
     }
   });
 
-  it("To-Do dipangkas lima baris dan sisanya pindah ke popover", () => {
-    expect(taskNoteCard).toMatch(/compactLimit = 5/);
+  it("To-Do hanya dipangkas kalau pemanggil meminta", () => {
+    // Batas baris bukan bawaan kartu: sel 1x1 frontliner dulu dipaksa satu
+    // baris, jadi delapan dari sembilan tugas cuma terlihat di popover.
+    expect(taskNoteCard).not.toMatch(/compactLimit = \d/);
+    expect(technician).toMatch(/<TaskNoteCard[^>]*compactLimit=\{5\}/);
+    expect(frontliner).not.toMatch(/<TaskNoteCard[^>]*compactLimit=/);
     expect(taskNoteCard).toMatch(/Lihat semua/);
     expect(taskNoteCard).toMatch(/Popover/);
   });
@@ -257,10 +263,10 @@ describe("grid bento delapan sel", () => {
     // Semantik: accent = Servis baru (pekerjaan utama, warna brand),
     // blue = Sparepart, amber = Catat Kas, green = Penjualan.
     // Kedua kartu aksi teknisi harus berbeda, kalau tidak pink mendominasi.
-    expect(frontliner).toMatch(/candy="accent" href="\/app\/servis\/baru"/);
+    expect(frontliner).toMatch(/candy="accent"\s+onClick/);
     expect(frontliner).toMatch(/candy="amber" onClick/);
     expect(frontliner).toMatch(/candy="green" href="\/app\/penjualan"/);
-    expect(technician).toMatch(/candy="accent" href="\/app\/servis\/baru"/);
+    expect(technician).toMatch(/candy="accent"\s+onClick/);
     expect(technician).toMatch(/candy="blue" href="\/app\/inventori"/);
   });
 
@@ -271,28 +277,32 @@ describe("grid bento delapan sel", () => {
       ["teknisi", technician],
       ["frontliner", frontliner],
     ] as const) {
-      const used = [...source.matchAll(/<BentoCard candy="(\w+)"/g)].map((m) => m[1]);
+      // `\s+` bukan spasi tunggal: kartu "Servis baru" menaruh `onClick` di
+      // baris berikutnya, jadi atributnya tidak lagi sebaris.
+      const used = [...source.matchAll(/<BentoCard\s+candy="(\w+)"/g)].map((m) => m[1]);
       expect(used.length, name).toBeGreaterThanOrEqual(2);
       expect(new Set(used).size, name).toBe(used.length);
     }
   });
 
-  it("tinggi mengikuti isi: baris tetap 10.5rem, bukan kunci viewport", () => {
-    // `h-dvh` + `grid-rows-3` memaksa tiap sel jadi tepat 1/3 layar: di
-    // monitor besar kartu jadi tinggi dan kosong, di laptop tergepeng.
-    // Frame Figma memakai baris tetap 10.5rem dan halaman boleh menggulir.
-    expect(bentoCard).toMatch(/sm:auto-rows-\[10\.5rem\]/);
+  it("bento mengisi viewport, tapi kartu aksi tetap 10.5rem", () => {
+    // Baris 1-2 tetap 10.5rem: kartu aksi (Servis baru, Catat Kas, Penjualan,
+    // Sparepart) dan Ringkasan Servis tidak ikut melar di monitor besar.
+    // Baris 3 menyerap sisa tinggi, jadi hanya kartu data yang memanjang.
+    expect(bentoCard).toMatch(
+      /sm:grid-rows-\[10\.5rem_10\.5rem_minmax\(10\.5rem,1fr\)\]/,
+    );
+    expect(bentoCard).not.toMatch(/sm:auto-rows/);
     expect(bentoCard).not.toMatch(/max-h-\[calc\(100dvh/);
     // Mobile dua kolom, desktop empat kolom.
     expect(bentoCard).toMatch(/grid-cols-2/);
     expect(bentoCard).toMatch(/sm:grid-cols-4/);
     for (const source of [technicianCode, frontlinerCode]) {
       expect(source).toMatch(/BENTO_GRID_CLASS/);
-      // Kunci viewport yang dihapus, dan `grid-rows-3` yang membagi rata.
-      // Dicek dari kode tanpa komentar: kedua kelas ini sengaja disebut
-      // di komentar penjelas, jadi akan cocok kalau komentar ikut dibaca.
+      // Rantai tinggi disambung dari `main` shell, bukan `h-dvh` sendiri:
+      // grid berhenti di atas bottom-nav karena main sudah punya `pb-24`.
+      expect(source).toMatch(/flex h-full min-h-0 flex-col/);
       expect(source).not.toMatch(/h-dvh overflow-hidden/);
-      expect(source).not.toMatch(/sm:grid-rows-3/);
     }
   });
 
@@ -316,10 +326,12 @@ describe("grid bento delapan sel", () => {
     expect(frontliner).toMatch(/rupiah\(item\.price\)/);
   });
 
-  it("kartu data memakai skeleton saat load pertama", () => {
-    expect(frontliner).toMatch(/Skeleton/);
-    expect(frontliner).toMatch(/aria-busy="true"/);
-    expect(frontliner).toMatch(/const \[loading, setLoading\] = useState\(true\)/);
+  it("kartu data dirender server, bukan skeleton saat load pertama", () => {
+    // Angka dashboard datang sebagai prop dari Server Component, jadi tidak
+    // ada fase "loading" pertama yang perlu digambar.
+    expect(frontliner).not.toMatch(/Skeleton/);
+    expect(frontliner).not.toMatch(/const \[loading, setLoading\] = useState\(true\)/);
+    expect(frontliner).toMatch(/initialData: FrontlinerHomeData/);
   });
 
   it("To-Do hanya teks: tidak ada input tanggal", () => {

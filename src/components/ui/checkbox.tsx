@@ -2,12 +2,61 @@
 
 import { Checkbox as CheckboxPrimitive } from "@base-ui/react/checkbox";
 import type React from "react";
+import { useCallback } from "react";
 import { cn } from "@/lib/utils";
+
+/**
+ * Base UI merender `<span role="checkbox">` plus satu `<input type="checkbox">`
+ * tersembunyi untuk integrasi form. Tanpa prop `name`, input itu diberi gaya
+ * `position: fixed; top: 0; left: 0`.
+ *
+ * Itu sumber lompatan scroll yang dilaporkan di form servis baru: checkbox
+ * biasanya dibungkus `<label>`, dan mengklik label membuat browser memfokuskan
+ * input tersembunyi tadi. Memfokuskan elemen `fixed` di (0, 0) membuat container
+ * yang scrollable - di sini dialog `max-h-[90vh] overflow-y-auto` - menggulir ke
+ * atas, jadi setiap centang melempar pengguna kembali ke awal form.
+ *
+ * Memindahkan input ke posisi statisnya sendiri (`absolute` + offset `auto`)
+ * menghilangkan guliran itu tanpa perubahan yang terlihat: input ini sudah
+ * di-clip jadi 1px dan tidak pernah tampil. Perilaku fokus dan keyboard tidak
+ * berubah karena yang benar-benar menerima fokus tetap `<span>`-nya (Base UI
+ * memindahkan fokus dari input ke control).
+ */
+export function keepHiddenInputInPlace(
+  element: Pick<HTMLInputElement, "style"> | null,
+): void {
+  if (!element) return;
+  element.style.position = "absolute";
+  element.style.top = "auto";
+  element.style.left = "auto";
+}
+
+/**
+ * Meneruskan nilai ref ke pemanggil, baik ref berupa callback maupun objek.
+ *
+ * Ditulis sebagai fungsi terpisah supaya `inputRef` dari props tidak dimutasi
+ * langsung di dalam hook (aturan `react-hooks/immutability` melarangnya).
+ */
+function assignRef<T>(ref: React.Ref<T> | undefined, value: T | null): void {
+  if (!ref) return;
+  if (typeof ref === "function") ref(value);
+  else (ref as React.RefObject<T | null>).current = value;
+}
 
 export function Checkbox({
   className,
+  inputRef,
   ...props
 }: CheckboxPrimitive.Root.Props): React.ReactElement {
+  // `inputRef` tetap diteruskan kalau pemanggil membutuhkannya.
+  const mergedInputRef = useCallback(
+    (element: HTMLInputElement | null) => {
+      keepHiddenInputInPlace(element);
+      assignRef(inputRef, element);
+    },
+    [inputRef],
+  );
+
   return (
     <CheckboxPrimitive.Root
       className={cn(
@@ -15,6 +64,7 @@ export function Checkbox({
         className,
       )}
       data-slot="checkbox"
+      inputRef={mergedInputRef}
       {...props}
     >
       <CheckboxPrimitive.Indicator

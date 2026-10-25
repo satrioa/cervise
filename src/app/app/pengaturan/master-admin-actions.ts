@@ -104,7 +104,16 @@ export async function createMasterAdmin(input: {
   //    schema.sql:20), jadi di sini MUSTAHIL memakai EMPLOYEE_ROLE yang huruf
   //    besar - keduanya akan ditolak.
   const { error: profileError } = await admin.from("profiles").upsert(
-    { id: userId, full_name: fullName, phone: phoneCheck.value, email, role: PROFILE_ROLE.MASTER_ADMIN },
+    {
+      id: userId,
+      full_name: fullName,
+      phone: phoneCheck.value,
+      email,
+      role: PROFILE_ROLE.MASTER_ADMIN,
+      // Password di akun ini generated; dashboard meminta user menggantinya
+      // sendiri saat pertama masuk.
+      must_change_password: true,
+    },
     { onConflict: "id" },
   );
   if (profileError) {

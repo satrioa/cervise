@@ -45,16 +45,26 @@ export function ClosingDialog({
   open,
   onOpenChange,
   session,
+  initialReport = null,
   onClosed,
 }: {
   open: boolean;
   onOpenChange: (next: boolean) => void;
   session: CashSessionRow | null;
+  /**
+   * Laporan yang sudah dimuat dashboard. Dipakai supaya preview tampil
+   * seketika - tanpa ini dialog membuka dengan teks "Menghitung laporan
+   * shift..." selama seluruh round-trip server selesai. Angkanya tetap
+   * disegarkan di latar belakang saat dialog dibuka.
+   */
+  initialReport?: ShiftReport | null;
   onClosed?: () => void;
 }) {
   const [step, setStep] = useState<Step>("preview");
   const [report, setReport] = useState<ShiftReport | null>(null);
   const [loading, setLoading] = useState(true);
+  // true saat angka awal sudah tampil tapi versi terbarunya masih diambil.
+  const [refreshing, setRefreshing] = useState(false);
   const [closing, setClosing] = useState("");
   const [reason, setReason] = useState("");
   const [saving, setSaving] = useState(false);
@@ -70,8 +80,9 @@ export function ClosingDialog({
   if (open && openedFor !== session?.id) {
     setOpenedFor(session?.id ?? null);
     setStep("preview");
-    setReport(null);
-    setLoading(true);
+    setReport(initialReport ?? null);
+    setLoading(!initialReport);
+    setRefreshing(Boolean(initialReport));
     setClosing("");
     setReason("");
     setError(null);
@@ -90,11 +101,16 @@ export function ClosingDialog({
     getShiftPreview(id).then((result) => {
       if (cancelled) return;
       if (!result.ok) {
+        // Kalau angka awal sudah tampil, error refresh tidak boleh mengosongkan
+        // preview - cukup tampilkan pesannya di atas laporan yang ada.
         setError(result.error);
+        setLoading(false);
+        setRefreshing(false);
         return;
       }
       setReport(result.data);
       setLoading(false);
+      setRefreshing(false);
     });
     return () => {
       cancelled = true;
@@ -165,8 +181,12 @@ export function ClosingDialog({
             {step === "confirm" && "Tutup Toko — Konfirmasi"}
           </DialogTitle>
           <DialogDescription>
-            {step === "preview" &&
-              "Periksa angkanya dulu. Saldo akhir diminta setelah ini."}
+            {step === "preview" && (
+              <>
+                Periksa angkanya dulu. Saldo akhir diminta setelah ini.
+                {refreshing ? <span className="ml-1 opacity-60">Memperbarui…</span> : null}
+              </>
+            )}
             {step === "closing" && `Harus ada di laci: ${formatCurrencyPlain(expected)}`}
             {step === "confirm" && "Cek selisihnya sebelum menyimpan."}
           </DialogDescription>

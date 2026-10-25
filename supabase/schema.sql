@@ -19,6 +19,7 @@ create table if not exists profiles (
   full_name text,
   role text not null check (role in ('super_owner','master_admin','admin','frontliner','teknisi')),
   branch_id uuid references branches(id),
+  must_change_password boolean not null default false,
   created_at timestamptz default now()
 );
 

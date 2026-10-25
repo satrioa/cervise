@@ -90,7 +90,8 @@ export function CreateTenantDialog() {
               <p className="rounded-lg bg-muted/50 p-3 text-xs text-muted-foreground">Trial 14 hari dibuat otomatis. Pembayaran renewal dan aktivasi paket dikonfirmasi lewat WhatsApp.</p>
               <p className="rounded-lg bg-muted/50 p-3 text-xs text-muted-foreground">
                 Akun owner dibuat dengan password sementara yang ditampilkan sekali setelah tenant
-        dibuat. Salin dan serahkan ke owner, lalu minta dia menggantinya di halaman Profil.
+        dibuat. Saat pertama masuk, sistem akan meminta password baru; password sementara
+        tidak perlu dimasukkan lagi.
               </p>
             </div>
             <div className="flex justify-end gap-2 border-t bg-muted/20 px-6 py-3">

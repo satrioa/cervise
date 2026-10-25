@@ -330,6 +330,23 @@ export async function createTenant(input: {
     throw error;
   }
 
+  // Akun owner yang BARU dibuat memakai password generated, jadi dashboard-nya
+  // harus meminta password sendiri saat pertama masuk. Akun yang dipakai ulang
+  // (tempPassword null) sengaja tidak disentuh: password-nya sudah dia punya.
+  //
+  // Kegagalan di sini tidak menggagalkan pembuatan tenant - tenantnya sudah
+  // ada, dan melempar error hanya akan membuat operator mengulang dan mendapat
+  // "email sudah terdaftar". Dicatat supaya tetap bisa ditelusuri.
+  if (tempPassword) {
+    const { error: flagError } = await admin
+      .from("profiles")
+      .update({ must_change_password: true })
+      .eq("id", ownerId);
+    if (flagError) {
+      console.warn("gagal menandai must_change_password untuk owner", ownerId, flagError.message);
+    }
+  }
+
   revalidatePath("/owner");
   revalidatePath("/owner/tenants");
   return {

@@ -113,7 +113,7 @@ export function TempPasswordDialog({ open, onOpenChange, email, password }: { op
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[420px]">
-        <DialogHeader><DialogTitle>Akun dibuat</DialogTitle><DialogDescription>{email} — simpan password ini, hanya tampil sekali.</DialogDescription></DialogHeader>
+        <DialogHeader><DialogTitle>Akun dibuat</DialogTitle><DialogDescription>{email} — simpan password ini, hanya tampil sekali. Saat pertama masuk, sistem akan meminta password baru; password sementara ini tidak perlu dimasukkan lagi.</DialogDescription></DialogHeader>
         <div className="rounded-lg border bg-muted/30 p-3 font-mono text-sm break-all select-all">{password}</div>
         <DialogFooter><Button variant="outline" onClick={copy}>Salin</Button><Button onClick={() => onOpenChange(false)}>Selesai</Button></DialogFooter>
       </DialogContent>

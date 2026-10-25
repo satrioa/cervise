@@ -2,6 +2,7 @@
 
 import { getActiveTenant } from "@/lib/supabase/actor";
 import { stripMentionTokens } from "@/lib/operational/mention-tokens";
+import { loadTodos, toTodo, type TodoRow } from "@/lib/home/home-data";
 
 /**
  * To-Do personal teknisi.
@@ -47,44 +48,24 @@ function cleanTitle(value: unknown): string | null {
   return trimmed;
 }
 
-type TodoRow = {
-  id: string;
-  title: string;
-  due_at: string | null;
-  done_at: string | null;
-  created_at: string;
-};
-
-function toTodo(row: TodoRow): StaffTodo {
-  return {
-    id: row.id,
-    title: row.title,
-    dueAt: row.due_at,
-    doneAt: row.done_at,
-    createdAt: row.created_at,
-  };
-}
-
 async function getTodoContext() {
   const actor = await getActiveTenant();
   if (!actor.branchId) throw new Error("Cabang belum ditetapkan untuk akun ini");
-  return { supabase: actor.supabase, branchId: actor.branchId, userId: actor.userId };
+  return { supabase: actor.supabase, branchId: actor.branchId, userId: actor.userId, role: actor.role };
 }
 
-/** Baris To-Do milik pengguna ini saja. Selesai tetap ikut agar bisa dibatalkan. */
+/**
+ * Baris To-Do milik pengguna ini saja.
+ *
+ * Selesai hari ini tetap ikut agar bisa dibatalkan; yang selesai sebelum hari
+ * ini dibersihkan oleh loader (`loadTodos`).
+ *
+ * Pemuatan barisnya ada di `@/lib/home/home-data` supaya Home bisa memakai
+ * loader yang sama tanpa me-resolve aktor dua kali.
+ */
 export async function getMyTodos(): Promise<TodoResult<StaffTodo[]>> {
   try {
-    const { supabase, userId } = await getTodoContext();
-    const { data, error } = await supabase
-      .from("cervise_staff_todos")
-      .select("id, title, due_at, done_at, created_at")
-      .eq("employee_id", userId)
-      .order("done_at", { ascending: true, nullsFirst: false })
-      .order("due_at", { ascending: true, nullsFirst: false })
-      .order("created_at", { ascending: true });
-
-    if (error) return fail(error.message);
-    return { ok: true, data: ((data ?? []) as TodoRow[]).map(toTodo) };
+    return { ok: true, data: await loadTodos(await getTodoContext()) };
   } catch (cause) {
     return fail(cause instanceof Error ? cause.message : "Gagal memuat daftar tugas");
   }

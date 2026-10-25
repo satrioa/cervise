@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import {
   ArrowRightIcon,
@@ -15,10 +15,11 @@ import {
   useBentoStagger,
 } from "./bento-card";
 import { TaskNoteCard } from "./task-note-card";
-import { Skeleton } from "@/components/ui/skeleton";
+import { NewServisDialog } from "@/components/servis/new-servis-dialog";
 import { toast } from "sonner";
 import { getTechnicianDashboardData } from "@/app/app/actions/technician-dashboard";
-import type { TechnicianKpi } from "@/lib/operational/technician-dashboard";
+import type { RecentService, TechnicianKpi } from "@/lib/operational/technician-dashboard";
+import type { TechnicianDashboardData, TechnicianHomeData } from "@/lib/home/types";
 
 /**
  * Jarak antar kartu, dalam detik.
@@ -47,42 +48,61 @@ const BENTO_STAGGER = 0.05;
  *     └──────────────┴──────────────────────┘
  */
 
-export function TechnicianDashboard({ fullName }: { fullName: string | null }) {
+export function TechnicianDashboard({
+  fullName,
+  initialData,
+}: {
+  fullName: string | null;
+  initialData: TechnicianHomeData;
+}) {
   const { gridProps } = useBentoStagger(BENTO_STAGGER);
 
-  const [data, setData] = useState<{
-    kpi: TechnicianKpi;
-    terbaru: { id: string; serviceNumber: string | null; device: string }[];
-  } | null>(null);
+  const [newServisOpen, setNewServisOpen] = useState(false);
+  /**
+   * Angka dashboard sudah dirender server, jadi state ini hanya berubah saat
+   * pengguna menyegarkannya sendiri (mis. setelah membuat servis baru).
+   */
+  const [data, setData] = useState<TechnicianDashboardData>(initialData.dashboard);
+
+  // `router.refresh()` mengirim payload server baru tanpa me-mount ulang
+  // komponen. Samakan state saat prop-nya berubah, pola yang sama dengan
+  // BranchCards.
+  const [syncedFrom, setSyncedFrom] = useState(initialData);
+  if (syncedFrom !== initialData) {
+    setSyncedFrom(initialData);
+    setData(initialData.dashboard);
+  }
 
   useEffect(() => {
-    let cancelled = false;
-    getTechnicianDashboardData()
-      .then((result) => {
-        if (cancelled) return;
-        if (result.error) toast.error(result.error);
-        setData({
-          kpi: result.data.kpi,
-          terbaru: result.data.terbaru,
-        });
-      })
-      .catch(() => {
-        if (!cancelled) setData(null);
-      });
-    return () => {
-      cancelled = true;
-    };
+    if (initialData.error) toast.error(initialData.error);
+  }, [initialData.error]);
+
+  /**
+   * Menyegarkan dashboard setelah servis baru dibuat.
+   *
+   * Server action tetap dipakai di sini karena dialog tidak mengubah URL dan
+   * `router.refresh()` tidak mengirim data dashboard ke komponen klien.
+   * Kegagalan mempertahankan angka yang sudah tampil, bukan mengosongkannya.
+   */
+  const reload = useCallback(async () => {
+    const result = await getTechnicianDashboardData();
+    if (result.error) {
+      toast.error(result.error);
+      return;
+    }
+    setData(result.data);
   }, []);
 
-  const kpi = data?.kpi ?? null;
+  const kpi = data.kpi;
 
   return (
-    // Latar halaman memakai kanvas shell (abu-abu di Figma). Kartu
-    // mengikuti tinggi isinya, jadi tidak ada lagi `h-dvh` atau max-height.
-    <div className="min-h-full bg-canvas text-foreground">
-      <div className="px-4 py-6 sm:px-6 sm:py-8 lg:px-8 lg:py-10">
-        <div className="mx-auto w-full max-w-[1264px]">
-          <div>
+    // Latar halaman memakai kanvas shell (abu-abu di Figma). `h-full`
+    // menyambung rantai tinggi dari `main` shell: grid bento mengisi sisa
+    // viewport dan berhenti di atas bottom-nav (main sudah punya `pb-24`).
+    <div className="flex h-full min-h-0 flex-col bg-canvas text-foreground">
+      <div className="flex min-h-0 flex-1 flex-col px-4 py-6 sm:px-6 sm:py-8 lg:px-8 lg:py-10">
+        <div className="mx-auto flex min-h-0 w-full max-w-[1264px] flex-1 flex-col">
+          <div className="shrink-0">
             <DateLine />
             <h1 className="mt-1 font-heading text-[2rem] font-normal leading-tight tracking-[-0.03em] sm:text-[2.5rem]">
               {greeting()}, {fullName ?? "Teknisi"}.
@@ -94,8 +114,13 @@ export function TechnicianDashboard({ fullName }: { fullName: string | null }) {
               ke setiap kartu. */}
           <motion.div {...gridProps} className={BENTO_GRID_CLASS}>
             {/* 1. Kartu aksi - permukaannya sendiri yang candy, bukan kartu
-                abu-abu yang memuat tombol di dalam. */}
-            <BentoCard candy="accent" href="/app/servis/baru" title="Servis baru">
+                abu-abu yang memuat tombol di dalam. Membuka dialog, bukan
+                pindah ke `/app/servis/baru`. */}
+            <BentoCard
+              candy="accent"
+              onClick={() => setNewServisOpen(true)}
+              title="Servis baru"
+            >
               <BentoMenuItem icon={WrenchIcon} label="Servis baru" />
             </BentoCard>
 
@@ -107,7 +132,7 @@ export function TechnicianDashboard({ fullName }: { fullName: string | null }) {
             </BentoCard>
 
             {/* 3. Angka masuk hari ini. */}
-            <StatTile label="Servis Masuk Hari ini" value={kpi?.masukHariIni} />
+            <StatTile label="Servis Masuk Hari ini" value={kpi.masukHariIni} />
 
             {/* 4. Daftar servis terbaru, dua baris - halaman detail servis
                 adalah tempat pembayaran, jadi barisnya cuma membuka detail.
@@ -115,27 +140,33 @@ export function TechnicianDashboard({ fullName }: { fullName: string | null }) {
                 kartu putih, mengikuti frame mobile Figma. */}
             <BentoCard
               rowSpan={2}
-              className="max-sm:order-7 max-sm:col-span-2 max-sm:max-h-[18rem] max-sm:bg-white max-sm:hover:bg-white max-sm:dark:bg-neutral-800 max-sm:dark:hover:bg-neutral-800"
+              className="max-sm:order-7 max-sm:col-span-2 max-sm:max-h-[18rem] max-sm:bg-white/70 max-sm:hover:bg-white/70 max-sm:dark:bg-white/[0.06] max-sm:dark:hover:bg-white/[0.06]"
             >
               <CardTitle>Servis terbaru</CardTitle>
-              <TerbaruList items={data?.terbaru} />
+              <TerbaruList items={data.terbaru} />
             </BentoCard>
 
             {/* 5. To-Do, dua kolom kali dua baris. Permukaan luar transparan;
-                TaskNoteCard menggambar satu kartu putih utuh di dalamnya. */}
+                TaskNoteCard menggambar satu kartu putih utuh di dalamnya.
+                Daftar dan mention-nya sudah dimuat server. */}
             <BentoCard
               span={2}
               rowSpan={2}
               surface="plain"
               className="max-sm:order-5 max-sm:col-span-2"
             >
-              <TaskNoteCard variant="bento" compact compactLimit={5} />
+              <TaskNoteCard
+                variant="bento"
+                compactLimit={5}
+                initialTodos={initialData.todos}
+                initialMentions={initialData.mentions}
+              />
             </BentoCard>
 
             {/* 6. Angka selesai hari ini. */}
             <StatTile
               label="Servis Selesai Hari ini"
-              value={kpi?.selesaiHariIni}
+              value={kpi.selesaiHariIni}
               className="max-sm:order-4"
             />
 
@@ -147,6 +178,12 @@ export function TechnicianDashboard({ fullName }: { fullName: string | null }) {
           </motion.div>
         </div>
       </div>
+
+      <NewServisDialog
+        open={newServisOpen}
+        onOpenChange={setNewServisOpen}
+        onCreated={() => void reload()}
+      />
     </div>
   );
 }
@@ -172,7 +209,7 @@ function StatTile({
   return (
     <BentoCard
       className={
-        "max-sm:bg-white max-sm:hover:bg-white max-sm:dark:bg-neutral-800 max-sm:dark:hover:bg-neutral-800 " +
+        "max-sm:bg-white/70 max-sm:hover:bg-white/70 max-sm:dark:bg-white/[0.06] max-sm:dark:hover:bg-white/[0.06] " +
         (className ?? "")
       }
     >
@@ -268,17 +305,8 @@ function TargetTile({ kpi }: { kpi: TechnicianKpi | null }) {
 function TerbaruList({
   items,
 }: {
-  items: { id: string; serviceNumber: string | null; device: string }[] | undefined;
+  items: RecentService[];
 }) {
-  if (!items) {
-    return (
-      <div className="mt-2 space-y-1.5">
-        <Skeleton className="h-9 rounded-xl" />
-        <Skeleton className="h-9 rounded-xl" />
-        <Skeleton className="h-9 rounded-xl" />
-      </div>
-    );
-  }
   if (items.length === 0) {
     return <p className="mt-2 text-sm opacity-60">Belum ada servis.</p>;
   }

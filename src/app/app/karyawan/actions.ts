@@ -149,6 +149,10 @@ export async function createKaryawan(input: CreateKaryawanInput): Promise<{ empl
     phone: phoneCheck.value,
     email,
     role: profileRole,
+    // Akun ini dibuat dengan password generated. Dashboard akan meminta user
+    // menggantinya sendiri saat pertama masuk - tanpa memasukkan password
+    // generated lagi.
+    must_change_password: true,
   };
   const { error: profileError } = await admin.from("profiles").upsert(profilePatch, { onConflict: "id" });
   if (profileError) {

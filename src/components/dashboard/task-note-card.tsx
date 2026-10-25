@@ -67,37 +67,54 @@ export function Card({
 /** Mention di dalam composer, lengkap dengan label untuk chip. */
 type DraftMention = ChipSource;
 /**
- * `compact` dipakai saat kartu ini jadi isi satu bento: daftar dipangkas jadi
- * `compactLimit` baris dan sisanya pindah ke popover "Lihat semua". Tanpa itu
- * lima tugas pertama akan memenuhi bento dan mendorong KPI di bawahnya.
+ * Bawaannya SEMUA tugas tampil dan daftarnya menggulir di dalam sel bento, jadi
+ * tidak ada tugas yang "hilang" hanya karena selnya kecil. `compactLimit`
+ * hanya dipakai kalau pemanggil memang ingin memangkas daftar dan memindahkan
+ * sisanya ke popover "Lihat semua" (mis. sel 2x2 teknisi).
  */
 export type TaskNoteCardProps = {
-  compact?: boolean;
-  /** Berapa tugas yang tampil sebelum sisanya pindah ke popover. */
+  /**
+   * Berapa tugas yang tampil sebelum sisanya pindah ke popover. Kosongkan
+   * untuk menampilkan seluruh daftar.
+   */
   compactLimit?: number;
   /**
    * Bentuk permukaan. `bento` untuk sel 2x2 teknisi, `compact` untuk sel 1x1
    * frontliner, `default` untuk kartu mandiri.
    */
   variant?: "default" | "bento" | "compact";
+  /**
+   * Tugas yang sudah dimuat server. Bila diberikan, kartu tidak meminta daftar
+   * ulang saat mount - datanya sudah ada di HTML pertama.
+   */
+  initialTodos?: StaffTodo[];
+  /** Mention untuk `initialTodos`, juga dari server. */
+  initialMentions?: TodoMention[];
 };
 
+/** Kelompokkan mention per catatan supaya baris tinggal mencari id-nya. */
+function groupMentions(mentions: TodoMention[]): Record<string, TodoMention[]> {
+  const grouped: Record<string, TodoMention[]> = {};
+  for (const mention of mentions) {
+    (grouped[mention.todoId] ??= []).push(mention);
+  }
+  return grouped;
+}
+
 export function TaskNoteCard({
-  compact = false,
-  compactLimit = 5,
+  compactLimit,
   variant = "default",
+  initialTodos,
+  initialMentions,
 }: TaskNoteCardProps = {}) {
   // `todos` null berarti belum termuat. Dipisah dari `loading` supaya
   // penanganannya tetap bertipe `StaffTodo[]` dan tidak perlu narrowing
   // di setiap pembaruan optimistik.
-  const [todos, setTodos] = useState<StaffTodo[]>([]);
-  const [loaded, setLoaded] = useState(false);
+  const [todos, setTodos] = useState<StaffTodo[]>(initialTodos ?? []);
+  const [loaded, setLoaded] = useState(initialTodos !== undefined);
   const [draft, setDraft] = useState("");
   const [composing, setComposing] = useState(false);
   const [editing, setEditing] = useState<string | null>(null);
-  // Mode edit eksplisit: di layar sentuh tidak ada hover, jadi tombol
-  // pensil/hapus per baris harus bisa dimunculkan lewat satu tombol.
-  const [editingMode, setEditingMode] = useState(false);
   // Mention yang dipilih tapi belum disimpan. Dipisah dari `mentionsByTodo`
   // supaya membatalkan composer tidak mengubah catatan yang sudah tersimpan.
   //
@@ -110,11 +127,17 @@ export function TaskNoteCard({
   // membuka edit tidak menimpa apa yang diketik di composer yang belum
   // disimpan.
   const [editDraft, setEditDraft] = useState("");
-  const [mentionsByTodo, setMentionsByTodo] = useState<Record<string, TodoMention[]>>({});
+  const [mentionsByTodo, setMentionsByTodo] = useState<Record<string, TodoMention[]>>(() =>
+    groupMentions(initialMentions ?? []),
+  );
 
   const loading = !loaded;
 
   useEffect(() => {
+    // Data awal sudah dari server. Meminta ulang di sini hanya menambah satu
+    // round-trip sebelum kartu bisa dipakai.
+    if (initialTodos !== undefined) return;
+
     let cancelled = false;
     getMyTodos()
       .then((result) => {
@@ -133,11 +156,7 @@ export function TaskNoteCard({
             toast.error(m.error);
             return;
           }
-          const grouped: Record<string, TodoMention[]> = {};
-          for (const mention of m.data) {
-            (grouped[mention.todoId] ??= []).push(mention);
-          }
-          setMentionsByTodo(grouped);
+          setMentionsByTodo(groupMentions(m.data));
         });
       })
       .finally(() => {
@@ -146,7 +165,7 @@ export function TaskNoteCard({
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [initialTodos]);
 
   const submitDraft = async () => {
     const title = draft.trim();
@@ -236,10 +255,11 @@ export function TaskNoteCard({
   const open = todos.filter((t) => t.doneAt === null);
   const done = todos.filter((t) => t.doneAt !== null);
   const ordered = [...open, ...done];
-  // Di bento hanya `compactLimit` tugas yang tampil; sisanya disembunyikan di
-  // balik popover "Lihat semua". Di luar mode ringkas semua tampil seperti
-  // sebelumnya, jadi tidak ada yang tiba-tiba hilang.
-  const visible = compact ? ordered.slice(0, compactLimit) : ordered;
+  // Hanya pangkas kalau pemanggil meminta batas eksplisit. Bawaannya seluruh
+  // daftar tampil: dulu sel 1x1 frontliner memaksa satu baris, jadi 8 dari 9
+  // tugas hanya terlihat setelah membuka popover "Lihat semua".
+  const visible =
+    compactLimit != null ? ordered.slice(0, compactLimit) : ordered;
   const hiddenCount = ordered.length - visible.length;
   const doneLabel = loading ? "—" : `${done.length}/${todos.length}`;
 
@@ -291,12 +311,16 @@ export function TaskNoteCard({
     <>
       <ul
         className={cn(
-          "flex min-h-0 flex-1 flex-col overflow-y-auto scrollbar-none",
+          // `divide-y` memisahkan tiap tugas. Barisnya sendiri tetap
+          // transparan, jadi garis tipis ini yang jadi pemisah visual -
+          // bukan latar abu-abu per baris yang membuat daftar terlihat berat.
+          "flex min-h-0 flex-1 flex-col divide-y divide-black/5 overflow-y-auto scrollbar-none dark:divide-white/10",
           variant === "default" ? "mt-3" : "mt-1",
         )}
       >
         {visible.map((todo) => {
           const isDone = todo.doneAt !== null;
+          const isEditing = editing === todo.id;
           return (
             <li
               key={todo.id}
@@ -305,32 +329,32 @@ export function TaskNoteCard({
                 variant === "default" ? "py-1.5" : "py-1",
               )}
             >
-              {/* Baris penuh bisa diketuk untuk toggle selesai, seperti
-                  MinimalAgendaWidget. Tombol hapus dan ubah sengaja DI
-                  LUAR tombol ini supaya tidak ada elemen interaktif di dalam
-                  elemen interaktif. */}
+              {/* Tombol centang berdiri sendiri, BUKAN pembungkus baris. Dulu
+                  tombol toggle membungkus judul sekaligus editor inline;
+                  selain HTML-nya tidak valid, setiap klik ke field edit
+                  menggelembung ke tombol dan mencentang tugasnya. */}
               <button
                 type="button"
                 onClick={() => onToggle(todo)}
                 aria-pressed={isDone}
                 aria-label={isDone ? "Tandai belum selesai" : "Tandai selesai"}
-                className="flex min-w-0 flex-1 cursor-pointer items-center gap-2 text-left"
+                className={cn(
+                  "flex size-5 shrink-0 cursor-pointer items-center justify-center rounded-full border transition-colors",
+                  isDone
+                    ? "border-neutral-900 bg-neutral-900 text-white dark:border-neutral-100 dark:bg-neutral-100 dark:text-neutral-900"
+                    : "border-neutral-400 text-transparent hover:bg-black/[0.06] dark:border-neutral-500 dark:hover:bg-white/[0.08]",
+                )}
               >
-                <span
-                  className={cn(
-                    "flex size-5 shrink-0 items-center justify-center rounded-full border transition-colors",
-                    isDone
-                      ? "border-neutral-900 bg-neutral-900 text-white dark:border-neutral-100 dark:bg-neutral-100 dark:text-neutral-900"
-                      : "border-neutral-400 text-transparent hover:bg-black/[0.06] dark:border-neutral-500 dark:hover:bg-white/[0.08]",
-                  )}
-                >
-                  <CheckIcon className="size-3" />
-                </span>
+                <CheckIcon className="size-3" />
+              </button>
 
-                {editing === todo.id ? (
-                  // Edit inline memakai editor yang sama dengan composer.
-                  // Dua implementasi berbeda akan membuat satu jalur bisa
-                  // menyimpan format token yang tidak dibaca jalur lain.
+              {isEditing ? (
+                // Editor inline memakai komponen yang sama dengan composer.
+                // Dua implementasi berbeda akan membuat satu jalur bisa
+                // menyimpan format token yang tidak dibaca jalur lain.
+                // Editor adalah SAUDARA tombol centang, bukan isinya, jadi
+                // mengetik di sini tidak menyentuh status selesai.
+                <div className="min-w-0 flex-1">
                   <MentionComposerInput
                     value={editDraft}
                     onChange={setEditDraft}
@@ -343,34 +367,41 @@ export function TaskNoteCard({
                     onEscape={() => setEditing(null)}
                     className="h-7 min-h-7 py-0"
                   />
-                ) : (
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => onToggle(todo)}
+                  aria-label={isDone ? "Tandai belum selesai" : "Tandai selesai"}
+                  className="flex min-w-0 flex-1 cursor-pointer items-center gap-2 text-left"
+                >
                   <AgendaTitle done={isDone}>
                     <NoteWithMentions
                       value={todo.title}
                       mentions={mentionsByTodo[todo.id] ?? []}
                     />
                   </AgendaTitle>
-                )}
 
-                {variant === "default" && todo.dueAt ? (
-                  <span className="ml-auto w-20 shrink-0 text-right font-mono text-[10px] text-muted-foreground/70 uppercase tracking-[0.2em]">
-                    {dueLabel(todo.dueAt)}
-                  </span>
-                ) : null}
-              </button>
+                  {variant === "default" && todo.dueAt ? (
+                    <span className="ml-auto w-20 shrink-0 text-right font-mono text-[10px] text-muted-foreground/70 uppercase tracking-[0.2em]">
+                      {dueLabel(todo.dueAt)}
+                    </span>
+                  ) : null}
+                </button>
+              )}
 
+              {/* Satu-satunya affordance edit. Dulu ada tombol "Edit" di
+                  toolbar plus pensil per baris; keduanya melakukan hal yang
+                  sama dan toolbar-nya terasa seperti tombol yang salah. Selalu
+                  terlihat (opacity-60) karena layar sentuh tidak punya hover. */}
               <button
                 type="button"
                 onClick={() => {
                   setEditDraft(todo.title);
                   setEditing(todo.id);
-                  setEditingMode(true);
                 }}
                 aria-label="Ubah tugas"
-                className={cn(
-                  "shrink-0 rounded-full p-1 text-muted-foreground transition-opacity hover:text-foreground focus-visible:opacity-100",
-                  editingMode ? "opacity-100" : "opacity-0 group-hover:opacity-100",
-                )}
+                className="shrink-0 rounded-full p-1 text-muted-foreground opacity-60 transition-opacity hover:text-foreground hover:opacity-100 focus-visible:opacity-100"
               >
                 <PencilIcon className="size-3.5" />
               </button>
@@ -379,10 +410,7 @@ export function TaskNoteCard({
                 type="button"
                 onClick={() => onDelete(todo)}
                 aria-label="Hapus tugas"
-                className={cn(
-                  "shrink-0 rounded-full p-1 text-muted-foreground transition-opacity hover:text-destructive focus-visible:opacity-100",
-                  editingMode ? "opacity-100" : "opacity-0 group-hover:opacity-100",
-                )}
+                className="shrink-0 rounded-full p-1 text-muted-foreground opacity-60 transition-opacity hover:text-destructive hover:opacity-100 focus-visible:opacity-100"
               >
                 <XIcon className="size-3.5" />
               </button>
@@ -409,7 +437,7 @@ export function TaskNoteCard({
             }
           />
           <PopoverContent align="start" className="w-80">
-            <ul className="flex max-h-80 flex-col overflow-y-auto scrollbar-none">
+            <ul className="flex max-h-80 flex-col divide-y divide-black/5 overflow-y-auto scrollbar-none dark:divide-white/10">
               {ordered.map((todo) => {
                 const isDone = todo.doneAt !== null;
                 return (
@@ -458,32 +486,22 @@ export function TaskNoteCard({
     variant === "bento" && "max-sm:px-2 max-sm:text-[10px]",
     variant === "compact" && "px-2 py-0.5 text-[10px]",
   );
-  const editButtonClass = cn(
-    addButtonClass,
-    editingMode && "bg-neutral-900 text-white hover:bg-neutral-900 dark:bg-white dark:text-neutral-900 dark:hover:bg-white",
-  );
 
+  // Hanya "Tambah" yang tinggal di toolbar. Tombol "Edit" dulu mengaktifkan
+  // mode yang memunculkan pensil per baris - dua jalan untuk hal yang sama,
+  // dan toolbar-nya jadi terasa seperti tombol yang tidak melakukan apa-apa.
   const toolbar = (
     <div className="flex flex-wrap items-center gap-1.5">
       <button type="button" onClick={() => setComposing((v) => !v)} className={addButtonClass}>
         <PlusIcon className="size-3.5" />
         {variant === "compact" ? "Tambah" : "Tambah tugas"}
       </button>
-      <button
-        type="button"
-        onClick={() => setEditingMode((v) => !v)}
-        aria-pressed={editingMode}
-        className={editButtonClass}
-      >
-        <PencilIcon className="size-3.5" />
-        {variant === "compact" ? "Edit" : "Edit tugas"}
-      </button>
     </div>
   );
 
   if (variant === "bento") {
     return (
-      <div className="flex h-full min-h-0 flex-col rounded-[22px] bg-white p-4 max-sm:min-h-[15rem] dark:bg-neutral-800 sm:p-5">
+      <div className="flex h-full min-h-0 flex-col rounded-[22px] bg-white/70 p-4 max-sm:min-h-[15rem] dark:bg-white/[0.06] sm:p-5">
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0">
             <h2 className="text-[15px] font-medium tracking-tight">TodoList</h2>

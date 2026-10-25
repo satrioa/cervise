@@ -1,8 +1,9 @@
 import { getActiveTenant } from "@/lib/supabase/actor";
-import { normalizeAppRole, surfaceFor } from "@/lib/nav/manifest";
+import { surfaceFor } from "@/lib/nav/manifest";
 import DashboardOwnerClient from "./dashboard-owner-client";
 import { TechnicianDashboard } from "@/components/dashboard/technician-dashboard";
 import { FrontlinerDashboard } from "@/components/dashboard/frontliner-dashboard";
+import { getHomeData } from "./actions/home";
 
 /**
  * Dashboard `/app` untuk tiga kelompok pengguna yang sangat berbeda.
@@ -22,13 +23,15 @@ import { FrontlinerDashboard } from "@/components/dashboard/frontliner-dashboard
  */
 export default async function DashboardPage() {
   const actor = await getActiveTenant();
-  const role = normalizeAppRole(actor.role);
 
   if (surfaceFor(actor.role) === "compact") {
-    if (role === "FRONTLINER") {
-      return <FrontlinerDashboard fullName={actor.fullName} />;
+    // Data dirakit di server dan dikirim sebagai prop, jadi angka pertama
+    // sudah ada di HTML pertama - bukan setelah komponen ter-hydrate.
+    const home = await getHomeData();
+    if (home.kind === "frontliner") {
+      return <FrontlinerDashboard fullName={actor.fullName} initialData={home} />;
     }
-    return <TechnicianDashboard fullName={actor.fullName} />;
+    return <TechnicianDashboard fullName={actor.fullName} initialData={home} />;
   }
 
   return <DashboardOwnerClient />;

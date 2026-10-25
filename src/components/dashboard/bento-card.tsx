@@ -46,13 +46,14 @@ const NEUTRAL =
 /**
  * Permukaan putih untuk kartu daftar/checklist.
  *
- * Di Figma kartu daftar sengaja putih agar terbaca sebagai lembar kerja di
- * atas kanvas abu-abu. Di dark mode putih dipetakan ke neutral-800 supaya
- * masih satu tingkat lebih terang dari kartu netral.
+ * Di Figma kartu daftar sengaja lebih terang dari kanvas agar terbaca sebagai
+ * lembar kerja. Putih penuh (#fff) di atas kanvas abu-abu terlalu kontras dan
+ * jadi bidang paling menyilaukan di dashboard, jadi dipakai `white/70`.
+ * Di dark mode putih dipetakan ke lapisan putih tipis di atas neutral-900.
  */
 const WHITE =
-  "bg-white text-neutral-900 hover:bg-white " +
-  "dark:bg-neutral-800 dark:text-neutral-100 dark:hover:bg-neutral-800";
+  "bg-white/70 text-neutral-900 hover:bg-white/70 " +
+  "dark:bg-white/[0.06] dark:text-neutral-100 dark:hover:bg-white/[0.06]";
 
 const PLAIN = "bg-transparent text-inherit";
 
@@ -67,14 +68,19 @@ const BENTO_EASE = [0.215, 0.61, 0.355, 1] as const;
 /**
  * Kelas grid bento, dipakai kedua dashboard.
  *
- * Di mobile grid dua kolom mengikuti frame Figma; di desktop empat kolom
- * dengan tinggi baris tetap 10.5rem. Tinggi baris tidak lagi membagi tinggi
- * viewport: kartu mengikuti tinggi isinya, dan halaman boleh menggulir.
- * Baris tetap (bukan `1fr`) membuat kartu yang `rowSpan` dua baris punya
- * proporsi yang sama di semua layar.
+ * Di mobile grid dua kolom mengikuti frame Figma dan halaman menggulir. Di
+ * desktop grid mengisi sisa viewport:
+ *
+ * - baris 1 dan 2 tetap 10.5rem. Kartu aksi (Servis baru, Catat Kas,
+ *   Penjualan, Sparepart) dan Ringkasan Servis tidak ikut melar saat layar
+ *   tinggi - kalau ikut `1fr`, kartu tombol jadi bidang kosong yang besar.
+ * - baris 3 menyerap sisa tinggi (`minmax(10.5rem, 1fr)`), jadi hanya kartu
+ *   data (daftar servis, To-Do, Ringkasan Hari ini) yang memanjang.
+ * - `minmax` menjaga baris 3 tidak kolaps di layar pendek; kalau isinya tetap
+ *   tidak muat, `main` shell yang menggulir.
  */
 export const BENTO_GRID_CLASS =
-  "mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4 sm:auto-rows-[10.5rem] sm:gap-4";
+  "mt-6 grid grid-cols-2 gap-3 sm:min-h-0 sm:flex-1 sm:grid-cols-4 sm:gap-4 sm:grid-rows-[10.5rem_10.5rem_minmax(10.5rem,1fr)]";
 
 /**
  * Jarak naik kartu, dalam px.

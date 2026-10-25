@@ -13,6 +13,7 @@ import {
 import { surfaceFor } from "@/lib/nav/manifest";
 import { getBranchOptionsForActor } from "@/lib/supabase/branch-options";
 import { BRANCH_SCOPE_ALL } from "@/lib/supabase/branch-scope";
+import { InitialPasswordDialog } from "@/components/initial-password-dialog";
 
 /**
  * Halaman yang tetap boleh dibuka tenant yang langganannya sudah berakhir.
@@ -94,6 +95,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         <QueryErrorToast />
       </Suspense>
       {shell}
+      {/* Akun yang masih memakai password generated tidak boleh masuk ke
+          dashboard sebelum menggantinya. Dialog dirender di layout, bukan di
+          halaman, supaya tidak bisa dilewati dengan membuka route /app lain. */}
+      <InitialPasswordDialog mustChange={Boolean(actor.mustChangePassword)} />
     </>
   );
 }

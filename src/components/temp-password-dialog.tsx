@@ -47,7 +47,8 @@ export function TempPasswordDialog({
           {password}
         </div>
         <p className="text-xs text-muted-foreground">
-          Setelah masuk, segera ganti password di halaman Profil.
+          Saat pertama masuk, sistem akan meminta password baru. Password sementara ini
+          tidak perlu dimasukkan lagi.
         </p>
         <DialogFooter>
           <Button variant="outline" onClick={copy}>

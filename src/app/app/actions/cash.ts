@@ -2,31 +2,30 @@
 
 import { getActiveTenant } from "@/lib/supabase/actor";
 import { isManagerRole } from "@/lib/auth/authorization";
+import type { FrontlinerKpi } from "@/lib/operational/frontliner-dashboard";
+import type { ShiftReport, ShiftSession } from "@/lib/operational/laporan-shift";
+import { kalenderWIB } from "@/lib/operational/periode-bulan";
 import {
-  buildFrontlinerKpi,
-  type FrontlinerKpi,
-} from "@/lib/operational/frontliner-dashboard";
-import {
-  buildLaporanShift,
-  type ShiftCashRow,
-  type ShiftReport,
-  type ShiftSaleRow,
-  type ShiftServiceRow,
-  type ShiftSession,
-} from "@/lib/operational/laporan-shift";
-import { awalHariWIB, kalenderWIB } from "@/lib/operational/periode-bulan";
+  computeShiftReport,
+  hydrateSessions,
+  loadCashSession,
+  loadCashSessionRecord,
+  loadFrontlinerKpi,
+  loadFrontlinerQueue,
+  type CashSessionRecord,
+} from "@/lib/home/home-data";
+import type { FrontlinerQueueItem } from "@/lib/home/types";
 
 /**
  * Sesi kas harian dan Laporan Shift.
  *
- * Semua perhitungan ada di `@/lib/operational/laporan-shift`; file ini hanya
- * mengambil baris lalu meneruskannya.
+ * Semua perhitungan ada di `@/lib/operational/laporan-shift`; pemuatan barisnya
+ * ada di `@/lib/home/home-data`. File ini hanya menyediakan pintu server action
+ * (resolve aktor sekali, lalu teruskan konteksnya) supaya dialog dan halaman
+ * lain bisa memanggilnya dari klien.
  */
 
-// Laporan shift adalah rekap satu hari kerja, bukan ekspor.
-const SERVICE_ROW_CAP = 500;
-const SALE_ROW_CAP = 500;
-const CASH_ROW_CAP = 500;
+export type { FrontlinerQueueItem } from "@/lib/home/types";
 
 export type CashSessionRow = ShiftSession;
 
@@ -64,75 +63,10 @@ export async function checkOpenCashSession(): Promise<
   CashResult<{ current: CashSessionRow | null; stale: CashSessionRow | null }>
 > {
   try {
-    const { supabase, userId } = await cashContext();
-    const { data, error } = await supabase
-      .from("cervise_cash_sessions")
-      .select("id, branch_id, employee_id, open_at, opening_balance, closed_at, closing_balance, variance")
-      .eq("employee_id", userId)
-      .is("closed_at", null)
-      .order("open_at", { ascending: false });
-
-    if (error) return fail(error.message);
-
-    const rows = (data ?? []) as {
-      id: string;
-      branch_id: string;
-      employee_id: string;
-      open_at: string;
-      opening_balance: number;
-      closed_at: string | null;
-      closing_balance: number | null;
-      variance: number | null;
-    }[];
-
-    const today = toCalendarDate(new Date());
-    const hydrated = await hydrateSessions(rows);
-
-    return {
-      ok: true,
-      data: {
-        // Index unik `where closed_at is null` menjamin paling banyak satu,
-        // tapi `limit(1)` tetap dipakai supaya tidak bergantung pada itu.
-        current: hydrated.find((row) => toCalendarDate(new Date(row.openAt)) === today) ?? hydrated[0] ?? null,
-        stale: hydrated.find((row) => toCalendarDate(new Date(row.openAt)) !== today) ?? null,
-      },
-    };
+    return { ok: true, data: await loadCashSession(await cashContext()) };
   } catch (cause) {
     return fail(cause instanceof Error ? cause.message : "Gagal memuat sesi kas");
   }
-}
-
-async function hydrateSessions(
-  rows: { id: string; branch_id: string; employee_id: string; open_at: string; opening_balance: number; closed_at: string | null; closing_balance: number | null; variance: number | null }[],
-): Promise<CashSessionRow[]> {
-  if (rows.length === 0) return [];
-  const { supabase } = await cashContext();
-
-  const branchIds = [...new Set(rows.map((row) => row.branch_id))];
-  const profileIds = [...new Set(rows.map((row) => row.employee_id))];
-
-  const [branches, profiles] = await Promise.all([
-    supabase.from("branches").select("id, name").in("id", branchIds),
-    supabase.from("profiles").select("id, full_name").in("id", profileIds),
-  ]);
-
-  const branchName = new Map((branches.data ?? []).map((b) => [b.id as string, b.name as string]));
-  const employeeName = new Map(
-    (profiles.data ?? []).map((p) => [p.id as string, (p.full_name as string) ?? "Tanpa nama"]),
-  );
-
-  return rows.map((row) => ({
-    id: row.id,
-    branchId: row.branch_id,
-    employeeId: row.employee_id,
-    openAt: row.open_at,
-    openingBalance: row.opening_balance,
-    closedAt: row.closed_at,
-    closingBalance: row.closing_balance,
-    variance: row.variance,
-    branchName: branchName.get(row.branch_id) ?? "â€”",
-    employeeName: employeeName.get(row.employee_id) ?? "â€”",
-  }));
 }
 
 /**
@@ -170,7 +104,7 @@ export async function openCashSession(input: { openingBalance: number }): Promis
 
     if (error) return fail(error.message);
 
-    const [session] = await hydrateSessions([data as Parameters<typeof hydrateSessions>[0][number]]);
+    const [session] = await hydrateSessions(supabase, [data as CashSessionRecord]);
     return { ok: true, data: session };
   } catch (cause) {
     return fail(cause instanceof Error ? cause.message : "Gagal membuka sesi kas");
@@ -193,7 +127,8 @@ export async function closeCashSession(input: {
   if (!input.sessionId) return fail("ID sesi tidak valid");
 
   try {
-    const { supabase, userId, role } = await cashContext();
+    const ctx = await cashContext();
+    const { supabase, userId, role } = ctx;
 
     const isManager = isManagerRole(role);
 
@@ -214,7 +149,8 @@ export async function closeCashSession(input: {
       return fail("Sesi kas ini bukan milik Anda");
     }
 
-    const report = await computeReport(input.sessionId, row as SessionForReport);
+    const [session] = await hydrateSessions(supabase, [row as CashSessionRecord]);
+    const report = await computeShiftReport(ctx, session);
     if (!report) return fail("Gagal menghitung laporan shift");
 
     // `expected_cash` dan `variance` memakai report.expectedCash, bukan
@@ -257,78 +193,15 @@ export async function closeCashSession(input: {
   }
 }
 
-type SessionForReport = {
-  id: string;
-  branch_id: string;
-  employee_id: string;
-  open_at: string;
-  opening_balance: number;
-  closed_at: string | null;
-};
-
-async function computeReport(sessionId: string, row: SessionForReport): Promise<ShiftReport | null> {
-  const [session] = await hydrateSessions([row as never]);
-  if (!session) return null;
-
-  const { supabase, branchId } = await cashContext();
-  const now = new Date();
-  const date = toCalendarDate(new Date(session.openAt));
-
-  // Tiga query paralel. Setiap filter mengikuti bentuk kolomnya masing-masing:
-  // servis pakai created_at (timestamptz, jamnya ada), penjualan dan kas
-  // pakai kas_date (date, jamnya hilang) jadi satu hari penuh.
-  const [servicesResult, salesResult, cashResult] = await Promise.all([
-    supabase
-      .from("cervise_services")
-      .select("id, service_number, device, status, price, created_at, updated_at")
-      .eq("branch_id", branchId)
-      .gte("created_at", session.openAt)
-      .order("created_at", { ascending: false })
-      .limit(SERVICE_ROW_CAP),
-    supabase
-      .from("cervise_sales")
-      .select("id, sale_number, total, paid, payment_status, payment_method, kas_date, servis_id")
-      .eq("branch_id", branchId)
-      .eq("kas_date", date)
-      .order("created_at", { ascending: false })
-      .limit(SALE_ROW_CAP),
-    supabase
-      .from("cervise_finance_tx")
-      .select("id, type, amount, description, kas_date, source, metode")
-      .eq("branch_id", branchId)
-      .eq("kas_date", date)
-      .in("source", ["kas_manual", "penyesuaian", "retur"])
-      .order("created_at", { ascending: false })
-      .limit(CASH_ROW_CAP),
-  ]);
-
-  if (servicesResult.error) throw new Error(servicesResult.error.message);
-  if (salesResult.error) throw new Error(salesResult.error.message);
-  if (cashResult.error) throw new Error(cashResult.error.message);
-
-  return buildLaporanShift({
-    session,
-    services: (servicesResult.data ?? []) as ShiftServiceRow[],
-    sales: (salesResult.data ?? []) as ShiftSaleRow[],
-    cashTx: (cashResult.data ?? []) as ShiftCashRow[],
-    now,
-  });
-}
-
 /** Preview live untuk dialog Tutup Toko. Tidak menyimpan apa pun. */
 export async function getShiftPreview(sessionId: string): Promise<CashResult<ShiftReport>> {
   if (!sessionId) return fail("ID sesi tidak valid");
   try {
-    const { supabase } = await cashContext();
-    const { data, error } = await supabase
-      .from("cervise_cash_sessions")
-      .select("id, branch_id, employee_id, open_at, opening_balance, closed_at")
-      .eq("id", sessionId)
-      .maybeSingle();
-    if (error) return fail(error.message);
-    if (!data) return fail("Sesi kas tidak ditemukan");
+    const ctx = await cashContext();
+    const record = await loadCashSessionRecord(ctx, sessionId);
+    const [session] = await hydrateSessions(ctx.supabase, [record]);
 
-    const report = await computeReport(sessionId, data as SessionForReport);
+    const report = await computeShiftReport(ctx, session);
     if (!report) return fail("Gagal menghitung laporan shift");
     return { ok: true, data: report };
   } catch (cause) {
@@ -379,9 +252,7 @@ export async function listShiftSessions(
     const { data, error } = await query;
     if (error) return fail(error.message);
 
-    const sessions = await hydrateSessions(
-      (data ?? []) as Parameters<typeof hydrateSessions>[0],
-    );
+    const sessions = await hydrateSessions(supabase, (data ?? []) as CashSessionRecord[]);
     return { ok: true, data: sessions };
   } catch (cause) {
     return fail(cause instanceof Error ? cause.message : "Gagal memuat daftar shift");
@@ -438,119 +309,33 @@ export async function addCashAdjustment(input: {
 // ---------------------------------------------------------------------------
 
 /**
- * Tipe lived here didefinisikan di `@/lib/operational/frontliner-dashboard`
- * supaya bisa diuji tanpa Supabase. Di-reexport di sini supaya pemanggil
- * lama yang mengimpor dari actions tidak perlu diubah.
+ * Tipe hidup di `@/lib/operational/frontliner-dashboard` supaya bisa diuji
+ * tanpa Supabase. Di-reexport di sini supaya pemanggil lama yang mengimpor dari
+ * actions tidak perlu diubah.
  */
 export type { FrontlinerKpi } from "@/lib/operational/frontliner-dashboard";
+
 /**
  * Empat KPI untuk dashboard kasir.
  *
- * `summarizeDashboard` yang dipakai dashboard manajer tidak punya angka
- * "diambil" dan "batal" â€” isinya OMZET dan garansi, bukan status servis. Jadi
- * dihitung di sini dari baris yang sama, bukan diakal ulang dari bucket.
+ * Dihitung database (`count`), bukan dari ratusan baris yang diunduh lalu
+ * disaring di sini. Definisinya tetap satu: `buildFrontlinerKpiFromCounts` di
+ * `@/lib/operational/frontliner-dashboard`.
  */
 export async function getFrontlinerKpi(): Promise<CashResult<FrontlinerKpi>> {
   try {
-    const { supabase, branchId } = await cashContext();
-    const { data, error } = await supabase
-      .from("cervise_services")
-      .select("status, created_at")
-      .eq("branch_id", branchId)
-      // `T00:00:00.000Z` untuk hari yang sama berarti 07:00 WIB, jadi tujuh jam
-      // pertama hari lokal justru tidak ikut dihitung. awalHariWIB mengembalikan
-      // instant tengah malam WIB yang sebenarnya.
-      .gte("created_at", awalHariWIB(new Date()).toISOString())
-      .limit(SERVICE_ROW_CAP);
-    if (error) return fail(error.message);
-
-    const rows = (data ?? []) as { status: string; created_at: string }[];
-
-    return { ok: true, data: buildFrontlinerKpi(rows) };
+    return { ok: true, data: await loadFrontlinerKpi(await cashContext()) };
   } catch (cause) {
     return fail(cause instanceof Error ? cause.message : "Gagal memuat KPI");
   }
 }
 
-export type FrontlinerQueueItem = {
-  id: string;
-  serviceNumber: string | null;
-  device: string;
-  status: string;
-  price: number;
-  createdAt: string;
-  customerName: string | null;
-};
-
 /**
- * Servis hari ini yang belum punya penjualan terkait â€” itu antrean "Bayar".
+ * Servis yang belum punya penjualan terkait — itu antrean "Bayar".
  */
 export async function getFrontlinerQueue(): Promise<CashResult<FrontlinerQueueItem[]>> {
   try {
-    const { supabase, branchId } = await cashContext();
-
-    // Antrean = semua servis yang belum punya penjualan terkait, bukan hanya
-    // hari ini. Membatasi ke hari ini akan menyembunyikan servis yang tertinggal
-    // dari kemarin dan tidak pernah dibayar â€” justru yang paling butuh ditagih.
-    // Urutan terbaru dulu, dan dibatasi supaya antrean panjang tidak
-    // menjadi lambat.
-    const { data, error } = await supabase
-      .from("cervise_services")
-      .select("id, service_number, device, status, price, price_estimasi, created_at, customer_id")
-      .eq("branch_id", branchId)
-      .not("status", "in", '("Batal")')
-      .order("created_at", { ascending: false })
-      .limit(200);
-
-    if (error) return fail(error.message);
-
-    const services = (data ?? []) as {
-      id: string;
-      service_number: string | null;
-      device: string;
-      status: string;
-      price: number;
-      price_estimasi: number | null;
-      created_at: string;
-      customer_id: string | null;
-    }[];
-
-    // Satu query untuk semua id, bukan N+1 per baris.
-    const paid = await supabase
-      .from("cervise_sales")
-      .select("servis_id")
-      .eq("branch_id", branchId)
-      .not("servis_id", "is", null);
-    if (paid.error) return fail(paid.error.message);
-
-    const paidIds = new Set(
-      (paid.data ?? []).map((row) => row.servis_id as string).filter(Boolean),
-    );
-
-    const customerIds = [...new Set(services.map((s) => s.customer_id).filter(Boolean))] as string[];
-    const customers = customerIds.length
-      ? await supabase.from("cervise_customers").select("id, name").in("id", customerIds)
-      : { data: [] as { id: string; name: string }[] };
-    const customerName = new Map(
-      (customers.data ?? []).map((c) => [c.id as string, c.name as string]),
-    );
-
-    return {
-      ok: true,
-      data: services
-        .filter((service) => !paidIds.has(service.id))
-        .map((service) => ({
-          id: service.id,
-          serviceNumber: service.service_number,
-          device: service.device,
-          status: service.status,
-          // `price` adalah total yang SUDAH dibayar, jadi untuk servis di
-          // antrean nilainya 0. Yang perlu ditagih adalah estimasinya.
-          price: service.price_estimasi ?? service.price,
-          createdAt: service.created_at,
-          customerName: service.customer_id ? (customerName.get(service.customer_id) ?? null) : null,
-        })),
-    };
+    return { ok: true, data: await loadFrontlinerQueue(await cashContext()) };
   } catch (cause) {
     return fail(cause instanceof Error ? cause.message : "Gagal memuat antrean servis");
   }

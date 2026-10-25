@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { cookies } from "next/headers";
 import { notFound } from "next/navigation";
+import { cache } from "react";
 import {
   getSubscriptionAccessState,
   type SubscriptionLifecycleStatus,
@@ -70,6 +71,13 @@ export type Actor = {
    * belum tentu yang membayar paketnya, dan sebaliknya.
    */
   isOwner: boolean;
+  /**
+   * Akun masih memakai password generated dan harus menggantinya sendiri.
+   *
+   * Opsional supaya actor palsu di test lama tetap valid; layout memperlakukan
+   * nilai kosong sebagai `false`.
+   */
+  mustChangePassword?: boolean;
   /** Identitas akun, untuk sidebar dan header. Boleh null kalau belum diisi. */
   fullName: string | null;
   avatarUrl: string | null;
@@ -81,9 +89,22 @@ export type Actor = {
   } | null;
 };
 
-export async function getActiveTenant(): Promise<Actor> {
+/**
+ * Actor untuk request yang sedang berjalan.
+ *
+ * `cache()` membuat pemanggilan berulang dalam satu render/aksi memakai hasil
+ * yang sama. Sebelumnya `layout.tsx` dan `page.tsx` sama-sama memanggilnya,
+ * lalu setiap server action dashboard memanggilnya lagi - masing-masing
+ * membaca auth, employees, profiles, organizations, branches, dan
+ * subscriptions dari awal. Sekarang biaya itu dibayar sekali per request.
+ *
+ * Di-cache terpisah dari `getActiveTenantForBilling` karena keduanya punya
+ * aturan langganan yang berbeda; menyatukannya akan membuka halaman biasa
+ * untuk tenant yang sudah berakhir.
+ */
+export const getActiveTenant = cache(async (): Promise<Actor> => {
   return resolveTenant({ allowExpiredSubscription: false });
-}
+});
 
 /**
  * Actor untuk halaman penagihan saja.
@@ -104,9 +125,9 @@ export async function getActiveTenant(): Promise<Actor> {
  * halaman lain - readonly data tenant (servis, penjualan, stok) tidak boleh
  * terbaca oleh tenant yang langganannya sudah berhenti.
  */
-export async function getActiveTenantForBilling(): Promise<Actor> {
+export const getActiveTenantForBilling = cache(async (): Promise<Actor> => {
   return resolveTenant({ allowExpiredSubscription: true });
-}
+});
 
 /**
  * Role dari `employees.role`, dinormalkan ke bentuk manifest.
@@ -178,23 +199,54 @@ async function resolveTenant(options: { allowExpiredSubscription: boolean }): Pr
   const actorRow = emps.find((employee) => employee.organization_id === targetOrgId) as EmployeeRow;
   if (!actorRow) throw new TenantAccessError("tenant_not_found", "Tidak punya akses ke tenant ini");
 
-  const { data: profile, error: profileError } = await supabase
-    .from("profiles")
-    .select("is_active, full_name, email, avatar_url")
-    .eq("id", auth.user.id)
-    .maybeSingle();
-  if (profileError) throw new TenantAccessError("lookup_failed", profileError.message);
+  const role = resolveActorRole(actorRow);
+  const masterAdmin = isMasterAdminRole(role);
+
+  // Profil, organisasi, validasi cabang, dan langganan tidak saling
+  // bergantung, jadi dibaca bersamaan. Dulu berurutan: satu kunjungan Home
+  // menunggu empat round-trip berturut-turut sebelum satu query pun jalan.
+  //
+  // Pemeriksaannya tetap berurutan di bawah supaya kode error yang dilaporkan
+  // tidak berubah: profil dulu, lalu organisasi, cabang, terakhir langganan.
+  const [profileResult, organizationResult, branchValidation, subscriptionResult] =
+    await Promise.all([
+      supabase
+        .from("profiles")
+        .select("is_active, full_name, email, avatar_url, must_change_password")
+        .eq("id", auth.user.id)
+        .maybeSingle(),
+      supabase
+        .from("organizations")
+        // owner_profile_id ikut diambil pada select yang sudah ada, bukan query
+        // terpisah: baris ini sudah dibaca untuk cek status, menambah satu kolom
+        // tidak menambah pekerjaan database.
+        .select("status, owner_profile_id")
+        .eq("id", targetOrgId)
+        .maybeSingle(),
+      actorRow.branch_id
+        ? supabase
+            .from("branches")
+            .select("id")
+            .eq("id", actorRow.branch_id)
+            .eq("organization_id", targetOrgId)
+            .eq("is_active", true)
+            .maybeSingle()
+        : Promise.resolve({ data: null, error: null }),
+      supabase
+        .from("tenant_subscriptions")
+        .select("status, current_period_end, trial_ends_at, grace_days")
+        .eq("organization_id", targetOrgId)
+        .maybeSingle(),
+    ]);
+
+  const profile = profileResult.data;
+  if (profileResult.error) throw new TenantAccessError("lookup_failed", profileResult.error.message);
   if (!profile?.is_active) throw new TenantAccessError("profile_inactive", "Profil tidak aktif");
 
-  const { data: organization, error: organizationError } = await supabase
-    .from("organizations")
-    // owner_profile_id ikut diambil pada select yang sudah ada, bukan query
-    // terpisah: baris ini sudah dibaca untuk cek status, menambah satu kolom
-    // tidak menambah pekerjaan database.
-    .select("status, owner_profile_id")
-    .eq("id", targetOrgId)
-    .maybeSingle();
-  if (organizationError) throw new TenantAccessError("lookup_failed", organizationError.message);
+  const organization = organizationResult.data;
+  if (organizationResult.error) {
+    throw new TenantAccessError("lookup_failed", organizationResult.error.message);
+  }
   // `organizations.status` TIDAK dikecualikan untuk jalur penagihan, walaupun
   // namanya juga "blocked". Status ini berarti tenant-nya dinonaktifkan
   // seluruhnya - bisa karena penyalahgunaan, bukan sekadar tagihan yang lewat
@@ -205,23 +257,17 @@ async function resolveTenant(options: { allowExpiredSubscription: boolean }): Pr
     throw new TenantAccessError("subscription_blocked", "Organisasi tenant tidak aktif");
   }
 
-  const role = resolveActorRole(actorRow);
-  const masterAdmin = isMasterAdminRole(role);
-
   // Validasi cabang kepegawaian tetap berlaku untuk semua role. MASTER_ADMIN
   // yang `employees.branch_id`-nya menunjuk cabang nonaktif tetap ditolak,
   // sama seperti staf - kalau tidak, assignment rusak berubah jadi akses
   // diam-diam ke cabang lain.
   if (actorRow.branch_id) {
-    const { data: branch, error: branchError } = await supabase
-      .from("branches")
-      .select("id")
-      .eq("id", actorRow.branch_id)
-      .eq("organization_id", targetOrgId)
-      .eq("is_active", true)
-      .maybeSingle();
-    if (branchError) throw new TenantAccessError("lookup_failed", "Gagal memverifikasi cabang");
-    if (!branch) throw new TenantAccessError("branch_invalid", "Cabang tidak valid untuk tenant ini");
+    if (branchValidation.error) {
+      throw new TenantAccessError("lookup_failed", "Gagal memverifikasi cabang");
+    }
+    if (!branchValidation.data) {
+      throw new TenantAccessError("branch_invalid", "Cabang tidak valid untuk tenant ini");
+    }
   }
 
   const requestedScopeRaw =
@@ -270,12 +316,10 @@ async function resolveTenant(options: { allowExpiredSubscription: boolean }): Pr
 
   const effectiveBranchId = branchScope?.mode === "branch" ? branchScope.branchId : null;
 
-  const { data: subscriptionRow, error: subscriptionError } = await supabase
-    .from("tenant_subscriptions")
-    .select("status, current_period_end, trial_ends_at, grace_days")
-    .eq("organization_id", targetOrgId)
-    .maybeSingle();
-  if (subscriptionError) throw new TenantAccessError("lookup_failed", subscriptionError.message);
+  if (subscriptionResult.error) {
+    throw new TenantAccessError("lookup_failed", subscriptionResult.error.message);
+  }
+  const subscriptionRow = subscriptionResult.data;
 
   let subscription: Actor["subscription"] = null;
   if (subscriptionRow) {
@@ -337,6 +381,8 @@ async function resolveTenant(options: { allowExpiredSubscription: boolean }): Pr
       organization?.owner_profile_id as string | null,
       auth.user.id,
     ),
+    // Dibaca dari select profil yang sudah ada, bukan query terpisah.
+    mustChangePassword: Boolean(profile.must_change_password),
     fullName: (profile.full_name as string | null) ?? null,
     // Path dari database tidak pernah dipakai mentah: divalidasi bentuknya dulu
     // supaya nilai yang tersuntik tidak bisa mengubah host URL.

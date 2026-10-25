@@ -10,6 +10,7 @@ import {
   WrenchIcon,
 } from "lucide-react";
 import { motion } from "motion/react";
+import { toast } from "sonner";
 import {
   BENTO_GRID_CLASS,
   BentoCard,
@@ -17,9 +18,8 @@ import {
   useBentoStagger,
 } from "./bento-card";
 import { CandyButton } from "@/components/ui/candy-button";
-import { Skeleton } from "@/components/ui/skeleton";
-import { AsciiReveal } from "@/components/ui/ascii";
 import { TaskNoteCard } from "./task-note-card";
+import { NewServisDialog } from "@/components/servis/new-servis-dialog";
 import { AdjustmentDialog } from "@/components/cash/adjustment-dialog";
 import { ClosingDialog } from "@/components/cash/closing-dialog";
 import {
@@ -31,6 +31,7 @@ import {
   type FrontlinerKpi,
   type FrontlinerQueueItem,
 } from "@/app/app/actions/cash";
+import type { FrontlinerHomeData } from "@/lib/home/types";
 import { rupiah, type ShiftReport } from "@/lib/operational/laporan-shift";
 import { cn } from "@/lib/utils";
 
@@ -65,24 +66,60 @@ const BENTO_STAGGER = 0.04;
  * halaman detail servis.
  */
 
-export function FrontlinerDashboard({ fullName }: { fullName: string | null }) {
+type FrontlinerState = {
+  queue: FrontlinerQueueItem[];
+  kpi: FrontlinerKpi | null;
+  session: CashSessionRow | null;
+  report: ShiftReport | null;
+};
+
+function frontlinerState(data: FrontlinerHomeData): FrontlinerState {
+  return {
+    queue: data.queue,
+    kpi: data.kpi,
+    session: data.session,
+    report: data.report,
+  };
+}
+
+export function FrontlinerDashboard({
+  fullName,
+  initialData,
+}: {
+  fullName: string | null;
+  initialData: FrontlinerHomeData;
+}) {
   const { gridProps } = useBentoStagger(BENTO_STAGGER);
 
-  const [queue, setQueue] = useState<FrontlinerQueueItem[]>([]);
-  const [kpi, setKpi] = useState<FrontlinerKpi | null>(null);
-  const [session, setSession] = useState<CashSessionRow | null>(null);
-  const [report, setReport] = useState<ShiftReport | null>(null);
+  /**
+   * Satu objek, bukan empat state terpisah: data awal datang dari server, dan
+   * menyegarkannya setelah aksi (bayar, catat kas, tutup toko) berarti
+   * mengganti keempatnya sekaligus.
+   */
+  const [data, setData] = useState<FrontlinerState>(() => frontlinerState(initialData));
   const [adjustOpen, setAdjustOpen] = useState(false);
   const [closingOpen, setClosingOpen] = useState(false);
-  /**
-   * True hanya sampai data pertama tiba. Refresh berikutnya (mis. setelah
-   * mencatat kas) tidak menyalakannya lagi, supaya angka yang sudah tampil
-   * tidak berkedip kembali menjadi skeleton.
-   */
-  const [loading, setLoading] = useState(true);
+  const [newServisOpen, setNewServisOpen] = useState(false);
+
+  // `router.refresh()` mengirim payload server baru tanpa me-mount ulang
+  // komponen. Samakan state saat prop-nya berubah, pola yang sama dengan
+  // BranchCards.
+  const [syncedFrom, setSyncedFrom] = useState(initialData);
+  if (syncedFrom !== initialData) {
+    setSyncedFrom(initialData);
+    setData(frontlinerState(initialData));
+  }
+
+  const { queue, kpi, session, report } = data;
+
+  useEffect(() => {
+    // Satu kali per pesan; string yang sama tidak memicu toast berulang saat
+    // payload server disegarkan.
+    if (initialData.error) toast.error(initialData.error);
+  }, [initialData.error]);
 
   /**
-   * Semua data dashboard diambil lewat satu fungsi.
+   * Menyegarkan data setelah pengguna melakukan sesuatu.
    *
    * Laporan shift WAJIB ikut di sini, bukan hanya saat mount. Sebelumnya
    * `getShiftPreview` hanya dipanggil sekali, jadi begitu kasir membayar
@@ -91,45 +128,37 @@ export function FrontlinerDashboard({ fullName }: { fullName: string | null }) {
    * datanya hardcoded padahal tidak.
    *
    * Ketiga query pertama berjalan paralel, lalu preview menyusul karena
-   * butuh id sesi. `finally` mematikan skeleton setelah SEMUA data siap,
-   * bukan setelah salah satu selesai - kalau tidak, kartu antrean sempat
-   * berkedip "Belum ada servis" padahal datanya masih di jalan.
+   * butuh id sesi. Yang gagal mempertahankan nilai sebelumnya, bukan
+   * mengosongkan kartu.
    */
   const reload = useCallback(async () => {
-    try {
-      const [queueResult, kpiResult, sessionResult] = await Promise.all([
-        getFrontlinerQueue(),
-        getFrontlinerKpi(),
-        checkOpenCashSession(),
-      ]);
+    const [queueResult, kpiResult, sessionResult] = await Promise.all([
+      getFrontlinerQueue(),
+      getFrontlinerKpi(),
+      checkOpenCashSession(),
+    ]);
 
-      if (queueResult.ok) setQueue(queueResult.data);
-      if (kpiResult.ok) setKpi(kpiResult.data);
-      if (!sessionResult.ok) return;
+    setData((prev) => ({
+      queue: queueResult.ok ? queueResult.data : prev.queue,
+      kpi: kpiResult.ok ? kpiResult.data : prev.kpi,
+      session: sessionResult.ok ? sessionResult.data.current : prev.session,
+      report: sessionResult.ok && !sessionResult.data.current ? null : prev.report,
+    }));
 
-      setSession(sessionResult.data.current);
-      if (!sessionResult.data.current) {
-        setReport(null);
-        return;
-      }
+    if (!sessionResult.ok || !sessionResult.data.current) return;
 
-      const preview = await getShiftPreview(sessionResult.data.current.id);
-      if (preview.ok) setReport(preview.data);
-    } finally {
-      setLoading(false);
-    }
+    const preview = await getShiftPreview(sessionResult.data.current.id);
+    if (preview.ok) setData((prev) => ({ ...prev, report: preview.data }));
   }, []);
 
-  useEffect(() => {
-    void reload();
-  }, [reload]);
-
   return (
-    // Latar halaman memakai kanvas shell; kartu mengikuti tinggi isinya.
-    <div className="min-h-full bg-canvas text-foreground">
-      <div className="px-4 py-6 sm:px-6 sm:py-8 lg:px-8 lg:py-10">
-        <div className="mx-auto w-full max-w-[1264px]">
-          <div className="flex flex-wrap items-start justify-between gap-3">
+    // Latar halaman memakai kanvas shell. `h-full` menyambung rantai tinggi
+    // dari `main` shell: grid bento mengisi sisa viewport dan berhenti tepat
+    // di atas bottom-nav (main sudah punya `pb-24`), bukan menggulir halaman.
+    <div className="flex h-full min-h-0 flex-col bg-canvas text-foreground">
+      <div className="flex min-h-0 flex-1 flex-col px-4 py-6 sm:px-6 sm:py-8 lg:px-8 lg:py-10">
+        <div className="mx-auto flex min-h-0 w-full max-w-[1264px] flex-1 flex-col">
+          <div className="flex shrink-0 flex-wrap items-start justify-between gap-3">
             <div>
               <div className="font-mono text-[10px] text-muted-foreground uppercase tracking-[0.3em]">
                 {new Date().toLocaleDateString("id-ID", {
@@ -155,13 +184,19 @@ export function FrontlinerDashboard({ fullName }: { fullName: string | null }) {
 
           {/* Kartu TIDAK memasang `initial`/`animate` sendiri; itu syarat agar
               `staggerChildren` benar-benar sampai ke tiap kartu. */}
-          {/* Data dashboard datang dari klien: saat `loading` selesai, isi grid
-              decode masuk dengan preset Blueprint. `revealOnMount={false}`
-              supaya tidak menumpuk dengan reveal halaman dari shell. */}
-          <AsciiReveal loading={loading} shimmer={false} revealOnMount={false}>
+          {/* Tidak ada lagi pembungkus ASCII/skeleton di sini: angkanya sudah
+              dirender server, jadi grid langsung berisi data pada paint
+              pertama. */}
+          <div className="flex min-h-0 flex-1 flex-col">
             <motion.div {...gridProps} className={BENTO_GRID_CLASS}>
-              {/* 1. Kartu aksi - permukaannya sendiri yang candy. */}
-              <BentoCard candy="accent" href="/app/servis/baru" title="Servis baru">
+              {/* 1. Kartu aksi - permukaannya sendiri yang candy. Membuka
+                  dialog, bukan pindah ke `/app/servis/baru`: formulirnya tidak
+                  butuh halaman sendiri dan kasir tidak kehilangan dashboard. */}
+              <BentoCard
+                candy="accent"
+                onClick={() => setNewServisOpen(true)}
+                title="Servis baru"
+              >
                 <BentoMenuItem icon={WrenchIcon} label="Servis baru" />
               </BentoCard>
 
@@ -174,17 +209,17 @@ export function FrontlinerDashboard({ fullName }: { fullName: string | null }) {
               {/* 3. Rekap kas hari ini, tiga baris. Di mobile menjadi kartu
                   selebar dua kolom. */}
               <BentoCard rowSpan={3} className="max-sm:col-span-2">
-                <RingkasanHariIni report={report} queue={queue} loading={loading} />
+                <RingkasanHariIni report={report} queue={queue} />
               </BentoCard>
 
               {/* 4. Daftar servis terbaru, dua baris. Putih di mobile seperti
                   frame Figma. */}
               <BentoCard
                 rowSpan={2}
-                className="max-sm:col-span-2 max-sm:bg-white max-sm:hover:bg-white max-sm:dark:bg-neutral-800 max-sm:dark:hover:bg-neutral-800"
+                className="max-sm:col-span-2 max-sm:bg-white/70 max-sm:hover:bg-white/70 max-sm:dark:bg-white/[0.06] max-sm:dark:hover:bg-white/[0.06]"
               >
                 <h2 className="text-[15px] font-medium tracking-tight">Servis terbaru</h2>
-                <TerbaruList queue={queue} loading={loading} />
+                <TerbaruList queue={queue} />
               </BentoCard>
 
               {/* 5. Kartu aksi. */}
@@ -201,18 +236,31 @@ export function FrontlinerDashboard({ fullName }: { fullName: string | null }) {
                   Tanpa `hug`: kartu mengisi sel bento dan daftarnya menggulir
                   di dalam, jadi tingginya selalu sama dengan kartu tetangga. */}
               <BentoCard span={2} className="max-sm:col-span-2">
-                <ServisSelesaiBelumDibayar queue={queue} loading={loading} />
+                <ServisSelesaiBelumDibayar queue={queue} />
               </BentoCard>
 
-              {/* 8. To-Do, satu sel di desktop; di mobile selebar dua kolom. */}
+              {/* 8. To-Do, satu sel di desktop; di mobile selebar dua kolom.
+                  Seluruh tugas tampil - di desktop daftarnya menggulir di
+                  dalam sel, di mobile kartunya ikut tinggi isi. Daftar dan
+                  mention-nya sudah dimuat server, jadi kartu tidak perlu
+                  meminta ulang saat mount. */}
               <BentoCard className="max-sm:col-span-2">
-                <TaskNoteCard variant="compact" compact compactLimit={1} />
+                <TaskNoteCard
+                  variant="compact"
+                  initialTodos={initialData.todos}
+                  initialMentions={initialData.mentions}
+                />
               </BentoCard>
             </motion.div>
-          </AsciiReveal>
+          </div>
         </div>
       </div>
 
+      <NewServisDialog
+        open={newServisOpen}
+        onOpenChange={setNewServisOpen}
+        onCreated={() => void reload()}
+      />
       <AdjustmentDialog
         open={adjustOpen}
         onOpenChange={setAdjustOpen}
@@ -222,6 +270,7 @@ export function FrontlinerDashboard({ fullName }: { fullName: string | null }) {
         open={closingOpen}
         onOpenChange={setClosingOpen}
         session={session}
+        initialReport={report}
         onClosed={() => void reload()}
       />
     </div>
@@ -240,37 +289,10 @@ export function FrontlinerDashboard({ fullName }: { fullName: string | null }) {
 function RingkasanHariIni({
   report,
   queue,
-  loading,
 }: {
   report: ShiftReport | null;
   queue: FrontlinerQueueItem[];
-  loading: boolean;
 }) {
-  // Skeleton hanya saat data pertama belum tiba. Tanpa cabang ini, kartu
-  // sempat menampilkan "Belum ada sesi kas terbuka" padahal sesinya ada dan
-  // laporan shift-nya masih diambil.
-  if (loading) {
-    return (
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden" aria-busy="true">
-        <h2 className="shrink-0 text-[15px] font-medium tracking-tight">Ringkasan Hari ini</h2>
-        <div className="mt-2 flex min-h-0 flex-1 flex-col gap-1.5" aria-hidden>
-          <Skeleton className="h-6 w-full rounded-lg" />
-          <Skeleton className="h-4 w-24" />
-          <Skeleton className="h-6 w-full rounded-lg" />
-          <Skeleton className="h-4 w-20" />
-          <Skeleton className="h-6 w-full rounded-lg" />
-        </div>
-        {/* Blok total tetap di dasar kartu, sama seperti posisi aslinya. */}
-        <div className="mt-2 flex shrink-0 flex-col gap-1.5" aria-hidden>
-          <Skeleton className="h-4 w-full" />
-          <Skeleton className="h-4 w-full" />
-          <Skeleton className="h-4 w-full" />
-          <Skeleton className="h-5 w-full rounded-md" />
-        </div>
-      </div>
-    );
-  }
-
   if (!report) {
     return (
       <>
@@ -331,11 +353,12 @@ function RingkasanHariIni({
       {/*
        * Keempat angka ini satu blok, bukan empat baris terpisah.
        * kartu induknya sudah abu-abu, jadi latarnya yang memisahkannya dari
-       * daftar di atas. Di dark mode blok ini satu tingkat lebih terang dari
-       * kartu (neutral-800 vs neutral-900) - bukan putih, karena putih penuh
-       * membuat mata sakit dan teksnya jadi gelap di tengah UI gelap.
+       * daftar di atas. Putih penuh (#fff) di atas #E7E7E7 terlalu kontras -
+       * blok ini jadi bidang paling terang di dashboard. `white/55` menjaga
+       * pemisahan tanpa menarik mata, dan dark mode memakai lapisan putih tipis
+       * di atas neutral-900 alih-alih neutral-800 yang juga terlalu terang.
        */}
-      <div className="mt-1.5 shrink-0 overflow-hidden rounded-xl bg-white text-neutral-900 ring-1 ring-black/5 dark:bg-neutral-800 dark:text-neutral-100 dark:ring-white/10">
+      <div className="mt-1.5 shrink-0 overflow-hidden rounded-xl bg-white/55 text-neutral-900 ring-1 ring-black/5 dark:bg-white/[0.06] dark:text-neutral-100 dark:ring-white/10">
         <TotalRow label="Omzet servis" value={rupiah(report.totals.services)} />
         <TotalRow label="Omzet Penjualan" value={rupiah(report.totals.sales)} />
         <TotalRow label="Transaksi Manual" value={rupiah(report.totals.manualNet)} />
@@ -458,13 +481,7 @@ function RingkasanServis({ kpi }: { kpi: FrontlinerKpi | null }) {
  * "Belum diisi", bukan "Rp0" - nol di sini berarti belum ditentukan, bukan
  * gratis.
  */
-function ServisSelesaiBelumDibayar({
-  queue,
-  loading,
-}: {
-  queue: FrontlinerQueueItem[];
-  loading: boolean;
-}) {
+function ServisSelesaiBelumDibayar({ queue }: { queue: FrontlinerQueueItem[] }) {
   const items = queue.filter((item) => item.status === "Selesai");
 
   return (
@@ -473,20 +490,12 @@ function ServisSelesaiBelumDibayar({
         <h2 className="min-w-0 truncate text-[15px] font-medium tracking-tight">
           Servis Selesai Belum dibayar
         </h2>
-        {loading ? null : (
-          <span className="shrink-0 text-[11px] tabular-nums opacity-60">
-            {items.length} servis
-          </span>
-        )}
+        <span className="shrink-0 text-[11px] tabular-nums opacity-60">
+          {items.length} servis
+        </span>
       </div>
 
-      {loading ? (
-        <div className="mt-1.5 flex min-h-0 flex-1 flex-col gap-1.5" aria-hidden>
-          <Skeleton className="min-h-8 flex-1 rounded-xl" />
-          <Skeleton className="min-h-8 flex-1 rounded-xl" />
-          <Skeleton className="min-h-8 flex-1 rounded-xl" />
-        </div>
-      ) : items.length === 0 ? (
+      {items.length === 0 ? (
         <p className="mt-1 text-sm opacity-60">
           Tidak ada servis selesai yang belum dibayar.
         </p>
@@ -518,17 +527,7 @@ function ServisSelesaiBelumDibayar({
 }
 
 /** Daftar servis terbaru; barisnya membuka detail servis. */
-function TerbaruList({ queue, loading }: { queue: FrontlinerQueueItem[]; loading: boolean }) {
-  if (loading) {
-    return (
-      <div className="mt-1 flex min-h-0 flex-1 flex-col gap-1.5" aria-hidden>
-        <Skeleton className="min-h-9 flex-1 rounded-xl" />
-        <Skeleton className="min-h-9 flex-1 rounded-xl" />
-        <Skeleton className="min-h-9 flex-1 rounded-xl" />
-      </div>
-    );
-  }
-
+function TerbaruList({ queue }: { queue: FrontlinerQueueItem[] }) {
   if (queue.length === 0) {
     return <p className="mt-2 text-sm opacity-60">Belum ada servis.</p>;
   }

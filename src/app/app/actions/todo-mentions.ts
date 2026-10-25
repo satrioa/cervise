@@ -1,6 +1,7 @@
-"use server";
+﻿"use server";
 
 import { getActiveTenant } from "@/lib/supabase/actor";
+import { loadTodoMentions } from "@/lib/home/home-data";
 
 /**
  * Mention customer dan servis di To-Do teknisi.
@@ -81,7 +82,7 @@ function likePattern(q: string): string {
 async function getContext() {
   const actor = await getActiveTenant();
   if (!actor.branchId) throw new Error("Cabang belum ditetapkan untuk akun ini");
-  return { supabase: actor.supabase, branchId: actor.branchId, userId: actor.userId };
+  return { supabase: actor.supabase, branchId: actor.branchId, userId: actor.userId, role: actor.role };
 }
 
 /** Pelanggan dan servis yang bisa disebut di catatan. */
@@ -148,63 +149,10 @@ export async function getTodoMentions(todoIds: string[]): Promise<MentionResult<
   if (todoIds.length === 0) return { ok: true, data: [] };
 
   try {
-    const { supabase } = await getContext();
-    const { data, error } = await supabase
-      .from("cervise_todo_mentions")
-      .select(
-        "id, token, todo_id, customer_id, servis_id, customer:cervise_customers(id, name, phone), servis:cervise_services(id, service_number, device)",
-      )
-      .in("todo_id", todoIds);
-    if (error) return fail(error.message);
-    return { ok: true, data: (data ?? []).flatMap(flattenMention) };
+    return { ok: true, data: await loadTodoMentions(await getContext(), todoIds) };
   } catch (cause) {
     return fail(cause instanceof Error ? cause.message : "Gagal memuat mention");
   }
-}
-
-type MentionRow = {
-  id: string;
-  token: string;
-  todo_id: string;
-  customer_id: string | null;
-  servis_id: string | null;
-  customer: { id: string; name: string; phone: string } | null;
-  servis: { id: string; service_number: string | null; device: string | null } | null;
-};
-
-function flattenMention(row: unknown): TodoMention[] {
-  const r = row as MentionRow;
-
-  // Label hilang berarti target-nya sudah dihapus (on delete set null).
-  // Baris seperti ini tidak ditampilkan: chip tanpa tujuan yang bisa dibuka
-  // hanya menambah noise di catatan.
-  if (r.customer_id && r.customer) {
-    return [
-      {
-        mentionId: r.id,
-        token: r.token,
-        todoId: r.todo_id,
-        kind: "customer" as const,
-        id: r.customer_id,
-        label: r.customer.name,
-        sub: r.customer.phone,
-      },
-    ];
-  }
-  if (r.servis_id && r.servis) {
-    return [
-      {
-        mentionId: r.id,
-        token: r.token,
-        todoId: r.todo_id,
-        kind: "servis" as const,
-        id: r.servis_id,
-        label: r.servis.service_number ?? "Servis",
-        sub: r.servis.device,
-      },
-    ];
-  }
-  return [];
 }
 
 export type MentionInput = { kind: MentionKind; id: string; token: string };
