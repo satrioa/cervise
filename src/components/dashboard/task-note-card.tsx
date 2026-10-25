@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   createTodo,
   deleteTodo,
@@ -277,9 +278,11 @@ export function TaskNoteCard({
   ) : null;
 
   const listBody = loading ? (
-    <p className="flex flex-1 items-center justify-center text-xs text-muted-foreground">
-      Memuat tugas...
-    </p>
+    <div className="flex flex-1 flex-col gap-1.5 py-1">
+      <Skeleton className="h-7 rounded-lg" />
+      <Skeleton className="h-7 rounded-lg" />
+      <Skeleton className="h-7 rounded-lg" />
+    </div>
   ) : ordered.length === 0 ? (
     <p className="flex flex-1 items-center justify-center px-2 text-center text-xs text-muted-foreground">
       Belum ada tugas.

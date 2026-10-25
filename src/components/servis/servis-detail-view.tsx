@@ -9,6 +9,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Skeleton } from "@/components/ui/skeleton";
 import { format, formatDistanceToNow } from "date-fns";
 import { id as localeId } from "date-fns/locale";
 import {
@@ -459,7 +460,7 @@ export function ServisDetailView({ data }: Props) {
                 </CardHeader>
                 <CardContent>
                   {spLoading ? (
-                    <div className="py-6 text-center text-sm text-muted-foreground">Memuat sparepart...</div>
+                    <Skeleton className="h-28" rows={14} />
                   ) : spareparts.length === 0 ? (
                     <div className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">Belum ada sparepart dipakai. {canAdd ? "Klik + Tambah Sparepart atau ubah status ke Dikerjakan untuk memilih." : "Sparepart dipilih saat status Dikerjakan."}</div>
                   ) : (
@@ -493,7 +494,7 @@ export function ServisDetailView({ data }: Props) {
             <CardHeader className="pb-3"><CardTitle className="text-base">Timeline</CardTitle><CardDescription>Status, pembayaran, edit field, ganti teknisi — reten 30 hari</CardDescription></CardHeader>
             <CardContent>
               {logsLoading ? (
-                <div className="py-8 text-center text-sm text-muted-foreground">Memuat timeline...</div>
+                <Skeleton className="h-48" rows={20} />
               ) : timelineEvents.length === 0 ? (
                 <div className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">Belum ada aktivitas. Timeline akan terisi saat status/pembayaran/edit terjadi.</div>
               ) : (
@@ -557,7 +558,7 @@ export function ServisDetailView({ data }: Props) {
                 {d.price != null && <Badge variant="outline" className="font-mono">Total di DB {formatCurrencyPlain(Number(d.price))}</Badge>}
               </div>
               {historyLoading ? (
-                <div className="text-sm text-muted-foreground py-4">Memuat riwayat...</div>
+                <Skeleton className="h-24" rows={12} />
               ) : history.length === 0 ? (
                 <div className="rounded-lg border border-dashed p-4 text-center text-sm text-muted-foreground">Belum ada pembayaran. Bisa DP awal atau bayar di akhir.</div>
               ) : (

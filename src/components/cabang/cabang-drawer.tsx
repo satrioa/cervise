@@ -13,6 +13,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
 
 type BranchItem = {
   id: string;
@@ -310,7 +311,7 @@ export function CabangDrawer({ branch, open, onOpenChange }: { branch: BranchIte
             </div>
 
             {loading ? (
-              <div className="mt-3 rounded-xl border border-dashed p-8 text-center text-sm text-muted-foreground">Memuat anggota...</div>
+              <Skeleton className="mt-3 h-32" rows={16} />
             ) : members.length === 0 ? (
               <div className="mt-3 rounded-xl border border-dashed p-8 text-center text-sm text-muted-foreground">Belum ada teknisi di cabang ini</div>
             ) : (

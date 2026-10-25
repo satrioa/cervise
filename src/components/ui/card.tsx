@@ -16,6 +16,7 @@ export function Card({
       className,
     ),
     "data-slot": "card",
+    "data-ascii": "surface",
   };
 
   return useRender({
@@ -36,6 +37,7 @@ export function CardFrame({
       className,
     ),
     "data-slot": "card-frame",
+    "data-ascii": "surface",
   };
 
   return useRender({

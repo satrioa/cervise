@@ -12,6 +12,7 @@ import { Menu, MenuItem, MenuPopup, MenuTrigger } from "@/components/ui/menu";
 import { PerformaExport } from "@/components/performa-export";
 import { PageHeader } from "@/components/layout/page-header";
 import { getPerformaTeknisi } from "@/app/app/laporan/performa/actions";
+import { Skeleton } from "@/components/ui/skeleton";
 import type { TeknisiPerformanceRow } from "@/lib/operational/performa-teknisi";
 
 const NAMA_BULAN = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
@@ -173,7 +174,9 @@ export default function PerformaPage() {
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={showProgress ? 7 : 6} className="py-8 text-center text-sm text-muted-foreground">Memuat…</TableCell>
+                  <TableCell colSpan={showProgress ? 7 : 6} className="px-3 py-3">
+                    <Skeleton className="h-24" />
+                  </TableCell>
                 </TableRow>
               ) : filtered.length === 0 ? (
                 <TableRow>

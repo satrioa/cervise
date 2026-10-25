@@ -18,6 +18,7 @@ import {
 } from "./bento-card";
 import { CandyButton } from "@/components/ui/candy-button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { AsciiReveal } from "@/components/ui/ascii";
 import { TaskNoteCard } from "./task-note-card";
 import { AdjustmentDialog } from "@/components/cash/adjustment-dialog";
 import { ClosingDialog } from "@/components/cash/closing-dialog";
@@ -154,56 +155,61 @@ export function FrontlinerDashboard({ fullName }: { fullName: string | null }) {
 
           {/* Kartu TIDAK memasang `initial`/`animate` sendiri; itu syarat agar
               `staggerChildren` benar-benar sampai ke tiap kartu. */}
-          <motion.div {...gridProps} className={BENTO_GRID_CLASS}>
-            {/* 1. Kartu aksi - permukaannya sendiri yang candy. */}
-            <BentoCard candy="accent" href="/app/servis/baru" title="Servis baru">
-              <BentoMenuItem icon={WrenchIcon} label="Servis baru" />
-            </BentoCard>
+          {/* Data dashboard datang dari klien: saat `loading` selesai, isi grid
+              decode masuk dengan preset Blueprint. `revealOnMount={false}`
+              supaya tidak menumpuk dengan reveal halaman dari shell. */}
+          <AsciiReveal loading={loading} shimmer={false} revealOnMount={false}>
+            <motion.div {...gridProps} className={BENTO_GRID_CLASS}>
+              {/* 1. Kartu aksi - permukaannya sendiri yang candy. */}
+              <BentoCard candy="accent" href="/app/servis/baru" title="Servis baru">
+                <BentoMenuItem icon={WrenchIcon} label="Servis baru" />
+              </BentoCard>
 
-            {/* 2. Kartu aksi. Satu-satunya sel aksi yang bukan tautan -
-                "Catat Kas" membuka dialog. */}
-            <BentoCard candy="amber" onClick={() => setAdjustOpen(true)} title="Catat Kas">
-              <BentoMenuItem icon={WalletIcon} label="Catat Kas" />
-            </BentoCard>
+              {/* 2. Kartu aksi. Satu-satunya sel aksi yang bukan tautan -
+                  "Catat Kas" membuka dialog. */}
+              <BentoCard candy="amber" onClick={() => setAdjustOpen(true)} title="Catat Kas">
+                <BentoMenuItem icon={WalletIcon} label="Catat Kas" />
+              </BentoCard>
 
-            {/* 3. Rekap kas hari ini, tiga baris. Di mobile menjadi kartu
-                selebar dua kolom. */}
-            <BentoCard rowSpan={3} className="max-sm:col-span-2">
-              <RingkasanHariIni report={report} queue={queue} loading={loading} />
-            </BentoCard>
+              {/* 3. Rekap kas hari ini, tiga baris. Di mobile menjadi kartu
+                  selebar dua kolom. */}
+              <BentoCard rowSpan={3} className="max-sm:col-span-2">
+                <RingkasanHariIni report={report} queue={queue} loading={loading} />
+              </BentoCard>
 
-            {/* 4. Daftar servis terbaru, dua baris. Putih di mobile seperti
-                frame Figma. */}
-            <BentoCard
-              rowSpan={2}
-              className="max-sm:col-span-2 max-sm:bg-white max-sm:hover:bg-white max-sm:dark:bg-neutral-800 max-sm:dark:hover:bg-neutral-800"
-            >
-              <h2 className="text-[15px] font-medium tracking-tight">Servis terbaru</h2>
-              <TerbaruList queue={queue} loading={loading} />
-            </BentoCard>
+              {/* 4. Daftar servis terbaru, dua baris. Putih di mobile seperti
+                  frame Figma. */}
+              <BentoCard
+                rowSpan={2}
+                className="max-sm:col-span-2 max-sm:bg-white max-sm:hover:bg-white max-sm:dark:bg-neutral-800 max-sm:dark:hover:bg-neutral-800"
+              >
+                <h2 className="text-[15px] font-medium tracking-tight">Servis terbaru</h2>
+                <TerbaruList queue={queue} loading={loading} />
+              </BentoCard>
 
-            {/* 5. Kartu aksi. */}
-            <BentoCard candy="green" href="/app/penjualan" title="Penjualan">
-              <BentoMenuItem icon={ShoppingCartIcon} label="Penjualan" />
-            </BentoCard>
+              {/* 5. Kartu aksi. */}
+              <BentoCard candy="green" href="/app/penjualan" title="Penjualan">
+                <BentoMenuItem icon={ShoppingCartIcon} label="Penjualan" />
+              </BentoCard>
 
-            {/* 6. Tiga angka servis, satu kolom. */}
-            <BentoCard>
-              <RingkasanServis kpi={kpi} />
-            </BentoCard>
+              {/* 6. Tiga angka servis, satu kolom. */}
+              <BentoCard>
+                <RingkasanServis kpi={kpi} />
+              </BentoCard>
 
-            {/* 7. Servis selesai yang belum dibayar, melebar dua kolom.
-                Tanpa `hug`: kartu mengisi sel bento dan daftarnya menggulir
-                di dalam, jadi tingginya selalu sama dengan kartu tetangga. */}
-            <BentoCard span={2} className="max-sm:col-span-2">
-              <ServisSelesaiBelumDibayar queue={queue} loading={loading} />
-            </BentoCard>
+              {/* 7. Servis selesai yang belum dibayar, melebar dua kolom.
+                  Tanpa `hug`: kartu mengisi sel bento dan daftarnya menggulir
+                  di dalam, jadi tingginya selalu sama dengan kartu tetangga. */}
+              <BentoCard span={2} className="max-sm:col-span-2">
+                <ServisSelesaiBelumDibayar queue={queue} loading={loading} />
+              </BentoCard>
 
-            {/* 8. To-Do, satu sel di desktop; di mobile selebar dua kolom. */}
-            <BentoCard className="max-sm:col-span-2">
-              <TaskNoteCard variant="compact" compact compactLimit={1} />
-            </BentoCard>
-          </motion.div>
+              {/* 8. To-Do, satu sel di desktop; di mobile selebar dua kolom. */}
+              <BentoCard className="max-sm:col-span-2">
+                <TaskNoteCard variant="compact" compact compactLimit={1} />
+              </BentoCard>
+            </motion.div>
+          </AsciiReveal>
         </div>
       </div>
 

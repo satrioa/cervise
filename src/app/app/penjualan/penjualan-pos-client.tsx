@@ -19,6 +19,7 @@ import { PenjualanProductGrid } from "@/components/penjualan/penjualan-product-g
 import { PenjualanTable } from "@/components/penjualan/penjualan-table";
 import { PenjualanCartPanel } from "@/components/penjualan/penjualan-cart-panel";
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import JellyRadio from "@/components/ui/jelly-radio";
@@ -232,7 +233,7 @@ export function PenjualanPOSClient({ initialRows }: { initialRows: any[] }) {
                   {productsError}
                 </div>
               ) : productsLoading ? (
-                <div className="flex h-40 items-center justify-center text-sm text-muted-foreground">Memuat produk…</div>
+                <Skeleton className="h-40" rows={18} />
               ) : products.length === 0 ? (
                 <div className="flex h-40 flex-col items-center justify-center gap-1 px-4 text-center">
                   <p className="text-sm font-medium">Belum ada produk untuk dijual</p>

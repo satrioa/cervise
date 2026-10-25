@@ -10,6 +10,7 @@ import { DownloadIcon } from "lucide-react";
 import { format } from "date-fns";
 import { id as localeId } from "date-fns/locale";
 import { PageHeader } from "@/components/layout/page-header";
+import { Skeleton } from "@/components/ui/skeleton";
 import { DateRangeFilter } from "@/components/date-range-filter";
 import { getLaporanServis } from "@/app/app/laporan/servis/actions";
 import { toLocalDateString } from "@/lib/operational/garansi-list";
@@ -156,7 +157,7 @@ export default function LaporanServisPage() {
           </CardHeader>
           <CardContent>
             {loading ? (
-              <div className="py-8 text-center text-sm text-muted-foreground">Memuat...</div>
+              <Skeleton className="h-40" rows={18} />
             ) : harian.length === 0 ? (
               <div className="py-8 text-center text-sm text-muted-foreground">Tidak ada servis pada periode ini</div>
             ) : (
@@ -219,7 +220,7 @@ export default function LaporanServisPage() {
           </CardHeader>
           <CardContent>
             {loading ? (
-              <div className="py-8 text-center text-sm text-muted-foreground">Memuat...</div>
+              <Skeleton className="h-40" rows={18} />
             ) : bulanan.length === 0 ? (
               <div className="py-8 text-center text-sm text-muted-foreground">Tidak ada servis pada periode ini</div>
             ) : (

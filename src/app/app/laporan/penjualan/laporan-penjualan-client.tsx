@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { DownloadIcon } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
 import { format } from "date-fns";
 import { id as localeId } from "date-fns/locale";
 import { PageHeader } from "@/components/layout/page-header";
@@ -124,7 +125,7 @@ export default function LaporanPenjualanPage() {
         <Card>
           <CardHeader><CardTitle className="text-base">Laporan Harian</CardTitle><CardDescription>Per hari (kas_date)</CardDescription></CardHeader>
           <CardContent>
-            {loading ? <div className="py-8 text-center text-sm text-muted-foreground">Memuat...</div> : harian.length === 0 ? <div className="py-8 text-center text-sm text-muted-foreground">{report?.sales.length === 0 ? "Belum ada penjualan pada periode ini" : "Tidak ada penjualan yang cocok"}</div> : (
+            {loading ? <Skeleton className="h-40" rows={18} /> : harian.length === 0 ? <div className="py-8 text-center text-sm text-muted-foreground">{report?.sales.length === 0 ? "Belum ada penjualan pada periode ini" : "Tidak ada penjualan yang cocok"}</div> : (
               <Table>
                 <TableHeader><TableRow><TableHead>Tanggal</TableHead><TableHead className="text-right">Transaksi</TableHead><TableHead className="text-right">Omzet</TableHead><TableHead className="text-right">Belum dibayar</TableHead><TableHead className="w-10" /></TableRow></TableHeader>
                 <TableBody>{harian.map((r) => (<TableRow key={r.key}><TableCell className="font-medium">{formatHarian(r.key)}</TableCell><TableCell className="text-right font-mono tabular-nums">{formatNumberPlain(r.count)}</TableCell><TableCell className="text-right font-mono tabular-nums">{formatCurrencyPlain(r.omzet)}</TableCell><TableCell className="text-right font-mono tabular-nums text-amber-600">{formatCurrencyPlain(r.unpaid)}</TableCell><TableCell><Button size="icon-sm" variant="ghost" aria-label={`Download ${r.key}`} onClick={() => openPrint(printHtml(formatHarian(r.key), r.sales))}><DownloadIcon className="size-4" /></Button></TableCell></TableRow>))}</TableBody>
@@ -136,7 +137,7 @@ export default function LaporanPenjualanPage() {
         <Card>
           <CardHeader><CardTitle className="text-base">Laporan Bulanan</CardTitle><CardDescription>Per bulan</CardDescription></CardHeader>
           <CardContent>
-            {loading ? <div className="py-8 text-center text-sm text-muted-foreground">Memuat...</div> : bulanan.length === 0 ? <div className="py-8 text-center text-sm text-muted-foreground">{report?.sales.length === 0 ? "Belum ada penjualan pada periode ini" : "Tidak ada penjualan yang cocok"}</div> : (
+            {loading ? <Skeleton className="h-40" rows={18} /> : bulanan.length === 0 ? <div className="py-8 text-center text-sm text-muted-foreground">{report?.sales.length === 0 ? "Belum ada penjualan pada periode ini" : "Tidak ada penjualan yang cocok"}</div> : (
               <Table>
                 <TableHeader><TableRow><TableHead>Bulan</TableHead><TableHead className="text-right">Transaksi</TableHead><TableHead className="text-right">Omzet</TableHead><TableHead className="text-right">Belum dibayar</TableHead><TableHead className="w-10" /></TableRow></TableHeader>
                 <TableBody>{bulanan.map((r) => (<TableRow key={r.key}><TableCell className="font-medium">{formatBulanan(r.key)}</TableCell><TableCell className="text-right font-mono tabular-nums">{formatNumberPlain(r.count)}</TableCell><TableCell className="text-right font-mono tabular-nums">{formatCurrencyPlain(r.omzet)}</TableCell><TableCell className="text-right font-mono tabular-nums text-amber-600">{formatCurrencyPlain(r.unpaid)}</TableCell><TableCell><Button size="icon-sm" variant="ghost" aria-label={`Download ${r.key}`} onClick={() => openPrint(printHtml(formatBulanan(r.key), r.sales))}><DownloadIcon className="size-4" /></Button></TableCell></TableRow>))}</TableBody>

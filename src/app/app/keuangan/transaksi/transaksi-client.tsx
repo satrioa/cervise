@@ -12,6 +12,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { getFinanceLedger } from "@/app/app/keuangan/actions";
+import { Skeleton } from "@/components/ui/skeleton";
 import type { FinanceTx } from "@/lib/operational/laporan-keuangan";
 import { TransaksiExportButton } from "@/components/transaksi-export-button";
 import { PageHeader } from "@/components/layout/page-header";
@@ -202,7 +203,11 @@ export default function TransaksiPage() {
                 </div>
               </PopoverContent>
             </Popover>
-            <span className="hidden shrink-0 font-mono text-[11px] text-muted-foreground sm:block">{loading ? "memuat..." : `${txs.length} transaksi`}</span>
+            {loading ? (
+              <Skeleton className="hidden h-3 w-20 sm:block" />
+            ) : (
+              <span className="hidden shrink-0 font-mono text-[11px] text-muted-foreground sm:block">{`${txs.length} transaksi`}</span>
+            )}
           </>
         }
       />
@@ -234,8 +239,8 @@ export default function TransaksiPage() {
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="py-10 text-center text-sm text-muted-foreground">
-                    Memuat...
+                  <TableCell colSpan={5} className="px-3 py-3">
+                    <Skeleton className="h-32" rows={16} />
                   </TableCell>
                 </TableRow>
               ) : txs.length === 0 ? (

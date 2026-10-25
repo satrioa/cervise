@@ -28,6 +28,8 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { MultipleAccounts, type AccountOption } from "@/components/uitripled/multiple-accounts-shadcnui";
 import { IdentityAvatar } from "@/components/identity-avatar";
 import { TenantLogo } from "@/components/layout/tenant-logo";
+import { AsciiPage } from "@/components/layout/ascii-page";
+import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { CheckIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
@@ -51,8 +53,8 @@ function TenantSwitcher({ canSwitchTenant: canSwitchTenantValue }: { canSwitchTe
   const { tenants, activeOrgId, setActiveOrg, loading, isPlatformAdmin } = useTenant();
   if (loading) {
     return (
-      <div className="w-full px-3.5 py-3 text-xs text-muted-foreground">
-        Memuat tenant...
+      <div className="w-full px-3.5 py-3">
+        <Skeleton className="h-4 w-32" />
       </div>
     );
   }
@@ -533,7 +535,7 @@ function AppShellInner({ children, actor }: { children: React.ReactNode; actor: 
             style={{ opacity: showTopFade ? 1 : 0 }}
           />
           <div data-main-content className="min-h-full">
-            {children}
+            <AsciiPage className="min-h-full">{children}</AsciiPage>
           </div>
           {/* progressive blur — bottom */}
           <div

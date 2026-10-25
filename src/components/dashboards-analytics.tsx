@@ -1,6 +1,7 @@
 import { MoreHorizontalIcon, StoreIcon, WrenchIcon, UsersIcon } from "lucide-react";
 import { formatCurrencyPlain, formatNumberPlain } from "@/lib/format";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { AsciiSkeleton } from "@/components/ui/ascii";
 import { Line, LineChart } from "recharts";
 import { ChartAxis, ChartContainer, ChartGrid, ChartTooltip, chartColor } from "@/components/chart";
 import type {
@@ -137,7 +138,7 @@ function AnalyticsContent({
 
         <ChartContainer className="mt-4 h-72 w-full min-w-0">
           {loading ? (
-            <div className="h-full w-full animate-pulse rounded-lg bg-foreground/[0.04]" />
+            <AsciiSkeleton rows={24} seed={4} className="h-full w-full rounded-lg text-[8px]" />
           ) : data.length === 0 ? (
             <div className="flex h-full items-center justify-center text-sm text-muted-foreground">Belum ada data</div>
           ) : (
@@ -166,7 +167,7 @@ function AnalyticsContent({
       <div className="mt-6 grid grid-cols-1 gap-3 lg:grid-cols-2">
         <BreakdownCard title="Top teknisi">
           {loading ? (
-            <Empty>Memuat…</Empty>
+            <AsciiSkeleton className="mt-4" lines={5} seed={5} widths={["72%", "58%", "80%", "64%", "48%"]} />
           ) : technicians.length === 0 ? (
             <Empty>Belum ada servis dengan teknisiassigned</Empty>
           ) : (
@@ -199,7 +200,7 @@ function AnalyticsContent({
 
         <BreakdownCard title="Top masalah servis">
           {loading ? (
-            <Empty>Memuat…</Empty>
+            <AsciiSkeleton className="mt-4" lines={6} seed={6} widths={["86%", "70%", "78%", "62%", "74%", "54%"]} />
           ) : problems.length === 0 ? (
             <Empty>Belum ada keluhan tercatat</Empty>
           ) : (
@@ -223,7 +224,7 @@ function AnalyticsContent({
 
       <BreakdownCard title="Performa cabang" className="mt-3">
         {loading ? (
-          <Empty>Memuat…</Empty>
+          <AsciiSkeleton className="mt-4" lines={4} seed={7} widths={["90%", "76%", "84%", "66%"]} />
         ) : branches.length === 0 ? (
           <Empty>Belum ada pemasukan pada periode ini</Empty>
         ) : (

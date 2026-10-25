@@ -15,6 +15,7 @@ import type { ShiftReport } from "@/lib/operational/laporan-shift";
 import { getShiftPreview, getShiftReport, listShiftSessions, type CashSessionRow } from "@/app/app/actions/cash";
 import { ShiftReportView } from "@/components/cash/shift-report";
 import { ShiftExportBar } from "@/components/cash/shift-export-bar";
+import { Skeleton } from "@/components/ui/skeleton";
 import { PageHeader } from "@/components/layout/page-header";
 
 function sessionDate(session: CashSessionRow): string {
@@ -86,7 +87,7 @@ export default function LaporanShiftClient() {
         {error ? <p className="mb-4 text-sm text-destructive">{error}</p> : null}
 
         {loading ? (
-          <p className="text-sm text-muted-foreground">Memuat daftar shift...</p>
+          <Skeleton className="h-48" rows={20} />
         ) : sessions.length === 0 ? (
           <p className="text-sm text-muted-foreground">Belum ada shift kas tercatat.</p>
         ) : (
@@ -172,7 +173,7 @@ export default function LaporanShiftClient() {
           </DialogHeader>
 
           {viewLoading ? (
-            <p className="py-8 text-center text-sm text-muted-foreground">Memuat laporan...</p>
+            <Skeleton className="h-56" rows={22} />
           ) : report ? (
             <>
               <ShiftReportView report={report} showClosing={viewing?.closedAt !== null} />

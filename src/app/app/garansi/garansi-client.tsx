@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Label } from "@/components/ui/label";
 import { GaransiField } from "@/components/servis/garansi-field";
 import { useBranch } from "@/lib/branch-context";
@@ -245,8 +246,8 @@ export default function GaransiPage() {
               <TableBody>
                 {loading ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="py-10 text-center text-sm text-muted-foreground">
-                      Memuat data garansi…
+                    <TableCell colSpan={7} className="px-3 py-3">
+                      <Skeleton className="h-32" rows={16} />
                     </TableCell>
                   </TableRow>
                 ) : loadError ? (

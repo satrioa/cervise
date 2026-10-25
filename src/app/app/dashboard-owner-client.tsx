@@ -10,6 +10,7 @@ import {
   XIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { AsciiSkeleton } from "@/components/ui/ascii";
 import { CerviseAnalyticsSection } from "@/components/dashboards-analytics";
 import { PageHeader } from "@/components/layout/page-header";
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
@@ -122,7 +123,9 @@ export default function DashboardOwnerClient() {
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
           {loading && !summary
             ? Array.from({ length: 4 }, (_, index) => (
-                <div key={index} className="h-[104px] animate-pulse rounded-xl border border-border/60 bg-background/40" />
+                <div key={index} className="rounded-xl border border-border/60 bg-background/40 p-4">
+                  <AsciiSkeleton lines={3} widths={["44%", "66%", "32%"]} seed={index + 2} />
+                </div>
               ))
             : cards.map((card) => (
                 <StatCard key={card.label} {...card} />
@@ -264,7 +267,7 @@ function ChartCard({ data, total, period, loading }: { data: number[]; total: st
       </div>
       <div className="mt-6 h-44 w-full">
         {loading ? (
-          <div className="h-full w-full animate-pulse rounded-lg bg-foreground/[0.04]" />
+          <AsciiSkeleton rows={18} seed={8} className="h-full w-full rounded-lg text-[8px]" />
         ) : data.length > 0 ? (
           <Sparkline data={data} />
         ) : (
@@ -313,7 +316,9 @@ function ActivityCard({ items, loading }: { items: { id: string; device: string;
       </div>
       <ul className="mt-4 flex flex-col gap-3.5">
         {loading ? (
-          <li className="text-sm text-muted-foreground">Memuat…</li>
+          <li>
+            <AsciiSkeleton lines={5} widths={["78%", "62%", "86%", "70%", "52%"]} seed={11} />
+          </li>
         ) : items.length === 0 ? (
           <li className="text-sm text-muted-foreground">Belum ada aktivitas</li>
         ) : (

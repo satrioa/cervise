@@ -6,6 +6,7 @@ import { ArrowUpRight } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { getDashboardData, type DashboardData } from "@/app/app/actions";
 import { playCue } from "@/lib/sound";
+import { Skeleton } from "@/components/ui/skeleton";
 
 /**
  * Isi section "Analytic Servis": tiga counter, sparkline 30 hari, dan tautan
@@ -65,7 +66,7 @@ export function MenuAnalytic({ onNavigate }: { onNavigate?: () => void }) {
         </p>
         <div className="mt-1.5 h-16 w-full text-[#2F80ED]">
           {loading ? (
-            <div className="h-full w-full animate-pulse rounded-md bg-black/[0.05] dark:bg-white/[0.06]" />
+            <Skeleton className="h-full w-full rounded-md" rows={6} />
           ) : series.length > 1 ? (
             <Sparkline data={series} />
           ) : (
@@ -96,7 +97,7 @@ function Counter({ label, value, loading }: { label: string; value: number; load
     <span className="flex flex-1 items-center justify-center gap-1.5 py-1.5">
       <span className="text-neutral-500 dark:text-neutral-400">{label}</span>
       {loading ? (
-        <span className="h-2.5 w-4 animate-pulse rounded-sm bg-black/10 dark:bg-white/15" />
+        <Skeleton as="span" className="h-2.5 w-4 rounded-sm" rows={2} />
       ) : (
         <span className="font-semibold tabular-nums text-neutral-900 dark:text-neutral-100">{value}</span>
       )}

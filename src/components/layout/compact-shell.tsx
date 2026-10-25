@@ -11,6 +11,7 @@ import { SoundToggle } from "@/components/layout/sound-toggle";
 import { ShellChromeProvider } from "@/components/layout/shell-chrome";
 import { CompactMenuSheet } from "@/components/layout/compact-menu-sheet";
 import { CompactBottomBar } from "@/components/layout/compact-bottom-bar";
+import { AsciiPage } from "@/components/layout/ascii-page";
 import { useIdleVisibility } from "@/hooks/use-idle-visibility";
 import { BranchProvider } from "@/lib/branch-context";
 import { TenantProvider } from "@/lib/tenant-context";
@@ -205,7 +206,9 @@ function CompactShellInner({
         data-main-content
         className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden pb-24 sm:pb-24"
       >
-        {children}
+        {/* `h-full` menjaga rantai tinggi halaman (POS mengisi sisa `main`).
+            Reveal hanya membungkus isi halaman, bukan chrome shell. */}
+        <AsciiPage className="h-full">{children}</AsciiPage>
       </main>
 
       <CompactBottomBar

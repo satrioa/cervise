@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { DownloadIcon, ArrowUpRightIcon, ArrowDownRightIcon } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
 import { format } from "date-fns";
 import { id as localeId } from "date-fns/locale";
 import { Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
@@ -325,10 +326,16 @@ export default function LaporanKeuanganPage() {
                 </tr>
               </thead>
               <tbody>
-                {(report?.byBranch ?? []).length === 0 ? (
+                {loading ? (
+                  <tr>
+                    <td colSpan={5} className="px-5 py-3">
+                      <Skeleton className="h-20" />
+                    </td>
+                  </tr>
+                ) : (report?.byBranch ?? []).length === 0 ? (
                   <tr>
                     <td colSpan={5} className="px-5 py-10 text-center text-sm text-muted-foreground">
-                      {loading ? "Memuat…" : "Belum ada transaksi pada periode ini"}
+                      Belum ada transaksi pada periode ini
                     </td>
                   </tr>
                 ) : (
@@ -381,7 +388,7 @@ export default function LaporanKeuanganPage() {
           </CardHeader>
           <CardContent>
             {loading ? (
-              <div className="py-8 text-center text-sm text-muted-foreground">Memuat...</div>
+              <Skeleton className="h-40" rows={18} />
             ) : harian.length === 0 ? (
               <div className="py-8 text-center text-sm text-muted-foreground">Tidak ada data untuk filter ini</div>
             ) : (
@@ -435,7 +442,7 @@ export default function LaporanKeuanganPage() {
           </CardHeader>
           <CardContent>
             {loading ? (
-              <div className="py-8 text-center text-sm text-muted-foreground">Memuat...</div>
+              <Skeleton className="h-40" rows={18} />
             ) : bulanan.length === 0 ? (
               <div className="py-8 text-center text-sm text-muted-foreground">Tidak ada data</div>
             ) : (

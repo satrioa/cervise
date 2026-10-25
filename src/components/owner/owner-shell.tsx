@@ -7,6 +7,7 @@ import { LogOut, MenuIcon, Settings2Icon, ShieldCheckIcon } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { AsciiPage } from "@/components/layout/ascii-page";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import {
   isOwnerNavActive,
@@ -192,7 +193,9 @@ function OwnerShellInner({ children, email }: { children: React.ReactNode; email
 
         <div ref={scrollRef} onScroll={updateFade} className="relative flex-1 overflow-y-auto overflow-x-hidden scrollbar-none scroll-smooth">
           <div aria-hidden className="pointer-events-none sticky top-0 z-10 -mb-8 h-8 bg-gradient-to-b from-background via-background/60 to-transparent backdrop-blur-[6px] [mask-image:linear-gradient(to_bottom,black_0%,black_35%,transparent_100%)] transition-opacity duration-300" style={{ opacity: showTopFade ? 1 : 0 }} />
-          <div data-main-content className="min-h-full p-4 lg:p-8">{children}</div>
+          <div data-main-content className="min-h-full p-4 lg:p-8">
+            <AsciiPage className="min-h-full">{children}</AsciiPage>
+          </div>
           <div aria-hidden className="pointer-events-none sticky bottom-0 z-10 -mt-8 h-8 bg-gradient-to-t from-background via-background/60 to-transparent backdrop-blur-[6px] [mask-image:linear-gradient(to_top,black_0%,black_35%,transparent_100%)] transition-opacity duration-300" style={{ opacity: showBottomFade ? 1 : 0 }} />
         </div>
 

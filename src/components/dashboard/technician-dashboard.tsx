@@ -15,6 +15,7 @@ import {
   useBentoStagger,
 } from "./bento-card";
 import { TaskNoteCard } from "./task-note-card";
+import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { getTechnicianDashboardData } from "@/app/app/actions/technician-dashboard";
 import type { TechnicianKpi } from "@/lib/operational/technician-dashboard";
@@ -270,7 +271,13 @@ function TerbaruList({
   items: { id: string; serviceNumber: string | null; device: string }[] | undefined;
 }) {
   if (!items) {
-    return <p className="mt-2 text-sm opacity-60">Memuat...</p>;
+    return (
+      <div className="mt-2 space-y-1.5">
+        <Skeleton className="h-9 rounded-xl" />
+        <Skeleton className="h-9 rounded-xl" />
+        <Skeleton className="h-9 rounded-xl" />
+      </div>
+    );
   }
   if (items.length === 0) {
     return <p className="mt-2 text-sm opacity-60">Belum ada servis.</p>;

@@ -9,6 +9,7 @@ import { format } from "date-fns";
 import { id as localeId } from "date-fns/locale";
 import { BarChart3Icon, PackageIcon, WalletIcon } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export default function UsagePage() {
   const [rows, setRows] = useState<any[]>([]);
@@ -83,7 +84,7 @@ export default function UsagePage() {
         <CardHeader><CardTitle className="text-base">7 Hari Terakhir (count)</CardTitle><CardDescription>Jumlah servis per kas_date</CardDescription></CardHeader>
         <CardContent>
           {loading ? (
-            <div className="py-6 text-center text-sm text-muted-foreground">Memuat...</div>
+            <Skeleton className="h-40" rows={18} />
           ) : last7.length === 0 ? (
             <div className="py-6 text-center text-sm text-muted-foreground">Belum ada data</div>
           ) : (

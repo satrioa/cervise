@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { deleteCustomer, getCustomerServis, type CustomerServisRow } from "@/app/app/customer/actions";
 import { CustomerDialog } from "./customer-dialog";
 import { useRouter } from "next/navigation";
+import { Skeleton } from "@/components/ui/skeleton";
 
 type Customer = {
   id: string;
@@ -106,7 +107,7 @@ export function CustomerRowActions({ customer }: { customer: Customer }) {
             </div>
             <div className="flex-1 overflow-y-auto p-4">
               {loadingServis ? (
-                <div className="py-8 text-center text-sm text-muted-foreground">Memuat servis...</div>
+                <Skeleton className="h-32" rows={16} />
               ) : servis.length === 0 ? (
                 <div className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">Belum ada servis — 0 / Rp 0 / —</div>
               ) : (

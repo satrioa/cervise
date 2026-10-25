@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
 import { XIcon } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
 import { searchSparepartStock, useSparepartsForServis, addSparepartsToServis, cancelServisWithSpareparts, getServisSpareparts, type SparepartStockRow } from "@/app/app/servis/sparepart-actions";
 
 type Selected = { row: SparepartStockRow; qty: number };
@@ -143,7 +144,7 @@ export function SparepartPickDialog({
             )}
 
             <div className="space-y-1">
-              <div className="text-xs font-medium text-muted-foreground">{loading ? "Memuat..." : `${rows.length} sparepart`}</div>
+              <div className="text-xs font-medium text-muted-foreground">{loading ? <Skeleton className="h-3 w-20" /> : `${rows.length} sparepart`}</div>
               <div className="divide-y rounded-lg border overflow-hidden">
                 {rows.length === 0 && !loading ? (
                   <div className="p-6 text-center text-sm text-muted-foreground">Tidak ada sparepart yang cocok</div>
@@ -253,7 +254,7 @@ export function CancelSparepartDialog({
 
           <div className="mt-4">
             {loading ? (
-              <div className="py-4 text-center text-sm text-muted-foreground">Memuat sparepart...</div>
+              <Skeleton className="h-24" rows={12} />
             ) : rows.length === 0 ? (
               <div className="rounded-md border border-dashed p-3 text-center text-sm text-muted-foreground">Tidak ada sparepart tercatat — akan langsung Batal.</div>
             ) : (

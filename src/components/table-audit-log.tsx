@@ -14,6 +14,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { getAuditLog } from "@/app/app/audit-log/actions";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   auditActionLabel,
   auditActionsFrom,
@@ -164,7 +165,11 @@ export function CerviseAuditLogTable({ cabangFilter }: { cabangFilter?: string }
           </h2>
           <p className="mt-0.5 flex items-center gap-1.5 text-sm text-muted-foreground">
             <WrenchIcon className="size-3.5" />
-            {loading ? "Memuat…" : `${filtered.length} dari ${scoped.length} catatan`}
+            {loading ? (
+              <Skeleton as="span" className="h-3 w-28" />
+            ) : (
+              `${filtered.length} dari ${scoped.length} catatan`
+            )}
           </p>
         </div>
       </div>
@@ -274,8 +279,8 @@ export function CerviseAuditLogTable({ cabangFilter }: { cabangFilter?: string }
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={5} className="py-10 text-center text-sm text-muted-foreground">
-                  Memuat audit log…
+                <TableCell colSpan={5} className="px-3 py-3">
+                  <Skeleton className="h-32" rows={16} />
                 </TableCell>
               </TableRow>
             ) : filtered.length === 0 ? (

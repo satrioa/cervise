@@ -111,7 +111,7 @@ export function Button({
     // render is a ReactElement to use as Slot
     const renderClass = cn(smoothButtonVariants({ variant: resolvedVariant, size: resolvedSize, color: resolvedColor, shape, className }));
     return (
-      <Slot className={renderClass} data-sfx-managed="" onClick={handleClick} {...(restProps as any)}>
+      <Slot className={renderClass} data-sfx-managed="" data-ascii="fade" onClick={handleClick} {...(restProps as any)}>
         {render}
       </Slot>
     );
@@ -131,6 +131,7 @@ export function Button({
       asChild={asChild}
       disabled={disabled}
       data-sfx-managed=""
+      data-ascii="fade"
       onClick={handleClick}
       {...(restProps as any)}
     >
