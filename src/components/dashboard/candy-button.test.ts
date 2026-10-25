@@ -264,7 +264,7 @@ describe("grid bento delapan sel", () => {
     // blue = Sparepart, amber = Catat Kas, green = Penjualan.
     // Kedua kartu aksi teknisi harus berbeda, kalau tidak pink mendominasi.
     expect(frontliner).toMatch(/candy="accent"\s+onClick/);
-    expect(frontliner).toMatch(/candy="amber" onClick/);
+    expect(frontliner).toMatch(/candy="amber"\s+onClick/);
     expect(frontliner).toMatch(/candy="green" href="\/app\/penjualan"/);
     expect(technician).toMatch(/candy="accent"\s+onClick/);
     expect(technician).toMatch(/candy="blue" href="\/app\/inventori"/);

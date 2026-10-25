@@ -64,4 +64,14 @@ describe("data Home dirender server", () => {
     expect(homeData).toContain("export async function computeShiftReport(");
     expect(homeData).toContain("ctx: HomeContext");
   });
+
+  it("laporan shift memakai rentang tanggal, bukan satu tanggal buka", () => {
+    // Shift yang dibiarkan terbuka semalam tetap harus memuat penjualan dan kas
+    // manual hari ini. Satu tanggal buka memotong uang hari ini sementara
+    // servisnya tetap masuk, jadi rekapnya tidak konsisten.
+    expect(homeData).toContain("shiftDateWindow(session, now)");
+    expect(homeData).not.toMatch(/\.eq\("kas_date", date\)/);
+    expect(homeData).toContain('.gte("kas_date", openDate)');
+    expect(homeData).toContain('.lte("kas_date", closeDate)');
+  });
 });

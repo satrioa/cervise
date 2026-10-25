@@ -365,6 +365,27 @@
   .scrollbar-none::-webkit-scrollbar {
     display: none;
   }
+  /*
+   * Scrollbar tipis untuk daftar di dalam kartu. `scrollbar-none` membuat
+   * daftar panjang terlihat seperti sudah habis; untuk daftar yang isinya
+   * tidak dibatasi, scrollbar yang terlihat adalah satu-satunya petunjuk
+   * bahwa masih ada baris di bawah.
+   */
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in oklab, currentColor 25%, transparent) transparent;
+  }
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    border-radius: 9999px;
+    background-color: color-mix(in oklab, currentColor 25%, transparent);
+  }
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: transparent;
+  }
   /* progressive blur mask helpers */
   .mask-fade-top {
     mask-image: linear-gradient(to bottom, black 0%, transparent 100%);

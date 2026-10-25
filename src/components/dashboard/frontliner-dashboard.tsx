@@ -33,6 +33,7 @@ import {
 } from "@/app/app/actions/cash";
 import type { FrontlinerHomeData } from "@/lib/home/types";
 import { rupiah, type ShiftReport } from "@/lib/operational/laporan-shift";
+import { kalenderWIB } from "@/lib/operational/periode-bulan";
 import { cn } from "@/lib/utils";
 
 /**
@@ -43,6 +44,29 @@ import { cn } from "@/lib/utils";
  * gerakannya lebih lama terlihat, dan 8 x 0.05 sudah 400ms.
  */
 const BENTO_STAGGER = 0.04;
+
+/** Baris yang ditampilkan per grup di Ringkasan sebelum "+N lainnya". */
+const GROUP_PREVIEW_ROWS = 3;
+
+/** Baris servis terbaru yang ditampilkan sebelum tautan "Lihat semua". */
+const TERBARU_PREVIEW_ROWS = 6;
+
+/**
+ * Tanggal shift dalam bentuk pendek, mis. `2026-10-24` -> "24 Okt".
+ *
+ * `report.date` sudah berupa tanggal kalender WIB, jadi tengah malam UTC
+ * dipakai sebagai titik acuan supaya tidak bergeser satu hari di klien yang
+ * zona waktunya bukan WIB.
+ */
+function shortShiftDate(date: string): string {
+  const [year, month, day] = date.split("-").map(Number);
+  if (!year || !month || !day) return date;
+  return new Date(Date.UTC(year, month - 1, day)).toLocaleDateString("id-ID", {
+    day: "numeric",
+    month: "short",
+    timeZone: "UTC",
+  });
+}
 
 /**
  * Dashboard frontliner.
@@ -111,6 +135,26 @@ export function FrontlinerDashboard({
   }
 
   const { queue, kpi, session, report } = data;
+
+  // Shift yang dibuka kemarin dan belum ditutup tetap menjadi `session` aktif:
+  // index unik hanya mengizinkan satu sesi terbuka per karyawan. Rekapnya benar
+  // - ia memuat transaksi sejak shift dibuka - tapi judulnya tidak boleh
+  // berbunyi "Hari ini", dan pengguna perlu tahu kenapa.
+  const shiftDate = report?.date ?? null;
+  const staleDate = shiftDate && shiftDate !== kalenderWIB() ? shiftDate : null;
+
+  /**
+   * Catat Kas butuh sesi terbuka: tanpa sesi, baris kas manual tidak masuk
+   * rekap mana pun. Kartunya diredupkan dan kliknya menjelaskan alasannya,
+   * bukan diam saja.
+   */
+  const openAdjustment = () => {
+    if (!session) {
+      toast.error("Buka kas dulu sebelum mencatat kas");
+      return;
+    }
+    setAdjustOpen(true);
+  };
 
   useEffect(() => {
     // Satu kali per pesan; string yang sama tidak memicu toast berulang saat
@@ -182,6 +226,16 @@ export function FrontlinerDashboard({
             </CandyButton>
           </div>
 
+          {staleDate ? (
+            <div className="mt-3 flex shrink-0 flex-wrap items-baseline gap-x-2 gap-y-1 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-[12px]">
+              <span className="font-medium">Shift {shortShiftDate(staleDate)} masih terbuka.</span>
+              <span className="opacity-70">
+                Rekap memuat transaksi sejak shift dibuka sampai hari ini. Tutup shift lewat
+                tombol Tutup Toko supaya laporan hari ini terpisah.
+              </span>
+            </div>
+          ) : null}
+
           {/* Kartu TIDAK memasang `initial`/`animate` sendiri; itu syarat agar
               `staggerChildren` benar-benar sampai ke tiap kartu. */}
           {/* Tidak ada lagi pembungkus ASCII/skeleton di sini: angkanya sudah
@@ -201,15 +255,22 @@ export function FrontlinerDashboard({
               </BentoCard>
 
               {/* 2. Kartu aksi. Satu-satunya sel aksi yang bukan tautan -
-                  "Catat Kas" membuka dialog. */}
-              <BentoCard candy="amber" onClick={() => setAdjustOpen(true)} title="Catat Kas">
+                  "Catat Kas" membuka dialog. Tanpa sesi terbuka, kas manual
+                  tidak akan masuk rekap mana pun, jadi kartunya diredupkan dan
+                  menjelaskan kenapa saat diklik. */}
+              <BentoCard
+                candy="amber"
+                onClick={openAdjustment}
+                title="Catat Kas"
+                className={session ? undefined : "opacity-60"}
+              >
                 <BentoMenuItem icon={WalletIcon} label="Catat Kas" />
               </BentoCard>
 
               {/* 3. Rekap kas hari ini, tiga baris. Di mobile menjadi kartu
                   selebar dua kolom. */}
               <BentoCard rowSpan={3} className="max-sm:col-span-2">
-                <RingkasanHariIni report={report} queue={queue} />
+                <RingkasanHariIni report={report} queue={queue} staleDate={staleDate} />
               </BentoCard>
 
               {/* 4. Daftar servis terbaru, dua baris. Putih di mobile seperti
@@ -289,14 +350,21 @@ export function FrontlinerDashboard({
 function RingkasanHariIni({
   report,
   queue,
+  staleDate,
 }: {
   report: ShiftReport | null;
   queue: FrontlinerQueueItem[];
+  /** Tanggal buka shift kalau bukan hari ini; null untuk shift hari ini. */
+  staleDate: string | null;
 }) {
+  // Shift yang masih terbuka sejak kemarin bukan "hari ini": judulnya harus
+  // menyebut tanggalnya supaya angka di dalamnya tidak disalahartikan.
+  const title = staleDate ? `Ringkasan Shift ${shortShiftDate(staleDate)}` : "Ringkasan Hari ini";
+
   if (!report) {
     return (
       <>
-        <h2 className="shrink-0 text-[15px] font-medium tracking-tight">Ringkasan Hari ini</h2>
+        <h2 className="shrink-0 text-[15px] font-medium tracking-tight">{title}</h2>
         <p className="mt-2 text-sm opacity-60">
           Belum ada sesi kas terbuka. Buka kas untuk melihat rekap.
         </p>
@@ -309,11 +377,11 @@ function RingkasanHariIni({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-      <h2 className="shrink-0 text-[15px] font-medium tracking-tight">Ringkasan Hari ini</h2>
+      <h2 className="shrink-0 text-[15px] font-medium tracking-tight">{title}</h2>
 
       {/* Hanya daftar ini yang menggulir. Blok total di bawah sengaja berada
           di luar `<ul>` supaya tetap terlihat saat daftar transaksi panjang. */}
-      <ul className="-mx-1 mt-1 flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto scrollbar-none text-[13px]">
+      <ul className="-mx-1 mt-1 flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto scrollbar-thin pr-1 text-[13px]">
         <Row label="Saldo Awal" value={rupiah(report.openingBalance)} boxed />
 
         <GroupLabel
@@ -421,6 +489,12 @@ function GroupLabel({
   items: { key: string; text: string; value: string }[];
   empty: string;
 }) {
+  // Preview saja. Jumlah baris tidak boleh menentukan tinggi kartu: 10 atau 100
+  // transaksi harus tetap setinggi kartu tetangganya. Sisanya dibuka di Laporan
+  // Shift, tempat daftar penuh memang tempatnya.
+  const shown = items.slice(0, GROUP_PREVIEW_ROWS);
+  const hidden = items.length - shown.length;
+
   return (
     <>
       <li className="flex items-center justify-between gap-2 px-2 py-0.5 text-sm opacity-70">
@@ -430,15 +504,28 @@ function GroupLabel({
       {items.length === 0 ? (
         <li className="px-2 py-0.5 text-xs opacity-40">{empty}</li>
       ) : (
-        items.map((item) => (
-          <li
-            key={item.key}
-            className="flex items-center justify-between gap-2 rounded-lg border border-black/5 px-2 py-1.5 dark:border-white/10"
-          >
-            <span className="min-w-0 flex-1 truncate text-xs">{item.text}</span>
-            <span className="shrink-0 text-xs tabular-nums">{item.value}</span>
-          </li>
-        ))
+        <>
+          {shown.map((item) => (
+            <li
+              key={item.key}
+              className="flex items-center justify-between gap-2 rounded-lg border border-black/5 px-2 py-1.5 dark:border-white/10"
+            >
+              <span className="min-w-0 flex-1 truncate text-xs">{item.text}</span>
+              <span className="shrink-0 text-xs tabular-nums">{item.value}</span>
+            </li>
+          ))}
+          {hidden > 0 ? (
+            <li>
+              <Link
+                href="/app/laporan/shift"
+                className="flex items-center justify-between gap-2 rounded-lg px-2 py-1 text-xs opacity-60 transition-opacity hover:opacity-100"
+              >
+                <span>+{hidden} lainnya</span>
+                <ArrowRightIcon className="size-3" />
+              </Link>
+            </li>
+          ) : null}
+        </>
       )}
     </>
   );
@@ -500,7 +587,7 @@ function ServisSelesaiBelumDibayar({ queue }: { queue: FrontlinerQueueItem[] }) 
           Tidak ada servis selesai yang belum dibayar.
         </p>
       ) : (
-        <ul className="-mx-1 mt-1 flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto scrollbar-none">
+        <ul className="-mx-1 mt-1 flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto scrollbar-thin pr-1">
           {items.map((item) => (
             <li key={item.id} className="shrink-0">
               <Link
@@ -532,25 +619,41 @@ function TerbaruList({ queue }: { queue: FrontlinerQueueItem[] }) {
     return <p className="mt-2 text-sm opacity-60">Belum ada servis.</p>;
   }
 
+  // Antrean bisa berisi ratusan servis. Kartu ini hanya memuat yang terbaru;
+  // sisanya di halaman Servis.
+  const shown = queue.slice(0, TERBARU_PREVIEW_ROWS);
+  const hidden = queue.length - shown.length;
+
   return (
-    <ul className="-mx-1 mt-1 flex min-h-0 flex-1 flex-col overflow-y-auto scrollbar-none">
-      {queue.map((item) => (
-        <li key={item.id} className="shrink-0">
-          <Link
-            href={`/app/servis/${item.id}`}
-            className="flex items-center gap-2 rounded-xl border border-black/5 px-3 py-2 transition-colors hover:bg-black/[0.03] dark:border-white/10 dark:hover:bg-white/[0.05]"
-          >
-            <span className="min-w-0 flex-1">
-              <span className="block truncate text-[13px] font-medium">
-                {item.serviceNumber ?? "Tanpa nomor"}
+    <>
+      <ul className="-mx-1 mt-1 flex min-h-0 flex-1 flex-col overflow-y-auto scrollbar-thin pr-1">
+        {shown.map((item) => (
+          <li key={item.id} className="shrink-0">
+            <Link
+              href={`/app/servis/${item.id}`}
+              className="flex items-center gap-2 rounded-xl border border-black/5 px-3 py-2 transition-colors hover:bg-black/[0.03] dark:border-white/10 dark:hover:bg-white/[0.05]"
+            >
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-[13px] font-medium">
+                  {item.serviceNumber ?? "Tanpa nomor"}
+                </span>
+                <span className="block truncate text-[11px] opacity-60">{item.device}</span>
               </span>
-              <span className="block truncate text-[11px] opacity-60">{item.device}</span>
-            </span>
-            <ArrowRightIcon className="size-3.5 shrink-0 opacity-50" />
-          </Link>
-        </li>
-      ))}
-    </ul>
+              <ArrowRightIcon className="size-3.5 shrink-0 opacity-50" />
+            </Link>
+          </li>
+        ))}
+      </ul>
+      {hidden > 0 ? (
+        <Link
+          href="/app/servis"
+          className="mt-1 flex shrink-0 items-center justify-between gap-2 rounded-lg px-2 py-1 text-xs opacity-60 transition-opacity hover:opacity-100"
+        >
+          <span>+{hidden} servis lainnya</span>
+          <ArrowRightIcon className="size-3" />
+        </Link>
+      ) : null}
+    </>
   );
 }
 
