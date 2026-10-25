@@ -49,9 +49,9 @@ bervariasi.
    (`"on"`/`"off"`) masih dibaca sekali lalu dimigrasikan, dan `setSoundEnabled`
    / `useSoundEnabled` tetap tersedia sebagai pembungkus mute saja. Perubahan
    dari tab lain ikut tersinkron lewat event `storage`. Kontrol pengguna:
-   `SoundToggle` (header compact shell) untuk mute cepat, dan `MenuSound`
-   (section "Sound System" di drawer menu) untuk mute + slider volume —
-   keduanya memakai store yang sama sehingga selalu sinkron.
+   `SoundToggle` di footer sidebar (bukan top nav) untuk mute cepat, dan
+   `MenuSound` (section "Sound System" di drawer menu) untuk mute + slider
+   volume — keduanya memakai store yang sama sehingga selalu sinkron.
 5. **Anti-dupe:** suara yang sama dalam jendela < 60 ms dipotong oleh
    `playSound`. Setiap sound punya pool 3 elemen audio yang dipakai bergiliran,
    jadi klik cepat tetap bisa tumpang tindih tanpa mengandalkan `cloneNode`
@@ -334,8 +334,9 @@ Store preferensi juga disamakan: key `cervise-sound` dengan bentuk
 Saat menggabungkan shell baru:
 
 1. Jangan menambah `SoundLayer` kedua — cukup yang di root layout.
-2. Pertahankan `SoundToggle` di header (mute cepat) dan `MenuSound` di drawer
-   (mute + slider); keduanya berbagi store.
+2. Pertahankan `SoundToggle` di footer sidebar (mute cepat) dan `MenuSound` di
+   drawer (mute + slider); keduanya berbagi store. **Top nav sengaja tanpa
+   kontrol suara** — jangan menambahkan toggle di header.
 3. Jika shell baru membuat primitif overlay sendiri (drawer/dropdown custom),
    ikuti pola `menu.tsx`/`popover.tsx`: `sfx.click()` saat buka,
    `sfx.close()` saat tutup, dengan guard `isFromManagedButton` /

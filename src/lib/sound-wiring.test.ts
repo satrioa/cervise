@@ -12,6 +12,7 @@ const select = read("src/components/ui/select.tsx");
 const popover = read("src/components/ui/popover.tsx");
 const command = read("src/components/ui/command.tsx");
 const compactShell = read("src/components/layout/compact-shell.tsx");
+const appShell = read("src/components/layout/app-shell.tsx");
 const sound = read("src/lib/sound.ts");
 const soundToggle = read("src/components/layout/sound-toggle.tsx");
 
@@ -55,8 +56,11 @@ describe("sound wiring", () => {
     }
   });
 
-  it("shell compact juga punya kontrol mute", () => {
-    expect(compactShell).toContain("SoundToggle");
+  it("kontrol mute ada di sidebar, bukan di top nav", () => {
+    // Top nav sengaja bersih: kontrol suara pindah ke footer sidebar
+    // (`AppShell`) dan section "Sound System" di drawer (`MenuSound`).
+    expect(appShell).toContain("SoundToggle");
+    expect(compactShell).not.toContain("SoundToggle");
   });
 
   it("store suara memakai key kanonik dan memigrasikan key lama", () => {

@@ -8,7 +8,6 @@ import { Button } from "@/components/ui/button";
 import { CommandPaletteProvider, CommandSearchTrigger } from "@/components/layout/command-palette-provider";
 import { CompactSidebar, COMPACT_GRID_TEMPLATE } from "@/components/layout/compact-sidebar";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
-import { SoundToggle } from "@/components/layout/sound-toggle";
 import { ShellChromeProvider } from "@/components/layout/shell-chrome";
 import { BranchProvider, useBranch } from "@/lib/branch-context";
 import { TenantProvider, useTenant } from "@/lib/tenant-context";
@@ -158,7 +157,6 @@ function CompactShellInner({
               CompactShell punya satu header saja. Shell legacy tidak merender
               header, jadi PageHeader tetap membawa keduanya di sana. */}
           <div className="ml-auto flex items-center gap-1.5">
-            <SoundToggle />
             <ThemeToggle />
             <div className="w-full max-w-[200px]">
               <CommandSearchTrigger className="w-full" />
