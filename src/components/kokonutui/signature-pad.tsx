@@ -190,7 +190,11 @@ export default function SignaturePad({
   });
 
   const latest = useRef({ onChange });
-  latest.current = { onChange };
+  // Disimpan lewat effect, bukan saat render: menulis ref selama render
+  // ditolak react-hooks/refs (dan memang bisa membuat nilai basi).
+  useEffect(() => {
+    latest.current = { onChange };
+  }, [onChange]);
 
   const context = useCallback(() => {
     const ctx = canvasRef.current?.getContext("2d");
@@ -301,39 +305,39 @@ export default function SignaturePad({
     return true;
   }, []);
 
-  const tick = useCallback(
-    (now: number) => {
-      const s = sim.current;
-      s.raf = 0;
-      const elapsed = s.last ? Math.min((now - s.last) / 1000, 0.05) : STEP;
-      s.last = now;
-      s.carry += elapsed;
-      let speed = 0;
-      while (s.carry >= STEP) {
-        speed = stepPen();
-        s.carry -= STEP;
-      }
-      const ctx = context();
-      const stroke = s.strokes.at(-1);
-      if (ctx && stroke) {
-        // Only the new ink; the point before it is repainted to join up.
-        paint(ctx, stroke, s.painted - 1, stroke.length, true);
-        s.painted = stroke.length;
-      }
-      const caughtUp =
-        Math.hypot(s.targetX - s.x, s.targetY - s.y) < 0.3 && speed < 5;
-      if (s.held || !caughtUp) {
-        s.raf = requestAnimationFrame(tick);
-        return;
-      }
-      // The pen has lifted and caught up: close the stroke with its tail
-      // taper, and report the signature.
-      s.last = 0;
-      redraw();
-      emit();
-    },
-    [context, emit, redraw, stepPen]
-  );
+  // Fungsi biasa, bukan useCallback: `tick` memanggil dirinya sendiri untuk
+  // frame berikutnya, dan react-hooks/immutability menolak self-reference pada
+  // `const` yang dideklarasikan dengan useCallback.
+  function tick(now: number) {
+    const s = sim.current;
+    s.raf = 0;
+    const elapsed = s.last ? Math.min((now - s.last) / 1000, 0.05) : STEP;
+    s.last = now;
+    s.carry += elapsed;
+    let speed = 0;
+    while (s.carry >= STEP) {
+      speed = stepPen();
+      s.carry -= STEP;
+    }
+    const ctx = context();
+    const stroke = s.strokes.at(-1);
+    if (ctx && stroke) {
+      // Only the new ink; the point before it is repainted to join up.
+      paint(ctx, stroke, s.painted - 1, stroke.length, true);
+      s.painted = stroke.length;
+    }
+    const caughtUp =
+      Math.hypot(s.targetX - s.x, s.targetY - s.y) < 0.3 && speed < 5;
+    if (s.held || !caughtUp) {
+      s.raf = requestAnimationFrame(tick);
+      return;
+    }
+    // The pen has lifted and caught up: close the stroke with its tail
+    // taper, and report the signature.
+    s.last = 0;
+    redraw();
+    emit();
+  }
 
   const localPoint = (event: PointerEvent) => {
     const rect = wrapRef.current?.getBoundingClientRect();

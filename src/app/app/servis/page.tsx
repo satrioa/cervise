@@ -194,6 +194,7 @@ export default function ServisPage() {
   const [pendingBatal, setPendingBatal] = useState<ServisItem | null>(null);
   const [pickupOpen, setPickupOpen] = useState(false);
   const [pickupItems, setPickupItems] = useState<ServisItem[]>([]);
+  const [pickupBulk, setPickupBulk] = useState(false);
   const { branch } = useBranch();
   const tenantCtx = useTenantOptional();
   const activeTenant = useMemo(
@@ -355,13 +356,33 @@ export default function ServisPage() {
       toast.error(error instanceof Error ? error.message : "Gagal mengubah status");
     }
   };
-  const openPickup = (items: ServisItem[]) => {
+  const openPickup = (items: ServisItem[], bulk = false) => {
     if (items.length === 0) return;
     setPickupItems(items);
+    setPickupBulk(bulk);
     setPickupOpen(true);
   };
-  const handlePickupSuccess = () => {
-    for (const it of pickupItems) applyLocalStatus(it, "Sudah Diambil");
+  /**
+   * Satu tanda tangan untuk semua target. Tiap servis disimpan sendiri-sendiri
+   * supaya yang sudah berhasil tetap pindah status walau yang lain gagal;
+   * error pertama dilempar balik ke dialog agar tidak menutup diam-diam.
+   */
+  const handlePickupConfirm = async (signature: string) => {
+    const items = pickupItems;
+    const failed: string[] = [];
+    for (const it of items) {
+      try {
+        await confirmServisPickup(it.id, signature);
+        applyLocalStatus(it, "Sudah Diambil");
+      } catch (error) {
+        failed.push(error instanceof Error ? error.message : "Gagal menyimpan tanda tangan");
+      }
+    }
+    if (failed.length > 0) throw new Error(failed[0]);
+    if (pickupBulk) setSelectedIds(new Set());
+    toast.success(
+      items.length > 1 ? `${items.length} servis sudah diambil` : "Servis sudah diambil",
+    );
   };
   const handleEdit = (s: ServisItem) => { setSelectedServis(s); setEditOpen(true); };
   const handleDelete = (s: ServisItem) => {
@@ -460,7 +481,7 @@ export default function ServisPage() {
     if (!canBulkStatus) return;
     // Bulk ke Sudah Diambil -> satu tanda tangan customer untuk semua servis terpilih
     if (next === "Sudah Diambil") {
-      openPickup(selectedData);
+      openPickup(selectedData, true);
       setBulkStatusOpen(false);
       return;
     }
@@ -904,7 +925,7 @@ export default function ServisPage() {
             </div>
             <div className="flex-1 min-h-0 overflow-hidden p-4 sm:p-6 flex flex-col">
               {detailLoading ? (
-                <div className="py-12 text-center text-sm text-muted-foreground">Memuat detail...</div>
+                <Skeleton className="h-64" rows={26} />
               ) : (
                 <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
                   <ServisDetailView data={detailData} />
@@ -920,7 +941,7 @@ export default function ServisPage() {
         open={pickupOpen}
         onOpenChange={setPickupOpen}
         targets={pickupItems.map((it) => ({ id: it.id, servisLabel: it.serviceNumber ?? "Tanpa nomor", device: it.device }))}
-        onSuccess={handlePickupSuccess}
+        onConfirm={handlePickupConfirm}
       />
 
       {/* Edit modal - full form reuse, lock siapa yang input, kondisi readonly */}
@@ -935,7 +956,7 @@ export default function ServisPage() {
             <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain">
               <div className="px-4 sm:px-6 py-4">
                 {detailLoading ? (
-                  <div className="py-12 text-center text-sm text-muted-foreground">Memuat data...</div>
+                  <Skeleton className="h-64" rows={26} />
                 ) : detailData ? (
                   <EditServisForm servisId={detailData.id} initial={detailData as ServisDetail} onSuccess={() => { setEditOpen(false); // refresh detail & list
                     if (detailData) {

@@ -1,12 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { AlertTriangleIcon, PenLineIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
 import { XIcon } from "lucide-react";
 import SignaturePad from "@/components/kokonutui/signature-pad";
-import { confirmServisPickup } from "@/app/app/servis/sparepart-actions";
 
 export type PickupTarget = {
   id: string;
@@ -18,23 +17,28 @@ export function PickupSignatureDialog({
   open,
   onOpenChange,
   targets,
-  onSuccess,
+  onConfirm,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   targets: PickupTarget[];
-  onSuccess: () => void;
+  /** Menyimpan tanda tangan untuk semua target; lempar Error kalau gagal. */
+  onConfirm: (signature: string) => Promise<void>;
 }) {
   const [signature, setSignature] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (!open) return;
-    setSignature(null);
-    setError(null);
-    setSaving(false);
-  }, [open]);
+  // Reset dilakukan saat dialog ditutup, bukan lewat useEffect: setState
+  // sinkron di dalam effect memicu render berantai dan ditolak lint.
+  const handleOpenChange = (next: boolean) => {
+    if (!next) {
+      setSignature(null);
+      setError(null);
+      setSaving(false);
+    }
+    onOpenChange(next);
+  };
 
   const ready = Boolean(signature) && signature!.startsWith("<svg");
 
@@ -43,13 +47,10 @@ export function PickupSignatureDialog({
     setSaving(true);
     setError(null);
     try {
-      for (const t of targets) {
-        await confirmServisPickup(t.id, signature);
-      }
-      onSuccess();
-      onOpenChange(false);
-    } catch (e: any) {
-      setError(e?.message ?? "Gagal menyimpan tanda tangan");
+      await onConfirm(signature);
+      handleOpenChange(false);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Gagal menyimpan tanda tangan");
     } finally {
       setSaving(false);
     }
@@ -62,7 +63,7 @@ export function PickupSignatureDialog({
       : `Tanda tangan customer untuk ${targets[0]?.servisLabel ?? ""} · ${targets[0]?.device ?? ""}`;
 
   return (
-    <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
+    <DialogPrimitive.Root open={open} onOpenChange={handleOpenChange}>
       <DialogPrimitive.Portal>
         <DialogPrimitive.Backdrop className="fixed inset-0 z-50 bg-black/30 backdrop-blur-md" />
         <DialogPrimitive.Popup className="fixed left-1/2 top-1/2 z-50 flex max-h-[85vh] w-[95vw] max-w-md -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-2xl border bg-background shadow-xl">
@@ -82,7 +83,7 @@ export function PickupSignatureDialog({
           </div>
 
           <div className="shrink-0 border-t bg-muted/20 px-4 py-3 flex justify-end gap-2">
-            <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>Batal</Button>
+            <Button variant="outline" onClick={() => handleOpenChange(false)} disabled={saving}>Batal</Button>
             <Button onClick={() => void handleConfirm()} disabled={!ready || saving}>
               {saving ? "Menyimpan..." : "Konfirmasi Pengambilan"}
             </Button>

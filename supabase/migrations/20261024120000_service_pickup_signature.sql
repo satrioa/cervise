@@ -36,6 +36,9 @@ begin
   if left(trim(p_signature), 5) <> '<svg ' then
     raise exception 'tanda tangan tidak valid';
   end if;
+  if length(p_signature) > 200000 then
+    raise exception 'tanda tangan terlalu besar';
+  end if;
 
   select * into v_service
   from public.cervise_services

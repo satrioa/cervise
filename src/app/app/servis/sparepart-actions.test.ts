@@ -175,3 +175,38 @@ describe("servis sparepart actions", () => {
 
     await expect(updateServisStatus("servis-1", "Dikerjakan")).rejects.toThrow("stok tidak cukup");
   });
+
+  it("requires a signature before confirming pickup", async () => {
+    await expect(confirmServisPickup("servis-1", "")).rejects.toThrow("Tanda tangan wajib");
+    await expect(confirmServisPickup("servis-1", "   ")).rejects.toThrow("Tanda tangan wajib");
+    expect(mocks.rpc).not.toHaveBeenCalled();
+  });
+
+  it("requires an svg payload before confirming pickup", async () => {
+    await expect(confirmServisPickup("servis-1", "tulisan-ku")).rejects.toThrow("Tanda tangan wajib");
+    expect(mocks.rpc).not.toHaveBeenCalled();
+  });
+
+  it("confirms pickup through the signature rpc with the trimmed svg", async () => {
+    const svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 50"><path d="M0 0 L100 50" /></svg>';
+    await confirmServisPickup("servis-1", `  ${svg}  `);
+
+    expect(mocks.rpc).toHaveBeenCalledWith("set_service_picked_up", {
+      p_servis_id: "servis-1",
+      p_signature: svg,
+      p_note: null,
+    });
+  });
+
+  it("passes an optional note through to the pickup rpc", async () => {
+    const svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 50"><path d="M0 0 L100 50" /></svg>';
+
+    await confirmServisPickup("servis-1", svg, "Customer tidak ada");
+
+    expect(mocks.rpc).toHaveBeenCalledWith("set_service_picked_up", {
+      p_servis_id: "servis-1",
+      p_signature: svg,
+      p_note: "Customer tidak ada",
+    });
+  });
+});
