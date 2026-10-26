@@ -12,6 +12,7 @@ const select = read("src/components/ui/select.tsx");
 const popover = read("src/components/ui/popover.tsx");
 const command = read("src/components/ui/command.tsx");
 const compactShell = read("src/components/layout/compact-shell.tsx");
+const appShell = read("src/components/layout/app-shell.tsx");
 const sound = read("src/lib/sound.ts");
 const soundToggle = read("src/components/layout/sound-toggle.tsx");
 
@@ -55,9 +56,11 @@ describe("sound wiring", () => {
     }
   });
 
-  it("kontrol mute compact ada di drawer Sound System", () => {
-    // Header compact tidak lagi memuat toggle suara di samping tombol layar
-    // penuh; mute dan volume tetap tersedia di section "Sound System".
+  it("kontrol mute ada di sidebar dan drawer, bukan di top nav", () => {
+    // Top nav sengaja bersih: kontrol suara pindah ke footer sidebar
+    // (`AppShell`) dan section "Sound System" di drawer (`MenuSound`).
+    // Keduanya membaca store yang sama, jadi selalu sinkron.
+    expect(appShell).toContain("SoundToggle");
     const menuSheet = read("src/components/layout/compact-menu-sheet.tsx");
     expect(menuSheet).toContain("MenuSound");
     expect(compactShell).not.toContain("SoundToggle");
