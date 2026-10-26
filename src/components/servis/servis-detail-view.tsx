@@ -40,7 +40,7 @@ import type { ComponentType } from "react";
 import { KONDISI_ITEMS } from "@/lib/servis-constants";
 import type { ServisDetail } from "@/app/app/servis/actions";
 import { getPembayaranHistory, getServisLogs } from "@/app/app/servis/actions";
-import { ServisBayarForm } from "./servis-bayar-drawer";
+import { ServisPaymentPanel } from "./servis-payment-panel";
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
 import { XIcon } from "lucide-react";
 import { getServisSpareparts } from "@/app/app/servis/sparepart-actions";
@@ -671,11 +671,11 @@ export function ServisDetailView({ data }: Props) {
       <DialogPrimitive.Root open={openBayar} onOpenChange={setOpenBayar}>
         <DialogPrimitive.Portal>
           <DialogPrimitive.Backdrop className="fixed inset-0 z-50 bg-black/60 backdrop-blur-md" />
-          <DialogPrimitive.Popup className="dark scheme-dark fixed left-1/2 top-1/2 z-50 w-[95vw] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-xl border border-white/10 bg-background p-6 text-foreground shadow-2xl max-h-[90vh] overflow-y-auto">
+          <DialogPrimitive.Popup className="dark scheme-dark fixed left-1/2 top-1/2 z-50 w-[95vw] max-w-2xl -translate-x-1/2 -translate-y-1/2 rounded-xl border border-white/10 bg-background p-6 text-foreground shadow-2xl max-h-[90vh] overflow-y-auto">
             <DialogPrimitive.Title className="font-semibold text-white">Catat Pembayaran</DialogPrimitive.Title>
-            <DialogPrimitive.Description className="text-sm text-muted-foreground">Admin/kasir saja. Bisa DP atau pelunasan. Metode dari pengaturan nanti (sekarang 5 aktif).</DialogPrimitive.Description>
+            <DialogPrimitive.Description className="text-sm text-muted-foreground">Admin/kasir saja. Metode pembayaran sama dengan penjualan.</DialogPrimitive.Description>
             <div className="mt-4">
-              <ServisBayarForm servisId={id} estimasi={estimasiVal} totalPaid={totalPaid} onSuccess={(total) => { setOpenBayar(false); setHistoryLoading(true); getPembayaranHistory(id).then((h) => setHistory(h as any[])).finally(() => setHistoryLoading(false)); }} onClose={() => setOpenBayar(false)} />
+              <ServisPaymentPanel servisId={id} estimasi={estimasiVal} totalPaid={totalPaid} onSuccess={() => { setOpenBayar(false); setHistoryLoading(true); getPembayaranHistory(id).then((h) => setHistory(h as any[])).finally(() => setHistoryLoading(false)); }} onClose={() => setOpenBayar(false)} />
             </div>
             <DialogPrimitive.Close className="absolute right-3 top-3 rounded-md p-1 text-muted-foreground hover:bg-muted"><XIcon className="size-4" /></DialogPrimitive.Close>
           </DialogPrimitive.Popup>

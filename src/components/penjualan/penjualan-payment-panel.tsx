@@ -52,6 +52,9 @@ export function PenjualanPaymentPanel({
   total,
   onSelesai,
   saving,
+  submitLabel,
+  showPromo,
+  embedded,
 }: {
   metode: string;
   onMetodeChange: (metode: string) => void;
@@ -59,7 +62,16 @@ export function PenjualanPaymentPanel({
   total: number;
   onSelesai: (outcome: PaymentOutcome) => void;
   saving: boolean;
+  /** Judul tombol aksi. Default "Selesai Dibayar". */
+  submitLabel?: string;
+  /** Sembunyikan blok kode promo. Promo hanya milik penjualan. */
+  showPromo?: boolean;
+  /** Dipakai di dalam dialog: tinggi mengikuti wadahnya, bukan tinggi layar. */
+  embedded?: boolean;
 }) {
+  const submitText = submitLabel ?? "Selesai Dibayar";
+  const promoVisible = showPromo ?? true;
+  const isEmbedded = embedded ?? false;
   const [cashDigits, setCashDigits] = useState("");
   const [bank, setBank] = useState("BCA");
   const [accountNumber, setAccountNumber] = useState("");
@@ -238,14 +250,14 @@ export function PenjualanPaymentPanel({
   };
 
   return (
-    <CardFrame className="flex flex-col h-[calc(100dvh-96px)] max-h-[calc(100dvh-96px)] w-full overflow-hidden lg:h-full lg:max-h-full animate-in fade-in-0 slide-in-from-right-2 duration-300">
+    <CardFrame className={isEmbedded ? "flex flex-col h-auto max-h-full w-full overflow-hidden" : "flex flex-col h-[calc(100dvh-96px)] max-h-[calc(100dvh-96px)] w-full overflow-hidden lg:h-full lg:max-h-full animate-in fade-in-0 slide-in-from-right-2 duration-300"}>
       <CardFrameHeader className="grid-rows-1 py-3 px-4">
         <CardFrameTitle className="text-[15px]">Pembayaran</CardFrameTitle>
       </CardFrameHeader>
 
       <Card className="flex-1 flex flex-col overflow-hidden border-0 shadow-none before:hidden">
-        <div className="flex-1 min-h-0 overflow-y-auto p-3 grid content-start gap-3 lg:grid-cols-[minmax(0,320px)_1fr] lg:overflow-hidden">
-          <div className="grid grid-cols-2 gap-2 content-start sm:grid-cols-3 lg:grid-cols-1 lg:overflow-y-auto lg:pr-1">
+        <div className={"flex-1 min-h-0 overflow-y-auto p-3 grid content-start gap-3 lg:grid-cols-[minmax(0,320px)_1fr] " + (isEmbedded ? "lg:overflow-visible" : "lg:overflow-hidden")}>
+          <div className={"grid grid-cols-2 gap-2 content-start sm:grid-cols-3 lg:grid-cols-1 " + (isEmbedded ? "lg:overflow-visible lg:pr-0" : "lg:overflow-y-auto lg:pr-1")}>
             {METODE_META.map((m) => {
               const Icon = m.icon;
               const selected = metode === m.value;
@@ -273,16 +285,18 @@ export function PenjualanPaymentPanel({
             <div className="lg:flex-1 lg:min-h-0 lg:overflow-y-auto lg:pr-1">{detail()}</div>
 
             <div className="space-y-2 border-t pt-3 shrink-0">
-              <div className="space-y-1.5">
-                <Label className="text-xs">Kode Promo</Label>
-                <div className="flex gap-2">
-                  <Input placeholder="CONTOH10" value={promoCode} onChange={(e) => setPromoCode(e.target.value.toUpperCase())} className="flex-1 font-mono uppercase h-8 text-sm" />
-                  <Button size="sm" variant="outline" onClick={applyPromo} disabled={!promoCode.trim()}>Terapkan</Button>
+              {promoVisible && (
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Kode Promo</Label>
+                  <div className="flex gap-2">
+                    <Input placeholder="CONTOH10" value={promoCode} onChange={(e) => setPromoCode(e.target.value.toUpperCase())} className="flex-1 font-mono uppercase h-8 text-sm" />
+                    <Button size="sm" variant="outline" onClick={applyPromo} disabled={!promoCode.trim()}>Terapkan</Button>
+                  </div>
+                  {promoError && <p className="text-xs text-destructive">{promoError}</p>}
                 </div>
-                {promoError && <p className="text-xs text-destructive">{promoError}</p>}
-              </div>
+              )}
               <div className="flex justify-between text-sm"><span className="text-muted-foreground">Subtotal</span><span className="font-mono tabular-nums">{formatCurrencyPlain(subtotal)}</span></div>
-              <div className="flex justify-between text-sm"><span className="text-muted-foreground">Diskon Promo</span><span className="font-mono tabular-nums">{formatCurrencyPlain(0)}</span></div>
+              {promoVisible && <div className="flex justify-between text-sm"><span className="text-muted-foreground">Diskon Promo</span><span className="font-mono tabular-nums">{formatCurrencyPlain(0)}</span></div>}
               <Separator className="my-1" />
               <div className="flex justify-between items-center">
                 <span className="font-mono text-xs uppercase tracking-[0.2em] text-muted-foreground">Total</span>
@@ -293,7 +307,7 @@ export function PenjualanPaymentPanel({
                 <span className="font-mono text-base font-semibold tabular-nums">{formatCurrencyPlain(metode === "Tunai" ? change : 0)}</span>
               </div>
               {error && <p className="mt-2 text-xs text-destructive">{error}</p>}
-              <Button className="w-full mt-2" onClick={submit} disabled={saving} loading={saving}>Selesai Dibayar</Button>
+              <Button className="w-full mt-2" onClick={submit} disabled={saving} loading={saving}>{submitText}</Button>
             </div>
           </div>
         </div>

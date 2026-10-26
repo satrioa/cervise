@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { formatCurrencyPlain, formatNumberPlain } from "@/lib/format";
 import { SearchIcon, CalendarIcon, XIcon, TableIcon, LayoutGridIcon } from "lucide-react";
 import { format } from "date-fns";
@@ -23,6 +23,7 @@ import { EditServisForm } from "@/components/servis/edit-servis-form";
 import { ServisDetailView } from "@/components/servis/servis-detail-view";
 import { ServisDetailSkeleton, ServisFormSkeleton } from "@/components/servis/servis-detail-skeleton";
 import { ServisContextMenu } from "@/components/servis-context-menu";
+import { ServisPaymentDialog } from "@/components/servis/servis-payment-dialog";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -32,7 +33,8 @@ import { getServisDetail, getServisList, getServisDeleteImpact, deleteServis, ty
 import { updateServisStatus, getServisSpareparts, confirmServisPickup } from "@/app/app/servis/sparepart-actions";
 import { useBranch } from "@/lib/branch-context";
 import { useTenantOptional } from "@/lib/tenant-context";
-import { toPrintData, renderJetHtml, renderDotMatrixHtml, renderThermalHtml, type PrintContext } from "@/components/print-templates";
+import { toPrintData, renderJetHtml, renderDotMatrixHtml, renderThermalHtml, publicTrackingUrl, type PrintContext } from "@/components/print-templates";
+import { printReceipt } from "@/lib/printer";
 import { cn } from "@/lib/utils";
 import { SparepartPickDialog, CancelSparepartDialog } from "@/components/servis/sparepart-dialogs";
 import { PickupSignatureDialog } from "@/components/servis/pickup-signature-dialog";
@@ -194,6 +196,7 @@ export default function ServisPage() {
   const [cancelOpen, setCancelOpen] = useState(false);
   const [pendingBatal, setPendingBatal] = useState<ServisItem | null>(null);
   const [pickupOpen, setPickupOpen] = useState(false);
+  const [bayarServisId, setBayarServisId] = useState<string | null>(null);
   const [pickupItems, setPickupItems] = useState<ServisItem[]>([]);
   const [pickupBulk, setPickupBulk] = useState(false);
   const { branch } = useBranch();
@@ -215,24 +218,25 @@ export default function ServisPage() {
   );
   const [kanbanValue, setKanbanValue] = useState<Record<string, ServisItem[]>>({});
 
-  useEffect(() => {
-    let cancelled = false;
+  const loadServis = useCallback(() => {
     setServisLoading(true);
     setServisError(null);
     getServisList()
       .then((rows) => {
-        if (cancelled) return;
         setServisData(rows);
         setKanbanValue(groupServisByStatus(rows));
       })
       .catch((error) => {
-        if (!cancelled) setServisError(error instanceof Error ? error.message : "Gagal memuat data servis");
+        setServisError(error instanceof Error ? error.message : "Gagal memuat data servis");
       })
       .finally(() => {
-        if (!cancelled) setServisLoading(false);
+        setServisLoading(false);
       });
-    return () => { cancelled = true; };
-  }, [branch.id]);
+  }, []);
+
+  useEffect(() => {
+    loadServis();
+  }, [branch.id, loadServis]);
 
   const matchesSearch = (item: ServisItem) => {
     if (!search.trim()) return true;
@@ -386,6 +390,9 @@ export default function ServisPage() {
     );
   };
   const handleEdit = (s: ServisItem) => { setSelectedServis(s); setEditOpen(true); };
+
+  // Bayar servis: panel pembayaran yang sama dengan penjualan.
+  const handleBayar = (s: ServisItem) => { setBayarServisId(s.id); };
   const handleDelete = (s: ServisItem) => {
     setSelectedServis(s);
     setDeleteImpact(null);
@@ -426,7 +433,24 @@ export default function ServisPage() {
       detail = await getServisDetail(s.id);
     } catch {}
     const data = toPrintData(s, printContext, detail);
-    const html = type === "Jet" ? renderJetHtml(data) : type === "Dot Matrix" ? renderDotMatrixHtml(data) : renderThermalHtml(data);
+
+    // Thermal = printer ESC/POS 58mm; Jet/Dot Matrix tetap lewat dialog cetak.
+    if (type === "Thermal") {
+      try {
+        const result = await printReceipt({
+          kind: "service",
+          html: renderThermalHtml(data),
+          trackingUrl: publicTrackingUrl(data.service.tenantSlug, data.service.trackingCode),
+          service: data,
+        });
+        if (!result.fallback) toast.success("Nota dikirim ke printer");
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : "Gagal mencetak nota");
+      }
+      return;
+    }
+
+    const html = type === "Jet" ? renderJetHtml(data) : renderDotMatrixHtml(data);
     const w = window.open("", "_blank", "width=800,height=600");
     if (!w) return;
     w.document.write(html);
@@ -644,7 +668,11 @@ export default function ServisPage() {
         if (!cancelled) setDetailData(d);
       })
       .catch(() => {
-        if (!cancelled) setDetailData(null);
+        if (!cancelled) {
+          // Fallback jadi data dasar dari list agar detail/edit tidak kosong total
+          if (selectedServis) setDetailData({ ...(selectedServis as any), id: selectedServis.id, device: selectedServis.device ?? "", status: selectedServis.status ?? "" } as any);
+          else setDetailData(null);
+        }
       })
       .finally(() => {
         if (!cancelled) setDetailLoading(false);
@@ -747,7 +775,7 @@ export default function ServisPage() {
                 <TableHead>Servis</TableHead><TableHead>Device</TableHead><TableHead>Status</TableHead><TableHead>Teknisi</TableHead><TableHead>Pembayaran</TableHead><TableHead className="text-right">Harga</TableHead></TableRow></TableHeader>
             <TableBody>
               {filteredTable.map((r) => (
-                <ServisContextMenu key={r.id} servis={r} onViewDetails={handleViewDetails} onStatusChange={handleStatusChange} onEdit={handleEdit} onPrint={handlePrint} onInvoice={handleInvoice} onDelete={handleDelete}>
+                <ServisContextMenu key={r.id} servis={r} onViewDetails={handleViewDetails} onStatusChange={handleStatusChange} onEdit={handleEdit} onPrint={handlePrint} onInvoice={handleInvoice} onBayar={handleBayar} onDelete={handleDelete}>
                   <TableRow className="cursor-context-menu hover:bg-muted/40" data-state={selectedIds.has(r.id) ? "selected" : undefined}>
                     <TableCell>
                       <Checkbox
@@ -847,7 +875,7 @@ export default function ServisPage() {
                       const isSearchMatch = search.trim() ? `${item.serviceNumber ?? ""} ${item.id} ${item.customer}`.toLowerCase().includes(search.trim().toLowerCase()) : true;
                       const disabled = !isSearchMatch;
                       return (
-                        <ServisContextMenu key={item.id} servis={item} onViewDetails={handleViewDetails} onStatusChange={handleStatusChange} onEdit={handleEdit} onPrint={handlePrint} onInvoice={handleInvoice} onDelete={handleDelete}>
+                        <ServisContextMenu key={item.id} servis={item} onViewDetails={handleViewDetails} onStatusChange={handleStatusChange} onEdit={handleEdit} onPrint={handlePrint} onInvoice={handleInvoice} onBayar={handleBayar} onDelete={handleDelete}>
                           <KanbanItem value={item.id} disabled={disabled}>
                             <KanbanItemHandle>
                               <Card className={cn("shadow-xs", disabled ? "opacity-40 grayscale" : "cursor-grab active:cursor-grabbing")}>
@@ -943,6 +971,13 @@ export default function ServisPage() {
         onOpenChange={setPickupOpen}
         targets={pickupItems.map((it) => ({ id: it.id, servisLabel: it.serviceNumber ?? "Tanpa nomor", device: it.device }))}
         onConfirm={handlePickupConfirm}
+      />
+
+      <ServisPaymentDialog
+        servisId={bayarServisId}
+        open={bayarServisId !== null}
+        onOpenChange={(v) => { if (!v) setBayarServisId(null); }}
+        onPaid={loadServis}
       />
 
       {/* Edit modal - full form reuse, lock siapa yang input, kondisi readonly */}

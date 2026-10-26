@@ -10,6 +10,7 @@ import {
   ChevronRightIcon,
   WrenchIcon,
   BanIcon,
+  WalletIcon,
 } from "lucide-react";
 
 type Stage = "Masuk" | "Diagnosa" | "Menunggu Konfirmasi" | "Menunggu Sparepart" | "Dikerjakan" | "Selesai" | "Sudah Diambil" | "Batal";
@@ -48,6 +49,7 @@ type Props = {
   onEdit?: (s: any) => void;
   onPrint?: (s: any, type: PrintType) => void;
   onInvoice?: (s: any) => void;
+  onBayar?: (s: any) => void;
   onDelete?: (s: any) => void;
 };
 
@@ -71,6 +73,7 @@ export function ServisContextMenu({
   onEdit,
   onPrint,
   onInvoice,
+  onBayar,
   onDelete,
 }: Props) {
   const isMobile = useIsMobile();
@@ -217,6 +220,20 @@ export function ServisContextMenu({
           <PencilIcon className="size-4 opacity-70" />
           Edit
         </button>
+
+        {(servis.status === "Selesai" || servis.status === "Sudah Diambil") && (
+          <button
+            role="menuitem"
+            onClick={() => {
+              onBayar?.(servis);
+              closeAll();
+            }}
+            className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground"
+          >
+            <WalletIcon className="size-4 opacity-70" />
+            Bayar sekarang
+          </button>
+        )}
 
         <div className="relative" onMouseLeave={() => !isMobile && setActiveSub(null)}>
           <button
