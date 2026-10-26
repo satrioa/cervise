@@ -4,6 +4,11 @@ Ditulis 17 Oktober 2026, saat repo dipindah ke komputer baru.
 Semua state project ada di `docs/superpowers/plans/2026-10-17-commit-dan-keamanan.md`
 -- baca itu dulu untuk tahu pekerjaan berikutnya.
 
+> **Penting (26 Oktober 2026):** pekerjaan yang masih tertunda dari semua
+> sesi sebelumnya ada di [`docs/UNFINISHED.md`](./UNFINISHED.md). Baca file itu
+> sebelum mulai bekerja -- di sana ada daftar migrasi yang belum ter-apply,
+> commit yang belum di-push, dan pekerjaan setengah jalan.
+
 ## Sebelum packing, ambil ini dari komputer lama
 
 Dua nilai ini **tidak ada di repo** dan tidak bisa di-regenerate:
@@ -52,9 +57,12 @@ dua lockfile dengan resolusi versi berbeda.
 
 ```powershell
 npm run typecheck    # wajib hijau
-npm test             # wajib hijau, 1181 test di 98 file
+npm test             # wajib hijau, 1452 test di 128 file
 npm run lint         # merah, sudah begitu sejak lama -- baca catatan di bawah
 ```
+
+Catatan: `npm` diblokir PowerShell di mesin ini (Execution Policy menahan
+`npm.ps1`). Pakai `cmd /c "npm ..."` atau `npm.cmd`.
 
 ## Dua hal yang akan mengejutkan
 
@@ -73,6 +81,13 @@ nomor versi yang dibuat Supabase, bukan dengan nama file di repo:
 ulang dua migration yang sudah jalan. Kalau memang perlu menerapkan
 migration baru, pakai MCP `apply_migration` seperti yang sudah dilakukan
 sebelumnya, supaya penomoran tetap konsisten dengan yang sudah ada.
+
+### 1b. Dua migration belum ter-apply
+
+Per 26 Oktober 2026, `20261023120000_branch_scope_and_admin_access.sql` dan
+`20261024120000_service_pickup_signature.sql` masih **belum** masuk ke
+database produksi. Detail, cara apply, dan perintah verifikasi ada di
+[`docs/UNFINISHED.md`](./UNFINISHED.md) bagian 1.
 
 ### 2. `npm run lint` merah, dan itu sudah lama
 
