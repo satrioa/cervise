@@ -66,6 +66,10 @@ export function ServisPaymentPanel({ servisId, estimasi, totalPaid = 0, onSucces
   }
 
   const handleSelesai = async (outcome: { paid: number; notes: string }) => {
+    if (!outcome.paid || outcome.paid <= 0) {
+      toast.error("Nominal harus lebih dari nol");
+      return;
+    }
     setSaving(true);
     try {
       const res = await addPembayaran({
@@ -107,7 +111,7 @@ export function ServisPaymentPanel({ servisId, estimasi, totalPaid = 0, onSucces
         )}
       </div>
 
-      {total > 0 && (
+      {total > 0 || !punyaEstimasi ? (
         <PenjualanPaymentPanel
           metode={metode}
           onMetodeChange={(m) => setMetode(m as Metode)}
@@ -119,7 +123,7 @@ export function ServisPaymentPanel({ servisId, estimasi, totalPaid = 0, onSucces
           showPromo={false}
           embedded
         />
-      )}
+      ) : null}
     </div>
   );
 }

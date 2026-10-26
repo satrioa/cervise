@@ -250,14 +250,16 @@ export function PenjualanPaymentPanel({
   };
 
   return (
-    <CardFrame className={isEmbedded ? "flex flex-col h-auto max-h-full w-full overflow-hidden" : "flex flex-col h-[calc(100dvh-96px)] max-h-[calc(100dvh-96px)] w-full overflow-hidden lg:h-full lg:max-h-full animate-in fade-in-0 slide-in-from-right-2 duration-300"}>
-      <CardFrameHeader className="grid-rows-1 py-3 px-4">
-        <CardFrameTitle className="text-[15px]">Pembayaran</CardFrameTitle>
-      </CardFrameHeader>
+    <CardFrame className={isEmbedded ? "flex flex-col h-full w-full overflow-hidden" : "flex flex-col h-[calc(100dvh-96px)] max-h-[calc(100dvh-96px)] w-full overflow-hidden lg:h-full lg:max-h-full animate-in fade-in-0 slide-in-from-right-2 duration-300"}>
+      {!isEmbedded && (
+        <CardFrameHeader className="grid-rows-1 py-3 px-4">
+          <CardFrameTitle className="text-[15px]">Pembayaran</CardFrameTitle>
+        </CardFrameHeader>
+      )}
 
       <Card className="flex-1 flex flex-col overflow-hidden border-0 shadow-none before:hidden">
-        <div className={"flex-1 min-h-0 overflow-y-auto p-3 grid content-start gap-3 " + (isEmbedded ? "lg:grid-cols-[minmax(0,360px)_1fr] lg:overflow-visible" : "lg:grid-cols-[minmax(0,320px)_1fr] lg:overflow-hidden")}>
-          <div className={"grid grid-cols-2 gap-2 content-start sm:grid-cols-3 lg:grid-cols-1 " + (isEmbedded ? "lg:overflow-visible lg:pr-0" : "lg:overflow-y-auto lg:pr-1")}>
+        <div className={"flex-1 min-h-0 overflow-y-auto p-3 grid content-start gap-3 lg:grid-cols-[minmax(0," + (isEmbedded ? "360px" : "320px") + ")_1fr] lg:overflow-hidden"}>
+          <div className="grid grid-cols-2 gap-2 content-start sm:grid-cols-3 lg:grid-cols-1 lg:overflow-y-auto lg:pr-1">
             {METODE_META.map((m) => {
               const Icon = m.icon;
               const selected = metode === m.value;
