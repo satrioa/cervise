@@ -256,7 +256,7 @@ export function PenjualanPaymentPanel({
       </CardFrameHeader>
 
       <Card className="flex-1 flex flex-col overflow-hidden border-0 shadow-none before:hidden">
-        <div className={"flex-1 min-h-0 overflow-y-auto p-3 grid content-start gap-3 lg:grid-cols-[minmax(0,320px)_1fr] " + (isEmbedded ? "lg:overflow-visible" : "lg:overflow-hidden")}>
+        <div className={"flex-1 min-h-0 overflow-y-auto p-3 grid content-start gap-3 " + (isEmbedded ? "lg:grid-cols-[minmax(0,360px)_1fr] lg:overflow-visible" : "lg:grid-cols-[minmax(0,320px)_1fr] lg:overflow-hidden")}>
           <div className={"grid grid-cols-2 gap-2 content-start sm:grid-cols-3 lg:grid-cols-1 " + (isEmbedded ? "lg:overflow-visible lg:pr-0" : "lg:overflow-y-auto lg:pr-1")}>
             {METODE_META.map((m) => {
               const Icon = m.icon;
