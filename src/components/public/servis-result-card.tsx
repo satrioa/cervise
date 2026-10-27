@@ -1,6 +1,10 @@
+"use client";
+
+import { useEffect, useRef } from "react";
 import { Badge } from "@/components/ui/badge";
+import { Stepper, StepperItem } from "@/components/stepper";
 import type { GaransiState } from "@/lib/operational/garansi-meta";
-import { StageTrack } from "@/lib/operational/stage-track";
+import { STAGES, stageIndex, type Stage } from "@/lib/operational/stage-track";
 import { formatTrackingCode, type PublicServisResult } from "@/lib/public/lookup";
 import { format } from "date-fns";
 import { id as localeId } from "date-fns/locale";
@@ -22,6 +26,45 @@ function formatDate(value: string | null) {
 function formatDateTime(value: string) {
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? "—" : format(date, "d MMM yyyy HH:mm", { locale: localeId });
+}
+
+/**
+ * Strip status horizontal: semua tahapan servis ditampilkan, tahap aktif
+ * berada di tengah (strip digeser ke posisi aktif) dan teks panjang di
+ *-clip dengan efek fade di kiri dan kanan.
+ */
+function StatusStrip({ stage }: { stage: Stage }) {
+  const stripRef = useRef<HTMLDivElement>(null);
+  const current = stageIndex(stage);
+
+  useEffect(() => {
+    const strip = stripRef.current;
+    const active = strip?.querySelector<HTMLElement>('[data-status="active"]');
+    if (!strip || !active) return;
+    strip.scrollLeft = active.offsetLeft - strip.clientWidth / 2 + active.clientWidth / 2;
+  }, [stage]);
+
+  return (
+    <div
+      ref={stripRef}
+      data-stage-strip
+      className="overflow-x-auto scrollbar-none rounded-xl border bg-muted/40 p-3"
+      style={{
+        maskImage: "linear-gradient(to right, transparent 0%, black 14%, black 86%, transparent 100%)",
+        WebkitMaskImage: "linear-gradient(to right, transparent 0%, black 14%, black 86%, transparent 100%)",
+      }}
+    >
+      <Stepper orientation="horizontal" className="w-max min-w-full">
+        {STAGES.map((entry, index) => (
+          <StepperItem
+            key={entry.key}
+            title={entry.label}
+            status={index === current ? "active" : index < current ? "completed" : "default"}
+          />
+        ))}
+      </Stepper>
+    </div>
+  );
 }
 
 export function ServisResultCard({ result }: { result: PublicServisResult }) {
@@ -47,7 +90,7 @@ export function ServisResultCard({ result }: { result: PublicServisResult }) {
             </Badge>
           </div>
 
-          <StageTrack stage={result.status} />
+          <StatusStrip stage={result.status} />
 
           <dl className="grid grid-cols-2 gap-3 border-t pt-4 text-sm">
             <div className="min-w-0">
@@ -105,17 +148,16 @@ export function ServisResultCard({ result }: { result: PublicServisResult }) {
       {result.history.length > 0 ? (
         <div className="rounded-2xl border bg-card p-5 shadow-xs/5">
           <span className="font-mono text-[10px] uppercase tracking-[0.3em] text-muted-foreground">Riwayat status</span>
-          <ol className="mt-3 space-y-2">
+          <Stepper orientation="vertical" className="mt-3">
             {result.history.map((entry, index) => (
-              <li key={`${entry.at}-${index}`} className="flex items-baseline justify-between gap-3 text-sm">
-                <span className="truncate">
-                  {entry.from ? <span className="text-muted-foreground">{entry.from} → </span> : null}
-                  <span className="font-medium">{entry.to ?? "—"}</span>
-                </span>
-                <span className="shrink-0 font-mono text-[10px] text-muted-foreground">{formatDateTime(entry.at)}</span>
-              </li>
+              <StepperItem
+                key={`${entry.at}-${index}`}
+                title={entry.from ? `${entry.from} → ${entry.to ?? "—"}` : (entry.to ?? "—")}
+                description={formatDateTime(entry.at)}
+                status={index === result.history.length - 1 ? "active" : "completed"}
+              />
             ))}
-          </ol>
+          </Stepper>
         </div>
       ) : null}
     </div>

@@ -117,6 +117,8 @@ export function ServisPaymentPanel({ servisId, estimasi, totalPaid = 0, onSucces
           onMetodeChange={(m) => setMetode(m as Metode)}
           subtotal={total}
           total={total}
+          subtotalLabel="Nominal Bayar"
+          subtotalHint={punyaEstimasi ? `Estimasi ${formatCurrencyPlain(estimasi)}` : undefined}
           onSelesai={handleSelesai}
           saving={saving}
           submitLabel="Simpan Pembayaran"

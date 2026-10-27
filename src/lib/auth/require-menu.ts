@@ -34,9 +34,22 @@ export async function requireMenu(key: string): Promise<Actor> {
  * lain tetap memakai `requireMenu`, supaya data tenant yang sudah tidak berhak
  * tidak ikut terbaca.
  */
+
+/**
+ * Halaman tagihan itu sendiri adalah jalur pemulihan, jadi-exempt dari
+ * pemeriksaan role. Tanpa ini, role selain MASTER_ADMIN dialihkan ke
+ * `/app?error=forbidden`, dan karena path itu bukan halaman tagihan, layout
+ * akan melempar `subscription_expired` lagi - tenant terkunci berputar tanpa
+ * henti dan tidak pernah bisa membayar.
+ *
+ * Pengecualian ini hanya untuk halaman tagihan. Guard role tetap berlaku untuk
+ * key lain supaya jalur pemulihan tidak jadi jalan membuka halaman tenant lain.
+ */
+const BILLING_RECOVERY_KEY = "pengaturan_subscription";
+
 export async function requireMenuForBilling(key: string): Promise<Actor> {
   const actor = await getActiveTenantForBilling();
-  if (!canAccess(actor.role, key)) {
+  if (key !== BILLING_RECOVERY_KEY && !canAccess(actor.role, key)) {
     redirect("/app?error=forbidden");
   }
   return actor;

@@ -10,6 +10,8 @@ import { canAccess } from "@/lib/rbac";
 import { applyBranchScope } from "@/lib/supabase/branch-scope";
 import { validateSaleItems } from "@/lib/sales/validation";
 import { sanitizeSearchTerm } from "@/lib/search-term";
+import { findOrCreateCustomer } from "@/app/app/customer/actions";
+import { publicPhotoUrl } from "@/lib/photos";
 
 async function getBranchUser() {
   const actor = await getActiveTenant();
@@ -254,7 +256,16 @@ export async function getSaleDetail(saleId: string) {
   if (error || !sale) throw new Error("Sale not found");
   const { data: items } = await supabase.from("cervise_sales_items").select("*").eq("sale_id", saleId);
   const { data: cust } = sale.customer_id ? await supabase.from("cervise_customers").select("id, name, phone, address").eq("id", sale.customer_id).maybeSingle() : { data: null } as any;
-  return { sale: sale as any, items: (items as any[]) ?? [], customer: cust as any };
+  // Nama kasir untuk nota. `created_by` menunjuk profiles, bukan employees.
+  const { data: cashier } = sale.created_by
+    ? await supabase.from("profiles").select("full_name").eq("id", sale.created_by).maybeSingle()
+    : ({ data: null } as any);
+  return {
+    sale: sale as any,
+    items: (items as any[]) ?? [],
+    customer: cust as any,
+    cashier: ((cashier as any)?.full_name as string | undefined) ?? null,
+  };
 }
 
 export async function createSale(input: {
@@ -368,6 +379,89 @@ export async function createSale(input: {
   revalidatePath("/app/penjualan");
   revalidatePath("/app/laporan/penjualan");
   return { id: result.id, sale_number: result.sale_number ?? "" };
+}
+
+export type CheckoutSaleInput = {
+  customerId?: string | null;
+  newCustomer?: { name: string; phone: string } | null;
+  items: { product_id: string; qty: number; unit_price: number; imei1?: string; imei2?: string; warna?: string }[];
+  payment_method: string;
+  kas_date: string;
+  paid: number;
+  notes?: string;
+  discount_total?: number;
+  promoCode?: string | null;
+};
+
+export type CheckoutSaleResult =
+  | { ok: true; saleId: string; saleNumber: string }
+  | { ok: false; error: string };
+
+/**
+ * Satu pintu checkout untuk POS.
+ *
+ * `createSale` sengaja tetap melempar error: test dan pemanggil lain
+ * mengandalkan kontrak itu. Masalahnya, error yang dilempar server action
+ * sampai ke browser sebagai "Minified React error #441" di build produksi —
+ * pesan aslinya hilang. Fungsi ini menangkapnya dan mengembalikannya sebagai
+ * nilai, jadi kasir melihat penyebab sebenarnya.
+ */
+export async function checkoutSale(input: CheckoutSaleInput): Promise<CheckoutSaleResult> {
+  try {
+    let customerId = input.customerId?.trim() || null;
+    if (!customerId) {
+      if (!input.newCustomer) return { ok: false, error: "Customer wajib — cari atau tambah customer baru" };
+      const found = await findOrCreateCustomer({
+        name: input.newCustomer.name,
+        phone: input.newCustomer.phone,
+      });
+      customerId = found.id;
+    }
+    const sale = await createSale({
+      customerId,
+      items: input.items,
+      payment_method: input.payment_method,
+      kas_date: input.kas_date,
+      paid: input.paid,
+      notes: input.notes,
+      discount_total: input.discount_total ?? 0,
+      promoCode: input.promoCode ?? null,
+    });
+    return { ok: true, saleId: sale.id, saleNumber: sale.sale_number };
+  } catch (cause) {
+    return { ok: false, error: cause instanceof Error ? cause.message : "Gagal menyimpan penjualan" };
+  }
+}
+
+export type ReceiptContext = {
+  brandName: string | null;
+  tagline: string | null;
+  logoUrl: string | null;
+  branchName: string | null;
+  address: string | null;
+  phone: string | null;
+};
+
+/** Identitas toko untuk kepala nota; dibaca sekali saat halaman dimuat. */
+export async function getReceiptContext(): Promise<ReceiptContext> {
+  const actor = await getActiveTenant();
+  const { supabase, orgId, branchId } = actor;
+  const [{ data: org }, branchResult] = await Promise.all([
+    supabase.from("organizations").select("name, tagline, logo_url").eq("id", orgId).maybeSingle(),
+    branchId
+      ? supabase.from("branches").select("name, address, phone").eq("id", branchId).maybeSingle()
+      : Promise.resolve({ data: null } as any),
+  ]);
+  const branch = branchResult?.data as { name?: string; address?: string | null; phone?: string | null } | null;
+  return {
+    brandName: (org as any)?.name ?? null,
+    tagline: (org as any)?.tagline ?? null,
+    // Logo milik tenant; path divalidasi dulu supaya tidak menunjuk host lain.
+    logoUrl: publicPhotoUrl(process.env.NEXT_PUBLIC_SUPABASE_URL ?? "", (org as any)?.logo_url ?? null),
+    branchName: branch?.name ?? null,
+    address: branch?.address ?? null,
+    phone: branch?.phone ?? null,
+  };
 }
 
 export async function returnSaleItems(saleId: string, returns: { item_id: string; qty: number }[]) {

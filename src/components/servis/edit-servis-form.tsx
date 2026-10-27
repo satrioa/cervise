@@ -94,9 +94,14 @@ export function EditServisForm({ servisId, initial, onSuccess, onCancel }: Props
     if (!custName.trim()) return "Nama customer wajib";
     if (!custPhone.trim()) return "Kontak WA wajib";
     if (!/^08\d{7,13}$/.test(custPhone.trim()) && !/^62\d{7,13}$/.test(custPhone.trim())) return "Format WA tidak valid (08xxx)";
-    if (passwordType === "PIN" && !/^\d{4,8}$/.test(passwordValue.trim())) return "PIN harus 4-8 digit angka";
-    if (passwordType === "POLA" && passwordValue.split(",").filter(Boolean).length < 4) return "Pola minimal 4 titik";
-    if (garansiVal === "" || Number(garansiVal) <= 0) return "Garansi wajib diisi (>0)";
+    // Password & garansi hanya divalidasi kalau memang diisi. Servis lama bisa
+    // belum punya PIN/garansi; mewajibkannya di sini membuat edit data device
+    // ikut terkunci.
+    if (passwordValue.trim()) {
+      if (passwordType === "PIN" && !/^\d{4,8}$/.test(passwordValue.trim())) return "PIN harus 4-8 digit angka";
+      if (passwordType === "POLA" && passwordValue.split(",").filter(Boolean).length < 4) return "Pola minimal 4 titik";
+    }
+    if (garansiVal !== "" && Number(garansiVal) <= 0) return "Garansi harus lebih dari 0";
     if (priceEstimasi !== "" && Number(priceEstimasi) < 0) return "Estimasi tidak valid";
     return null;
   };
@@ -122,7 +127,7 @@ export function EditServisForm({ servisId, initial, onSuccess, onCancel }: Props
         customer_name: custName.trim(),
         customer_address: custAddr.trim() || undefined,
         customer_phone: custPhone.trim(),
-        garansi_value: Number(garansiVal),
+        garansi_value: garansiVal === "" ? undefined : Number(garansiVal),
         garansi_unit: garansiUnit,
         price_estimasi: priceEstimasi === "" ? null : Number(priceEstimasi),
       });

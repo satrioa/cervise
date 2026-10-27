@@ -54,7 +54,7 @@ export async function getServisList(): Promise<ServisListRow[]> {
   const servicesQuery = applyBranchScope(
     supabase
       .from("cervise_services")
-      .select("id, service_number, tracking_code, device, complaint, status, price, customer_id, teknisi_id, created_at"),
+      .select("id, service_number, tracking_code, device, complaint, status, price, price_estimasi, customer_id, teknisi_id, created_at"),
     actor,
   );
   const { data: services, error: servicesError } = await servicesQuery
@@ -69,6 +69,7 @@ export async function getServisList(): Promise<ServisListRow[]> {
     complaint: string | null;
     status: string;
     price: number;
+    price_estimasi: number | null;
     customer_id: string | null;
     teknisi_id: string | null;
     created_at: string;
@@ -552,12 +553,22 @@ export async function getServisDetail(id: string) {
     supabase
       .from("cervise_services")
       .select(
-        "id, branch_id, service_number, tracking_code, device, complaint, status, price, price_estimasi, garansi_until, created_at, merk, tipe, imei1, imei2, kerusakan, kelengkapan, password_type, password_value, garansi_value, garansi_unit, kondisi_awal, customer_id, teknisi_id, created_by, pickup_signature, picked_up_at, cervise_customers(id, name, phone, address)"
+        "id, branch_id, service_number, tracking_code, device, complaint, status, price, price_estimasi, garansi_until, created_at, merk, tipe, imei1, imei2, kerusakan, kelengkapan, password_type, password_value, garansi_value, garansi_unit, kondisi_awal, customer_id, teknisi_id, created_by, cervise_customers(id, name, phone, address)"
       ),
     actor,
   );
   const { data, error } = await query.eq("id", id).single();
   if (error) throw new Error(error.message);
+
+  // Tanda tangan pickup tetap opsional: kalau migrasi `service_pickup_signature`
+  // belum diterapkan, kolomnya tidak ada dan satu select gabungan akan
+  // menggagalkan SELURUH detail (kelengkapan, password, garansi, kondisi ikut
+  // kosong). Jadi diambil terpisah dan dibiarkan null saat belum tersedia.
+  const { data: pickup } = await supabase
+    .from("cervise_services")
+    .select("pickup_signature, picked_up_at")
+    .eq("id", id)
+    .maybeSingle();
   // fetch teknisi & creator safely without FK alias guess
   let teknisi: { id: string; full_name: string | null; email: string | null } | null = null;
   let creator: { id: string; full_name: string | null; email: string | null } | null = null;
@@ -569,7 +580,13 @@ export async function getServisDetail(id: string) {
     const { data: c } = await supabase.from("profiles").select("id, full_name, email").eq("id", data.created_by).single();
     creator = c as typeof creator;
   }
-  return { ...data, teknisi, creator };
+  return {
+    ...data,
+    pickup_signature: pickup?.pickup_signature ?? null,
+    picked_up_at: pickup?.picked_up_at ?? null,
+    teknisi,
+    creator,
+  };
 }
 
 export type ServisDetail = Awaited<ReturnType<typeof getServisDetail>>;

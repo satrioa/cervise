@@ -5,12 +5,14 @@ import { getActiveTenant } from "@/lib/supabase/actor";
 import { canAccess } from "@/lib/rbac";
 import { applyBranchScope } from "@/lib/supabase/branch-scope";
 import { phoneSearchDigits, phoneStoredForms } from "@/lib/phone";
+import { sanitizeSearchTerm } from "@/lib/search-term";
 import {
   mapCustomerRows,
   type CustomerInput,
   type CustomerListRow,
   type CustomerServiceInput,
 } from "@/lib/operational/customer-list";
+import { servisPrice } from "@/lib/operational/servis-price";
 
 export type { CustomerListRow };
 
@@ -56,7 +58,7 @@ export async function getCustomers(): Promise<CustomerListRow[]> {
   const servicesQuery = applyBranchScope(
     supabase
       .from("cervise_services")
-      .select("id, service_number, customer_id, status, created_at, price"),
+      .select("id, service_number, customer_id, status, created_at, price, price_estimasi"),
     actor,
   );
   const { data: services, error: servicesError } = await servicesQuery.in(
@@ -146,7 +148,7 @@ export async function getCustomerServis(customerId: string): Promise<CustomerSer
   const query = applyBranchScope(
     supabase
       .from("cervise_services")
-      .select("id, complaint, device, status, created_at, price"),
+      .select("id, complaint, device, status, created_at, price, price_estimasi"),
     actor,
   );
   const { data, error } = await query
@@ -159,7 +161,7 @@ export async function getCustomerServis(customerId: string): Promise<CustomerSer
     problem: (r.complaint ?? r.device ?? "") as string,
     status: r.status as string,
     created_at: new Date(r.created_at).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" }),
-    total: Number(r.price ?? 0),
+    total: servisPrice(r.price, r.price_estimasi),
   }));
 }
 export async function searchCustomersByPhone(q: string) {
@@ -185,6 +187,40 @@ export async function searchCustomersByPhone(q: string) {
     const norm = String(r.phone ?? "").replace(/\D/g, "");
     let phoneNorm = norm;
     if (phoneNorm.startsWith("0")) phoneNorm = "62" + phoneNorm.slice(1);
+    return { id: r.id as string, name: r.name as string, phone: phoneNorm, phoneDisplay: formatPhoneDisplay(phoneNorm) };
+  });
+}
+
+/**
+ * Autocomplete POS: satu kotak untuk nama ATAU nomor HP.
+ *
+ * `searchCustomersByPhone` hanya membaca nomor, `searchCustomers` (servis)
+ * hanya membaca nama dan tidak menormalkan nomor lama `08...`. Dua-duanya
+ * tidak bisa dipakai untuk satu kotak, dan mengetik `%` tidak boleh menarik
+ * seluruh cabang.
+ */
+export async function searchCustomersForPos(q: string) {
+  const actor = await getActiveTenant();
+  const { supabase, role } = actor;
+  requireCustomerAccess(role);
+  const term = sanitizeSearchTerm(q);
+  const digits = phoneSearchDigits(q);
+  if (term.length < 2 && digits.length < 3) return [];
+
+  const filters: string[] = [];
+  if (term.length >= 2) filters.push(`name.ilike.%${term}%`);
+  if (digits.length >= 3) filters.push(`phone.ilike.%${digits}%`);
+
+  const { data, error } = await applyBranchScope(
+    supabase.from("cervise_customers").select("id, name, phone"),
+    actor,
+  )
+    .or(filters.join(","))
+    .limit(5);
+  if (error) throw new Error(error.message);
+  return (data ?? []).map((r: any) => {
+    const norm = String(r.phone ?? "").replace(/\D/g, "");
+    const phoneNorm = norm.startsWith("0") ? "62" + norm.slice(1) : norm;
     return { id: r.id as string, name: r.name as string, phone: phoneNorm, phoneDisplay: formatPhoneDisplay(phoneNorm) };
   });
 }

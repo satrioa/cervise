@@ -1,5 +1,5 @@
 ﻿import { beforeEach, describe, expect, it, vi } from "vitest";
-import { createProduct, createSale } from "./actions";
+import { checkoutSale, createProduct, createSale } from "./actions";
 
 const { from, productQuery, productInsert, productUpdate, rpc, salesItemInsert, salesInsert, getActiveTenant } = vi.hoisted(() => {
   const productQuery = { data: [] as any[], error: null as any };
@@ -313,3 +313,44 @@ describe("createSale", () => {
   });
 });
 
+
+describe("checkoutSale", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    productQuery.data = [{ id: "product-1", name: "Layar", stock_qty: 5, is_serialized: false, price: 100, sku: "GD1", category: "Gadget", cost: 50 }];
+    productQuery.error = null;
+    getActiveTenant.mockResolvedValue({
+      supabase: supabaseStub(),
+      userId: "user-1",
+      orgId: "org-1",
+      branchId: "branch-1",
+      employeeId: "employee-1",
+      role: "FRONTLINER",
+      subscription: null,
+    });
+  });
+
+  it("mengembalikan pesan error, bukan melempar, supaya tidak jadi React error 441", async () => {
+    const res = await checkoutSale({
+      customerId: "customer-1",
+      items: [{ product_id: "product-1", qty: -1, unit_price: 100 }],
+      payment_method: "Tunai",
+      kas_date: "2026-01-01",
+      paid: 0,
+    });
+
+    expect(res).toEqual({ ok: false, error: "Qty harus bilangan bulat > 0" });
+  });
+
+  it("mengembalikan nomor penjualan saat berhasil", async () => {
+    const res = await checkoutSale({
+      customerId: "customer-1",
+      items: [{ product_id: "product-1", qty: 2, unit_price: 100 }],
+      payment_method: "Tunai",
+      kas_date: "2026-01-01",
+      paid: 200,
+    });
+
+    expect(res).toEqual({ ok: true, saleId: "sale-1", saleNumber: "SLV-2026-0003" });
+  });
+});

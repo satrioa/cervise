@@ -1,6 +1,6 @@
 "use client";
 
-import { BarChart3, LayoutGrid, Sun, Volume2 } from "lucide-react";
+import { BarChart3, LayoutGrid, Printer, Sun, Volume2 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { SheetDescription, SheetTitle } from "@/components/ui/sheet";
 import { MenuSection } from "@/components/layout/menu-section";
@@ -8,6 +8,7 @@ import { MenuOperational } from "@/components/layout/menu-operational";
 import { MenuAnalytic } from "@/components/layout/menu-analytic";
 import { MenuPreferences } from "@/components/layout/menu-preferences";
 import { MenuSound } from "@/components/layout/menu-sound";
+import { PrinterSettings } from "@/components/pengaturan/printer-card";
 
 /**
  * Isi drawer menu untuk TECHNICIAN dan FRONTLINER.
@@ -54,6 +55,12 @@ export function CompactMenuSheet({
 
         <MenuSection icon={Volume2} label={t("sound")}>
           <MenuSound />
+        </MenuSection>
+
+        {/* Printer disimpan per perangkat (localStorage), jadi pengaturan ini
+            memang milik frontliner/teknisi yang mencetak, bukan master admin. */}
+        <MenuSection icon={Printer} label={t("printer")}>
+          <PrinterSettings compact />
         </MenuSection>
       </div>
 

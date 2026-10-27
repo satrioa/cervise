@@ -53,9 +53,9 @@ export function ServisPaymentDialog({ servisId, open, onOpenChange, onPaid }: Pr
     <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
       <DialogPrimitive.Portal>
         <DialogPrimitive.Backdrop className="fixed inset-0 z-50 bg-black/60 backdrop-blur-md" />
-        <DialogPrimitive.Popup className="fixed left-1/2 top-1/2 z-50 flex h-[92dvh] max-h-[92dvh] w-[96vw] max-w-4xl -translate-x-1/2 -translate-y-1/2 flex-col rounded-xl border bg-background p-6 shadow-2xl overflow-hidden">
-          <DialogPrimitive.Title className="font-semibold">Bayar Servis</DialogPrimitive.Title>
-          <div className="mt-4 flex-1 min-h-0 overflow-y-auto">
+        <DialogPrimitive.Popup className="fixed left-1/2 top-1/2 z-50 flex max-h-[92dvh] w-[96vw] max-w-4xl -translate-x-1/2 -translate-y-1/2 flex-col rounded-xl border bg-background p-6 shadow-2xl overflow-hidden">
+          <DialogPrimitive.Title className="shrink-0 font-semibold">Bayar Servis</DialogPrimitive.Title>
+          <div className="mt-4 min-h-0 overflow-y-auto">
             {!ready ? (
               <Skeleton className="h-40 w-full" />
             ) : servisId ? (

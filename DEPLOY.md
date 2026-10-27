@@ -25,6 +25,12 @@ Apply berurutan (Supabase SQL Editor atau `supabase db push`):
 1. `supabase/migrations/20261018130000_return_sale_items_atomic.sql`
 2. `supabase/migrations/20261018140000_sale_return_finance.sql`
 3. `supabase/migrations/20261022094942_login_access_gate.sql`
+4. `supabase/migrations/20261023120000_branch_scope_and_admin_access.sql`
+
+Tanpa nomor 4, `sale_number` masih UNIQUE global padahal nomor dibuat per
+cabang: cabang kedua yang mulai dari `SLV-2026-0001` gagal dengan
+`duplicate key value violates unique constraint "cervise_sales_sale_number_key"`.
+Kode aplikasi (scope cabang MASTER_ADMIN) juga bergantung pada migrasi ini.
 
 Verifikasi setelah apply:
 

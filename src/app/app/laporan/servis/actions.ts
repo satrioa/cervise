@@ -62,7 +62,7 @@ export async function getLaporanServis(query: LaporanServisQuery): Promise<Lapor
   let request = applyBranchScope(
     supabase
       .from("cervise_services")
-      .select("id, service_number, created_at, branch_id, teknisi_id, status, price, device"),
+      .select("id, service_number, created_at, branch_id, teknisi_id, status, price, price_estimasi, device"),
     actor,
   )
     .order("created_at", { ascending: false })

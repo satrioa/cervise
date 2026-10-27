@@ -790,7 +790,7 @@ export default function ServisPage() {
                     <TableCell><StageTrack stage={r.status} /></TableCell>
                     <TableCell className="font-mono text-xs text-muted-foreground">{r.teknisi}</TableCell>
                     <TableCell><PaymentBadge status={getPaymentStatus(r)} /></TableCell>
-                    <TableCell className="text-right font-mono tabular-nums">{formatCurrencyPlain(r.price)}</TableCell>
+                    <TableCell className="text-right font-mono tabular-nums">{r.price > 0 ? formatCurrencyPlain(r.price) : "—"}</TableCell>
                   </TableRow>
                 </ServisContextMenu>
               ))}

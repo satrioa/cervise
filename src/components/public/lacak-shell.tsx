@@ -4,6 +4,7 @@ import { PublicFooter } from "@/components/public/public-footer";
 import { PublicHeader } from "@/components/public/public-header";
 import { TestimonialsCarousel } from "@/components/public/testimonials-carousel";
 import type { PublicTenant } from "@/lib/public/landing";
+import type { PublicServisResult } from "@/lib/public/lookup";
 import { lacakThemeProps, resolveLacakScheme } from "@/lib/operational/lacak-appearance";
 
 /**
@@ -40,6 +41,7 @@ export function LacakShell({
       className={`lacak-theme ${theme.scheme} flex min-h-svh flex-col`}
       data-palette={theme["data-palette"]}
       data-density={theme["data-density"]}
+      suppressHydrationWarning
       data-font={theme["data-font"]}
     >
       {tenant.appearance.mode === "system" ? (
@@ -51,7 +53,17 @@ export function LacakShell({
   );
 }
 
-export function LacakPage({ tenant, initialCode }: { tenant: PublicTenant; initialCode?: string }) {
+export function LacakPage({
+  tenant,
+  initialCode,
+  initialResult,
+  initialError,
+}: {
+  tenant: PublicTenant;
+  initialCode?: string;
+  initialResult?: PublicServisResult | null;
+  initialError?: string | null;
+}) {
   return (
     <LacakShell tenant={tenant}>
       <PublicHeader
@@ -63,7 +75,12 @@ export function LacakPage({ tenant, initialCode }: { tenant: PublicTenant; initi
       />
 
       <div className="relative -mt-6 flex-1 rounded-t-3xl border-t bg-background px-4 pb-10 shadow-sm">
-        <LacakForm tenant={tenant} initialCode={initialCode} />
+        <LacakForm
+          tenant={tenant}
+          initialCode={initialCode}
+          initialResult={initialResult}
+          initialError={initialError}
+        />
         <TestimonialsCarousel items={tenant.testimonials} />
       </div>
 

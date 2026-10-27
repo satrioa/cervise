@@ -1,4 +1,5 @@
 import { toLocalDateString } from "./garansi-list";
+import { servisPrice } from "./servis-price";
 
 export type ServisReportInput = {
   id: string;
@@ -8,6 +9,7 @@ export type ServisReportInput = {
   teknisi_id: string | null;
   status: string;
   price: number | null;
+  price_estimasi?: number | null;
   device: string | null;
 };
 
@@ -64,7 +66,7 @@ function toDetail(
   branchNames: Map<string, string>,
   technicianNames: Map<string, string>,
 ): ServisDetailRow {
-  const price = Number(service.price ?? 0);
+  const price = servisPrice(service.price, service.price_estimasi);
   return {
     id: service.id,
     serviceLabel: service.service_number?.trim() || shortId(service.id),

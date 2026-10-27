@@ -71,7 +71,8 @@ function VariantCard({ group, onAdd }: { group: { parent: ProductRow; variants: 
             </button>
 
             {expanded && (
-              <div className="rounded-xl border bg-card/80 p-3 shadow-sm">
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4" onClick={() => setExpanded(false)}>
+                <div className="relative w-full max-w-sm rounded-2xl bg-card p-4 shadow-2xl" onClick={(e) => e.stopPropagation()}>
                 <div className="flex items-center gap-3 mb-3">
                   <div className={`flex size-10 shrink-0 items-center justify-center rounded-lg border ${isBekas ? "bg-amber-500/15 border-amber-500/20" : "bg-emerald-500/10 border-emerald-500/20"}`}>
                     <PackageIcon className={`size-5 ${isBekas ? "text-amber-600" : "text-emerald-600/70"}`} />
@@ -86,7 +87,7 @@ function VariantCard({ group, onAdd }: { group: { parent: ProductRow; variants: 
                     <div className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground mb-1">Warna</div>
                     <div className="flex flex-wrap gap-1.5">
                       {warnaOpts.map((w) => (
-                        <button key={w} type="button" onClick={() => setSelWarna(w === selWarna ? null : w)} className={`rounded-full px-2 py-0.5 text-[10px] font-medium border transition-colors ${w === selWarna ? "bg-amber-500 text-white border-amber-500" : "bg-card border-border hover:border-amber-500/50 text-foreground"}`}>{w}</button>
+                        <button key={w} type="button" onClick={() => setSelWarna(w === selWarna ? null : w)} className={`rounded-xl px-3.5 py-1.5 text-sm font-medium border transition-colors ${w === selWarna ? "bg-amber-500 text-white border-amber-500" : "bg-card border-border hover:border-amber-500/50 text-foreground"}`}>{w}</button>
                       ))}
                     </div>
                   </div>
@@ -96,12 +97,13 @@ function VariantCard({ group, onAdd }: { group: { parent: ProductRow; variants: 
                     <div className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground mb-1">Storage</div>
                     <div className="flex flex-wrap gap-1.5">
                       {storageOpts.map((s) => (
-                        <button key={s} type="button" onClick={() => setSelStorage(s === selStorage ? null : s)} className={`rounded-full px-2 py-0.5 text-[10px] font-medium border transition-colors ${s === selStorage ? "bg-amber-500 text-white border-amber-500" : "bg-card border-border hover:border-amber-500/50 text-foreground"}`}>{s}</button>
+                        <button key={s} type="button" onClick={() => setSelStorage(s === selStorage ? null : s)} className={`rounded-xl px-3.5 py-1.5 text-sm font-medium border transition-colors ${s === selStorage ? "bg-amber-500 text-white border-amber-500" : "bg-card border-border hover:border-amber-500/50 text-foreground"}`}>{s}</button>
                       ))}
                     </div>
                   </div>
                 )}
                 <button type="button" disabled={!canAdd} onClick={() => { if (canAdd && selectedVariant) { onAdd(selectedVariant); setExpanded(false); } }} className="w-full rounded-xl bg-amber-500 text-white font-medium py-2 text-[13px] disabled:opacity-40 hover:bg-amber-600 transition-colors">Tambah ke keranjang</button>
+                </div>
               </div>
             )}
           </div>

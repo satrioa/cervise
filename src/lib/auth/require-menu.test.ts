@@ -114,12 +114,25 @@ describe("requireMenuForBilling", () => {
     expect(redirectMock).not.toHaveBeenCalled();
   });
 
-  it("role tanpa hak tetap ditolak", async () => {
-    // Pengecualian itu soal status langganan, bukan soal hak akses.
-    // FRONTLINER tidak boleh melihat harga paket meski tenant-nya terkunci.
+  it("tenant terkunci tetap boleh membuka halaman paket dari role mana pun", async () => {
+    // Halaman tagihan adalah jalur pemulihan. Kalau role biasa ikut
+    // dialihkan ke `/app?error=forbidden`, layout akan melempar
+    // `subscription_expired` lagi dan tenant berputar tanpa henti.
     for (const role of ["ADMIN", "FRONTLINER", "TECHNICIAN"]) {
       getActiveTenantForBillingMock.mockResolvedValue(actorWithRole(role));
-      await requireMenuForBilling("pengaturan_subscription");
+      redirectMock.mockReset();
+      const actor = await requireMenuForBilling("pengaturan_subscription");
+      expect(actor.role).toBe(role);
+      expect(redirectMock).not.toHaveBeenCalled();
+    }
+  });
+
+  it("halaman selain tagihan tetap menolak role tanpa hak", async () => {
+    // Pengecualian hanya untuk halaman tagihan, bukan pembuka semua halaman.
+    for (const role of ["ADMIN", "FRONTLINER", "TECHNICIAN"]) {
+      getActiveTenantForBillingMock.mockResolvedValue(actorWithRole(role));
+      redirectMock.mockReset();
+      await requireMenuForBilling("pengaturan_usage");
       expect(redirectMock).toHaveBeenCalledWith("/app?error=forbidden");
     }
   });

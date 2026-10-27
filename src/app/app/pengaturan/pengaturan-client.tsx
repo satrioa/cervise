@@ -12,6 +12,7 @@ import { getBrand, getMasterAdmins, updateBrand } from "@/app/app/pengaturan/act
 import { createMasterAdmin } from "@/app/app/pengaturan/master-admin-actions";
 import { uploadTenantLogo, removeTenantLogo } from "@/app/app/pengaturan/photo-actions";
 import { PhotoUpload } from "@/components/photo-upload";
+import { PrinterCard } from "@/components/pengaturan/printer-card";
 import { TempPasswordDialog } from "@/components/temp-password-dialog";
 import { useBranch } from "@/lib/branch-context";
 import { toast } from "sonner";
@@ -169,6 +170,8 @@ export default function GeneralPage() {
           </p>
         </CardContent>
       </Card>
+
+      <PrinterCard />
       </div>
 
       <TempPasswordDialog

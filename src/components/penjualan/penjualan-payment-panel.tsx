@@ -53,6 +53,8 @@ export function PenjualanPaymentPanel({
   onSelesai,
   saving,
   submitLabel,
+  subtotalLabel,
+  subtotalHint,
   showPromo,
   embedded,
 }: {
@@ -64,6 +66,10 @@ export function PenjualanPaymentPanel({
   saving: boolean;
   /** Judul tombol aksi. Default "Selesai Dibayar". */
   submitLabel?: string;
+  /** Label baris subtotal. Servis memakai "Nominal Bayar". */
+  subtotalLabel?: string;
+  /** Keterangan kecil di samping label subtotal, mis. "Estimasi Rp350.000". */
+  subtotalHint?: string;
   /** Sembunyikan blok kode promo. Promo hanya milik penjualan. */
   showPromo?: boolean;
   /** Dipakai di dalam dialog: tinggi mengikuti wadahnya, bukan tinggi layar. */
@@ -297,16 +303,30 @@ export function PenjualanPaymentPanel({
                   {promoError && <p className="text-xs text-destructive">{promoError}</p>}
                 </div>
               )}
-              <div className="flex justify-between text-sm"><span className="text-muted-foreground">Subtotal</span><span className="font-mono tabular-nums">{formatCurrencyPlain(subtotal)}</span></div>
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">
+                  {subtotalLabel ?? "Subtotal"}
+                  {subtotalHint ? <span className="ml-1 text-[11px]">· {subtotalHint}</span> : null}
+                </span>
+                <span className="font-mono tabular-nums">{formatCurrencyPlain(subtotal)}</span>
+              </div>
               {promoVisible && <div className="flex justify-between text-sm"><span className="text-muted-foreground">Diskon Promo</span><span className="font-mono tabular-nums">{formatCurrencyPlain(0)}</span></div>}
               <Separator className="my-1" />
               <div className="flex justify-between items-center">
                 <span className="font-mono text-xs uppercase tracking-[0.2em] text-muted-foreground">Total</span>
                 <span className="font-mono text-lg font-bold tabular-nums">{formatCurrencyPlain(total)}</span>
               </div>
-              <div className="flex justify-between items-center border-t pt-2">
-                <span className="text-sm text-muted-foreground">Kembalian</span>
-                <span className="font-mono text-base font-semibold tabular-nums">{formatCurrencyPlain(metode === "Tunai" ? change : 0)}</span>
+              <div className="space-y-1 border-t pt-2">
+                {metode === "Tunai" && cashValue > 0 && (
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-muted-foreground">Uang Diterima</span>
+                    <span className="font-mono text-base font-semibold tabular-nums">{formatCurrencyPlain(cashValue)}</span>
+                  </div>
+                )}
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-muted-foreground">Kembalian</span>
+                  <span className="font-mono text-base font-semibold tabular-nums">{formatCurrencyPlain(metode === "Tunai" ? change : 0)}</span>
+                </div>
               </div>
               {error && <p className="mt-2 text-xs text-destructive">{error}</p>}
               <Button className="w-full mt-2" onClick={submit} disabled={saving} loading={saving}>{submitText}</Button>

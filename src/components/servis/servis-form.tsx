@@ -18,6 +18,7 @@ import { CustomerAutocomplete } from "./customer-autocomplete";
 import { PatternLock } from "./pattern-lock";
 import { KondisiAwalForm } from "./kondisi-awal-form";
 import { teknisiLabel } from "@/lib/servis-technisi-label";
+import { toast } from "sonner";
 import { useUnsavedGuard } from "@/hooks/use-unsaved-guard";
 import { createServis, getTeknisi, updateKondisiAwal } from "@/app/app/servis/actions";
 import type { KondisiAwal } from "@/lib/servis-constants";
@@ -72,6 +73,21 @@ export function ServisForm({ onSuccess, onCancel }: ServisFormProps) {
     !!merk || !!tipe || !!imei1 || !!imei2 || kerusakan.length > 0 || kelengkapan.length > 0 || !!passwordValue || !!custName || !!custPhone || !!custAddr || !!teknisiId || garansiVal !== "" || priceEstimasi !== "";
 
   const { confirmLeave } = useUnsavedGuard(isDirty && !savedId, "Discard changes? Perubahan belum disimpan.");
+
+  /**
+   * Selesai satu servis: dialog dashboard memakai `onSuccess` (yang sudah
+   * menampilkan toast), sedangkan halaman `/app/servis/baru` perlu toast +
+   * kembali ke daftar sendiri.
+   */
+  const finish = () => {
+    if (onSuccess) {
+      onSuccess();
+      return;
+    }
+    toast.success("Servis baru tersimpan");
+    router.push("/app/servis");
+    router.refresh();
+  };
 
   // handle before route leave via click handler will use confirmLeave
 
@@ -158,15 +174,10 @@ export function ServisForm({ onSuccess, onCancel }: ServisFormProps) {
   const handleKondisiSave = async (data: KondisiAwal) => {
     if (!savedId) return;
     await updateKondisiAwal(savedId, data);
-    if (onSuccess) onSuccess();
-    else router.push("/app/servis");
-    // refresh after save
-    router.refresh();
+    finish();
   };
   const handleSkip = () => {
-    if (onSuccess) onSuccess();
-    else router.push("/app/servis");
-    router.refresh();
+    finish();
   };
 
   const handleCancel = () => {

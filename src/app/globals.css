@@ -8,6 +8,13 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/*
+ * Halaman Lacak memakai kelas `.lacak-light`/`.lacak-dark`, bukan `.dark`
+ * milik `next-themes`, jadi varian `dark:` tidak pernah aktif di sana.
+ * Varian ini dipakai komponen yang hanya hidup di halaman Lacak.
+ */
+@custom-variant lacak-dark (&:is(.lacak-dark *));
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -257,6 +264,13 @@
   --lacak-gap: 1rem;
   --lacak-text-title: 1.5rem;
   --lacak-text-body: 0.875rem;
+  /*
+   * `color` diwarisi dari `body`, yang warnanya sudah dihitung di luar
+   * `.lacak-theme` — jadi teks polos ( Judul kartu, `dd`, dsb.) tetap
+   * memakai warna terang-mode. Di sini warna dihitung ulang dari token
+   * halaman ini sendiri, supaya teks polos ikut mode Lacak.
+   */
+  color: var(--foreground);
 }
 
 .lacak-theme[data-density="comfortable"] {
@@ -402,5 +416,22 @@
   @keyframes shimmer {
     0% { transform: translateX(-100%); }
     100% { transform: translateX(200%); }
+  }
+  /* Confetti nota penjualan. Posisi/arah datang dari inline style di komponen. */
+  @keyframes penjualan-confetti {
+    0% { transform: translate3d(0, -12px, 0) rotate(0deg); opacity: 0; }
+    12% { opacity: 1; }
+    100% { transform: translate3d(var(--dx, 0), 460px, 0) rotate(var(--rot, 360deg)); opacity: 0; }
+  }
+  .penjualan-confetti {
+    position: absolute;
+    top: -8px;
+    width: 7px;
+    height: 12px;
+    border-radius: 2px;
+    animation: penjualan-confetti 1.9s ease-in forwards;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .penjualan-confetti { display: none; }
   }
 }

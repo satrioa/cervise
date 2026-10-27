@@ -73,4 +73,18 @@ describe("pickup servis wajib tanda tangan customer", () => {
   it("detail mengambil kolom pickup dari database", () => {
     expect(actions).toContain("pickup_signature, picked_up_at");
   });
+
+  it("detail tetap tampil walau kolom pickup belum dimigrasikan", () => {
+    // Regresi: `pickup_signature`/`picked_up_at` dulu ikut di select utama.
+    // Di database yang migrasinya belum diterapkan, satu kolom hilang membuat
+    // SELURUH detail gagal dan dialog jatuh ke data list — kelengkapan,
+    // password, garansi, kondisi awal, dan "diinput oleh" jadi kosong.
+    const start = actions.indexOf("export async function getServisDetail");
+    const body = actions.slice(start, actions.indexOf("export type ServisDetail"));
+    const mainSelect = body.slice(0, body.indexOf(".single()"));
+
+    expect(mainSelect).not.toContain("pickup_signature");
+    expect(body).toContain('select("pickup_signature, picked_up_at")');
+    expect(body).toContain("pickup_signature: pickup?.pickup_signature ?? null");
+  });
 });

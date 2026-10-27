@@ -122,6 +122,20 @@ describe("buildLaporanServis", () => {
     expect(result.summary.net).toBe(250_000);
   });
 
+  it("counts the estimate when the service price is still zero", () => {
+    // `price` di database tidak pernah diisi lewat UI; nominal sebenarnya ada
+    // di `price_estimasi`. Tanpa fallback ini laporan selalu nol.
+    const result = buildLaporanServis({
+      services: [svc({ id: "a", price: 0, price_estimasi: 800_000 })],
+      branches,
+      technicians,
+      now: NOW,
+    });
+
+    expect(result.services[0].price).toBe(800_000);
+    expect(result.summary.net).toBe(800_000);
+  });
+
   it("sorts periods newest first", () => {
     const result = buildLaporanServis({
       services: [

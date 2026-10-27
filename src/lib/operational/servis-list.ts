@@ -1,3 +1,5 @@
+import { servisPrice } from "./servis-price";
+
 export type ServisStage = "Masuk" | "Diagnosa" | "Menunggu Konfirmasi" | "Menunggu Sparepart" | "Dikerjakan" | "Selesai" | "Sudah Diambil" | "Batal";
 export type ServisPaymentStatus = "Lunas" | "DP" | "Belum dibayar";
 
@@ -26,6 +28,7 @@ export type ServisServiceInput = {
   complaint: string | null;
   status: string;
   price: number;
+  price_estimasi?: number | null;
   customer_id: string | null;
   teknisi_id: string | null;
   created_at: string;
@@ -63,14 +66,15 @@ export function mapServisListRows(input: {
     const customer = service.customer_id ? customers.get(service.customer_id) : null;
     const teknisi = service.teknisi_id ? profiles.get(service.teknisi_id) : null;
     const paidAmount = paidByService.get(service.id) ?? 0;
-    const payment: ServisPaymentStatus = service.price > 0 && paidAmount >= service.price ? "Lunas" : paidAmount > 0 ? "DP" : "Belum dibayar";
+    const price = servisPrice(service.price, service.price_estimasi);
+    const payment: ServisPaymentStatus = price > 0 && paidAmount >= price ? "Lunas" : paidAmount > 0 ? "DP" : "Belum dibayar";
     return {
       id: service.id,
       serviceNumber: service.service_number ?? null,
       trackingCode: service.tracking_code ? service.tracking_code.toUpperCase() : null,
       device: service.device,
       customer: `${customer?.name ?? "Tanpa nama"} · ${customer?.phone ?? "—"}`,
-      price: Number(service.price ?? 0),
+      price,
       teknisi: teknisi?.full_name ?? "—",
       status: service.status as ServisStage,
       complaint: service.complaint ?? "",

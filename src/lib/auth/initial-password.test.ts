@@ -2,7 +2,8 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
-const read = (relative: string) => readFileSync(join(process.cwd(), relative), "utf8");
+// Checkout Windows memakai CRLF; pencocokan teks sumber jangan bergantung itu.
+const read = (relative: string) => readFileSync(join(process.cwd(), relative), "utf8").replace(/\r\n/g, "\n");
 
 const action = read("src/app/app/actions/initial-password.ts");
 const dialog = read("src/components/initial-password-dialog.tsx");

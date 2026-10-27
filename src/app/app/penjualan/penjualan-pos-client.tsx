@@ -1,23 +1,31 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { formatCurrencyPlain, formatNumberPlain } from "@/lib/format";
+import { formatCurrencyPlain } from "@/lib/format";
 import { useRouter } from "next/navigation";
-import { SearchIcon, History, LayoutGrid, List, PackageIcon, ScanLineIcon } from "lucide-react";
+import { SearchIcon, History, LayoutGrid, List, PackageIcon, BarcodeIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Button as CossButton } from "@/components/ui/coss-button";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Label } from "@/components/ui/label";
 import { useBranch } from "@/lib/branch-context";
-import { searchProductsForSale, getSaleDetail, returnSaleItems, type ProductRow } from "./actions";
+import { searchProductsForSale, getSaleDetail, returnSaleItems, checkoutSale, type ProductRow, type ReceiptContext } from "./actions";
 import { perkiraanRefund } from "@/lib/operational/retur";
+import { buildSalesReceiptHtml, receiptStamp, type SalesReceiptInput } from "@/lib/sales/receipt";
+import { printReceipt } from "@/lib/printer";
+import { kalenderWIB } from "@/lib/operational/periode-bulan";
 import { PenjualanProductGrid } from "@/components/penjualan/penjualan-product-grid";
 import { PenjualanTable } from "@/components/penjualan/penjualan-table";
 import { PenjualanCartPanel } from "@/components/penjualan/penjualan-cart-panel";
+import { PenjualanOrderPanel } from "@/components/penjualan/penjualan-order-panel";
+import { PenjualanPaymentPanel, type PaymentOutcome } from "@/components/penjualan/penjualan-payment-panel";
+import { PenjualanReceiptDialog } from "@/components/penjualan/penjualan-receipt-dialog";
+import { haptic } from "@/lib/haptic";
+import type { PosCartItem, PosCustomer, PosNewCustomer } from "@/components/penjualan/pos-types";
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
 import { ProductCardsSkeleton } from "@/components/ui/route-skeleton";
 import { TableRowsSkeleton } from "@/components/ui/skeleton-shapes";
@@ -43,7 +51,7 @@ const HARGA_ITEMS = [
   { value: "termahal", label: "Termahal" },
 ];
 
-export function PenjualanPOSClient({ initialRows }: { initialRows: any[] }) {
+export function PenjualanPOSClient({ initialRows, receiptContext }: { initialRows: any[]; receiptContext: ReceiptContext }) {
   const router = useRouter();
   const { branch } = useBranch();
   const [view, setView] = useState<"grid" | "list">("grid");
@@ -54,14 +62,22 @@ export function PenjualanPOSClient({ initialRows }: { initialRows: any[] }) {
   const [products, setProducts] = useState<ProductRow[]>([]);
   const [productsLoading, setProductsLoading] = useState(true);
   const [productsError, setProductsError] = useState<string | null>(null);
-  const [customerPhone, setCustomerPhone] = useState("");
-  const [customerId, setCustomerId] = useState<string | null>(null);
+  const [cart, setCart] = useState<PosCartItem[]>([]);
+  const [stage, setStage] = useState<"cart" | "payment">("cart");
+  const [customer, setCustomer] = useState<PosCustomer | null>(null);
+  const [newCustomer, setNewCustomer] = useState<PosNewCustomer | null>(null);
+  const [metode, setMetode] = useState("Tunai");
+  const [saving, setSaving] = useState(false);
+  const [receipt, setReceipt] = useState<{ input: SalesReceiptInput; subtitle: string } | null>(null);
+  const [printing, setPrinting] = useState(false);
+  const [receiptOpen, setReceiptOpen] = useState(false);
   const [riwayatOpen, setRiwayatOpen] = useState(false);
   const [detailOpen, setDetailOpen] = useState(false);
   const [detail, setDetail] = useState<any>(null);
   const [returOpen, setReturOpen] = useState(false);
   const [returSale, setReturSale] = useState<any>(null);
   const [returItems, setReturItems] = useState<any[]>([]);
+  const subtotal = useMemo(() => cart.reduce((a, c) => a + c.qty * c.unit_price, 0), [cart]);
 
   useEffect(() => {
     let cancelled = false;
@@ -102,23 +118,155 @@ export function PenjualanPOSClient({ initialRows }: { initialRows: any[] }) {
     return out;
   }, [products, q, kategori, stockFilter, sortHarga]);
 
+  const addToCart = (p: ProductRow) => {
+    if (p.stock_qty <= 0) { toast.error(`${p.name} stok habis`); haptic([30, 50, 30]); return; }
+    let didAdd = false;
+    let isNew = false;
+    setCart((prev) => {
+      const idx = prev.findIndex((c) => c.product.id === p.id);
+      if (idx >= 0) {
+        const cur = prev[idx];
+        if (cur.qty + 1 > p.stock_qty) { toast.error("Melebihi stok"); haptic([20, 30, 20]); return prev; }
+        const next = [...prev];
+        next[idx] = { ...cur, qty: cur.qty + 1 };
+        didAdd = true;
+        return next;
+      }
+      didAdd = true;
+      isNew = true;
+      return [...prev, { product: p, qty: 1, unit_price: p.price }];
+    });
+    if (didAdd) haptic(isNew ? 50 : 20);
+  };
+
+  const imeiError = () => {
+    for (const c of cart) {
+      if (!c.product.is_serialized) continue;
+      if (!c.imei1?.trim()) return `IMEI wajib untuk ${c.product.name}`;
+      if (!/^\d{15}$/.test(c.imei1.trim())) return `IMEI ${c.product.name} harus 15 digit`;
+    }
+    return null;
+  };
+
+  const handleBayar = () => {
+    if (cart.length === 0) { toast.error("Keranjang kosong"); return; }
+    if (!customer && !(newCustomer?.name.trim() && newCustomer?.phone.trim())) {
+      toast.error("Customer wajib — cari nama / nomor HP atau tambah customer baru");
+      return;
+    }
+    const imei = imeiError();
+    if (imei) { toast.error(imei); return; }
+    haptic(20);
+    setStage("payment");
+  };
+
+  const resetCheckout = () => {
+    setCart([]);
+    setCustomer(null);
+    setNewCustomer(null);
+    setMetode("Tunai");
+    setStage("cart");
+  };
+
+  const handleSelesai = async (outcome: PaymentOutcome) => {
+    if (cart.length === 0) { toast.error("Keranjang kosong"); return; }
+    const imei = imeiError();
+    if (imei) { toast.error(imei); return; }
+    setSaving(true);
+    const res = await checkoutSale({
+      customerId: customer?.id ?? null,
+      newCustomer: customer ? null : newCustomer,
+      items: cart.map((c) => ({
+        product_id: c.product.id,
+        qty: c.qty,
+        unit_price: c.unit_price,
+        imei1: c.imei1,
+        imei2: c.imei2,
+        warna: c.warna,
+      })),
+      payment_method: metode,
+      kas_date: kalenderWIB(),
+      paid: outcome.paid,
+      notes: outcome.notes,
+      discount_total: 0,
+      promoCode: null,
+    });
+    if (!res.ok) {
+      toast.error(res.error);
+      setSaving(false);
+      return;
+    }
+    // Penjualan sudah tersimpan. Keranjang dikosongkan sekarang juga supaya
+    // kasir tidak menekan Selesai dua kali kalau pengambilan nota gagal.
+    resetCheckout();
+    setSaving(false);
+    haptic([50, 30, 80]);
+    try {
+      const detail = await getSaleDetail(res.saleId);
+      setReceipt({
+        input: {
+          context: receiptContext,
+          sale: detail.sale,
+          customer: detail.customer,
+          cashier: detail.cashier,
+          items: detail.items,
+        },
+        subtitle: `${receiptStamp(detail.sale.created_at)} · ${res.saleNumber}`,
+      });
+      setReceiptOpen(true);
+      router.refresh();
+    } catch {
+      toast.error(`Penjualan ${res.saleNumber} tersimpan, tetapi nota gagal dimuat. Cetak dari Riwayat.`);
+    }
+  };
+
+  /**
+   * Cetak langsung ke printer thermal; kalau browser tidak mendukung atau
+   * printer gagal, `printReceipt` sendiri membuka dialog cetak sistem. Nota
+   * tetap bisa dicetak, jadi kegagalan printer bukan jalan buntu.
+   */
+  const cetakNota = async (input: SalesReceiptInput) => {
+    setPrinting(true);
+    try {
+      const result = await printReceipt({
+        kind: "sale",
+        html: buildSalesReceiptHtml(input),
+        ...input,
+      });
+      if (result.fallback) {
+        toast.info(result.error ? `${result.error} — membuka dialog cetak` : "Membuka dialog cetak");
+      } else {
+        toast.success("Nota dikirim ke printer");
+      }
+    } catch (cause) {
+      toast.error(cause instanceof Error ? cause.message : "Gagal mencetak nota");
+    } finally {
+      setPrinting(false);
+    }
+  };
+
+  const handlePrintReceipt = async () => {
+    if (receipt) await cetakNota(receipt.input);
+  };
+
+  const handleTutupReceipt = () => {
+    setReceiptOpen(false);
+    setReceipt(null);
+  };
+
   const handleDetail = async (id: string) => {
     try { const d = await getSaleDetail(id); setDetail(d); setDetailOpen(true); } catch (e: any) { toast.error(e.message); }
   };
   const handlePrint = async (id: string) => {
     try {
       const d = await getSaleDetail(id);
-      const itemsHtml = d.items.map((it: any, i: number) => `<tr><td>${i + 1}</td><td>${it.sku}</td><td>${it.name}</td><td>${it.qty}${Number(it.qty_returned) > 0 ? ` (retur ${it.qty_returned})` : ""}</td><td>${formatCurrencyPlain(Number(it.unit_price))}</td><td>${formatCurrencyPlain(Number(it.line_total))}</td></tr>`).join("");
-      // Nota tetap mencetak total asli - itu dokumen historis. Baris retur
-      // hanya ditambahkan kalau memang ada, supaya pelanggan yang kembali
-      // membawa notanya melihat keadaan terakhir.
-      const returned = Number(d.sale.returned_value ?? 0);
-      const dibayarBersih = Math.max(0, Number(d.sale.paid) - Math.min(returned, Number(d.sale.paid)));
-      const footer = returned > 0
-        ? `<p class="mono">Total ${formatCurrencyPlain(Number(d.sale.total))}</p><p class="mono">Diretur ${formatCurrencyPlain(returned)}</p><p class="mono">Dibayar bersih ${formatCurrencyPlain(dibayarBersih)}</p>`
-        : `<p class="mono">Total ${formatCurrencyPlain(Number(d.sale.total))}</p>`;
-      const html = `<!doctype html><html><head><meta charset="utf-8"><title>${d.sale.sale_number}</title><style>body{font-family:system-ui;padding:32px}table{width:100%;border-collapse:collapse}th{background:#111827;color:#fff;padding:8px}td{padding:8px;border-bottom:1px solid #eee} .mono{font-family:monospace}</style></head><body><h1>Cervise — Nota ${d.sale.sale_number}</h1><p>${d.sale.kas_date} · ${branch.label} · ${d.customer?.name ?? ""}</p><table><thead><tr><th>No</th><th>SKU</th><th>Nama</th><th>Qty</th><th>Harga</th><th>Subtotal</th></tr></thead><tbody>${itemsHtml}</tbody></table>${footer}<script>window.print()</script></body></html>`;
-      const w = window.open("", "_blank"); if (!w) return; w.document.write(html); w.document.close();
+      await cetakNota({
+        context: receiptContext,
+        sale: d.sale,
+        customer: d.customer,
+        cashier: d.cashier,
+        items: d.items,
+      });
     } catch (e: any) { toast.error(e.message); }
   };
   const handleReturOpen = async (id: string) => {
@@ -161,19 +309,12 @@ export function PenjualanPOSClient({ initialRows }: { initialRows: any[] }) {
           keranjang berhenti di atas bottom bar — tombol Bayar tidak perlu
           di-scroll. `lg:h-dvh` tetap dipakai AppShell (legacy), di sana
           `[data-main-content]` hanya `min-h-full` sehingga `h-full` = auto. */}
-      <div className="mx-auto grid max-w-[1600px] gap-4 px-4 lg:px-6 py-3 lg:h-dvh lg:grid-cols-[1fr_360px] xl:grid-cols-[1fr_380px] lg:grid-rows-[minmax(0,1fr)] lg:items-stretch items-start lg:overflow-hidden lg:group-data-[shell=compact]/shell:h-full">
-        <CardFrame className="min-w-0 flex flex-col h-[calc(100dvh-96px)] max-h-[calc(100dvh-96px)] overflow-hidden lg:h-full lg:max-h-full">
+      <div className={`mx-auto grid max-w-[1600px] gap-4 px-4 lg:px-6 py-3 lg:h-dvh lg:grid-rows-[minmax(0,1fr)] lg:items-stretch items-start lg:overflow-hidden lg:group-data-[shell=compact]/shell:h-full transition-[grid-template-columns] duration-300 ease-out ${stage === "cart" ? "lg:grid-cols-[1fr_360px] xl:grid-cols-[1fr_380px]" : "lg:grid-cols-[360px_1fr] xl:grid-cols-[380px_1fr]"}`}>
+        {stage === "cart" ? (
+        <CardFrame className="min-w-0 flex flex-col h-[calc(100dvh-96px)] max-h-[calc(100dvh-96px)] overflow-hidden lg:h-full lg:max-h-full animate-in fade-in-0 duration-200">
           <CardFrameHeader className="grid-rows-1 py-3 px-4 gap-2">
             <CardFrameTitle className="text-[15px]">Produk</CardFrameTitle>
             <CardFrameAction className="flex items-center gap-2">
-              <Popover open={riwayatOpen} onOpenChange={setRiwayatOpen}>
-                <PopoverTrigger render={<Button variant="outline" size="sm"><History className="size-3.5" /> Riwayat</Button>} />
-                <PopoverContent align="end" className="w-[560px] max-w-[95vw] p-0">
-                  <div className="max-h-[60vh] overflow-auto p-2">
-                    <PenjualanTable rows={initialRows} onDetail={(id) => { setRiwayatOpen(false); handleDetail(id); }} onPrint={(id) => { setRiwayatOpen(false); handlePrint(id); }} onRetur={(id) => { setRiwayatOpen(false); handleReturOpen(id); }} />
-                  </div>
-                </PopoverContent>
-              </Popover>
               <Tabs value={view} onValueChange={(v) => setView(v as "grid" | "list")}>
                 <TabsList className="h-7">
                   <TabsTrigger value="grid" aria-label="Grid view" className="h-6 px-2"><LayoutGrid className="size-3.5" /></TabsTrigger>
@@ -184,25 +325,27 @@ export function PenjualanPOSClient({ initialRows }: { initialRows: any[] }) {
           </CardFrameHeader>
           <Card className="flex-1 flex flex-col overflow-hidden min-h-0">
             <CardPanel className="flex-none px-3 py-2 border-b flex flex-col gap-1.5">
-              <InputGroup className="w-full">
-                <InputGroupAddon><SearchIcon className="size-3.5 text-muted-foreground" /></InputGroupAddon>
-                <InputGroupInput placeholder="Scan barcode / SKU / nama + Enter" value={q} onChange={(e) => setQ(e.target.value)} nativeInput onKeyDown={(e) => { if (e.key === "Enter") { const term = q.trim(); if (term) { const hit = filteredProducts.find((p) => p.sku.toLowerCase() === term.toLowerCase() || (p.barcode && p.barcode.toLowerCase() === term.toLowerCase())); if (hit && (window as any).__penjualanAddToCart) (window as any).__penjualanAddToCart(hit); } } }} className="text-sm h-8" />
-                <InputGroupAddon align="inline-end" className="gap-1 pr-1">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon-sm"
-                    className="size-7 shrink-0"
-                    aria-label="Scan barcode"
-                    onClick={() => {
-                      // focus search for scanner device (hardware scanner types into input)
-                      document.querySelector<HTMLInputElement>('[placeholder="Scan barcode / SKU / nama + Enter"]')?.focus();
-                    }}
-                  >
-                    <ScanLineIcon className="size-4" />
-                  </Button>
-                </InputGroupAddon>
-              </InputGroup>
+              <div className="flex items-center gap-2">
+                <InputGroup className="w-full">
+                  <InputGroupAddon><SearchIcon className="size-3.5 text-muted-foreground" /></InputGroupAddon>
+                  <InputGroupInput placeholder="Cari Produk" value={q} onChange={(e) => setQ(e.target.value)} nativeInput onKeyDown={(e) => { if (e.key === "Enter") { const term = q.trim(); if (term) { const hit = filteredProducts.find((p) => p.sku.toLowerCase() === term.toLowerCase() || (p.barcode && p.barcode.toLowerCase() === term.toLowerCase())); if (hit) addToCart(hit); } } }} className="text-sm h-8" />
+                </InputGroup>
+                <Button
+                  type="button"
+                  variant="candy"
+                  color="green"
+                  size="sm"
+                  className="h-8 shrink-0 gap-1.5 px-2.5"
+                  aria-label="Scan barcode"
+                  onClick={() => {
+                    // focus search for scanner device (hardware scanner types into input)
+                    document.querySelector<HTMLInputElement>('[placeholder="Cari Produk"]')?.focus();
+                  }}
+                >
+                  <BarcodeIcon className="size-3.5 fill-current" />
+                  Scan
+                </Button>
+              </div>
 
               <div className="flex flex-wrap items-center gap-1.5 overflow-x-auto scrollbar-none">
                 <JellyRadio items={KATEGORI_ITEMS} value={kategori} onChange={(v: string) => setKategori(v)} chipColor="#e4e4e7" activeColor="#18181b" textColor="#18181b" activeTextColor="#f5f5f5" size="sm" gap={3} radius={12} className="flex-1 min-w-[180px]" />
@@ -267,7 +410,7 @@ export function PenjualanPOSClient({ initialRows }: { initialRows: any[] }) {
                   <p className="text-sm text-muted-foreground">Tambahkan produk di halaman Inventori terlebih dahulu.</p>
                 </div>
               ) : view === "grid" ? (
-                <PenjualanProductGrid products={filteredProducts} onAdd={(p) => { if ((window as any).__penjualanAddToCart) (window as any).__penjualanAddToCart(p); else toast.info("Klik keranjang kanan"); }} />
+                <PenjualanProductGrid products={filteredProducts} onAdd={addToCart} />
               ) : (
                 <div className="rounded-xl border overflow-hidden bg-card">
                   <Table>
@@ -309,7 +452,7 @@ export function PenjualanPOSClient({ initialRows }: { initialRows: any[] }) {
                                 <Badge variant="outline" size="sm" className={p.stock_qty === 0 ? "border-destructive/30 text-destructive" : p.stock_qty < 10 ? "border-amber-500/30 text-amber-700" : "border-emerald-500/30 text-emerald-700"}>{p.stock_qty} {p.stock_qty === 0 ? "Habis" : p.stock_qty < 10 ? "Menipis" : "Tersedia"}</Badge>
                               </TableCell>
                               <TableCell className="text-right font-mono text-sm tabular-nums">Rp {p.price.toLocaleString("id-ID")}</TableCell>
-                              <TableCell><Button size="filter" variant="outline" disabled={p.stock_qty === 0} onClick={() => { if ((window as any).__penjualanAddToCart) (window as any).__penjualanAddToCart(p); }}>Tambah</Button></TableCell>
+                              <TableCell><Button size="filter" variant="outline" disabled={p.stock_qty === 0} onClick={() => addToCart(p)}>Tambah</Button></TableCell>
                             </TableRow>
                           );
                         })
@@ -321,13 +464,56 @@ export function PenjualanPOSClient({ initialRows }: { initialRows: any[] }) {
             </CardPanel>
           </Card>
         </CardFrame>
+        ) : (
+          <PenjualanOrderPanel
+            cart={cart}
+            setCart={setCart}
+            customer={customer}
+            newCustomer={newCustomer}
+            subtotal={subtotal}
+            onBack={() => setStage("cart")}
+          />
+        )}
 
         <div className="lg:sticky lg:top-6 flex flex-col lg:self-stretch min-h-0">
-          <PenjualanCartPanel onSuccess={() => router.refresh()} customerId={customerId} customerPhone={customerPhone} customerPhoneSetter={setCustomerPhone} customerIdSetter={setCustomerId} />
-          <div className="lg:hidden fixed bottom-[72px] left-1/2 z-30 -translate-x-1/2 w-[95vw] max-w-sm rounded-2xl border bg-background/95 backdrop-blur-xl p-3 shadow-2xl flex justify-between items-center lg:hidden">
-            <span className="font-mono text-xs">Keranjang</span>
-            <Button size="sm" onClick={() => document.querySelector<HTMLElement>("[data-cart-panel]")?.scrollIntoView({ behavior: "smooth" })}>Lihat Keranjang</Button>
-          </div>
+          {stage === "cart" ? (
+            <PenjualanCartPanel
+              cart={cart}
+              setCart={setCart}
+              customer={customer}
+              onSelectCustomer={setCustomer}
+              newCustomer={newCustomer}
+              onNewCustomerChange={setNewCustomer}
+              subtotal={subtotal}
+              onBayar={handleBayar}
+              saving={saving}
+              riwayatAction={
+                <Popover open={riwayatOpen} onOpenChange={setRiwayatOpen}>
+                  <PopoverTrigger render={<CossButton variant="outline" size="sm"><History className="size-3.5" /> Riwayat</CossButton>} />
+                  <PopoverContent align="end" className="w-[560px] max-w-[95vw] p-0">
+                    <div className="max-h-[60vh] overflow-auto p-2">
+                      <PenjualanTable rows={initialRows} onDetail={(id) => { setRiwayatOpen(false); handleDetail(id); }} onPrint={(id) => { setRiwayatOpen(false); handlePrint(id); }} onRetur={(id) => { setRiwayatOpen(false); handleReturOpen(id); }} />
+                    </div>
+                  </PopoverContent>
+                </Popover>
+              }
+            />
+          ) : (
+            <PenjualanPaymentPanel
+              metode={metode}
+              onMetodeChange={setMetode}
+              subtotal={subtotal}
+              total={subtotal}
+              onSelesai={handleSelesai}
+              saving={saving}
+            />
+          )}
+          {stage === "cart" && (
+            <div className="lg:hidden fixed bottom-[72px] left-1/2 z-30 -translate-x-1/2 w-[95vw] max-w-sm rounded-2xl border bg-background/95 backdrop-blur-xl p-3 shadow-2xl flex justify-between items-center lg:hidden">
+              <span className="font-mono text-xs">Keranjang</span>
+              <Button size="sm" onClick={() => document.querySelector<HTMLElement>("[data-cart-panel]")?.scrollIntoView({ behavior: "smooth" })}>Lihat Keranjang</Button>
+            </div>
+          )}
         </div>
       </div>
 
@@ -355,6 +541,15 @@ export function PenjualanPOSClient({ initialRows }: { initialRows: any[] }) {
           </DialogPrimitive.Popup>
         </DialogPrimitive.Portal>
       </DialogPrimitive.Root>
+
+      <PenjualanReceiptDialog
+        open={receiptOpen}
+        html={receipt ? buildSalesReceiptHtml(receipt.input) : ""}
+        subtitle={receipt?.subtitle ?? ""}
+        printing={printing}
+        onPrint={handlePrintReceipt}
+        onClose={handleTutupReceipt}
+      />
     </>
   );
 }

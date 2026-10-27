@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { getPublicTenant } from "@/app/lacak/actions";
+import { getPublicTenant, lookupServisByCode } from "@/app/lacak/actions";
 import { LacakPage } from "@/components/public/lacak-shell";
 
 export const metadata: Metadata = {
@@ -17,5 +17,15 @@ export default async function PublicTrackingCodePage({
   const tenant = await getPublicTenant(slug);
   if (!tenant) notFound();
 
-  return <LacakPage tenant={tenant} initialCode={code} />;
+  // Lookup di server supaya halaman sudah berisi status saat pertama dirender.
+  const lookup = await lookupServisByCode(slug, code);
+
+  return (
+    <LacakPage
+      tenant={tenant}
+      initialCode={code}
+      initialResult={lookup.ok ? lookup.result : null}
+      initialError={lookup.ok ? null : lookup.message}
+    />
+  );
 }

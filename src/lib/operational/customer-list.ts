@@ -1,3 +1,5 @@
+import { servisPrice } from "./servis-price";
+
 export type CustomerInput = {
   id: string;
   name: string;
@@ -12,6 +14,7 @@ export type CustomerServiceInput = {
   status: string;
   created_at: string;
   price: number | null;
+  price_estimasi?: number | null;
 };
 
 export type CustomerListRow = {
@@ -88,8 +91,7 @@ export function mapCustomerRows(input: {
 
     const totalServis = services.length;
     const totalSpent = services.reduce((sum, service) => {
-      const price = Number(service.price ?? 0);
-      return sum + (Number.isFinite(price) ? price : 0);
+      return sum + servisPrice(service.price, service.price_estimasi);
     }, 0);
 
     const last = services[0];

@@ -70,6 +70,79 @@ describe("mapServisListRows", () => {
     });
   });
 
+  it("falls back to the estimate when the service price is still zero", () => {
+    // `cervise_services.price` tidak pernah diisi lewat UI (create selalu 0),
+    // jadi nominal asli ada di `price_estimasi`. Tanpa fallback ini kolom
+    // "Harga" menampilkan Rp0 padahal estimasinya sudah ada.
+    const [row] = mapServisListRows({
+      services: [{
+        id: "service-3",
+        service_number: "SRV-2026-0003",
+        tracking_code: null,
+        device: "iPhone 16 Pro Max",
+        complaint: null,
+        status: "Masuk",
+        price: 0,
+        price_estimasi: 500_000,
+        customer_id: null,
+        teknisi_id: null,
+        created_at: "2026-09-25T08:00:00.000Z",
+      }],
+      customers: [],
+      profiles: [],
+      finance: [],
+    });
+
+    expect(row.price).toBe(500_000);
+  });
+
+  it("keeps the real price when it is already filled in", () => {
+    const [row] = mapServisListRows({
+      services: [{
+        id: "service-4",
+        service_number: "SRV-2026-0004",
+        tracking_code: null,
+        device: "iPhone 12",
+        complaint: null,
+        status: "Selesai",
+        price: 650_000,
+        price_estimasi: 500_000,
+        customer_id: null,
+        teknisi_id: null,
+        created_at: "2026-09-25T08:00:00.000Z",
+      }],
+      customers: [],
+      profiles: [],
+      finance: [],
+    });
+
+    expect(row.price).toBe(650_000);
+  });
+
+  it("marks a fully paid estimated service as lunas", () => {
+    const [row] = mapServisListRows({
+      services: [{
+        id: "service-5",
+        service_number: "SRV-2026-0005",
+        tracking_code: null,
+        device: "Oppo A57",
+        complaint: null,
+        status: "Selesai",
+        price: 0,
+        price_estimasi: 250_000,
+        customer_id: null,
+        teknisi_id: null,
+        created_at: "2026-09-25T08:00:00.000Z",
+      }],
+      customers: [],
+      profiles: [],
+      finance: [{ servis_id: "service-5", amount: 250_000 }],
+    });
+
+    expect(row.payment).toBe("Lunas");
+    expect(row.paidAmount).toBe(250_000);
+  });
+
   it("does not invent a paid amount when finance data is absent", () => {
     const [row] = mapServisListRows({
       services: [{
