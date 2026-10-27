@@ -38,10 +38,24 @@ let writer: WritableStreamDefaultWriter<Uint8Array> | null = null;
 export const SERIAL_HINT = 'Jika menggunakan printer Bluetooth Classic yang sudah di-pair, pilih "Standard Serial over Bluetooth link" di pemilih port.';
 
 async function open(target: SerialPort): Promise<void> {
+  // Port yang sama dan sudah kita buka: membuka dua kali ditolak browser
+  // dengan InvalidStateError, yang dulu dilaporkan sebagai "dipakai aplikasi
+  // lain".
+  if (port === target && writer) return;
+  // Ganti port: tutup yang lama dulu supaya tidak ada dua handle terbuka.
+  if (port && port !== target) await webSerial.disconnect();
+
   try {
     await target.open({ baudRate: getPrinterBaud() });
-  } catch {
-    throw new Error("Port serial sudah dipakai aplikasi lain — tutup aplikasi yang memakai port ini, lalu coba lagi (ID: webSerial-in-use)");
+  } catch (cause) {
+    // Port yang masih tertinggal terbuka dari koneksi sebelumnya di tab ini
+    // (mis. `disconnect` gagal di tengah jalan) bisa ditutup lalu dibuka lagi.
+    try {
+      await target.close();
+      await target.open({ baudRate: getPrinterBaud() });
+    } catch {
+      throw new Error(serialOpenError(cause));
+    }
   }
   if (!target.writable) {
     await target.close();
@@ -51,6 +65,26 @@ async function open(target: SerialPort): Promise<void> {
   writer = target.writable.getWriter();
   const info = target.getInfo();
   saveSerialPort({ usbVendorId: info.usbVendorId ?? null, usbProductId: info.usbProductId ?? null });
+}
+
+/**
+ * `SerialPort.open()` menolak dengan alasan yang berbeda-beda, tapi semuanya
+ * dulu ditampilkan sebagai "dipakai aplikasi lain". Kasir jadi menutup aplikasi
+ * yang salah. Di sini alasan aslinya ikut ditampilkan.
+ */
+export function serialOpenError(cause: unknown): string {
+  const error = cause as { name?: string; message?: string } | null;
+  const detail = [error?.name, error?.message].filter(Boolean).join(": ");
+  switch (error?.name) {
+    case "InvalidStateError":
+      return "Port serial masih terbuka di tab/jendela lain. Tutup tab CERVISE yang lain, lalu klik Hubungkan Printer lagi.";
+    case "NotFoundError":
+      return "Port serial tidak ditemukan — kabel/printer terputus. Sambungkan ulang lalu coba lagi.";
+    case "SecurityError":
+      return "Izin akses port serial ditolak. Pilih ulang port dan klik Izinkan.";
+    default:
+      return `Port serial gagal dibuka. Periksa: printer menyala, kabel tersambung, port COM benar, dan tidak dipakai aplikasi lain (RawBT/driver printer).${detail ? ` (${detail})` : ""}`;
+  }
 }
 
 function label(): string {
@@ -104,6 +138,10 @@ export const webSerial: PrinterTransport = {
   async disconnect() {
     try {
       await writer?.releaseLock();
+    } catch {
+      // Lock sudah lepas / writer rusak; port tetap harus ditutup.
+    }
+    try {
       await port?.close();
     } catch {
       // Port sudah tertutup.
