@@ -74,36 +74,38 @@ dua di atas.
 
 ---
 
-## 2. `main` belum di-push ke origin
+## 2. `main` dan branch sudah di-push ke origin
 
-**Status:** BELUM SELESAI.
+**Status:** SUDAH SELESAI (27 Oktober 2026).
 
-`main` lokal ada **11 commit di depan** `origin/main`. Yang pushed terakhir
-adalah `b7438cd`. Commit yang belum sampai origin:
+Seluruh commit sudah ada di origin:
 
 ```
-ed1361c fix(todo): chip mention tidak lagi button di dalam button
-705babf fix(home): ringkasan shift lintas hari dan tahan data banyak
-2417088 fix(layout): hapus toggle sound di header samping tombol layar penuh
-961f38b fix(laporan-shift): jendela tanggal shift mencakup hari tutup
-b724be2 feat(ui): skeleton mengikuti bentuk setelah render
-d1dd6ee fix(todo): aksi atas tugas yang sudah dihapus tidak lagi buntu
+cfb0221 docs: catat pekerjaan yang belum selesai untuk agent berikutnya
 60252ca merge: satrioa/fix-servis-kas into main
 ```
 
-Perintah:
+Setelah itu sesi lain menambah 6 commit lagi ke `main` dan semuanya sudah
+di-pull serta di-push:
 
-```powershell
-git push origin main
-git push origin satrioa/fix-servis-kas   # branch ini sekarang = main, tapi belum di-push
+```
+79582e2 fix: pesan gagal buka port serial tidak lagi menuduh aplikasi lain
+6cb89b3 feat: cetak nota thermal, checkout POS, dan penyempurnaan servis
+b4b820a style: hilangkan teks & header pembayaran, panel ikut tinggi frame
+0006311 style: perbesar popover pembayaran servis (max-w-4xl, tinggi layar)
+a81eef6 feat: pembayaran servis memakai panel pembayaran penjualan
+6b80cbf fix: sticky promo/payment details in payment panel
 ```
 
-Deploy Vercel Connected lewat GitHub, jadi push ke `main` sudah memicu deploy.
-Tidak ada langkah manual.
+Branch `satrioa/fix-servis-kas` sudah di-fast-forward ke `main` dan di-push,
+jadi kedua checkout sekarang berisi kode yang sama.
+
+Catatan untuk ke depan: `main` adalah branch deploy Vercel Connected, jadi
+setiap push ke `main` langsung memicu deploy produksi.
 
 ---
 
-## 3. Sesi kas basi: dialog "Saldo Awal" masih tidak bisa顯示 peringatan
+## 3. Sesi kas basi: dialog "Saldo Awal" masih tidak bisa menampilkan peringatan
 
 **Status:** BELUM SELESAI (sengaja ditunda, bukan overlooks).
 
@@ -146,11 +148,11 @@ Refactor jadi dua langkah, bukan mengganti `current`:
 3. Home memakai `active` untuk menentukan sesi mana yang dipakai preview.
 
 Jangan gunakan `current` di tempat yang butuh "sesi yang benar-benar terbuka"
-tanpa伸びarkan dulu ke `active`.
+tanpa memeriksa dulu ke `active`.
 
 ---
 
-## 4. Serah terima声音: satu set file `.wav` duplikat
+## 4. Aset suara: satu set file `.wav` duplikat
 
 **Status:** RENDAH, tapi biar jelas.
 
@@ -158,10 +160,10 @@ Dua salinan aset suara ada di repo:
 
 - `public/sounds/*.wav` (13 file) -- yang dipakai aplikasi saat runtime
 - `docs/Music/*.wav` (13 file) -- file sumber, ditambahkan commit `a466b3d`
-  supaya mudah找到了 sumber aslinya
+  supaya mudah menemukan sumber aslinya
 
 Keduanya identik isinya. `public/sounds/` yang wajib ada -- jangan dihapus.
-`docs/Music/` boleh dihapus kalau memang tidak ada planos untuk mengedit
+`docs/Music/` boleh dihapus kalau memang tidak ada rencana untuk mengedit
 suara lagi, tapi lebih baik tetap disimpan sebagai sumber.
 
 ---
@@ -209,7 +211,7 @@ rencana yang memang berguna, dan `.gitignore`-nya hanya menyentuh
 
 ---
 
-## 7.angan Server dev lokal
+## 7. Dua server dev lokal
 
 **Status:** informatif.
 
@@ -217,8 +219,8 @@ Dua checkout berjalan lokal, jadi hati-hati jangan salah edit:
 
 | Port | Folder | Branch | Status |
 | --- | --- | --- | --- |
-| 3001 | `C:\Users\MSI GF63\Documents\RBM\cervise` | `main` | **Yang dipakai user.** Shell baru + sound + perbaikan kas. |
-| 3000 | `C:\Users\MSI GF63\orca\workspaces\cervise\fix-servis-kas` | `satrioa/fix-servis-kas` | Worktree. Sekarang identik dengan `main` (sudah di-fast-forward ke `60252ca`). |
+| 3001 | `C:\Users\MSI GF63\Documents\RBM\cervise` | `main` | **Yang dipakai user.** Shell baru + sound + perbaikan kas + printer. |
+| 3000 | `C:\Users\MSI GF63\orca\workspaces\cervise\fix-servis-kas` | `satrioa/fix-servis-kas` | Worktree. Identik dengan `main` (fast-forward ke `79582e2`). |
 
 Keduanya memakai Supabase project yang sama, jadi datanya identik -- yang
 berbeda hanya kode/UI.
@@ -245,20 +247,19 @@ Perlu dicek manual di 3001 dengan user yang masih punya password temporary.
 
 ## 9. Cache build di worktree 3000 masih berisi versi lama
 
-**Status:** RENDAH.
+**Status:** SUDAH SELESAI (27 Oktober 2026).
 
 Worktree 3000 sempat `pnpm install` sehingga ada `node_modules/.pnpm` sendiri,
-sedangkan `main` memakai `npm`. Setelah fast-forward, `node_modules` di 3000
-masih berasal dari pnpm dan bisa tidak sinkron dengan `package-lock.json`
-terbaru. Kalau ada error modul tidak ketemu di 3000, jalankan:
+sedangkan `main` memakai `npm`. Akibatnya `ascii-reveal` (dependency GitHub)
+tidak ada dan `/app` balas 500. Sudah diperbaiki dengan:
 
 ```powershell
 cd C:\Users\MSI GF63\orca\workspaces\cervise\fix-servis-kas
-Remove-Item -Recurse -Force node_modules
 npm ci
 ```
 
-Jangan commit `node_modules`; sudah ter-ignore.
+Kalau gejala serupa muncul lagi setelah dependency berubah, ulangi langkah di
+atas. Jangan commit `node_modules`; sudah ter-ignore.
 
 ---
 
@@ -266,10 +267,10 @@ Jangan commit `node_modules`; sudah ter-ignore.
 
 | # | Item | Dampak | Kesulitan |
 | --- | --- | --- | --- |
-| 1 | Apply 2 migrasi SQL | **Tinggi** --がおすすめ privasi antar cabang + fitur tanda tangan mati | Sedang (butuh MCP `apply_migration`) |
-| 2 | Push `main` ke origin | Sedang -- deploy tertahan | Mudah |
+| 1 | Apply 2 migrasi SQL | **Tinggi** -- kebocoran privasi antar cabang + fitur tanda tangan mati | Sedang (butuh MCP `apply_migration`) |
+| 2 | Push `main` ke origin | **Sudah selesai** | - |
 | 3 | Verifikasi alur ganti password | Sedang | Mudah (manual) |
 | 4 | Refactor sesi kas basi | Sedang -- dialog peringatan mati & ada risiko deadlock | Sulit |
 | 5 | Bereskan duplikat `.wav` | Rendah | Mudah |
 | 6 | File junk `.superpowers` | **Sudah selesai** | - |
-| 7 | Sinkronkan node_modules worktree 3000 | Rendah | Mudah |
+| 7 | Sinkronkan node_modules worktree 3000 | **Sudah selesai** | - |
