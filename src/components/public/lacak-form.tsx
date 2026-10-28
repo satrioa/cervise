@@ -31,6 +31,12 @@ export function LacakForm({
             </p>
           </div>
 
+          {initialResult?.status === "Selesai" ? (
+            <div role="status" className="flex items-start gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-700 dark:text-emerald-300">
+              <span className="font-medium">{initialResult.device} Anda sudah siap diambil!</span>
+            </div>
+          ) : null}
+
           {initialError ? (
             <div className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
               <span>{initialError}</span>

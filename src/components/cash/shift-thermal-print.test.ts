@@ -90,9 +90,45 @@ describe("renderShiftThermalHtml", () => {
     // open_at disimpan sebagai timestamptz UTC. Dicetak mentah, struk akan
     // memuat "2026-09-18T03:00:00.000Z" - panjang dan tidak terbaca di kasir.
     const html = renderShiftThermalHtml(report());
-    expect(html).toContain("10:00 - 23:59");
+    expect(html).toContain("Open Shift");
+    expect(html).toContain("10:00");
+    expect(html).toContain("Close Shift");
+    expect(html).toContain("23:59");
     expect(html).not.toContain("2026-09-18T03:00:00.000Z");
     expect(html).not.toContain("T16:59:00");
+  });
+
+  it("mencetak siapa yang membuka dan menutup, plus durasi shift", () => {
+    const html = renderShiftThermalHtml(
+      report({ closedByName: "Budi", durationMinutes: 839 }),
+    );
+    expect(html).toContain("Open By");
+    expect(html).toContain("Rina");
+    expect(html).toContain("Close By");
+    expect(html).toContain("Budi");
+    expect(html).toContain("Total Duration");
+    expect(html).toContain("13j 59m");
+    // Snapshot lama belum punya nama penutup: jangan cetak "null".
+    expect(renderShiftThermalHtml(report())).not.toContain("undefined");
+  });
+
+  it("mengelompokkan sparepart dan hitungan status servis", () => {
+    const html = renderShiftThermalHtml(
+      report({
+        spareparts: [
+          { name: "LCD iPhone 13", qty: 1 },
+          { name: "Baterai", qty: 2 },
+        ],
+        serviceStats: { masuk: 4, selesai: 2, diambil: 1, batal: 1 },
+      }),
+    );
+    expect(html).toContain("Sparepart terpakai");
+    expect(html).toContain("LCD iPhone 13");
+    expect(html).toContain("x2");
+    expect(html).toContain("Servis Masuk");
+    expect(html).toContain("Servis Selesai");
+    expect(html).toContain("Diambil");
+    expect(html).toContain("Batal");
   });
 
   it("memuat seluruh angka kas ringkasan", () => {

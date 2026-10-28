@@ -39,11 +39,21 @@ import { cn } from "@/lib/utils";
 import { SparepartPickDialog, CancelSparepartDialog } from "@/components/servis/sparepart-dialogs";
 import { PickupSignatureDialog } from "@/components/servis/pickup-signature-dialog";
 import { PageHeader } from "@/components/layout/page-header";
+import { Button as CossButton } from "@/components/ui/coss-button";
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination";
 import { Skeleton } from "@/components/ui/skeleton";
 import { DOT_COLOR, STAGES, StageTrack, stageIndex, type Stage } from "@/lib/operational/stage-track";
 import { servisLabel } from "@/lib/operational/servis-list";
 
 type PaymentStatus = "Lunas" | "DP" | "Belum dibayar";
+
+const PAGE_SIZE = 25;
 
 type ServisItem = {
   id: string;
@@ -57,6 +67,7 @@ type ServisItem = {
   date: string;
   payment?: PaymentStatus;
   paidAmount?: number;
+  trackingCode?: string | null;
 };
 
 function getPaymentStatus(item: ServisItem): PaymentStatus {
@@ -172,6 +183,7 @@ export default function ServisPage() {
   const [search, setSearch] = useState("");
   const [dateRange, setDateRange] = useState<DateRange>({});
   const [paymentFilter, setPaymentFilter] = useState<string>("Semua");
+  const [page, setPage] = useState(1);
   const [openServis, setOpenServis] = useState(false);
   const [servisData, setServisData] = useState<ServisItem[]>([]);
   const [servisLoading, setServisLoading] = useState(true);
@@ -238,6 +250,13 @@ export default function ServisPage() {
     loadServis();
   }, [branch.id, loadServis]);
 
+  // Palet ⌘K membuka halaman ini dengan `?q=<nomor servis>`. Dibaca dari
+  // `window`, bukan `useSearchParams`, supaya halaman tidak butuh Suspense.
+  useEffect(() => {
+    const q = new URLSearchParams(window.location.search).get("q");
+    if (q) setSearch(q);
+  }, []);
+
   const matchesSearch = (item: ServisItem) => {
     if (!search.trim()) return true;
     const q = search.trim().toLowerCase();
@@ -268,6 +287,9 @@ export default function ServisPage() {
 
   const filteredByAll = useMemo(() => servisData.filter(matchesSearchAndDate), [servisData, search, dateRange, paymentFilter]);
   const filteredTable = useMemo(() => (filter === "Semua" ? filteredByAll : filteredByAll.filter((d) => d.status === filter)), [filteredByAll, filter]);
+  const totalPages = Math.max(1, Math.ceil(filteredTable.length / PAGE_SIZE));
+  const pageSafe = Math.min(Math.max(1, page), totalPages);
+  const pageItems = filteredTable.slice((pageSafe - 1) * PAGE_SIZE, pageSafe * PAGE_SIZE);
 
   const filteredKanbanBase = useMemo(() => {
     const out: Record<string, ServisItem[]> = {};
@@ -468,13 +490,14 @@ export default function ServisPage() {
       alert("Nomor HP tidak valid");
       return;
     }
-    const msg = `Halo, invoice servis *${servisLabel(s)}* Cervise\nDevice: ${s.device}\nNominal: ${formatCurrencyPlain(s.price)}\nStatus: ${s.status}\nTeknisi: ${s.teknisi}\nTerima kasih — Garansi 3 bulan`;
+    const tracking = publicTrackingUrl(printContext.tenantSlug, s.trackingCode);
+    const msg = `Halo, invoice servis *${servisLabel(s)}* Cervise\nDevice: ${s.device}\nNominal: ${formatCurrencyPlain(s.price)}\nStatus: ${s.status}\nTeknisi: ${s.teknisi}${tracking ? `\nLacak progres: ${tracking}` : ""}\nTerima kasih — Garansi 3 bulan`;
     window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`, "_blank");
   };
 
   // Bulk derived
   const selectedCount = selectedIds.size;
-  const visibleIds = filteredTable.map((r) => r.id);
+  const visibleIds = pageItems.map((r) => r.id);
   const isAllSelected = visibleIds.length > 0 && visibleIds.every((id) => selectedIds.has(id));
   const isIndeterminate = selectedCount > 0 && selectedCount < visibleIds.length;
   const selectedData = servisData.filter((s) => selectedIds.has(s.id));
@@ -642,7 +665,10 @@ export default function ServisPage() {
       groups.get(phone)!.push(s);
     }
     for (const [phone, items] of groups) {
-      const msg = `Halo, invoice servis Cervise:\n` + items.map((s) => `• ${servisLabel(s)} ${s.device} ${formatCurrencyPlain(s.price)} (${s.status})`).join("\n") + `\nTerima kasih — Garansi 3 bulan`;
+      const msg = `Halo, invoice servis Cervise:\n` + items.map((s) => {
+        const tracking = publicTrackingUrl(printContext.tenantSlug, s.trackingCode);
+        return `• ${servisLabel(s)} ${s.device} ${formatCurrencyPlain(s.price)} (${s.status})${tracking ? `\n  Lacak: ${tracking}` : ""}`;
+      }).join("\n") + `\nTerima kasih — Garansi 3 bulan`;
       window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`, "_blank");
     }
     setBulkInvoiceOpen(false);
@@ -650,6 +676,7 @@ export default function ServisPage() {
 
   useEffect(() => {
     setSelectedIds(new Set());
+    setPage(1);
   }, [filter, search, dateRange, paymentFilter]);
 
   useEffect(() => {
@@ -702,7 +729,7 @@ export default function ServisPage() {
         filters={
           <>
             <Popover>
-              <PopoverTrigger render={<Button variant="outline" size="filter" className={cn("w-auto shrink-0 justify-start gap-2 font-normal text-sm", !dateRange.from && !dateRange.to && "text-muted-foreground")} />}>
+              <PopoverTrigger render={<CossButton variant="outline" size="sm" className={cn("w-auto shrink-0 justify-start gap-2 font-normal text-sm", !dateRange.from && !dateRange.to && "text-muted-foreground")} />}>
                 <CalendarIcon className="size-4 opacity-70" /><span className="truncate">{dateLabel}</span>
                 {(dateRange.from || dateRange.to) && (<span role="button" tabIndex={0} onClick={(e) => { e.stopPropagation(); setDateRange({}); }} className="ml-1 rounded p-0.5 hover:bg-foreground/10 -mr-1" aria-label="Hapus rentang tanggal"><XIcon className="size-3.5" /></span>)}
               </PopoverTrigger>
@@ -761,6 +788,7 @@ export default function ServisPage() {
           </div>
         ) : null}
         {servisData.length > 0 && (view === "table" ? (
+          <>
           <Table variant="card" className="mt-2">
             <TableHeader>
               <TableRow>
@@ -774,7 +802,7 @@ export default function ServisPage() {
                 </TableHead>
                 <TableHead>Servis</TableHead><TableHead>Device</TableHead><TableHead>Status</TableHead><TableHead>Teknisi</TableHead><TableHead>Pembayaran</TableHead><TableHead className="text-right">Harga</TableHead></TableRow></TableHeader>
             <TableBody>
-              {filteredTable.map((r) => (
+              {pageItems.map((r) => (
                 <ServisContextMenu key={r.id} servis={r} onViewDetails={handleViewDetails} onStatusChange={handleStatusChange} onEdit={handleEdit} onPrint={handlePrint} onInvoice={handleInvoice} onBayar={handleBayar} onDelete={handleDelete}>
                   <TableRow className="cursor-context-menu hover:bg-muted/40" data-state={selectedIds.has(r.id) ? "selected" : undefined}>
                     <TableCell>
@@ -794,9 +822,31 @@ export default function ServisPage() {
                   </TableRow>
                 </ServisContextMenu>
               ))}
-              {filteredTable.length === 0 && (<TableRow><TableCell colSpan={7} className="text-center text-sm text-muted-foreground py-8">Tidak ada data</TableCell></TableRow>)}
+              {pageItems.length === 0 && (<TableRow><TableCell colSpan={7} className="text-center text-sm text-muted-foreground py-8">Tidak ada data</TableCell></TableRow>)}
             </TableBody>
           </Table>
+          {filteredTable.length > PAGE_SIZE && (
+            <Pagination className="mt-4">
+              <PaginationContent>
+                <PaginationItem>
+                  <PaginationPrevious
+                    render={<button type="button" disabled={pageSafe <= 1} onClick={() => setPage(pageSafe - 1)} />}
+                  />
+                </PaginationItem>
+                <PaginationItem>
+                  <span className="px-3 text-sm text-muted-foreground">
+                    Halaman {pageSafe} dari {totalPages}
+                  </span>
+                </PaginationItem>
+                <PaginationItem>
+                  <PaginationNext
+                    render={<button type="button" disabled={pageSafe >= totalPages} onClick={() => setPage(pageSafe + 1)} />}
+                  />
+                </PaginationItem>
+              </PaginationContent>
+            </Pagination>
+          )}
+          </>
         ) : (
           <Kanban
             value={displayedKanban}
@@ -986,7 +1036,7 @@ export default function ServisPage() {
           <DialogPrimitive.Backdrop className="fixed inset-0 z-50 bg-black/30 backdrop-blur-md" />
           <DialogPrimitive.Popup className="fixed left-1/2 top-1/2 z-50 flex max-h-[90vh] w-[95vw] max-w-3xl -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-2xl border bg-background shadow-xl">
             <div className="shrink-0 border-b px-6 py-4">
-              <DialogPrimitive.Title className="font-heading text-lg font-semibold">Edit Servis {selectedServis?.id}</DialogPrimitive.Title>
+              <DialogPrimitive.Title className="font-heading text-lg font-semibold">Edit Servis {selectedServis?.serviceNumber ?? selectedServis?.id}</DialogPrimitive.Title>
               <DialogPrimitive.Description className="text-sm text-muted-foreground">Form lengkap sama seperti create — siapa yang input terkunci, kondisi awal readonly.</DialogPrimitive.Description>
             </div>
             <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain">

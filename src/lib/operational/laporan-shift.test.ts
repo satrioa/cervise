@@ -487,6 +487,44 @@ describe("report sebagai snapshot", () => {
   });
 });
 
+describe("isi tambahan struk shift", () => {
+  it("membawa nama penutup dari sesi", () => {
+    const report = build({ session: session({ closedAt: CLOSE, closingBalance: 300_000, closedByName: "Budi" }) });
+    expect(report.closedByName).toBe("Budi");
+  });
+
+  it("nama penutup null untuk sesi lama tanpa data", () => {
+    expect(build().closedByName).toBeNull();
+  });
+
+  it("durasi dihitung dari jam buka ke jam tutup, bukan ke now", () => {
+    // 08:00 -> 17:30 UTC = 570 menit. `now` (17:45) tidak boleh ikut.
+    const report = build({ session: session({ closedAt: CLOSE, closingBalance: 250_000 }) });
+    expect(report.durationMinutes).toBe(570);
+  });
+
+  it("menghitung servis masuk/selesai/diambil/batal", () => {
+    const report = build({
+      services: [
+        svc({ id: "a", status: "Selesai" }),
+        svc({ id: "b", status: "Sudah Diambil" }),
+        svc({ id: "c", status: "Batal" }),
+        svc({ id: "d", status: "Dikerjakan" }),
+      ],
+    });
+    expect(report.serviceStats).toEqual({ masuk: 4, selesai: 1, diambil: 1, batal: 1 });
+  });
+
+  it("meneruskan sparepart yang sudah diagregasi", () => {
+    const spareparts = [{ name: "Baterai", qty: 2 }];
+    expect(build({ spareparts }).spareparts).toEqual(spareparts);
+  });
+
+  it("sparepart kosong bukan undefined", () => {
+    expect(build().spareparts).toEqual([]);
+  });
+});
+
 describe("formatShiftAsText", () => {
   it("memuat seluruh nominal rekap", () => {
     const text = formatShiftAsText(

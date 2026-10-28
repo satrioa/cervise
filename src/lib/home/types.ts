@@ -25,6 +25,16 @@ export type FrontlinerQueueItem = {
   customerName: string | null;
 };
 
+/** Servis siap diambil, dicari dari nomor servis / nama / nomor HP. */
+export type PickupServiceItem = {
+  id: string;
+  serviceNumber: string | null;
+  device: string;
+  customerName: string | null;
+  customerPhone: string | null;
+  updatedAt: string;
+};
+
 /**
  * Bentuk data dashboard teknisi.
  *

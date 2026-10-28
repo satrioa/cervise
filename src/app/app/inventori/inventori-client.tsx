@@ -7,8 +7,11 @@ import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { InventoriToolbar } from "@/components/inventori/inventori-toolbar";
+import { Checkbox } from "@/components/ui/checkbox";
 import { formatCurrencyPlain } from "@/lib/format";
-import { ChevronRightIcon, PackageIcon, SearchIcon, SmartphoneIcon, XIcon } from "lucide-react";
+import { printSkuLabels } from "@/lib/printer/label";
+import { ChevronRightIcon, PackageIcon, PrinterIcon, SearchIcon, SmartphoneIcon, XIcon } from "lucide-react";
+import { toast } from "sonner";
 import {
   filterInventoryGroups,
   INVENTORI_DEFAULTS,
@@ -140,7 +143,19 @@ function CardView({ groups }: { groups: InventoryGroup[] }) {
 
 function TableView({ groups }: { groups: InventoryGroup[] }) {
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(() => new Set());
+  const [selected, setSelected] = useState<ReadonlySet<string>>(() => new Set());
   const rows = useMemo(() => toInventoryTableRows(groups, expanded), [groups, expanded]);
+  const visibleProducts = useMemo(
+    () => rows.flatMap((row) => (row.kind === "child" ? [row.product] : [])),
+    [rows],
+  );
+  // Pilihan dihitung dari seluruh varian yang lolos filter, bukan hanya baris
+  // yang sedang terbuka, supaya menutup satu group tidak membuang pilihannya.
+  const allProducts = useMemo(() => groups.flatMap((group) => group.items), [groups]);
+  const selectedProducts = useMemo(
+    () => allProducts.filter((product) => selected.has(product.id)),
+    [allProducts, selected],
+  );
 
   const toggle = (key: string) => {
     setExpanded((previous) => {
@@ -151,11 +166,68 @@ function TableView({ groups }: { groups: InventoryGroup[] }) {
     });
   };
 
+  const toggleOne = (id: string, checked: boolean) => {
+    setSelected((previous) => {
+      const next = new Set(previous);
+      if (checked) next.add(id);
+      else next.delete(id);
+      return next;
+    });
+  };
+
+  const toggleAllVisible = (checked: boolean) => {
+    setSelected((previous) => {
+      const next = new Set(previous);
+      for (const product of visibleProducts) {
+        if (checked) next.add(product.id);
+        else next.delete(product.id);
+      }
+      return next;
+    });
+  };
+
+  const allSelected = visibleProducts.length > 0 && visibleProducts.every((product) => selected.has(product.id));
+  const someSelected = visibleProducts.some((product) => selected.has(product.id));
+
+  const printLabels = (products: InventoryProduct[]) => {
+    const opened = printSkuLabels(
+      products.map((product) => ({
+        name: product.name,
+        variant: variantLabel(product),
+        sku: product.sku,
+        price: product.price,
+      })),
+    );
+    if (!opened) toast.error("Pop-up diblokir — izinkan pop-up untuk mencetak label");
+  };
+
   return (
-    <div className="rounded-xl border">
+    <div className="space-y-2">
+      {selectedProducts.length > 0 ? (
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border bg-muted/30 px-3 py-2">
+          <span className="text-sm">{selectedProducts.length} produk dipilih</span>
+          <div className="flex gap-2">
+            <Button size="sm" variant="outline" onClick={() => setSelected(new Set())}>
+              Batal pilih
+            </Button>
+            <Button size="sm" onClick={() => printLabels(selectedProducts)}>
+              <PrinterIcon className="size-4" /> Cetak Label ({selectedProducts.length})
+            </Button>
+          </div>
+        </div>
+      ) : null}
+    <div className="rounded-xl border bg-white dark:bg-card">
       <Table>
         <TableHeader>
           <TableRow>
+            <TableHead className="w-8">
+              <Checkbox
+                checked={allSelected}
+                indeterminate={!allSelected && someSelected}
+                onCheckedChange={(checked) => toggleAllVisible(checked === true)}
+                aria-label="Pilih semua varian yang terlihat"
+              />
+            </TableHead>
             <TableHead className="w-8" />
             <TableHead>Produk</TableHead>
             <TableHead className="font-mono text-xs">SKU</TableHead>
@@ -163,6 +235,7 @@ function TableView({ groups }: { groups: InventoryGroup[] }) {
             <TableHead className="text-right">Stok</TableHead>
             <TableHead className="text-right">Modal</TableHead>
             <TableHead className="text-right">Jual</TableHead>
+            <TableHead className="text-right">Cetak SKU</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -172,6 +245,7 @@ function TableView({ groups }: { groups: InventoryGroup[] }) {
               const isOpen = expanded.has(group.key) || group.items.length === 1;
               return (
                 <TableRow key={`parent-${group.key}`} className="bg-muted/30 hover:bg-muted/40">
+                  <TableCell />
                   <TableCell>
                     {group.items.length > 1 ? (
                       <button
@@ -196,6 +270,7 @@ function TableView({ groups }: { groups: InventoryGroup[] }) {
                   <TableCell className="text-right font-mono">{group.totalStok}</TableCell>
                   <TableCell />
                   <TableCell />
+                  <TableCell />
                 </TableRow>
               );
             }
@@ -204,6 +279,13 @@ function TableView({ groups }: { groups: InventoryGroup[] }) {
             const stock = product.stock_qty ?? 0;
             return (
               <TableRow key={`child-${product.id}`} className={stock === 0 ? "text-muted-foreground" : undefined}>
+                <TableCell>
+                  <Checkbox
+                    checked={selected.has(product.id)}
+                    onCheckedChange={(checked) => toggleOne(product.id, checked === true)}
+                    aria-label={`Pilih ${product.name} ${product.sku}`}
+                  />
+                </TableCell>
                 <TableCell />
                 <TableCell className="pl-10">
                   <div className="flex items-center gap-2">
@@ -233,11 +315,23 @@ function TableView({ groups }: { groups: InventoryGroup[] }) {
                 <TableCell className="text-right font-mono text-xs">
                   {product.price != null ? formatCurrencyPlain(product.price) : "—"}
                 </TableCell>
+                <TableCell className="text-right">
+                  <Button
+                    size="icon-sm"
+                    variant="ghost"
+                    aria-label={`Cetak SKU ${product.sku}`}
+                    title="Cetak SKU"
+                    onClick={() => printLabels([product])}
+                  >
+                    <PrinterIcon className="size-4" />
+                  </Button>
+                </TableCell>
               </TableRow>
             );
           })}
         </TableBody>
       </Table>
+    </div>
     </div>
   );
 }

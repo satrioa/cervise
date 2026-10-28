@@ -175,6 +175,20 @@ export async function addSparepartsToServis(servisId: string, items: SparepartUs
   return { ok: true };
 }
 
+export async function removeServisSparepart(sparepartId: string, reason: string) {
+  if (!sparepartId) throw new Error("Sparepart wajib");
+  const actor = await getActor();
+  const note = requireText(reason, "Alasan");
+
+  await callRpc(actor, "return_service_sparepart", {
+    p_sparepart_id: sparepartId,
+    p_reason: note,
+  });
+
+  revalidatePath("/app/servis");
+  return { ok: true };
+}
+
 export async function cancelServisWithSpareparts(
   servisId: string,
   decision: "return" | "keep_consumed",

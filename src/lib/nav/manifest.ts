@@ -15,8 +15,10 @@ import {
   Settings,
   BarChart3,
   ClipboardList,
+  KeyRound,
   type LucideIcon,
 } from "lucide-react";
+import { type PermissionKey, PERMISSION_KEYS, isPermissionKey } from "@/lib/auth/permissions";
 
 /**
  * Sumber kebenaran tunggal untuk navigasi dan hak akses.
@@ -68,6 +70,16 @@ export type NavEntry = {
   /** Kunci kapabilitas tanpa rute, mis. `inventory` untuk `/app/inventori`. */
   menuKeys?: string[];
   /**
+   * Izin yang dibutuhkan untuk membuka halaman.
+   *
+   * `roles` tetap dipakai untuk role bawaan; `permission` dipakai saat aktor
+   * punya daftar izin sendiri (role buatan pengguna). Entri tanpa `permission`
+   * selalu terbuka, mis. Home dan Profil.
+   */
+  permission?: PermissionKey;
+  /** Izin yang dibutuhkan untuk menulis. Kosong = ikut izin baca. */
+  writePermission?: PermissionKey;
+  /**
    * Role yang memakai shell compact, untuk halaman yang juga dipakai role lain.
    *
    * Halaman `/app` dipakai semua role tetapi shell-nya berbeda: manajer butuh
@@ -113,6 +125,8 @@ export const NAV_ENTRIES: NavEntry[] = [
     roles: ALL,
     surface: ["legacy", "compact"],
     menuKeys: ["servis"],
+    permission: "services.read",
+    writePermission: "services.update",
   },
   {
     href: "/app/penjualan",
@@ -123,6 +137,8 @@ export const NAV_ENTRIES: NavEntry[] = [
     roles: CASHIERS,
     surface: ["legacy", "compact"],
     menuKeys: ["penjualan"],
+    permission: "sales.read",
+    writePermission: "sales.create",
   },
   {
     href: "/app/inventori",
@@ -133,6 +149,8 @@ export const NAV_ENTRIES: NavEntry[] = [
     roles: ALL,
     surface: ["legacy", "compact"],
     menuKeys: ["inventory"],
+    permission: "products.read",
+    writePermission: "products.write",
   },
   {
     href: "/app/kategori-sparepart",
@@ -143,6 +161,7 @@ export const NAV_ENTRIES: NavEntry[] = [
     roles: ["MASTER_ADMIN", "ADMIN", "TECHNICIAN"],
     surface: ["legacy", "compact"],
     menuKeys: ["kategori_sparepart"],
+    permission: "services.sparepart",
   },
   {
     href: "/app/karyawan",
@@ -153,6 +172,8 @@ export const NAV_ENTRIES: NavEntry[] = [
     roles: MANAGERS,
     surface: ["legacy"],
     menuKeys: ["karyawan"],
+    permission: "employees.read",
+    writePermission: "employees.write",
   },
   {
     href: "/app/cabang",
@@ -164,6 +185,8 @@ export const NAV_ENTRIES: NavEntry[] = [
     readOnly: ["ADMIN"],
     surface: ["legacy"],
     menuKeys: ["cabang"],
+    permission: "branches.read",
+    writePermission: "branches.write",
   },
   {
     href: "/app/customer",
@@ -189,6 +212,8 @@ export const NAV_ENTRIES: NavEntry[] = [
     roles: CASHIERS,
     surface: ["legacy", "compact"],
     menuKeys: ["customer"],
+    permission: "customers.read",
+    writePermission: "customers.write",
   },
   {
     href: "/app/keuangan/transaksi",
@@ -198,6 +223,7 @@ export const NAV_ENTRIES: NavEntry[] = [
     group: "keuangan",
     roles: CASHIERS,
     surface: ["legacy", "compact"],
+    permission: "finance.read",
   },
   {
     href: "/app/keuangan/arus-kas",
@@ -207,6 +233,7 @@ export const NAV_ENTRIES: NavEntry[] = [
     group: "keuangan",
     roles: CASHIERS,
     surface: ["legacy", "compact"],
+    permission: "finance.read",
   },
   {
     href: "/app/analitik-servis",
@@ -216,6 +243,7 @@ export const NAV_ENTRIES: NavEntry[] = [
     group: "laporan",
     roles: ["FRONTLINER", "TECHNICIAN"],
     surface: ["compact"],
+    permission: "reports.service",
   },
   {
     href: "/app/laporan/servis",
@@ -225,6 +253,7 @@ export const NAV_ENTRIES: NavEntry[] = [
     group: "laporan",
     roles: ALL,
     surface: ["legacy", "compact"],
+    permission: "reports.service",
   },
   {
     href: "/app/laporan/keuangan",
@@ -234,6 +263,7 @@ export const NAV_ENTRIES: NavEntry[] = [
     group: "laporan",
     roles: CASHIERS,
     surface: ["legacy", "compact"],
+    permission: "reports.finance",
   },
   {
     href: "/app/laporan/penjualan",
@@ -243,6 +273,7 @@ export const NAV_ENTRIES: NavEntry[] = [
     group: "laporan",
     roles: CASHIERS,
     surface: ["legacy", "compact"],
+    permission: "reports.sales",
   },
   {
     href: "/app/laporan/performa",
@@ -252,6 +283,7 @@ export const NAV_ENTRIES: NavEntry[] = [
     group: "laporan",
     roles: CASHIERS,
     surface: ["legacy"],
+    permission: "reports.performance",
   },
   {
     href: "/app/laporan/shift",
@@ -261,6 +293,7 @@ export const NAV_ENTRIES: NavEntry[] = [
     group: "laporan",
     roles: MANAGERS,
     surface: ["legacy"],
+    permission: "reports.shift",
   },
   {
     href: "/app/garansi",
@@ -271,6 +304,7 @@ export const NAV_ENTRIES: NavEntry[] = [
     roles: ALL,
     surface: ["legacy", "compact"],
     menuKeys: ["garansi"],
+    permission: "warranty.read",
   },
   {
     href: "/app/audit-log",
@@ -281,6 +315,7 @@ export const NAV_ENTRIES: NavEntry[] = [
     roles: MANAGERS,
     surface: ["legacy"],
     menuKeys: ["audit_log"],
+    permission: "audit.read",
   },
   {
     href: "/app/pengaturan/profil",
@@ -304,6 +339,7 @@ export const NAV_ENTRIES: NavEntry[] = [
     roles: ["MASTER_ADMIN", "ADMIN"],
     surface: ["legacy", "compact"],
     menuKeys: ["pengaturan_lokalisasi"],
+    permission: "settings.read",
   },
   {
     href: "/app/pengaturan",
@@ -314,6 +350,7 @@ export const NAV_ENTRIES: NavEntry[] = [
     roles: ["MASTER_ADMIN"],
     surface: ["legacy"],
     menuKeys: ["pengaturan_general"],
+    permission: "settings.write",
   },
   {
     href: "/app/pengaturan/tampilan",
@@ -324,6 +361,7 @@ export const NAV_ENTRIES: NavEntry[] = [
     roles: ["MASTER_ADMIN"],
     surface: ["legacy"],
     menuKeys: ["pengaturan_tampilan"],
+    permission: "settings.write",
   },
   {
     href: "/app/pengaturan/subscription",
@@ -334,6 +372,7 @@ export const NAV_ENTRIES: NavEntry[] = [
     roles: ["MASTER_ADMIN"],
     surface: ["legacy"],
     menuKeys: ["pengaturan_subscription"],
+    permission: "subscription.read",
   },
   {
     href: "/app/pengaturan/usage",
@@ -344,6 +383,22 @@ export const NAV_ENTRIES: NavEntry[] = [
     roles: ["MASTER_ADMIN"],
     surface: ["legacy"],
     menuKeys: ["pengaturan_usage"],
+    permission: "usage.read",
+  },
+  {
+    href: "/app/pengaturan/role",
+    key: "roles",
+    label: "Role & Izin",
+    icon: KeyRound,
+    group: "pengaturan",
+    roles: MANAGERS,
+    // ADMIN boleh melihat role yang ada supaya ia paham batas aksesnya, tetapi
+    // hanya MASTER_ADMIN yang boleh membuat atau mengubahnya.
+    readOnly: ["ADMIN"],
+    surface: ["legacy"],
+    menuKeys: ["pengaturan_role"],
+    permission: "roles.read",
+    writePermission: "roles.write",
   },
 ];
 
@@ -355,11 +410,28 @@ const CAPABILITY_ACCESS: Record<string, AppRole[]> = {
   // `servis/actions.ts` memakai ini untuk mencatat pembayaran servis.
   // FRONTLINER sengaja TIDAK termasuk: dia memakai dialog pembayaran sendiri.
   keuangan_transaksi: ["MASTER_ADMIN", "ADMIN"],
+  // `servis/actions.ts` memakai ini untuk mencatat pembayaran servis dari
+  // dialog servis. Dipisah dari `keuangan_transaksi` supaya FRONTLINER boleh
+  // menerima pembayaran tanpa ikut membuka menu Keuangan.
+  servis_pembayaran: ["MASTER_ADMIN", "ADMIN", "FRONTLINER"],
   // `penjualan/actions.ts` memakai ini untuk overriding harga jual.
   harga_jual: ["MASTER_ADMIN", "ADMIN"],
 };
 
 export const CAPABILITY_KEYS = Object.keys(CAPABILITY_ACCESS);
+
+/**
+ * Padanan izin untuk kapabilitas tanpa rute.
+ *
+ * Dipakai saat aktor punya daftar izin sendiri. Sengaja dipisah dari
+ * `CAPABILITY_ACCESS` (yang berbasis role) supaya role bawaan tetap berjalan
+ * persis seperti sebelumnya.
+ */
+const CAPABILITY_PERMISSION: Record<string, PermissionKey> = {
+  keuangan_transaksi: "finance.write",
+  servis_pembayaran: "services.payment",
+  harga_jual: "sales.price_override",
+};
 
 export const GROUP_LABEL_KEY: Record<NavGroup, string | null> = {
   dashboard: null,
@@ -430,6 +502,96 @@ export function canWrite(role: string | null | undefined, key: string): boolean 
 }
 
 /**
+ * Izin yang dimiliki role bawaan.
+ *
+ * Diturunkan dari manifest, bukan ditulis ulang: menambah entri navigasi
+ * otomatis menambah izin role yang berhak, dan menu dengan izin tidak pernah
+ * berbeda pendapat. Test `manifest.test.ts` menjaga hasilnya tetap sama dengan
+ * aturan `roles`/`readOnly` yang lama.
+ */
+export function permissionsForSystemRole(
+  role: string | null | undefined,
+): PermissionKey[] {
+  const normalized = normalizeAppRole(role);
+  if (!normalized) return [];
+  const granted = new Set<PermissionKey>();
+  for (const entry of NAV_ENTRIES) {
+    if (!entry.roles.includes(normalized)) continue;
+    if (entry.permission) granted.add(entry.permission);
+    if (entry.writePermission && canWrite(normalized, entry.href)) {
+      granted.add(entry.writePermission);
+    }
+  }
+  for (const [capability, permission] of Object.entries(CAPABILITY_PERMISSION)) {
+    if (canAccess(normalized, capability)) granted.add(permission);
+  }
+  return PERMISSION_KEYS.filter((permission) => granted.has(permission));
+}
+
+/**
+ * Role buatan pengguna hanya boleh MEMPERSEMPIT role dasarnya.
+ *
+ * Setiap izin yang tidak dimiliki role dasar dibuang. Dengan begitu role
+ * seperti "Admin tanpa keuangan" mungkin, sementara "Frontliner yang boleh
+ * hapus karyawan" tidak pernah bisa dibuat — dan database tetap hanya melihat
+ * `employees.role` yang lama.
+ */
+export function sanitizePermissions(
+  baseRole: string | null | undefined,
+  input: readonly string[] | null | undefined,
+): PermissionKey[] {
+  const allowed = new Set<string>(permissionsForSystemRole(baseRole));
+  const picked = new Set(input ?? []);
+  return PERMISSION_KEYS.filter(
+    (permission) => allowed.has(permission) && picked.has(permission),
+  );
+}
+
+/** Apakah daftar izin ini boleh membuka `key` (`href` atau `menuKeys`). */
+export function canAccessWith(
+  permissions: readonly string[] | null | undefined,
+  key: string,
+): boolean {
+  const granted = new Set(permissions ?? []);
+  const capability = CAPABILITY_PERMISSION[key];
+  if (capability) return granted.has(capability);
+  const entry = NAV_ENTRIES.find((item) => item.href === key || item.menuKeys?.includes(key));
+  if (!entry) return false;
+  return entry.permission ? granted.has(entry.permission) : true;
+}
+
+/** Apakah daftar izin ini boleh menulis `key`. */
+export function canWriteWith(
+  permissions: readonly string[] | null | undefined,
+  key: string,
+): boolean {
+  const granted = new Set(permissions ?? []);
+  const entry = NAV_ENTRIES.find((item) => item.href === key || item.menuKeys?.includes(key));
+  if (!entry) {
+    // Kapabilitas tanpa rute: menulis butuh izin yang sama dengan membukanya.
+    return canAccessWith(permissions, key);
+  }
+  const required = entry.writePermission ?? entry.permission;
+  return required ? granted.has(required) : true;
+}
+
+/**
+ * Izin efektif seorang aktor.
+ *
+ * Actor menyimpan `permissions` hanya kalau ia memakai role buatan pengguna.
+ * Role bawaan memakai turunan manifest, sehingga tidak ada jalur di mana
+ * daftar izin kosong justru jatuh ke akses penuh.
+ */
+export function permissionsOf(actor: {
+  role: string;
+  permissions?: readonly string[];
+}): PermissionKey[] {
+  return actor.permissions
+    ? [...actor.permissions].filter(isPermissionKey)
+    : permissionsForSystemRole(actor.role);
+}
+
+/**
  * Shell yang dipakai role ini, ditentukan oleh entri manifest untuk `/app`.
  *
  * Yang menentukan hanya `compactRoles`. Field `surface` sengaja tidak dipakai
@@ -482,16 +644,19 @@ const HIDDEN_GROUPS: Record<Surface, NavGroup[]> = {
 export function navFor(
   role: string | null | undefined,
   surface: Surface,
-  options?: { includeHidden?: boolean },
+  options?: { includeHidden?: boolean; permissions?: readonly string[] },
 ): NavGroupBlock[] {
   const normalized = normalizeAppRole(role);
-  if (!normalized) return [];
+  const granted = options?.permissions ? new Set(options.permissions) : null;
+  if (!granted && !normalized) return [];
 
   const hidden = options?.includeHidden ? [] : HIDDEN_GROUPS[surface];
   const visible = NAV_ENTRIES.filter(
     (entry) =>
       entry.surface.includes(surface) &&
-      entry.roles.includes(normalized) &&
+      (granted
+        ? !entry.permission || granted.has(entry.permission)
+        : entry.roles.includes(normalized as AppRole)) &&
       !hidden.includes(entry.group),
   );
 

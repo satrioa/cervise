@@ -500,7 +500,7 @@ export async function deleteServis(id: string) {
  */
 export async function addPembayaran(params: { servisId: string; amount: number; metode: "Tunai" | "Debit" | "Transfer" | "QRIS" | "E-Wallet"; kas_date?: string; keterangan?: string }) {
   const { supabase, branchId, userId, role } = await getBranchAndUser();
-  if (!canAccess(role, "keuangan_transaksi")) throw new Error("Hanya admin/kasir boleh input pembayaran");
+  if (!canAccess(role, "servis_pembayaran")) throw new Error("Hanya admin/kasir boleh input pembayaran");
   if (!params.servisId) throw new Error("Servis ID wajib");
   if (!params.amount || !Number.isFinite(params.amount) || params.amount <= 0) throw new Error("Nominal harus >0");
   if (!["Tunai", "Debit", "Transfer", "QRIS", "E-Wallet"].includes(params.metode)) throw new Error("Metode tidak valid");

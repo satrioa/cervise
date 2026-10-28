@@ -1,4 +1,5 @@
 import { formatCurrencyPlain } from "@/lib/format";
+import type { ShiftReport } from "@/lib/operational/laporan-shift";
 import { receiptStamp } from "@/lib/sales/receipt";
 import type { SalesReceiptInput } from "@/lib/sales/receipt";
 import { parsePaymentNote } from "@/lib/sales/payment-note";
@@ -6,12 +7,14 @@ import type { ServiceReceiptInput } from "./types";
 import {
   PAPER_COLS,
   align,
+  barcode,
   centerLine,
   columns,
   line,
   normalizeAscii,
   qr,
   renderLines,
+  text,
   wrap,
   type EscposRaster,
 } from "./escpos";
@@ -99,6 +102,7 @@ export function buildServiceReceiptLines(input: ServiceReceiptInput): string[] {
   lines.push(columns("No. Servis", input.invoiceNo));
   lines.push(columns("Tanggal", input.printTime));
   lines.push(columns("Pelanggan", safe(customer.name)));
+  if (customer.address?.trim()) lines.push(...wrap(`Alamat: ${customer.address.trim()}`));
   if (customer.phone?.trim()) lines.push(columns("No. HP", customer.phone.trim()));
   lines.push(columns("Teknisi", safe(input.teknisi)));
 
@@ -109,7 +113,7 @@ export function buildServiceReceiptLines(input: ServiceReceiptInput): string[] {
     lines.push("Keluhan:");
     lines.push(...wrap(service.complaint));
   }
-  if (service.sparepart?.trim()) {
+  if (!service.isEstimate && service.sparepart?.trim()) {
     lines.push("Sparepart:");
     lines.push(...wrap(service.sparepart));
   }
@@ -117,7 +121,7 @@ export function buildServiceReceiptLines(input: ServiceReceiptInput): string[] {
 
   lines.push(line());
   const price = service.price === null || !Number.isFinite(service.price) ? EM_DASH : formatCurrencyPlain(service.price);
-  lines.push(columns("TOTAL", price));
+  lines.push(columns(service.isEstimate ? "ESTIMASI" : "TOTAL", price));
 
   if (service.garansiSampai?.trim()) {
     lines.push(line());
@@ -125,8 +129,8 @@ export function buildServiceReceiptLines(input: ServiceReceiptInput): string[] {
   }
 
   lines.push(line());
-  lines.push(centerLine("Simpan nota ini sebagai bukti garansi"));
-  lines.push(centerLine("Terima kasih"));
+  lines.push(centerLine("Simpan Nota ini untuk pengambilan device"));
+  lines.push(centerLine("Terima Kasih"));
   return lines;
 }
 
@@ -145,10 +149,112 @@ export function buildServiceEscpos(
   input: ServiceReceiptInput,
   options: { trackingUrl?: string | null; cut?: boolean } = {},
 ): Uint8Array {
-  const qrCommand = options.trackingUrl ? [...align("center"), ...qr(options.trackingUrl)] : undefined;
+  const after: number[] = [];
+  if (options.trackingUrl) {
+    after.push(
+      ...align("center"),
+      ...qr(options.trackingUrl),
+      ...text(centerLine("Scan QR Code di atas untuk pantau progres servis")),
+      ...align("left"),
+      ...text(line()),
+    );
+  }
+  after.push(...align("center"), ...barcode(input.invoiceNo), ...text(centerLine(input.invoiceNo)), ...align("left"));
   return renderLines(buildServiceReceiptLines(input), {
-    boldLine: (row) => row.startsWith("TOTAL"),
-    afterLines: qrCommand,
+    boldLine: (row) => row.startsWith("TOTAL") || row.startsWith("ESTIMASI"),
+    afterLines: after,
+    cut: options.cut,
+  });
+}
+
+/* ------------------------------------------------------- ringkasan shift --- */
+
+function wibDateTime(iso: string): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return iso;
+  const day = new Intl.DateTimeFormat("id-ID", {
+    timeZone: "Asia/Jakarta",
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  }).format(date);
+  const time = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Asia/Jakarta",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).format(date);
+  return `${day} ${time}`;
+}
+
+function durationText(minutes: number): string {
+  const total = Math.max(0, Math.round(minutes));
+  return `${Math.floor(total / 60)}j ${total % 60}m`;
+}
+
+/**
+ * Struk ringkasan shift 58mm. Isinya sengaja lebih lengkap dari tampilan
+ * dialog: struk adalah catatan laci, jadi siapa membuka/menutup, berapa lama,
+ * sparepart apa yang terpakai, dan hitungan status servis ikut tercetak.
+ */
+export function buildShiftReceiptLines(report: ShiftReport): string[] {
+  const lines: string[] = [centerLine(safe(report.branchName, "Toko").toUpperCase(), 16)];
+
+  lines.push(columns("Open Shift", wibDateTime(report.openAt)));
+  lines.push(columns("Open By", safe(report.employeeName)));
+  lines.push(columns("Close Shift", wibDateTime(report.closingAt)));
+  lines.push(columns("Close By", safe(report.closedByName)));
+  lines.push(columns("Total Duration", durationText(report.durationMinutes ?? 0)));
+  lines.push(line());
+
+  const spareparts = report.spareparts ?? [];
+  if (spareparts.length > 0) {
+    lines.push("Sparepart terpakai");
+    for (const part of spareparts) {
+      lines.push(columns(`  ${safe(part.name)}`, `x${part.qty}`));
+    }
+    lines.push(line());
+  }
+
+  const stats = report.serviceStats ?? {
+    masuk: report.services.length,
+    selesai: 0,
+    diambil: 0,
+    batal: 0,
+  };
+  lines.push(columns("Servis Masuk", String(stats.masuk)));
+  if (stats.selesai > 0) lines.push(columns("Servis Selesai", String(stats.selesai)));
+  if (stats.diambil > 0) lines.push(columns("Diambil", String(stats.diambil)));
+  if (stats.batal > 0) lines.push(columns("Batal", String(stats.batal)));
+  lines.push(line());
+
+  lines.push(columns("Saldo awal", formatCurrencyPlain(report.openingBalance)));
+  lines.push(columns(`Servis (${report.services.length})`, formatCurrencyPlain(report.totals.services)));
+  lines.push(columns(`Penjualan (${report.sales.length})`, formatCurrencyPlain(report.totals.sales)));
+  lines.push(columns("Kas manual", formatCurrencyPlain(report.totals.manualNet)));
+  lines.push(line());
+  lines.push(columns("Harus ada", formatCurrencyPlain(report.expectedCash)));
+  lines.push(
+    columns(
+      "Saldo akhir",
+      report.closingBalance === null ? EM_DASH : formatCurrencyPlain(report.closingBalance),
+    ),
+  );
+  lines.push(
+    columns("Selisih", report.variance === null ? EM_DASH : formatCurrencyPlain(report.variance)),
+  );
+  if (report.reason?.trim()) lines.push(...wrap(`Catatan: ${report.reason.trim()}`));
+  lines.push(line());
+  lines.push(centerLine(`Dicetak ${wibDateTime(new Date().toISOString())}`));
+  return lines;
+}
+
+export function buildShiftEscpos(
+  report: ShiftReport,
+  options: { cut?: boolean } = {},
+): Uint8Array {
+  return renderLines(buildShiftReceiptLines(report), {
+    boldLine: (row) => row.startsWith("Harus ada") || row.startsWith("Selisih"),
     cut: options.cut,
   });
 }

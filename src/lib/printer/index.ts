@@ -1,10 +1,11 @@
 import type { PrinterStatus, PrinterTransport, PrintResult, ReceiptData, TransportId } from "./types";
 import { bestDirectTransport, supportedTransports, transportById } from "./detect";
 import { saveTransport, getSavedPrinterType } from "./storage";
-import { buildSaleEscpos, buildServiceEscpos } from "./receipt";
+import { buildSaleEscpos, buildServiceEscpos, buildShiftEscpos } from "./receipt";
 import { loadLogoRaster } from "./logo";
 import { centerLine, line, renderLines } from "./escpos";
 import { browserPrint, printHtml } from "./transports/browserPrint";
+import type { ShiftReport } from "@/lib/operational/laporan-shift";
 
 /**
  * API publik cetak nota.
@@ -89,8 +90,31 @@ export async function printReceipt(data: ReceiptData): Promise<PrintResult> {
   throw new Error("Pop-up diblokir — izinkan pop-up untuk mencetak nota");
 }
 
-/** Nota contoh untuk tombol "Cetak Tes" di pengaturan. */
-export async function printTest(): Promise<PrintResult> {
+/**
+ * Cetak struk ringkasan shift langsung ke printer yang tersimpan.
+ *
+ * Berbeda dari `printReceipt`, fungsi ini TIDAK punya fallback browser: kalau
+ * transport tidak ada atau gagal, ia melempar, dan pemanggil memutuskan untuk
+ * membuka dialog cetak. Dengan begitu Tutup Toko bisa mencetak otomatis tanpa
+ * dialog saat printer sudah terhubung, tapi struk tidak pernah hilang.
+ */
+export async function printShiftReceipt(report: ShiftReport): Promise<PrintResult> {
+  const transport = activeDirect();
+  if (!transport) throw new Error(NO_TRANSPORT);
+
+  try {
+    await ensureConnected(transport);
+    await transport.write(buildShiftEscpos(report));
+    saveTransport(transport.id);
+    return { transport: transport.id, fallback: false };
+  } catch (cause) {
+    // Koneksi setengah jadi jangan ditinggal: cetak berikutnya harus bersih.
+    await transport.disconnect().catch(() => {});
+    throw cause instanceof Error ? cause : new Error("Printer gagal dipakai");
+  }
+}
+
+/** Nota contoh untuk tombol "Cetak Tes" di pengaturan. */export async function printTest(): Promise<PrintResult> {
   const transport = activeDirect();
   if (!transport) throw new Error(NO_TRANSPORT);
   if (transport.id === "rawbt") throw new Error("RawBT tidak mendukung cetak tes langsung; pilih transport lain atau hubungkan perangkat");

@@ -45,7 +45,7 @@ export type ServiceReceiptInput = {
   branch: { name: string; address: string | null; phone: string | null; website?: string | null };
   invoiceNo: string;
   printTime: string;
-  customer: { name: string; phone: string };
+  customer: { name: string; phone: string; address?: string | null };
   teknisi: string;
   service: {
     device: string;
@@ -55,6 +55,8 @@ export type ServiceReceiptInput = {
     sparepart?: string;
     price: number | null;
     status: string;
+    /** Belum Selesai/Sudah Diambil: nominal masih estimasi. */
+    isEstimate?: boolean;
     date?: string;
     garansiSampai?: string;
     trackingCode?: string;

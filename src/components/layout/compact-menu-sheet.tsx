@@ -40,7 +40,7 @@ export function CompactMenuSheet({
       <SheetTitle className="sr-only">{t("title")}</SheetTitle>
       <SheetDescription className="sr-only">{t("description")}</SheetDescription>
 
-      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pb-2 pt-2">
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain scrollbar-none px-5 pb-2 pt-2">
         <MenuSection icon={LayoutGrid} label={t("operational")} defaultOpen>
           <MenuOperational role={role} onNavigate={onNavigate} />
         </MenuSection>

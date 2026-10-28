@@ -27,6 +27,8 @@ export type ShiftSession = {
   variance: number | null;
   branchName: string;
   employeeName: string;
+  /** Diisi saat sesi sudah ditutup; null untuk sesi terbuka / data lama. */
+  closedByName?: string | null;
 };
 
 export type ShiftServiceRow = {
@@ -97,6 +99,20 @@ export type ShiftCashLine = {
   metode: string | null;
 };
 
+/** Hitungan servis pada jendela shift, untuk struk ringkasan. */
+export type ShiftServiceStats = {
+  masuk: number;
+  selesai: number;
+  diambil: number;
+  batal: number;
+};
+
+/** Sparepart terpakai, sudah diagregasi per nama. */
+export type ShiftSparepartLine = {
+  name: string;
+  qty: number;
+};
+
 export type ShiftTotals = {
   services: number;
   sales: number;
@@ -122,6 +138,12 @@ export type ShiftReport = {
   sales: ShiftSaleLine[];
   cashTx: ShiftCashLine[];
   totals: ShiftTotals;
+  /** Siapa yang menutup shift. Snapshot lama belum punya field ini. */
+  closedByName?: string | null;
+  /** Selisih menit antara buka dan tutup (atau sekarang bila masih buka). */
+  durationMinutes?: number;
+  serviceStats?: ShiftServiceStats;
+  spareparts?: ShiftSparepartLine[];
 };
 
 function amount(value: number | null | undefined): number {
@@ -210,6 +232,8 @@ export function buildLaporanShift(input: {
   services: ShiftServiceRow[];
   sales: ShiftSaleRow[];
   cashTx: ShiftCashRow[];
+  /** Sparepart terpakai pada jendela shift; sudah diagregasi per nama. */
+  spareparts?: ShiftSparepartLine[];
   now: Date;
 }): ShiftReport {
   const { session, services, sales, cashTx, now } = input;
@@ -362,6 +386,16 @@ export function buildLaporanShift(input: {
       manualNet: manualIn - manualOut,
       expected,
     },
+    closedByName: session.closedByName ?? null,
+    durationMinutes: hasValidWindow ? Math.max(0, Math.round((closeMs - openMs) / 60_000)) : undefined,
+    serviceStats: {
+      // "Masuk" = semua servis pada jendela shift, termasuk yang sudah selesai.
+      masuk: serviceLines.length,
+      selesai: serviceLines.filter((line) => line.status === "Selesai").length,
+      diambil: serviceLines.filter((line) => line.status === "Sudah Diambil").length,
+      batal: serviceLines.filter((line) => line.status === "Batal").length,
+    },
+    spareparts: input.spareparts ?? [],
   };
 }
 

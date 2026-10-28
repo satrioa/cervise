@@ -114,6 +114,33 @@ describe("struk memuat kode cek publik", () => {
   });
 });
 
+describe("status belum selesai memakai estimasi", () => {
+  it("mencetak Estimasi, bukan Total, dan tanpa sparepart", () => {
+    const data = toPrintData(
+      { id: "s1", service_number: "SRV-2026-0009", status: "Dikerjakan", price: 0, price_estimasi: 250000, sparepart: "LCD" },
+      { brandName: "Servisin" },
+    );
+    expect(data.service.isEstimate).toBe(true);
+    expect(data.service.price).toBe(250000);
+    for (const html of [renderJetHtml(data), renderDotMatrixHtml(data), renderThermalHtml(data)]) {
+      expect(html).toContain("Estimasi");
+      expect(html).not.toContain("Total");
+      expect(html).not.toContain("Sparepart");
+    }
+  });
+
+  it("status Selesai memakai Total dan menampilkan sparepart", () => {
+    const data = toPrintData(
+      { id: "s1", service_number: "SRV-2026-0010", status: "Selesai", price: 0, price_estimasi: 250000, sparepart: "LCD" },
+      { brandName: "Servisin" },
+    );
+    expect(data.service.isEstimate).toBe(false);
+    const html = renderJetHtml(data);
+    expect(html).toContain("Total");
+    expect(html).toContain("Sparepart");
+  });
+});
+
 describe("nomor struk memakai nomor servis", () => {
   // Nomor struk dulu `s?.invoice_no || formatInvoiceNo(createdAt)`. Kolom
   // invoice_no tidak pernah ada di tabel servis, jadi formatInvoiceNo selalu

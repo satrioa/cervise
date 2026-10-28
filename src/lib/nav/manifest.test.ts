@@ -29,6 +29,7 @@ const CALLED_MENU_KEYS = [
   "customer",
   "inventory",
   "keuangan_transaksi",
+  "servis_pembayaran",
   "penjualan",
   "harga_jual",
   "pengaturan_general",
@@ -254,8 +255,10 @@ describe("canAccess", () => {
     expect(entries.map((entry) => entry.label)).toEqual(["Servis", "Inventori", "Sparepart"]);
   });
 
-  it("FRONTLINER tidak boleh mencatat pembayaran servis lewat keuangan_transaksi", () => {
+  it("FRONTLINER boleh mencatat pembayaran servis, tapi bukan lewat keuangan_transaksi", () => {
     expect(canAccess("FRONTLINER", "keuangan_transaksi")).toBe(false);
+    expect(canAccess("FRONTLINER", "servis_pembayaran")).toBe(true);
+    expect(canAccess("TECHNICIAN", "servis_pembayaran")).toBe(false);
   });
 
   it("ADMIN boleh overriding harga, FRONTLINER tidak", () => {

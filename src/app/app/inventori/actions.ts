@@ -3,7 +3,9 @@
 import { getActiveTenant } from "@/lib/supabase/actor";
 import { canAccess } from "@/lib/rbac";
 import { applyBranchScope } from "@/lib/supabase/branch-scope";
+import { revalidatePath } from "next/cache";
 import { groupInventoryProducts, summarizeInventory, type InventoryGroup, type InventoryProduct, type InventorySummary } from "@/lib/operational/inventori";
+import { prepareInventoriImport, type InventoriImportRow } from "@/lib/inventori/import";
 
 /**
  * Batas keras jumlah baris. Halaman inventori menampilkan seluruh katalog,
@@ -56,4 +58,54 @@ export async function getInventori(): Promise<InventoriData> {
 
   const groups = groupInventoryProducts(capped);
   return { groups, summary: summarizeInventory(groups), truncated };
+}
+
+/**
+ * Impor katalog dari file Excel. Validasi memakai aturan yang sama dengan
+ * pratinjau di dialog (`prepareInventoriImport`); server mengulangnya karena
+ * isi file tidak boleh dipercaya.
+ */
+export async function importInventori(rows: InventoriImportRow[]): Promise<{ inserted: number }> {
+  const actor = await getActiveTenant();
+  requireInventoryAccess(actor.role);
+  // Sejalan dengan `createProduct`: yang boleh menambah katalog adalah
+  // admin/frontliner, bukan teknisi yang hanya perlu melihat stok.
+  if (!canAccess(actor.role, "penjualan")) throw new Error("Hanya admin/frontliner boleh impor produk");
+  const branchId = actor.branchId;
+  if (!branchId) throw new Error("Cabang aktif belum dipilih");
+  if (rows.length === 0) throw new Error("File tidak berisi baris produk");
+
+  const { data: existing, error: existingError } = await actor.supabase
+    .from("cervise_products")
+    .select("sku")
+    .eq("branch_id", branchId);
+  if (existingError) throw new Error(existingError.message);
+
+  const { products, errors } = prepareInventoriImport(
+    rows,
+    (existing ?? []).map((row) => String(row.sku ?? "")),
+  );
+  if (errors.length > 0) {
+    const shown = errors.slice(0, 5).join("\n");
+    const rest = errors.length > 5 ? `\n… dan ${errors.length - 5} baris lain` : "";
+    throw new Error(shown + rest);
+  }
+
+  for (let index = 0; index < products.length; index += 50) {
+    const payload = products.slice(index, index + 50).map((product) => ({
+      branch_id: branchId,
+      organization_id: actor.orgId,
+      ...product,
+      is_serialized: product.variant_type === "BEKAS",
+      is_active: true,
+      bh_percent: null,
+      garansi_days: null,
+    }));
+    const { error } = await actor.supabase.from("cervise_products").insert(payload);
+    if (error) throw new Error(error.message);
+  }
+
+  revalidatePath("/app/inventori");
+  revalidatePath("/app/penjualan");
+  return { inserted: products.length };
 }

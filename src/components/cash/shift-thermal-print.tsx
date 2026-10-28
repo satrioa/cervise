@@ -15,16 +15,9 @@
  */
 
 import { rupiah, type ShiftReport } from "@/lib/operational/laporan-shift";
+import { printShiftReceipt } from "@/lib/printer";
 
-/**
- * Jam toko dalam zona waktu cabang.
- *
- * `openAt`/`closingAt` disimpan sebagai timestamptz UTC. Dicetak mentah
- * seperti yang dilakukan `formatShiftAsText` menghasilkan
- * "2026-09-18T02:00:00.000Z" di struk - panjang dan tidak terbaca. Struk ini
- * memformatnya sebagai jam lokal, karena yang penting untuk penyetor shift
- * adalah jam buka dan jam tutup, bukan representasi UTC-nya.
- */
+/** Jam toko dalam zona waktu cabang. */
 function clockTime(iso: string): string {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return iso;
@@ -38,6 +31,24 @@ function clockTime(iso: string): string {
     minute: "2-digit",
     hourCycle: "h23",
   }).format(date);
+}
+
+/** Tanggal + jam WIB, untuk header dan baris "Dicetak". */
+function stampTime(iso: string): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return iso;
+  const day = new Intl.DateTimeFormat("id-ID", {
+    timeZone: "Asia/Jakarta",
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  }).format(date);
+  return `${day} ${clockTime(iso)}`;
+}
+
+function durationText(minutes: number): string {
+  const total = Math.max(0, Math.round(minutes));
+  return `${Math.floor(total / 60)}j ${total % 60}m`;
 }
 
 /** Baris label/kolor nilai. Nilai selalu dirata-kanan agar kolom rupiah lurus. */
@@ -86,11 +97,23 @@ export function renderShiftThermalHtml(report: ShiftReport): string {
 </head><body>
   <div class="center bold" style="font-size:12px;">RINGKASAN SHIFT</div>
   <div class="center">${escapeHtml(report.branchName)}</div>
-  <div class="center">${escapeHtml(report.employeeName)}</div>
-  <div class="center">${escapeHtml(report.date)}</div>
-  <div class="center" style="font-size:9px;">${escapeHtml(clockTime(report.openAt))} - ${escapeHtml(
-    clockTime(report.closingAt),
-  )}</div>
+  <div class="center" style="font-size:9px;">${escapeHtml(report.date)}</div>
+  <hr class="sep">
+  ${row("Open Shift", stampTime(report.openAt))}
+  ${row("Open By", report.employeeName)}
+  ${row("Close Shift", stampTime(report.closingAt))}
+  ${row("Close By", report.closedByName?.trim() || "—")}
+  ${row("Total Duration", durationText(report.durationMinutes ?? 0))}
+  <hr class="sep">
+  ${report.spareparts && report.spareparts.length > 0
+    ? `<div class="bold">Sparepart terpakai</div>
+  ${report.spareparts.map((part) => row(part.name, `x${part.qty}`)).join("\n  ")}
+  <hr class="sep">`
+    : ""}
+  ${row("Servis Masuk", String(report.serviceStats?.masuk ?? report.services.length))}
+  ${(report.serviceStats?.selesai ?? 0) > 0 ? row("Servis Selesai", String(report.serviceStats?.selesai)) : ""}
+  ${(report.serviceStats?.diambil ?? 0) > 0 ? row("Diambil", String(report.serviceStats?.diambil)) : ""}
+  ${(report.serviceStats?.batal ?? 0) > 0 ? row("Batal", String(report.serviceStats?.batal)) : ""}
   <hr class="sep">
   ${row("Saldo awal", rupiah(report.openingBalance))}
   ${row(`Servis (${report.services.length})`, rupiah(totals.services))}
@@ -102,7 +125,7 @@ export function renderShiftThermalHtml(report: ShiftReport): string {
   ${row("Selisih", variance)}
   ${report.reason ? `<hr class="sep"><div class="note">${escapeHtml(report.reason)}</div>` : ""}
   <hr class="sep">
-  <div class="center" style="font-size:8px;">Dicetak ${escapeHtml(clockTime(new Date().toISOString()))}</div>
+  <div class="center" style="font-size:8px;">Dicetak ${escapeHtml(stampTime(new Date().toISOString()))}</div>
 </body></html>`;
 }
 
@@ -157,6 +180,22 @@ export function printShiftThermal(report: ShiftReport): boolean {
   } catch {
     frame.remove();
     return false;
+  }
+}
+
+/**
+ * Cetak struk shift: langsung ke printer yang tersimpan, atau dialog browser.
+ *
+ * Printer langsung (Bluetooth/serial/RawBT) tidak butuh dialog sama sekali.
+ * Kalau belum ada transport atau pengiriman gagal, struk tetap keluar lewat
+ * dialog cetak browser supaya shift tidak tutup tanpa catatan.
+ */
+export async function printShiftReport(report: ShiftReport): Promise<boolean> {
+  try {
+    await printShiftReceipt(report);
+    return true;
+  } catch {
+    return printShiftThermal(report);
   }
 }
 

@@ -120,4 +120,20 @@ describe("nota servis 58mm", () => {
     expect(hasQr(withQr)).toBe(true);
     expect(hasQr(withoutQr)).toBe(false);
   });
+
+  it("mencetak barcode nomor servis", () => {
+    const bytes = Array.from(buildServiceEscpos(service));
+    const hasBarcode = bytes.some(
+      (value, index) => value === 0x1d && bytes[index + 1] === 0x6b && bytes[index + 2] === 73,
+    );
+    expect(hasBarcode).toBe(true);
+  });
+
+  it("memakai Estimasi dan menyembunyikan sparepart saat belum selesai", () => {
+    const estimate = { ...service, service: { ...service.service, isEstimate: true } };
+    const text = buildServiceReceiptLines(estimate).join("\n");
+    expect(text).toContain("ESTIMASI");
+    expect(text).not.toContain("TOTAL");
+    expect(text).not.toContain("Sparepart:");
+  });
 });

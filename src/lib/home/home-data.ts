@@ -25,9 +25,10 @@ import {
   type ShiftSession,
 } from "@/lib/operational/laporan-shift";
 import type { Actor } from "@/lib/supabase/actor";
+import { sanitizeSearchTerm } from "@/lib/search-term";
 import type { StaffTodo } from "@/app/app/actions/todos";
 import type { TodoMention } from "@/app/app/actions/todo-mentions";
-import type { FrontlinerQueueItem, TechnicianDashboardData } from "./types";
+import type { FrontlinerQueueItem, PickupServiceItem, TechnicianDashboardData } from "./types";
 
 /**
  * Pengambilan data dashboard `/app`.
@@ -56,6 +57,9 @@ const QUEUE_ROW_LIMIT = 200;
 const SERVICE_ROW_CAP = 500;
 const SALE_ROW_CAP = 500;
 const CASH_ROW_CAP = 500;
+// Satu shift normal memakai jauh lebih sedikit dari ini; batas ini hanya
+// menjaga query tetap terbatas kalau ada data aneh.
+const SPAREPART_ROW_CAP = 500;
 
 /** Berapa baris yang dikirim ke kartu "Servis terbaru". */
 const TERBARU_LIMIT = 6;
@@ -244,6 +248,80 @@ async function loadCustomerNames(
     .in("id", customerIds);
   if (error) throw new Error(error.message);
   return new Map((data ?? []).map((row) => [row.id as string, row.name as string]));
+}
+
+/** Batas hasil pencarian pengambilan device; panelnya kecil, bukan halaman. */
+const PICKUP_LIMIT = 10;
+
+/**
+ * Cari servis berstatus `Selesai` (siap diambil) berdasarkan nomor servis,
+ * perangkat, nama customer, atau nomor HP.
+ *
+ * Dua langkah karena PostgREST tidak bisa memfilter kolom tabel relasi yang
+ * tidak ikut di-select: customer dicari dulu, id-nya dipakai untuk memfilter
+ * servis. Pola yang sama dipakai daftar servis.
+ */
+export async function searchPickupServices(
+  ctx: HomeContext,
+  rawQuery: string,
+): Promise<PickupServiceItem[]> {
+  const { supabase, branchId } = ctx;
+  const term = sanitizeSearchTerm(rawQuery);
+  if (term.length < 2) return [];
+
+  const { data: customers, error: customerError } = await supabase
+    .from("cervise_customers")
+    .select("id")
+    .eq("branch_id", branchId)
+    .or(`name.ilike.%${term}%,phone.ilike.%${term}%`)
+    .limit(PICKUP_LIMIT);
+  if (customerError) throw new Error(customerError.message);
+
+  const customerIds = (customers ?? []).map((row) => row.id as string);
+  const filters = [`service_number.ilike.%${term}%`, `device.ilike.%${term}%`];
+  if (customerIds.length > 0) filters.push(`customer_id.in.(${customerIds.join(",")})`);
+
+  const { data, error } = await supabase
+    .from("cervise_services")
+    .select("id, service_number, device, customer_id, updated_at")
+    .eq("branch_id", branchId)
+    .eq("status", "Selesai")
+    .or(filters.join(","))
+    .order("updated_at", { ascending: false })
+    .limit(PICKUP_LIMIT);
+  if (error) throw new Error(error.message);
+
+  const rows = data ?? [];
+  const resultCustomerIds = [
+    ...new Set(rows.map((row) => row.customer_id).filter(Boolean)),
+  ] as string[];
+
+  const contact = new Map<string, { name: string; phone: string }>();
+  if (resultCustomerIds.length > 0) {
+    const { data: contacts, error: contactError } = await supabase
+      .from("cervise_customers")
+      .select("id, name, phone")
+      .in("id", resultCustomerIds);
+    if (contactError) throw new Error(contactError.message);
+    for (const row of contacts ?? []) {
+      contact.set(row.id as string, {
+        name: String(row.name ?? ""),
+        phone: String(row.phone ?? ""),
+      });
+    }
+  }
+
+  return rows.map((row) => {
+    const customer = row.customer_id ? contact.get(row.customer_id as string) : undefined;
+    return {
+      id: row.id as string,
+      serviceNumber: (row.service_number as string | null) ?? null,
+      device: (row.device as string | null) ?? "Tanpa perangkat",
+      customerName: customer?.name ?? null,
+      customerPhone: customer?.phone ?? null,
+      updatedAt: row.updated_at as string,
+    };
+  });
 }
 
 /**
@@ -437,11 +515,36 @@ export async function computeShiftReport(
   if (salesResult.error) throw new Error(salesResult.error.message);
   if (cashResult.error) throw new Error(cashResult.error.message);
 
+  // Sparepart dipotong dengan jendela jam yang sama seperti servis: baris
+  // sparepart dibuat saat teknisi memakainya, jadi created_at-nya setara.
+  // Baris yang sudah dikembalikan tidak dihitung sebagai pemakaian.
+  const closeAt = session.closedAt ?? now.toISOString();
+  const sparepartsResult = await supabase
+    .from("cervise_service_spareparts")
+    .select("name, qty")
+    .eq("branch_id", branchId)
+    .eq("is_returned", false)
+    .gte("created_at", session.openAt)
+    .lt("created_at", closeAt)
+    .limit(SPAREPART_ROW_CAP);
+
+  if (sparepartsResult.error) throw new Error(sparepartsResult.error.message);
+
+  const sparepartQty = new Map<string, number>();
+  for (const row of sparepartsResult.data ?? []) {
+    const name = String(row.name ?? "").trim();
+    if (!name) continue;
+    sparepartQty.set(name, (sparepartQty.get(name) ?? 0) + Number(row.qty ?? 0));
+  }
+
   return buildLaporanShift({
     session,
     services: (servicesResult.data ?? []) as ShiftServiceRow[],
     sales: (salesResult.data ?? []) as ShiftSaleRow[],
     cashTx: (cashResult.data ?? []) as ShiftCashRow[],
+    spareparts: [...sparepartQty.entries()]
+      .map(([name, qty]) => ({ name, qty }))
+      .sort((a, b) => a.name.localeCompare(b.name)),
     now,
   });
 }

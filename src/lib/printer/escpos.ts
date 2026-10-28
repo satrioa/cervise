@@ -84,6 +84,21 @@ export function qr(data: string, moduleSize = 4): number[] {
   ];
 }
 
+/**
+ * Barcode Code 128 native (GS k 73). Data wajib ASCII. Kalau printer tidak
+ * mendukung barcode, perintahnya diabaikan dan nomor servis tetap tercetak.
+ */
+export function barcode(data: string): number[] {
+  const payload = Array.from(normalizeAscii(data), (char) => char.charCodeAt(0));
+  if (payload.length === 0) return [];
+  return [
+    GS, 0x68, 0x50, // tinggi 80 dot
+    GS, 0x77, 0x02, // lebar modul 2
+    GS, 0x48, 0x02, // HRI di bawah barcode
+    GS, 0x6b, 73, payload.length, ...payload,
+  ];
+}
+
 /** Garis pemisah selebar kertas. */
 export function line(char = "-", cols = PAPER_COLS): string {
   return char.repeat(cols);

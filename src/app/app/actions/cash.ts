@@ -12,9 +12,10 @@ import {
   loadCashSessionRecord,
   loadFrontlinerKpi,
   loadFrontlinerQueue,
+  searchPickupServices as searchPickupDevices,
   type CashSessionRecord,
 } from "@/lib/home/home-data";
-import type { FrontlinerQueueItem } from "@/lib/home/types";
+import type { FrontlinerQueueItem, PickupServiceItem } from "@/lib/home/types";
 
 /**
  * Sesi kas harian dan Laporan Shift.
@@ -153,6 +154,16 @@ export async function closeCashSession(input: {
     const report = await computeShiftReport(ctx, session);
     if (!report) return fail("Gagal menghitung laporan shift");
 
+    // "Close By" dicatat di snapshot, bukan kolom baru: yang menutup shift
+    // selalu aktor yang menekan tombol ini, dan snapshot memang sudah menjadi
+    // arsip laporan yang dibaca ulang.
+    const { data: closer } = await supabase
+      .from("profiles")
+      .select("full_name")
+      .eq("id", userId)
+      .maybeSingle();
+    const closedByName = (closer?.full_name as string | null) ?? null;
+
     // `expected_cash` dan `variance` memakai report.expectedCash, bukan
     // report.totals.expected. Yang kedua adalah omzet: penjualan non-Tunai dan
     // pendapatan servis ikut di dalamnya, dan keduanya tidak pernah ada di
@@ -165,7 +176,7 @@ export async function closeCashSession(input: {
         closing_balance: closing,
         expected_cash: report.expectedCash,
         variance: closing - report.expectedCash,
-        snapshot: { ...report, reason: input.reason?.trim() || null },
+        snapshot: { ...report, reason: input.reason?.trim() || null, closedByName },
       })
       .eq("id", input.sessionId)
       .is("closed_at", null)
@@ -186,6 +197,7 @@ export async function closeCashSession(input: {
         reason: input.reason?.trim() || null,
         closingBalance: closing,
         variance: closing - report.expectedCash,
+        closedByName,
       },
     };
   } catch (cause) {
@@ -338,5 +350,17 @@ export async function getFrontlinerQueue(): Promise<CashResult<FrontlinerQueueIt
     return { ok: true, data: await loadFrontlinerQueue(await cashContext()) };
   } catch (cause) {
     return fail(cause instanceof Error ? cause.message : "Gagal memuat antrean servis");
+  }
+}
+
+/**
+ * Pencarian device siap diambil untuk bento "Pengambilan Device".
+ * Hanya status `Selesai`; yang sudah diambil tidak perlu dicari lagi.
+ */
+export async function searchPickupServices(query: string): Promise<CashResult<PickupServiceItem[]>> {
+  try {
+    return { ok: true, data: await searchPickupDevices(await cashContext(), query) };
+  } catch (cause) {
+    return fail(cause instanceof Error ? cause.message : "Gagal mencari device");
   }
 }

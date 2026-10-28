@@ -44,7 +44,8 @@ import { getPembayaranHistory, getServisLogs } from "@/app/app/servis/actions";
 import { ServisPaymentPanel } from "./servis-payment-panel";
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
 import { XIcon } from "lucide-react";
-import { getServisSpareparts } from "@/app/app/servis/sparepart-actions";
+import { toast } from "sonner";
+import { getServisSpareparts, removeServisSparepart } from "@/app/app/servis/sparepart-actions";
 import { SparepartPickDialog } from "./sparepart-dialogs";
 import { canAddSparepart } from "@/lib/servis-status-map";
 
@@ -222,6 +223,11 @@ export function ServisDetailView({ data }: Props) {
   const [spareparts, setSpareparts] = useState<any[]>([]);
   const [spLoading, setSpLoading] = useState(false);
   const [openAddPart, setOpenAddPart] = useState(false);
+  // Baris yang ditandai hapus belum menyentuh server; stok baru dikembalikan
+  // saat "Simpan" dikonfirmasi.
+  const [pendingRemove, setPendingRemove] = useState<string[]>([]);
+  const [confirmRemoveOpen, setConfirmRemoveOpen] = useState(false);
+  const [removing, setRemoving] = useState(false);
   const totalPaid = history.reduce((a, b) => a + Number(b.amount), 0);
   const estimasiVal = d.price_estimasi ?? null;
   const sisa = estimasiVal != null ? Math.max(0, estimasiVal - totalPaid) : null;
@@ -234,6 +240,27 @@ export function ServisDetailView({ data }: Props) {
       .then((r) => setSpareparts(r as any[]))
       .catch(() => setSpareparts([]))
       .finally(() => setSpLoading(false));
+  };
+
+  const canRemoveParts = status !== "Batal" && status !== "Sudah Diambil";
+  const pendingRows = spareparts.filter((r) => pendingRemove.includes(r.id));
+  const togglePendingRemove = (id: string) => {
+    setPendingRemove((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  };
+  const handleConfirmRemove = async () => {
+    if (pendingRemove.length === 0) return;
+    setRemoving(true);
+    try {
+      for (const id of pendingRemove) await removeServisSparepart(id, "Dihapus dari servis");
+      toast.success(`${pendingRemove.length} sparepart dikembalikan ke stok`);
+      setPendingRemove([]);
+      setConfirmRemoveOpen(false);
+      refreshSpareparts();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Gagal menghapus sparepart");
+    } finally {
+      setRemoving(false);
+    }
   };
 
   useEffect(() => {
@@ -495,22 +522,45 @@ export function ServisDetailView({ data }: Props) {
                     <div className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">Belum ada sparepart dipakai. {canAdd ? "Klik + Tambah Sparepart atau ubah status ke Dikerjakan untuk memilih." : "Sparepart dipilih saat status Dikerjakan."}</div>
                   ) : (
                     <div className="overflow-hidden rounded-lg border">
-                      <div className="hidden sm:grid grid-cols-[1fr_90px_80px_90px_110px] gap-2 bg-muted/50 px-3 py-2 font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
-                        <span>Sparepart</span><span>SKU</span><span className="text-center">Qty</span><span className="text-right">Harga</span><span className="text-center">Status</span>
+                      <div className="hidden sm:grid grid-cols-[1fr_90px_80px_90px_110px_36px] gap-2 bg-muted/50 px-3 py-2 font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
+                        <span>Sparepart</span><span>SKU</span><span className="text-center">Qty</span><span className="text-right">Harga</span><span className="text-center">Status</span><span className="text-center">Aksi</span>
                       </div>
                       <div className="divide-y">
                         {spareparts.map((r: any) => (
-                          <div key={r.id} className="grid grid-cols-1 sm:grid-cols-[1fr_90px_80px_90px_110px] gap-1 sm:gap-2 px-3 py-2.5 text-sm items-center">
-                            <span className="font-medium truncate">{r.name}</span>
+                          <div key={r.id} className={`grid grid-cols-1 sm:grid-cols-[1fr_90px_80px_90px_110px_36px] gap-1 sm:gap-2 px-3 py-2.5 text-sm items-center ${pendingRemove.includes(r.id) ? "opacity-50" : ""}`}>
+                            <span className={`font-medium truncate ${pendingRemove.includes(r.id) ? "line-through" : ""}`}>{r.name}</span>
                             <span className="font-mono text-xs text-muted-foreground">{r.sku ?? "—"}</span>
                             <span className="text-center font-mono">×{r.qty}</span>
                             <span className="text-right font-mono text-xs">{formatCurrencyPlain(Number(r.unit_price ?? 0))}</span>
-                            <span className="flex justify-center">{r.is_returned ? <Badge variant="warning">Dikembalikan</Badge> : <Badge variant="success">Terpakai</Badge>}</span>
+                            <span className="flex justify-center">{r.is_returned ? <Badge variant="warning">Dikembalikan</Badge> : pendingRemove.includes(r.id) ? <Badge variant="destructive">Akan dihapus</Badge> : <Badge variant="success">Terpakai</Badge>}</span>
+                            <span className="flex justify-center">
+                              {!r.is_returned && canRemoveParts ? (
+                                <Button
+                                  size="icon-sm"
+                                  variant="ghost"
+                                  aria-label={`Hapus ${r.name}`}
+                                  title={pendingRemove.includes(r.id) ? "Batalkan hapus" : "Hapus sparepart"}
+                                  className={pendingRemove.includes(r.id) ? "text-destructive" : "text-muted-foreground"}
+                                  onClick={() => togglePendingRemove(r.id)}
+                                >
+                                  <Trash2Icon className="size-4" />
+                                </Button>
+                              ) : null}
+                            </span>
                           </div>
                         ))}
                       </div>
                     </div>
                   )}
+                  {pendingRemove.length > 0 ? (
+                    <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2">
+                      <span className="text-sm">{pendingRemove.length} item akan dihapus</span>
+                      <div className="flex gap-2">
+                        <Button size="sm" variant="outline" onClick={() => setPendingRemove([])}>Batal</Button>
+                        <Button size="sm" variant="destructive" onClick={() => setConfirmRemoveOpen(true)}>Simpan</Button>
+                      </div>
+                    </div>
+                  ) : null}
                 </CardContent>
               </Card>
             </div>
@@ -679,6 +729,32 @@ export function ServisDetailView({ data }: Props) {
               <ServisPaymentPanel servisId={id} estimasi={estimasiVal} totalPaid={totalPaid} onSuccess={() => { setOpenBayar(false); setHistoryLoading(true); getPembayaranHistory(id).then((h) => setHistory(h as any[])).finally(() => setHistoryLoading(false)); }} onClose={() => setOpenBayar(false)} />
             </div>
             <DialogPrimitive.Close className="absolute right-3 top-3 rounded-md p-1 text-muted-foreground hover:bg-muted"><XIcon className="size-4" /></DialogPrimitive.Close>
+          </DialogPrimitive.Popup>
+        </DialogPrimitive.Portal>
+      </DialogPrimitive.Root>
+
+      <DialogPrimitive.Root open={confirmRemoveOpen} onOpenChange={setConfirmRemoveOpen}>
+        <DialogPrimitive.Portal>
+          <DialogPrimitive.Backdrop className="fixed inset-0 z-50 bg-black/60 backdrop-blur-md" />
+          <DialogPrimitive.Popup className="fixed left-1/2 top-1/2 z-50 w-[96vw] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-xl border bg-background p-5 shadow-2xl">
+            <DialogPrimitive.Title className="font-semibold">Hapus sparepart?</DialogPrimitive.Title>
+            <DialogPrimitive.Description className="mt-1 text-sm text-muted-foreground">
+              Stok dikembalikan ke inventori dan baris ditandai dikembalikan. Tindakan ini tidak bisa dibatalkan.
+            </DialogPrimitive.Description>
+            <ul className="mt-3 space-y-1 rounded-lg border bg-muted/30 p-3 text-sm">
+              {pendingRows.map((r) => (
+                <li key={r.id} className="flex items-center justify-between gap-2">
+                  <span className="truncate">{r.name}</span>
+                  <span className="shrink-0 font-mono text-xs">×{r.qty}</span>
+                </li>
+              ))}
+            </ul>
+            <div className="mt-4 flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setConfirmRemoveOpen(false)} disabled={removing}>Batal</Button>
+              <Button variant="destructive" onClick={handleConfirmRemove} disabled={removing}>
+                {removing ? "Menyimpan…" : "Ya, hapus"}
+              </Button>
+            </div>
           </DialogPrimitive.Popup>
         </DialogPrimitive.Portal>
       </DialogPrimitive.Root>

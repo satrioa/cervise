@@ -12,6 +12,8 @@ import { canManageEmployees } from "@/lib/auth/account-input";
 import { resolveTargetOrganization } from "@/lib/supabase/org-resolution";
 import { isTenantOwner } from "@/lib/tenant-slug";
 import { normalizeAppRole } from "@/lib/nav/manifest";
+import { permissionsForSystemRole, sanitizePermissions, permissionsOf } from "@/lib/nav/manifest";
+import type { PermissionKey } from "@/lib/auth/permissions";
 import {
   BRANCH_SCOPE_ALL,
   BRANCH_SCOPE_COOKIE,
@@ -34,6 +36,8 @@ type EmployeeRow = {
   organization_id: string;
   branch_id: string | null;
   role: string;
+  /** Role buatan pengguna. Null/absen = pakai role bawaan di `role`. */
+  role_key?: string | null;
 };
 
 type TenantRow = {
@@ -52,6 +56,10 @@ export type Actor = {
   branchId: string | null;
   employeeId: string;
   role: string;
+  permissions?: PermissionKey[];
+  roleLabel?: string;
+  roleKey?: string;
+  isCustomRole?: boolean;
   /**
    * Konteks cabang yang dipilih user (khusus MASTER_ADMIN), dibaca dari cookie
    * di server. Staf biasa selalu `{ mode: "branch" }` ke cabangnya sendiri.
@@ -162,7 +170,7 @@ async function resolveTenant(options: { allowExpiredSubscription: boolean }): Pr
   // fetch all active employees for user
   const { data: emps, error: empsErr } = await supabase
     .from("employees")
-    .select("id, organization_id, branch_id, role")
+    .select("id, organization_id, branch_id, role, role_key")
     .eq("profile_id", auth.user.id)
     .eq("is_active", true);
   if (empsErr) throw new TenantAccessError("lookup_failed", empsErr.message);
@@ -201,6 +209,39 @@ async function resolveTenant(options: { allowExpiredSubscription: boolean }): Pr
 
   const role = resolveActorRole(actorRow);
   const masterAdmin = isMasterAdminRole(role);
+
+  // Role buatan pengguna: dibatasi oleh role dasar (employees.role). Kalau
+  // role_key tidak ditemukan, atau dasar role-nya tidak cocok, jatuh ke role
+  // bawaan — tanpa kehilangan akses yang memang dimiliki role dasar.
+  const roleKey = (actorRow.role_key as string | null) ?? role;
+  let permissions: PermissionKey[] | undefined;
+  let roleLabel: string | undefined;
+  let isCustomRole = false;
+  if (actorRow.role_key) {
+    try {
+      const { data: customRole } = await supabase
+        .from("cervise_roles")
+        .select("name, base_role, permissions")
+        .eq("organization_id", actorRow.organization_id)
+        .eq("key", actorRow.role_key)
+        .maybeSingle();
+      if (
+        customRole &&
+        String(customRole.base_role) === role
+      ) {
+        permissions = sanitizePermissions(
+          role,
+          customRole.permissions as string[] | null,
+        );
+        roleLabel = (customRole.name as string) ?? undefined;
+        isCustomRole = true;
+      } else {
+        roleKey = role;
+      }
+    } catch {
+      roleKey = role;
+    }
+  }
 
   // Profil, organisasi, validasi cabang, dan langganan tidak saling
   // bergantung, jadi dibaca bersamaan. Dulu berurutan: satu kunjungan Home
@@ -388,6 +429,10 @@ async function resolveTenant(options: { allowExpiredSubscription: boolean }): Pr
     // supaya nilai yang tersuntik tidak bisa mengubah host URL.
     avatarUrl: publicPhotoUrl(process.env.NEXT_PUBLIC_SUPABASE_URL ?? "", profile.avatar_url as string | null),
     subscription,
+    permissions,
+    roleLabel,
+    roleKey,
+    isCustomRole,
   };
 }
 
@@ -420,7 +465,7 @@ export async function getTenantBySlugForCurrentUser(slug: string) {
   }
   const { data: emp, error: empErr } = await supabase
     .from("employees")
-    .select("id, organization_id, branch_id, role")
+    .select("id, organization_id, branch_id, role, role_key")
     .eq("profile_id", auth.user.id)
     .eq("organization_id", (org as TenantRow).id)
     .eq("is_active", true)

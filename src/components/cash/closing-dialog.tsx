@@ -19,7 +19,7 @@ import { formatCurrencyPlain } from "@/lib/format";
 import type { ShiftReport } from "@/lib/operational/laporan-shift";
 import { closeCashSession, getShiftPreview, type CashSessionRow } from "@/app/app/actions/cash";
 import { ShiftReportView, VarianceRow } from "./shift-report";
-import { printShiftThermal } from "./shift-thermal-print";
+import { printShiftReport } from "./shift-thermal-print";
 
 type Step = "preview" | "closing" | "confirm";
 
@@ -155,12 +155,12 @@ export function ClosingDialog({
         : "Shift ditutup dengan selisih tercatat.",
     );
 
-    // Cetak setelah dialog ditutup. `printShiftThermal` membuka dialog cetak
-    // browser yang memblokir thread - dengan dialog Tutup Toko masih terbuka,
-    // akan muncul dua dialog bertumpuk dan yang jadi TUJUHAN tidak jelas.
-    // Urutannya: tutup dialog dulu, baru cetak.
+    // Cetak setelah dialog ditutup. `printShiftReport` mencoba printer
+    // langsung dulu (tanpa dialog) dan baru membuka dialog browser kalau
+    // printer tidak tersedia. Kalau dialog Tutup Toko masih terbuka, dua
+    // dialog akan bertumpuk dan yang jadi TUJUHAN tidak jelas.
     if (!skipPrint) {
-      const printed = printShiftThermal(result.data);
+      const printed = await printShiftReport(result.data);
       if (!printed) {
         toast.error("Shift ditutup, tapi struk thermal gagal dibuat. Cetak manual dari Laporan Shift.");
       }

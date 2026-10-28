@@ -1,10 +1,15 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import {
   ArrowRightIcon,
+  ChevronRightIcon,
   LockIcon,
+  PackageCheckIcon,
+  PrinterIcon,
+  ScanBarcodeIcon,
+  SearchIcon,
   ShoppingCartIcon,
   WalletIcon,
   WrenchIcon,
@@ -18,6 +23,17 @@ import {
   useBentoStagger,
 } from "./bento-card";
 import { CandyButton } from "@/components/ui/candy-button";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { ShiftReportView } from "@/components/cash/shift-report";
+import { printShiftReport } from "@/components/cash/shift-thermal-print";
 import { TaskNoteCard } from "./task-note-card";
 import { NewServisDialog } from "@/components/servis/new-servis-dialog";
 import { AdjustmentDialog } from "@/components/cash/adjustment-dialog";
@@ -27,11 +43,12 @@ import {
   getFrontlinerKpi,
   getFrontlinerQueue,
   getShiftPreview,
+  searchPickupServices,
   type CashSessionRow,
   type FrontlinerKpi,
   type FrontlinerQueueItem,
 } from "@/app/app/actions/cash";
-import type { FrontlinerHomeData } from "@/lib/home/types";
+import type { FrontlinerHomeData, PickupServiceItem } from "@/lib/home/types";
 import { rupiah, type ShiftReport } from "@/lib/operational/laporan-shift";
 import { kalenderWIB } from "@/lib/operational/periode-bulan";
 import { cn } from "@/lib/utils";
@@ -273,10 +290,14 @@ export function FrontlinerDashboard({
                 <RingkasanHariIni report={report} queue={queue} staleDate={staleDate} />
               </BentoCard>
 
-              {/* 4. Daftar servis terbaru, dua baris. Putih di mobile seperti
+              {/* 3b. Device siap diambil. Kartu candy biru, membuka panel
+                  pencarian; daftar lengkapnya tidak muat di satu sel. */}
+              <PengambilanDeviceCard queue={queue} />
+
+              {/* 4. Daftar servis terbaru, satu baris. Putih di mobile seperti
                   frame Figma. */}
               <BentoCard
-                rowSpan={2}
+                rowSpan={1}
                 className="max-sm:col-span-2 max-sm:bg-white/70 max-sm:hover:bg-white/70 max-sm:dark:bg-white/[0.06] max-sm:dark:hover:bg-white/[0.06]"
               >
                 <h2 className="text-[15px] font-medium tracking-tight">Servis terbaru</h2>
@@ -360,6 +381,7 @@ function RingkasanHariIni({
   // Shift yang masih terbuka sejak kemarin bukan "hari ini": judulnya harus
   // menyebut tanggalnya supaya angka di dalamnya tidak disalahartikan.
   const title = staleDate ? `Ringkasan Shift ${shortShiftDate(staleDate)}` : "Ringkasan Hari ini";
+  const [detailOpen, setDetailOpen] = useState(false);
 
   if (!report) {
     return (
@@ -377,7 +399,17 @@ function RingkasanHariIni({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-      <h2 className="shrink-0 text-[15px] font-medium tracking-tight">{title}</h2>
+      <div className="flex shrink-0 items-baseline justify-between gap-2">
+        <h2 className="min-w-0 truncate text-[15px] font-medium tracking-tight">{title}</h2>
+        <button
+          type="button"
+          onClick={() => setDetailOpen(true)}
+          className="flex shrink-0 items-center gap-0.5 text-[11px] opacity-60 transition-opacity hover:opacity-100"
+        >
+          Lihat detail
+          <ChevronRightIcon className="size-3" />
+        </button>
+      </div>
 
       {/* Hanya daftar ini yang menggulir. Blok total di bawah sengaja berada
           di luar `<ul>` supaya tetap terlihat saat daftar transaksi panjang. */}
@@ -432,6 +464,29 @@ function RingkasanHariIni({
         <TotalRow label="Transaksi Manual" value={rupiah(report.totals.manualNet)} />
         <TotalRow label="Harus ada di laci" value={rupiah(report.expectedCash)} strong />
       </div>
+
+      <Dialog open={detailOpen} onOpenChange={setDetailOpen}>
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Detail {title}</DialogTitle>
+            <DialogDescription>
+              Rincian lengkap per sesi kas. Angka di kartu ringkasan hanya preview.
+            </DialogDescription>
+          </DialogHeader>
+          <ShiftReportView report={report} showClosing />
+          <div className="flex justify-end">
+            <Button
+              variant="outline"
+              onClick={async () => {
+                const printed = await printShiftReport(report);
+                if (!printed) toast.error("Struk gagal dibuat. Cetak manual dari Laporan Shift.");
+              }}
+            >
+              <PrinterIcon className="size-4" /> Cetak
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -654,6 +709,223 @@ function TerbaruList({ queue }: { queue: FrontlinerQueueItem[] }) {
         </Link>
       ) : null}
     </>
+  );
+}
+
+/** Tipe minimal BarcodeDetector; belum ada di lib DOM TypeScript. */
+type BarcodeDetectorInstance = {
+  detect(source: CanvasImageSource): Promise<{ rawValue: string }[]>;
+};
+type BarcodeDetectorCtor = new (options: { formats: string[] }) => BarcodeDetectorInstance;
+
+/**
+ * Kartu candy "Pengambilan Device".
+ *
+ * Satu sel saja: daftar hasil pencarian hidup di dialog, jadi kartu ini tetap
+ * ringkas dan tidak mendorong kartu lain keluar grid.
+ */
+function PengambilanDeviceCard({ queue }: { queue: FrontlinerQueueItem[] }) {
+  const [open, setOpen] = useState(false);
+  const ready = queue.filter((item) => item.status === "Selesai").length;
+
+  return (
+    <>
+      <BentoCard candy="blue" onClick={() => setOpen(true)} title="Pengambilan Device">
+        <span className="flex flex-1 flex-col items-start justify-between gap-3">
+          <PackageCheckIcon className="size-7 drop-shadow-sm" />
+          <span className="text-[15px] font-medium leading-tight">
+            Pengambilan Device
+            <span className="mt-0.5 block text-[11px] font-normal opacity-80">
+              {ready} siap diambil
+            </span>
+          </span>
+        </span>
+      </BentoCard>
+      <PickupDialog open={open} onOpenChange={setOpen} />
+    </>
+  );
+}
+
+/**
+ * Panel pencarian device siap diambil (`Selesai`).
+ *
+ * Pencarian menunggu 250 ms setelah ketikan terakhir supaya satu kata tidak
+ * mengirim satu query per huruf. Scan memakai `BarcodeDetector` bawaan browser;
+ * kalau tidak ada, panel tetap bisa dipakai dengan scanner USB/Bluetooth yang
+ * mengetik ke input.
+ */
+function PickupDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
+  const [query, setQuery] = useState("");
+  const [results, setResults] = useState<PickupServiceItem[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [scanning, setScanning] = useState(false);
+  const [scanError, setScanError] = useState<string | null>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  // Dialog ditutup = pencarian lama dibuang, supaya buka berikutnya bersih.
+  if (!open && (query !== "" || results.length > 0)) {
+    setQuery("");
+    setResults([]);
+  }
+
+  useEffect(() => {
+    if (!open) return;
+    const term = query.trim();
+    if (term.length < 2) {
+      setResults([]);
+      return;
+    }
+    let cancelled = false;
+    const timer = window.setTimeout(() => {
+      setLoading(true);
+      void searchPickupServices(term).then((result) => {
+        if (cancelled) return;
+        setLoading(false);
+        if (result.ok) setResults(result.data);
+        else {
+          setResults([]);
+          toast.error(result.error);
+        }
+      });
+    }, 250);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [open, query]);
+
+  useEffect(() => {
+    if (!scanning) return;
+
+    const Detector = (window as unknown as { BarcodeDetector?: BarcodeDetectorCtor }).BarcodeDetector;
+    if (!Detector) {
+      setScanError("Browser belum mendukung kamera; gunakan scanner USB/Bluetooth");
+      setScanning(false);
+      inputRef.current?.focus();
+      return;
+    }
+
+    let stream: MediaStream | null = null;
+    let timer: number | undefined;
+    let cancelled = false;
+
+    void (async () => {
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+        const video = videoRef.current;
+        if (cancelled || !video) return;
+        video.srcObject = stream;
+        await video.play();
+
+        const detector = new Detector({
+          formats: ["code_128", "code_39", "ean_13", "qr_code"],
+        });
+        timer = window.setInterval(() => {
+          const current = videoRef.current;
+          if (!current) return;
+          detector
+            .detect(current)
+            .then((codes) => {
+              const value = codes[0]?.rawValue?.trim();
+              if (!value) return;
+              setQuery(value);
+              setScanning(false);
+            })
+            .catch(() => {});
+        }, 350);
+      } catch {
+        setScanError("Kamera tidak bisa dibuka");
+        setScanning(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      if (timer) window.clearInterval(timer);
+      stream?.getTracks().forEach((track) => track.stop());
+      if (videoRef.current) videoRef.current.srcObject = null;
+    };
+  }, [scanning]);
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Pengambilan Device</DialogTitle>
+          <DialogDescription>
+            Cari device yang sudah selesai dikerjakan dan siap diambil.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="flex gap-2">
+          <Input
+            ref={inputRef}
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="No. servis / nama customer / no. HP"
+            aria-label="Cari device siap diambil"
+          />
+          <Button
+            type="button"
+            variant="outline"
+            size="icon-sm"
+            aria-label={scanning ? "Hentikan kamera" : "Scan barcode"}
+            title="Scan barcode"
+            onClick={() => {
+              setScanError(null);
+              setScanning((previous) => !previous);
+            }}
+          >
+            <ScanBarcodeIcon className="size-4" />
+          </Button>
+        </div>
+
+        {scanning ? (
+          <div className="overflow-hidden rounded-lg border">
+            <video ref={videoRef} muted playsInline className="block w-full bg-black" />
+            <p className="px-2 py-1 text-xs text-muted-foreground">
+              Arahkan kamera ke barcode pada nota.
+            </p>
+          </div>
+        ) : scanError ? (
+          <p className="text-xs text-destructive">{scanError}</p>
+        ) : null}
+
+        <div className="min-h-24">
+          {loading ? (
+            <p className="text-sm opacity-60">Mencari...</p>
+          ) : query.trim().length < 2 ? (
+            <p className="text-sm opacity-60">Ketik minimal 2 karakter atau scan barcode.</p>
+          ) : results.length === 0 ? (
+            <p className="text-sm opacity-60">Tidak ada device siap diambil yang cocok.</p>
+          ) : (
+            <ul className="space-y-1.5">
+              {results.map((item) => (
+                <li key={item.id}>
+                  <Link
+                    href={`/app/servis?q=${encodeURIComponent(item.serviceNumber ?? item.device)}`}
+                    onClick={() => onOpenChange(false)}
+                    className="flex items-center gap-2 rounded-xl border border-black/5 px-3 py-2 transition-colors hover:bg-black/[0.03] dark:border-white/10 dark:hover:bg-white/[0.05]"
+                  >
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-[13px] font-medium">
+                        {item.serviceNumber ?? "Tanpa nomor"} · {item.device}
+                      </span>
+                      <span className="block truncate text-[11px] opacity-60">
+                        {item.customerName ?? "Tanpa nama"}
+                        {item.customerPhone ? ` · ${item.customerPhone}` : ""}
+                      </span>
+                    </span>
+                    <ArrowRightIcon className="size-3.5 shrink-0 opacity-50" />
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 

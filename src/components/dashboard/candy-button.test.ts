@@ -129,17 +129,21 @@ describe("grid bento delapan sel", () => {
     expect(technician).toMatch(/rowSpan=\{2\}/);
   });
 
-  it("frontliner: delapan sel, tiga sel aksi berwarna", () => {
+  it("frontliner: sembilan sel, tiga sel aksi berwarna", () => {
     const cells = (frontliner.match(/<BentoCard/g) ?? []).length;
     expect(frontliner).toMatch(/BENTO_GRID_CLASS/);
-    expect(cells).toBeGreaterThanOrEqual(6);
+    expect(cells).toBeGreaterThanOrEqual(8);
     // Tiga sel aksi: Servis baru, Catat Kas, Penjualan.
     expect(frontliner).not.toMatch(/action="sand"|action="yellow"|action="green"/);
     // Ringkasan Servis satu kolom, tepat di sebelah kanan Penjualan.
     expect(frontliner).toMatch(/RingkasanServis/);
-    // Ringkasan Hari ini membentang tiga baris, Servis terbaru dua baris.
+    // Ringkasan Hari ini membentang tiga baris.
     expect(frontliner).toMatch(/rowSpan=\{3\}/);
-    expect(frontliner).toMatch(/rowSpan=\{2\}/);
+    // Sel ke-9: Pengambilan Device (candy biru). Karena sel ini ada,
+    // Servis terbaru cukup satu baris supaya grid 4x3 tetap penuh.
+    expect(frontliner).toMatch(/PengambilanDeviceCard/);
+    expect(frontliner).toMatch(/candy="blue"/);
+    expect(frontliner).toMatch(/title="Pengambilan Device"/);
   });
 
   it("Ringkasan Hari ini dibangun dari ShiftReport, bukan query terpisah", () => {

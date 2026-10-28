@@ -85,9 +85,13 @@ export function CompactBottomBar({
             name={fullName ?? "?"}
             className="size-9 bg-neutral-900 text-[11px] text-white dark:bg-white dark:text-neutral-900"
           />
-          <span className="hidden max-w-[10rem] truncate pl-1 text-sm font-medium md:inline">
-            {fullName ?? "Pengguna"}
-            <span className="ml-1 text-[11px] font-normal text-muted-foreground">{roleLabel}</span>
+          <span className="hidden max-w-[10rem] pl-1 md:block">
+            <span className="block truncate text-sm font-medium leading-tight">
+              {fullName ?? "Pengguna"}
+            </span>
+            <span className="block truncate text-[11px] leading-tight text-muted-foreground">
+              {roleLabel}
+            </span>
           </span>
           <LogoutButton />
           <Link

@@ -31,7 +31,7 @@ export type SettingsNavGroup = {
 export function SettingsNav({ groups }: { groups: SettingsNavGroup[] }) {
   const pathname = usePathname();
   return (
-    <nav className="flex-1 overflow-y-auto px-2 pb-4">
+    <nav className="flex-1 overflow-y-auto scrollbar-none px-2 pb-4">
       {groups.map((block) => (
         <div key={block.group} className="mt-4 first:mt-2">
           <div className="px-2 py-1 font-mono text-[10px] text-muted-foreground uppercase tracking-[0.25em]">

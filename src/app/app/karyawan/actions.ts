@@ -39,6 +39,7 @@ export type KaryawanRow = {
   email: string | null;
   phone: string | null;
   role: string;
+  roleKey: string | null;
   branchId: string | null;
   branchName: string | null;
   /** URL foto publik; null = belum ada foto. */
@@ -50,7 +51,7 @@ export type KaryawanRow = {
 export async function getKaryawan(): Promise<KaryawanRow[]> {
   const { supabase, organizationId, role } = await getBranchUser();
   if (!canAccess(role, "karyawan")) throw new Error("Hanya manager boleh melihat data karyawan");
-  const { data: emps, error } = await supabase.from("employees").select("id, profile_id, role, branch_id, is_active, created_at").eq("organization_id", organizationId).order("created_at", { ascending: true });
+  const { data: emps, error } = await supabase.from("employees").select("id, profile_id, role, role_key, branch_id, is_active, created_at").eq("organization_id", organizationId).order("created_at", { ascending: true });
   if (error) throw new Error(error.message);
   if (!emps?.length) return [];
   const pIds = (emps as any[]).map((e) => e.profile_id).filter(Boolean);
@@ -78,6 +79,7 @@ export async function getKaryawan(): Promise<KaryawanRow[]> {
       email: (prof?.email ?? null) as string | null,
       phone: (prof?.phone ?? null) as string | null,
       role: String(e.role),
+      roleKey: e.role_key as string | null,
       branchId: (e.branch_id as string | null) ?? null,
       branchName: (e.branch_id ? bMap.get(e.branch_id) ?? null : null) as string | null,
       avatarUrl: prof?.avatarUrl ?? null,
@@ -94,7 +96,55 @@ export async function getKaryawanBranches(): Promise<{ id: string; name: string 
   return ((data ?? []) as any[]).map((b) => ({ id: b.id as string, name: b.name as string }));
 }
 
-export type CreateKaryawanInput = { fullName: string; email: string; phone?: string; role: string; branchId: string };
+export type CreateKaryawanInput = { fullName: string; email: string; phone?: string; role: string; roleKey?: string | null; branchId: string };
+
+/**
+ * Menentukan role dasar dan role key untuk sebuah assignment karyawan.
+ *
+ * `role` selalu role dasar yang dikenal database (MASTER_ADMIN/ADMIN/FRONTLINER/
+ * TECHNICIAN). `roleKey` hanya diisi untuk role buatan pengguna, dan dasarnya
+ * diambil dari tabel `cervise_roles` — bukan dari input klien, supaya klien tidak
+ * bisa memilih sendiri dasar role-nya. Role dasar MASTER_ADMIN tidak menerima
+ * role buatan: itu plafon sistem.
+ */
+async function resolveEmployeeRole(
+  supabase: Actor["supabase"],
+  organizationId: string,
+  role: string,
+  roleKey?: string | null,
+): Promise<{ role: string; roleKey: string | null }> {
+  const key = (roleKey ?? "").trim();
+  if (!key) {
+    const normalized = role.trim().toUpperCase();
+    if (!["MASTER_ADMIN", "ADMIN", "FRONTLINER", "TECHNICIAN"].includes(normalized)) {
+      throw new Error("Role tidak valid");
+    }
+    return { role: normalized, roleKey: null };
+  }
+  // Role buatan: dasar role diambil dari database, bukan dari input klien.
+  let row: { base_role: string } | null = null;
+  try {
+    const { data, error } = await supabase
+      .from("cervise_roles")
+      .select("base_role")
+      .eq("organization_id", organizationId)
+      .eq("name", key)
+      .maybeSingle();
+    if (error) throw error;
+    row = data as { base_role: string } | null;
+  } catch {
+    // Tabel belum dibuat (migrasi belum jalan). Role buatan ditolak dengan
+    // pesan yang jelas, bukan jatuh diam-diam ke role bawaan.
+    throw new Error("Role buatan pengguna belum tersedia; jalankan migrasi terlebih dahulu.");
+  }
+  if (!row) throw new Error("Role tidak valid");
+  const base = String(row.base_role).toUpperCase();
+  // Plafon: MASTER_ADMIN adalah role dasar teratas, tidak bisa menjadi
+  // dasar role buatan pengguna — akan membuka kemungkinan escalasi
+  // karyawan yang tidak pernah direncanakan.
+  if (base === "MASTER_ADMIN") throw new Error("MASTER_ADMIN tidak boleh menjadi dasar role buatan.");
+  return { role: base, roleKey: key };
+}
 
 export async function createKaryawan(input: CreateKaryawanInput): Promise<{ employeeId: string; profileId: string; tempPassword: string }> {
   const { supabase, organizationId, role } = await getBranchUser();
@@ -104,9 +154,13 @@ export async function createKaryawan(input: CreateKaryawanInput): Promise<{ empl
   requireManager(role);
   const email = input.email.trim().toLowerCase();
   const fullName = input.fullName.trim();
-  const targetRole = input.role.trim().toUpperCase();
   if (!fullName) throw new Error("Nama wajib");
   if (!email || !email.includes("@")) throw new Error("Email tidak valid");
+  if (!input.branchId) throw new Error("Cabang wajib");
+  // Dasar role ditentukan di sini, sebelum validasi lain, supaya nomor WA
+  // teknisi ikut memakai role dasar hasil resolusi (bukan input mentah).
+  const resolved = await resolveEmployeeRole(supabase, organizationId, input.role, input.roleKey);
+  const targetRole = resolved.role;
   // Nomor teknisi adalah satu-satunya bahan notifikasi ke teknisi, jadi
   // diwajibkan hanya untuk role itu. Admin dan Frontliner boleh tanpa nomor.
   const phoneCheck = validatePhone(input.phone);
@@ -114,8 +168,6 @@ export async function createKaryawan(input: CreateKaryawanInput): Promise<{ empl
   if (targetRole === "TECHNICIAN" && !phoneCheck.value) {
     throw new Error("Nomor WhatsApp wajib diisi untuk teknisi.");
   }
-  if (!input.branchId) throw new Error("Cabang wajib");
-  if (!["MASTER_ADMIN", "ADMIN", "FRONTLINER", "TECHNICIAN"].includes(targetRole)) throw new Error("Role tidak valid");
   const { data: branch } = await supabase
     .from("branches")
     .select("id")
@@ -161,7 +213,7 @@ export async function createKaryawan(input: CreateKaryawanInput): Promise<{ empl
   }
   const { data: employee, error: employeeError } = await supabase
     .from("employees")
-    .insert({ organization_id: organizationId, branch_id: input.branchId, profile_id: uid, role: targetRole, is_active: true })
+    .insert({ organization_id: organizationId, branch_id: input.branchId, profile_id: uid, role: targetRole, role_key: resolved.roleKey, is_active: true })
     .select("id")
     .single();
   if (employeeError || !employee) {
@@ -182,18 +234,27 @@ export async function createKaryawan(input: CreateKaryawanInput): Promise<{ empl
   return { employeeId: employee.id as string, profileId: uid, tempPassword };
 }
 
-export type UpdateKaryawanInput = { profileId: string; employeeId: string; fullName: string; phone?: string; email?: string; role: string; branchId: string };
+export type UpdateKaryawanInput = { profileId: string; employeeId: string; fullName: string; phone?: string; email?: string; role: string; roleKey?: string | null; branchId: string };
 
 export async function updateKaryawan(input: UpdateKaryawanInput) {
   const { supabase, organizationId, role } = await getBranchUser();
   if (!canManageEmployees(role)) throw new Error("Hanya Master Admin yang bisa mengubah karyawan.");
   requireManager(role);
   const fullName = input.fullName.trim();
-  const targetRole = input.role.trim().toUpperCase();
+  const targetRoleKey = input.roleKey?.trim() || null;
+  if (targetRoleKey === "MASTER_ADMIN") throw new Error("MASTER_ADMIN tidak bisa memakai role buatan pengguna.");
+  // Dasar role dari input (atau dari tabel `cervise_roles`).
+  const resolvedRole = await resolveEmployeeRole(supabase, organizationId, input.role, targetRoleKey);
+  const targetRole = resolvedRole.role;
+  const resolvedRoleKey = resolvedRole.roleKey;
   const email = input.email?.trim().toLowerCase() || null;
   if (!fullName) throw new Error("Nama wajib");
   if (!input.branchId) throw new Error("Cabang wajib");
-  if (!["MASTER_ADMIN", "ADMIN", "FRONTLINER", "TECHNICIAN"].includes(targetRole)) throw new Error("Role tidak valid");
+  // `role` adalah role dasar (yang dibaca database); `role_key` menunjuk role
+  // buatan pengguna. Keduanya harus selalu berpasangan.
+  if (targetRole === "MASTER_ADMIN" && targetRoleKey) {
+    throw new Error("MASTER_ADMIN tidak bisa memakai role buatan pengguna.");
+  }
   if (email && !email.includes("@")) throw new Error("Email tidak valid");
   // Sama seperti createKaryawan, dan dicek sebelum tiga tulisan di bawah
   // dimulai supaya penolakan tidak meninggalkan tabel setengah berubah.
@@ -205,7 +266,7 @@ export async function updateKaryawan(input: UpdateKaryawanInput) {
 
   const { data: employee } = await supabase
     .from("employees")
-    .select("id, organization_id, branch_id, profile_id, role")
+    .select("id, organization_id, branch_id, profile_id, role, role_key")
     .eq("id", input.employeeId)
     .eq("organization_id", organizationId)
     .maybeSingle();
@@ -261,12 +322,13 @@ export async function updateKaryawan(input: UpdateKaryawanInput) {
   }
 
   const previousRole = String(employee.role);
+  const previousRoleKey = (employee.role_key as string | null) ?? null;
   const previousBranchId = employee.branch_id as string | null;
 
   async function restoreEmployee(): Promise<void> {
     const { error } = await supabase
       .from("employees")
-      .update({ role: previousRole, branch_id: previousBranchId })
+      .update({ role: previousRole, role_key: previousRoleKey, branch_id: previousBranchId })
       .eq("id", input.employeeId)
       .eq("organization_id", organizationId);
     if (error) console.error("gagal mengembalikan employees:", error.message);
@@ -288,7 +350,7 @@ export async function updateKaryawan(input: UpdateKaryawanInput) {
 
   const { data: updatedEmployee, error: employeeError } = await supabase
     .from("employees")
-    .update({ role: targetRole, branch_id: input.branchId })
+    .update({ role: targetRole, role_key: resolvedRoleKey ?? null, branch_id: input.branchId })
     .eq("id", input.employeeId)
     .eq("organization_id", organizationId)
     .select("id")
