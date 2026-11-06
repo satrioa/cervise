@@ -98,7 +98,7 @@ export function TechnicianDashboard({
   return (
     // Latar halaman memakai kanvas shell (abu-abu di Figma). `h-full`
     // menyambung rantai tinggi dari `main` shell: grid bento mengisi sisa
-    // viewport dan berhenti di atas bottom-nav (main sudah punya `pb-24`).
+    // viewport dan berhenti di atas bottom-nav (main sudah punya padding bawah).
     <div className="flex h-full min-h-0 flex-col bg-canvas text-foreground">
       <div className="flex min-h-0 flex-1 flex-col px-4 py-6 sm:px-6 sm:py-8 lg:px-8 lg:py-10">
         <div className="mx-auto flex min-h-0 w-full max-w-[1264px] flex-1 flex-col">

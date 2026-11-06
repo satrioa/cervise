@@ -5,7 +5,6 @@ import { XIcon } from "lucide-react";
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { formatCurrencyPlain } from "@/lib/format";
 import { ServisPaymentPanel } from "./servis-payment-panel";
 import { getPembayaranHistory, getServisDetail, type ServisDetail } from "@/app/app/servis/actions";
 import { getServisSpareparts, type ServisSparepartRow } from "@/app/app/servis/sparepart-actions";
@@ -31,10 +30,9 @@ function RincianServis({ data }: { data: DialogData }) {
   const kerusakan: string[] = Array.isArray((d as any)?.kerusakan) ? (d as any).kerusakan : [];
   const customer = (d as any)?.cervise_customers;
   const active = data.spareparts.filter((sp) => !sp.is_returned);
-  const sparepartTotal = active.reduce((sum, sp) => sum + Number(sp.line_total ?? 0), 0);
 
   return (
-    <div className="rounded-lg border bg-muted/30 p-4 space-y-3">
+    <div className="self-start rounded-lg border bg-muted/30 p-4 space-y-3">
       <h3 className="font-semibold text-sm">Rincian Servis</h3>
       <div className="space-y-0.5">
         <div className="font-medium leading-tight">{device}</div>
@@ -64,13 +62,9 @@ function RincianServis({ data }: { data: DialogData }) {
               {active.map((sp) => (
                 <div key={sp.id} className="flex items-center justify-between gap-2 px-2.5 py-1.5 text-xs">
                   <span className="truncate">{sp.name}</span>
-                  <span className="shrink-0 font-mono text-muted-foreground">{sp.qty} × {formatCurrencyPlain(Number(sp.unit_price ?? 0))}</span>
+                  <span className="shrink-0 font-mono text-muted-foreground">×{sp.qty}</span>
                 </div>
               ))}
-            </div>
-            <div className="flex items-center justify-between border-t px-2.5 py-1.5 text-xs font-medium">
-              <span>Total sparepart</span>
-              <span className="font-mono">{formatCurrencyPlain(sparepartTotal)}</span>
             </div>
           </div>
         )}
@@ -120,13 +114,13 @@ export function ServisPaymentDialog({ servisId, open, onOpenChange, onPaid }: Pr
     <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
       <DialogPrimitive.Portal>
         <DialogPrimitive.Backdrop className="fixed inset-0 z-50 bg-black/60 backdrop-blur-md" />
-        <DialogPrimitive.Popup className="fixed left-1/2 top-1/2 z-50 flex max-h-[92dvh] w-[96vw] max-w-4xl -translate-x-1/2 -translate-y-1/2 flex-col rounded-xl border bg-background p-6 shadow-2xl overflow-hidden">
+        <DialogPrimitive.Popup className="fixed left-1/2 top-1/2 z-50 flex h-[80dvh] max-h-[80dvh] w-[96vw] max-w-4xl -translate-x-1/2 -translate-y-1/2 flex-col rounded-xl border bg-background p-6 shadow-2xl overflow-hidden">
           <DialogPrimitive.Title className="shrink-0 font-semibold">Bayar Servis</DialogPrimitive.Title>
-          <div className="mt-4 min-h-0 overflow-y-auto">
+          <div className="mt-4 min-h-0 flex-1 overflow-y-auto">
             {!ready ? (
               <Skeleton className="h-40 w-full" />
             ) : servisId ? (
-              <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)]">
+              <div className="grid gap-4 md:h-full md:grid-cols-[minmax(0,35fr)_minmax(0,65fr)]">
                 <RincianServis data={data} />
                 <ServisPaymentPanel
                   servisId={servisId}

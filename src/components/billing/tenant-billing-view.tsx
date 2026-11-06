@@ -4,6 +4,7 @@ import { useState } from "react";
 import { ArrowUpRightIcon, CheckIcon, Clock3Icon, MessageCircleIcon, ShieldCheckIcon } from "lucide-react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
+import { playPageTransition } from "@/components/layout/page-transition";
 import { requestPackage } from "@/app/app/pengaturan/subscription/actions";
 import { buildRenewalWhatsAppMessage, buildWhatsAppUrl } from "@/lib/billing/renewal";
 import { formatRupiah } from "@/lib/format";
@@ -63,6 +64,7 @@ export function TenantBillingView({ data }: { data: BillingData }) {
     setLoadingPackage(packageId);
     try {
       await requestPackage(packageId);
+      playPageTransition();
       toast.success("Permintaan paket dibuat. Selesaikan pembayaran via WhatsApp.");
       router.refresh();
     } catch (error) {

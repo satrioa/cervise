@@ -84,7 +84,7 @@ export async function getServisList(): Promise<ServisListRow[]> {
     applyBranchScope(
       supabase
         .from("finance_tx")
-        .select("servis_id, amount")
+        .select("servis_id, amount, metode")
         .eq("type", "pemasukan")
         .in("servis_id", serviceRows.map((service) => service.id)),
       actor,
@@ -98,7 +98,7 @@ export async function getServisList(): Promise<ServisListRow[]> {
     services: serviceRows,
     customers: (customersResult.data ?? []) as { id: string; name: string; phone: string | null }[],
     profiles: (profilesResult.data ?? []) as { id: string; full_name: string | null }[],
-    finance: (financeResult.data ?? []) as { servis_id: string; amount: number }[],
+    finance: (financeResult.data ?? []) as { servis_id: string; amount: number; metode: string | null }[],
   });
 }
 

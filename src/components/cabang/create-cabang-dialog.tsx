@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
 import { createCabang } from "@/app/app/cabang/actions";
+import { playPageTransition } from "@/components/layout/page-transition";
 
 function slugify(s: string) {
   return s.toLowerCase().trim().replace(/[^\w\s-]/g, "").replace(/\s+/g, "-").replace(/-+/g, "-");
@@ -26,6 +27,7 @@ export function CreateCabangDialog({ open, onOpenChange, onCreated }: { open: bo
     setSaving(true);
     try {
       await createCabang({ name, alamat, telepon });
+      playPageTransition();
       setName(""); setAlamat(""); setTelepon("");
       onOpenChange(false);
       onCreated?.();

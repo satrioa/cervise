@@ -6,6 +6,7 @@ import { TrashIcon, UploadIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { ALLOWED_PHOTO_TYPES, MAX_PHOTO_BYTES, formatBytes, initialsOf, validatePhotoFile } from "@/lib/photos";
+import { playPageTransition } from "@/components/layout/page-transition";
 
 type PhotoUploadProps = {
   photoUrl: string | null;
@@ -75,7 +76,7 @@ export function PhotoUpload({
     try {
       const result = await onUpload(formData);
       clearPreview();
-      if (result.ok) toast.success(`${label} tersimpan`);
+      if (result.ok) { playPageTransition(); toast.success(`${label} tersimpan`); }
       else toast.error("Gagal menyimpan foto");
     } catch (error) {
       clearPreview();
@@ -89,6 +90,7 @@ export function PhotoUpload({
     setBusy(true);
     try {
       await onRemove();
+      playPageTransition();
       clearPreview();
       toast.success(`${label} dihapus`);
     } catch (error) {

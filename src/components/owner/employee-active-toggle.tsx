@@ -4,6 +4,7 @@ import { useState } from "react";
 import { UserCheckIcon, UserXIcon } from "lucide-react";
 import { toast } from "sonner";
 import { setEmployeeActive } from "@/app/owner/actions";
+import { playPageTransition } from "@/components/layout/page-transition";
 import { Button } from "@/components/ui/button";
 
 export function EmployeeActiveToggle({ employeeId, active }: { employeeId: string; active: boolean }) {
@@ -13,6 +14,7 @@ export function EmployeeActiveToggle({ employeeId, active }: { employeeId: strin
     setLoading(true);
     try {
       await setEmployeeActive({ employeeId, active: !active });
+      playPageTransition();
       toast.success(active ? "Akun dinonaktifkan" : "Akun diaktifkan");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Gagal mengubah status akun");

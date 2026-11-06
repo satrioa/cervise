@@ -8,6 +8,7 @@ import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { AsciiPage } from "@/components/layout/ascii-page";
+import { PageTransition } from "@/components/layout/page-transition";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import {
   isOwnerNavActive,
@@ -201,6 +202,7 @@ function OwnerShellInner({ children, email }: { children: React.ReactNode; email
 
         <OwnerBottomNav pathname={pathname} />
       </div>
+      <PageTransition />
     </div>
   );
 }

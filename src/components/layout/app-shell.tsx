@@ -18,6 +18,8 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/co
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { CommandPaletteProvider } from "@/components/layout/command-palette-provider";
+import { ShellRoleProvider } from "@/components/layout/shell-chrome";
+import { PageTransition } from "@/components/layout/page-transition";
 import { BranchProvider, useBranch } from "@/lib/branch-context";
 import { TenantProvider, useTenant } from "@/lib/tenant-context";
 import { TrialCard } from "@/components/layout/trial-card";
@@ -498,6 +500,7 @@ function AppShellInner({ children, actor }: { children: React.ReactNode; actor: 
 
   return (
     <div className="flex h-svh w-full overflow-hidden bg-background text-foreground lg:grid lg:grid-cols-[260px_1fr]">
+      <PageTransition />
       <aside className="hidden h-svh shrink-0 flex-col border-r border-border/60 bg-foreground/[0.02] lg:flex sticky top-0 overflow-hidden">
         <SidebarContent role={actor.role} fullName={actor.fullName} avatarUrl={actor.avatarUrl} />
       </aside>
@@ -565,7 +568,9 @@ export function AppShell({ children, actor }: { children: React.ReactNode; actor
           initialScope={actor.branchScope ?? null}
         >
           <CommandPaletteProvider role={actor.role}>
-            <AppShellInner actor={actor}>{children}</AppShellInner>
+            <ShellRoleProvider value={actor.role}>
+              <AppShellInner actor={actor}>{children}</AppShellInner>
+            </ShellRoleProvider>
           </CommandPaletteProvider>
         </BranchProvider>
       </TenantProvider>

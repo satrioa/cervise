@@ -227,7 +227,7 @@ export default function ArusKasPage() {
         }
       />
 
-      <div className="px-4 sm:px-6 lg:px-10 py-8">
+      <div className="px-4 sm:px-6 lg:px-8 py-8">
         <div className="mx-auto max-w-5xl">
         {loadError ? (
           <div role="alert" className="mb-4 rounded-xl border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">

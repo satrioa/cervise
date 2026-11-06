@@ -61,7 +61,7 @@ export default function UsagePage() {
         containerClassName="max-w-4xl"
       />
 
-      <div className="mx-auto max-w-4xl px-6 py-8 space-y-6">
+      <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8 py-8 space-y-6">
       <div className="grid gap-3 sm:grid-cols-3">
         <Card>
           <CardHeader className="pb-2"><CardTitle className="text-sm flex items-center gap-2"><BarChart3Icon className="size-4" /> Hari ini</CardTitle></CardHeader>

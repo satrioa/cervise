@@ -1,11 +1,10 @@
 "use client";
 
 import { useState, useSyncExternalStore } from "react";
-import { BluetoothIcon, PrinterIcon, UsbIcon } from "lucide-react";
+import { BluetoothIcon, UsbIcon } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   connectPrinter,
   disconnectPrinter,
@@ -176,21 +175,5 @@ export function PrinterSettings({ compact = false }: { compact?: boolean }) {
           : "Cetak pertama selalu memunculkan pilihan perangkat dari browser (wajib, tidak bisa dilewati). Setelah dipilih, cetak berikutnya tersambung otomatis. Printernya harus sudah di-pair di pengaturan Bluetooth Windows/Android."}
       </p>
     </div>
-  );
-}
-
-export function PrinterCard() {
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-base flex items-center gap-2">
-          <PrinterIcon className="size-4" /> Printer Nota
-        </CardTitle>
-        <CardDescription>Cetak nota 58mm langsung tanpa dialog print browser</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <PrinterSettings />
-      </CardContent>
-    </Card>
   );
 }

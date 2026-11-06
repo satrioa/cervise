@@ -10,6 +10,7 @@ import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
 import { createClient } from "@/lib/supabase/client";
 import { useBranch } from "@/lib/branch-context";
 import { toast } from "sonner";
+import { playPageTransition } from "@/components/layout/page-transition";
 import { PlusIcon, PencilIcon, TrashIcon, TagIcon, XIcon } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { PageHeader } from "@/components/layout/page-header";
@@ -87,6 +88,7 @@ export default function KategoriSparepartPage() {
         toast.success("Kategori ditambah");
       }
       setOpen(false);
+      playPageTransition();
       fetch();
     } catch (e: any) {
       toast.error(e.message ?? "Gagal simpan");
@@ -104,6 +106,7 @@ export default function KategoriSparepartPage() {
       return;
     }
     setRows((prev) => prev.filter((x) => x.id !== r.id));
+    playPageTransition();
     toast.success("Dihapus");
   };
 
@@ -131,7 +134,7 @@ export default function KategoriSparepartPage() {
         }
       />
 
-      <div className="mx-auto max-w-4xl px-6 py-8 space-y-6">
+      <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8 py-8 space-y-6">
       <Card>
         <CardHeader className="flex flex-row items-center justify-between gap-4">
           <div>

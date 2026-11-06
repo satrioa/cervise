@@ -101,6 +101,14 @@
   display: inline-flex;
 }
 
+/* Opt-in: di dark mode chip aktif putih, chip tidak aktif redup. */
+.dark .jelly-radio[data-invert-dark] {
+  --jr-chip: rgb(255 255 255 / 0.06) !important;
+  --jr-active: #fafafa !important;
+  --jr-text: #a1a1aa !important;
+  --jr-active-text: #18181b !important;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .jelly-radio__chip:active .jelly-radio__skin {
     transform: none;

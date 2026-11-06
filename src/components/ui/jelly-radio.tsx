@@ -45,6 +45,7 @@ export default function JellyRadio({
   stagger = 22,
   stiffness = 580,
   disabled = false,
+  invertDark = false,
   ariaLabel = "Options",
   className = "",
 }: any) {
@@ -170,6 +171,7 @@ export default function JellyRadio({
       role="radiogroup"
       aria-label={ariaLabel}
       data-disabled={disabled ? "" : undefined}
+      data-invert-dark={invertDark ? "" : undefined}
       className={`jelly-radio${className ? ` ${className}` : ""}`}
       style={
         {

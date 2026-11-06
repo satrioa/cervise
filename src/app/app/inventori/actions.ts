@@ -23,7 +23,7 @@ export type InventoriData = {
 };
 
 const COLUMNS =
-  "id, name, sku, barcode, category, stock_qty, cost, price, variant_type, storage, warna, bh_percent, kondisi_notes, garansi_days, imei, parent_key, is_active";
+  "id, name, sku, barcode, category, stock_qty, cost, price, variant_type, storage, warna, bh_percent, kondisi_notes, garansi_days, imei, parent_key, image_url, is_active";
 
 function requireInventoryAccess(role: string) {
   if (!canAccess(role, "inventory")) throw new Error("Hanya admin yang boleh melihat inventori");
@@ -58,6 +58,43 @@ export async function getInventori(): Promise<InventoriData> {
 
   const groups = groupInventoryProducts(capped);
   return { groups, summary: summarizeInventory(groups), truncated };
+}
+
+export type UpdateProductVariantInput = {
+  id: string;
+  name: string;
+  cost: number | null;
+  price: number | null;
+  stock_qty?: number | null;
+  kondisi_notes?: string | null;
+  garansi_days?: number | null;
+};
+
+/** Edit varian dari halaman inventori. Stok hanya diubah untuk varian BARU. */
+export async function updateProductVariant(input: UpdateProductVariantInput): Promise<void> {
+  const actor = await getActiveTenant();
+  requireInventoryAccess(actor.role);
+  if (!canAccess(actor.role, "penjualan")) throw new Error("Hanya admin/frontliner boleh mengubah produk");
+  if (!input.id) throw new Error("Produk tidak ditemukan");
+  if (!input.name.trim()) throw new Error("Nama produk wajib");
+
+  const patch: Record<string, unknown> = {
+    name: input.name.trim(),
+    cost: input.cost,
+    price: input.price,
+    kondisi_notes: input.kondisi_notes ?? null,
+    garansi_days: input.garansi_days ?? null,
+  };
+  if (input.stock_qty != null) patch.stock_qty = input.stock_qty;
+
+  const { error } = await applyBranchScope(
+    actor.supabase.from("cervise_products").update(patch).eq("id", input.id),
+    actor,
+  );
+  if (error) throw new Error(error.message);
+
+  revalidatePath("/app/inventori");
+  revalidatePath("/app/penjualan");
 }
 
 /**

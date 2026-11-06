@@ -8,17 +8,21 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Avatar } from "@/components/ui/avatar";
 import { Select, SelectTrigger, SelectPopup, SelectItem, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
+import JellyRadio from "@/components/ui/jelly-radio";
 import { KerusakanTagInput } from "./kerusakan-tag-input";
 import { KelengkapanSelect } from "./kelengkapan-select";
 import { GaransiField } from "./garansi-field";
 import { CustomerAutocomplete } from "./customer-autocomplete";
 import { PatternLock } from "./pattern-lock";
+import { KondisiAwalForm } from "./kondisi-awal-form";
 import { useUnsavedGuard } from "@/hooks/use-unsaved-guard";
-import { getTeknisi, updateServis } from "@/app/app/servis/actions";
+import { getTeknisi, updateKondisiAwal, updateServis } from "@/app/app/servis/actions";
 import { teknisiLabel } from "@/lib/servis-technisi-label";
+import type { KondisiAwal } from "@/lib/servis-constants";
 import type { ServisDetail } from "@/app/app/servis/actions";
 import { format } from "date-fns";
 import { id as localeId } from "date-fns/locale";
+import { playPageTransition } from "@/components/layout/page-transition";
 
 type Props = {
   servisId: string;
@@ -49,6 +53,8 @@ export function EditServisForm({ servisId, initial, onSuccess, onCancel }: Props
   const [garansiVal, setGaransiVal] = useState<number | "">(initial.garansi_value ?? "");
   const [garansiUnit, setGaransiUnit] = useState<"hari" | "bulan" | "tahun">((initial.garansi_unit as any) ?? "hari");
   const [priceEstimasi, setPriceEstimasi] = useState<number | "">(initial.price_estimasi ?? "");
+  // "Ya" menampilkan form pemeriksaan kondisi secara inline di bawah radio.
+  const [kondisiYa, setKondisiYa] = useState(false);
 
   const [teknisiOpts, setTeknisiOpts] = useState<{ id: string; full_name: string | null; phone: string | null }[]>([]);
   const [loading, setLoading] = useState(false);
@@ -131,6 +137,7 @@ export function EditServisForm({ servisId, initial, onSuccess, onCancel }: Props
         garansi_unit: garansiUnit,
         price_estimasi: priceEstimasi === "" ? null : Number(priceEstimasi),
       });
+      playPageTransition();
       onSuccess?.();
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Gagal menyimpan");
@@ -175,7 +182,7 @@ export function EditServisForm({ servisId, initial, onSuccess, onCancel }: Props
                   {teknisiLabel(teknisiOpts.find((t) => t.id === teknisiId))}
                 </SelectValue>
               </SelectTrigger>
-              <SelectPopup>
+              <SelectPopup matchTriggerWidth>
                 {teknisiOpts.length === 0 ? <SelectItem value="__empty" disabled>Tidak ada teknisi</SelectItem> : teknisiOpts.map((t) => <SelectItem key={t.id} value={t.id}>{teknisiLabel(t)}</SelectItem>)}
               </SelectPopup>
             </Select>
@@ -221,6 +228,37 @@ export function EditServisForm({ servisId, initial, onSuccess, onCancel }: Props
         <CardHeader><CardTitle className="text-base">Estimasi Biaya <span className="font-normal text-muted-foreground">(Opsional)</span></CardTitle></CardHeader>
         <CardContent className="space-y-1.5"><Label>Estimasi (Rp)</Label><Input type="number" min={0} placeholder="Kosongkan jika belum tahu" value={priceEstimasi} onChange={(e) => { const v = e.target.value; if (v === "") setPriceEstimasi(""); else setPriceEstimasi(Math.max(0, Number(v))); }} /></CardContent>
       </Card>
+
+      <Card>
+        <CardHeader><CardTitle className="text-base">Check Kondisi Awal</CardTitle><CardDescription>Periksa kondisi perangkat sekarang?</CardDescription></CardHeader>
+        <CardContent className="space-y-3">
+          <JellyRadio
+            items={[{ value: "ya", label: "Ya" }, { value: "tidak", label: "Tidak" }]}
+            value={kondisiYa ? "ya" : "tidak"}
+            onChange={(v: string) => setKondisiYa(v === "ya")}
+            chipColor="#e4e4e7"
+            activeColor="#18181b"
+            textColor="#18181b"
+            activeTextColor="#f5f5f5"
+            invertDark
+            size="md"
+            gap={8}
+            radius={18}
+            ariaLabel="Check kondisi awal"
+          />
+        </CardContent>
+      </Card>
+
+      {kondisiYa ? (
+        <KondisiAwalForm
+          onSave={async (data: KondisiAwal) => {
+            await updateKondisiAwal(servisId, data);
+            playPageTransition();
+            onSuccess?.();
+          }}
+          onSkip={() => setKondisiYa(false)}
+        />
+      ) : null}
 
       <div className="flex gap-2 justify-end">
         <Button type="button" variant="outline" onClick={handleCancel} disabled={loading}>Batal</Button>

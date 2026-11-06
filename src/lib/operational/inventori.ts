@@ -30,6 +30,7 @@ export type InventoryProduct = {
   garansi_days: number | null;
   imei: string | null;
   parent_key: string | null;
+  image_url?: string | null;
   is_active?: boolean;
 };
 

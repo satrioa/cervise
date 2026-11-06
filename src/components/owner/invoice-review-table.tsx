@@ -4,6 +4,7 @@ import { useState } from "react";
 import { CheckIcon, XIcon } from "lucide-react";
 import { toast } from "sonner";
 import { approveInvoice, rejectInvoice } from "@/app/owner/actions";
+import { playPageTransition } from "@/components/layout/page-transition";
 import { formatRupiah } from "@/lib/format";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -43,6 +44,7 @@ export function InvoiceReviewTable({ invoices }: { invoices: InvoiceRow[] }) {
     setLoading(invoiceId);
     try {
       await approveInvoice({ invoiceId, note: "Pembayaran terverifikasi" });
+      playPageTransition();
       toast.success("Invoice disetujui dan paket diaktifkan");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Gagal menyetujui invoice");
@@ -60,6 +62,7 @@ export function InvoiceReviewTable({ invoices }: { invoices: InvoiceRow[] }) {
     setLoading(invoiceId);
     try {
       await rejectInvoice({ invoiceId, reason });
+      playPageTransition();
       toast.success("Invoice ditolak dan replacement dibuat");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Gagal menolak invoice");

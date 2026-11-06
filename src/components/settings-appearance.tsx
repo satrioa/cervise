@@ -11,6 +11,7 @@ import { PublicFooter } from "@/components/public/public-footer";
 import { TestimonialsCarousel } from "@/components/public/testimonials-carousel";
 import { initialsOf } from "@/lib/photos";
 import { saveLacakAppearance } from "@/app/app/pengaturan/tampilan/actions";
+import { playPageTransition } from "@/components/layout/page-transition";
 import {
   DEFAULT_LACAK_APPEARANCE,
   LACAK_DENSITIES,
@@ -81,6 +82,7 @@ export function SettingsAppearanceShowcasePage({ initial, tenant }: { initial: L
     setSaving(true);
     try {
       await saveLacakAppearance(draft);
+      playPageTransition();
       toast.success("Tampilan Lacak diperbarui");
     } catch (e: any) {
       toast.error(e?.message ?? "Gagal menyimpan");

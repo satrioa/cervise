@@ -2,9 +2,10 @@
 
 import { useState, useMemo, useEffect, useCallback } from "react";
 import { formatCurrencyPlain, formatNumberPlain } from "@/lib/format";
-import { SearchIcon, CalendarIcon, XIcon, TableIcon, LayoutGridIcon } from "lucide-react";
+import { SearchIcon, CalendarIcon, XIcon, TableIcon, LayoutGridIcon, ArrowDownIcon, ArrowUpDownIcon, ArrowUpIcon } from "lucide-react";
 import { format } from "date-fns";
 import { id as localeId } from "date-fns/locale";
+import { playPageTransition } from "@/components/layout/page-transition";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -50,6 +51,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { DOT_COLOR, STAGES, StageTrack, stageIndex, type Stage } from "@/lib/operational/stage-track";
 import { servisLabel } from "@/lib/operational/servis-list";
+import { servisOutstanding } from "@/lib/operational/servis-price";
 
 type PaymentStatus = "Lunas" | "DP" | "Belum dibayar";
 
@@ -61,6 +63,8 @@ type ServisItem = {
   device: string;
   customer: string;
   price: number;
+  /** Tagihan penuh; `price` bisa berisi total terbayar setelah pembayaran. */
+  bill?: number;
   teknisi: string;
   status: Stage;
   complaint: string;
@@ -183,6 +187,8 @@ export default function ServisPage() {
   const [search, setSearch] = useState("");
   const [dateRange, setDateRange] = useState<DateRange>({});
   const [paymentFilter, setPaymentFilter] = useState<string>("Semua");
+  const [teknisiFilter, setTeknisiFilter] = useState<string>("Semua");
+  const [priceSort, setPriceSort] = useState<"none" | "asc" | "desc">("none");
   const [page, setPage] = useState(1);
   const [openServis, setOpenServis] = useState(false);
   const [servisData, setServisData] = useState<ServisItem[]>([]);
@@ -283,10 +289,16 @@ export default function ServisPage() {
     if (paymentFilter === "Semua") return true;
     return getPaymentStatus(item) === paymentFilter;
   };
-  const matchesSearchAndDate = (item: ServisItem) => matchesSearch(item) && matchesDate(item) && matchesPayment(item);
+  const matchesSearchAndDate = (item: ServisItem) => matchesSearch(item) && matchesDate(item) && matchesPayment(item) && (teknisiFilter === "Semua" || item.teknisi === teknisiFilter);
 
-  const filteredByAll = useMemo(() => servisData.filter(matchesSearchAndDate), [servisData, search, dateRange, paymentFilter]);
-  const filteredTable = useMemo(() => (filter === "Semua" ? filteredByAll : filteredByAll.filter((d) => d.status === filter)), [filteredByAll, filter]);
+  const teknisiOptions = useMemo(() => Array.from(new Set(servisData.map((item) => item.teknisi).filter(Boolean))).sort(), [servisData]);
+
+  const filteredByAll = useMemo(() => servisData.filter(matchesSearchAndDate), [servisData, search, dateRange, paymentFilter, teknisiFilter]);
+  const filteredTable = useMemo(() => {
+    const rows = filter === "Semua" ? filteredByAll : filteredByAll.filter((d) => d.status === filter);
+    if (priceSort === "none") return rows;
+    return [...rows].sort((a, b) => (priceSort === "asc" ? a.price - b.price : b.price - a.price));
+  }, [filteredByAll, filter, priceSort]);
   const totalPages = Math.max(1, Math.ceil(filteredTable.length / PAGE_SIZE));
   const pageSafe = Math.min(Math.max(1, page), totalPages);
   const pageItems = filteredTable.slice((pageSafe - 1) * PAGE_SIZE, pageSafe * PAGE_SIZE);
@@ -308,8 +320,8 @@ export default function ServisPage() {
     return out;
   }, [filteredKanbanBase, filter]);
 
-  const hasActiveFilters = search.trim().length > 0 || !!dateRange.from || !!dateRange.to || paymentFilter !== "Semua";
-  const clearFilters = () => { setSearch(""); setDateRange({}); setPaymentFilter("Semua"); };
+  const hasActiveFilters = search.trim().length > 0 || !!dateRange.from || !!dateRange.to || paymentFilter !== "Semua" || teknisiFilter !== "Semua";
+  const clearFilters = () => { setSearch(""); setDateRange({}); setPaymentFilter("Semua"); setTeknisiFilter("Semua"); };
 
   const dateLabel = (() => {
     if (dateRange.from && dateRange.to) {
@@ -379,12 +391,20 @@ export default function ServisPage() {
     try {
       await updateServisStatus(s.id, next);
       applyLocalStatus(s, next);
+      playPageTransition();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Gagal mengubah status");
     }
   };
   const openPickup = (items: ServisItem[], bulk = false) => {
     if (items.length === 0) return;
+    // Servis belum lunas tidak boleh diambil; buka pembayaran untuk yang pertama.
+    const unpaid = items.find((it) => servisOutstanding(it.bill ?? it.price, it.paidAmount ?? 0) > 0);
+    if (unpaid) {
+      toast.error("Servis belum lunas. Selesaikan pembayaran dulu sebelum pengambilan.");
+      setBayarServisId(unpaid.id);
+      return;
+    }
     setPickupItems(items);
     setPickupBulk(bulk);
     setPickupOpen(true);
@@ -406,6 +426,7 @@ export default function ServisPage() {
       }
     }
     if (failed.length > 0) throw new Error(failed[0]);
+    playPageTransition();
     if (pickupBulk) setSelectedIds(new Set());
     toast.success(
       items.length > 1 ? `${items.length} servis sudah diambil` : "Servis sudah diambil",
@@ -430,6 +451,7 @@ export default function ServisPage() {
     setDeleteError(null);
     try {
       await deleteServis(selectedServis.id);
+      playPageTransition();
       setServisData((prev) => prev.filter((it) => it.id !== selectedServis.id));
       setKanbanValue((prev) => {
         const nextVal: Record<string, ServisItem[]> = {};
@@ -548,6 +570,7 @@ export default function ServisPage() {
         toast.error(failed[0] ?? "Gagal mengubah status");
         return;
       }
+      playPageTransition();
       setServisData((prev) => prev.map((it) => (ids.has(it.id) ? { ...it, status: next } : it)));
       setKanbanValue((prev) => {
         const nextVal: Record<string, ServisItem[]> = {};
@@ -600,6 +623,7 @@ export default function ServisPage() {
       toast.error("Gagal mengubah status pada semua servis terpilih");
       return;
     }
+    playPageTransition();
     setServisData((prev) => prev.map((it) => (ids.has(it.id) && !failedIds.includes(it.id) ? { ...it, status: next } : it)));
     setKanbanValue((prev) => {
       const nextVal: Record<string, ServisItem[]> = {};
@@ -716,7 +740,7 @@ export default function ServisPage() {
         titleClassName="font-heading text-2xl"
         description={
           hasActiveFilters
-            ? `${filteredByAll.length} servis${search ? ` untuk “${search}”` : ""}${dateRange.from || dateRange.to ? ` · ${dateLabel}` : ""}${paymentFilter !== "Semua" ? ` · ${paymentFilter}` : ""}`
+            ? `${filteredByAll.length} servis${search ? ` untuk “${search}”` : ""}${dateRange.from || dateRange.to ? ` · ${dateLabel}` : ""}${teknisiFilter !== "Semua" ? ` · ${teknisiFilter}` : ""}${paymentFilter !== "Semua" ? ` · ${paymentFilter}` : ""}`
             : undefined
         }
         search={
@@ -738,12 +762,23 @@ export default function ServisPage() {
                 <div className="flex items-center justify-between border-t p-2"><span className="text-xs text-muted-foreground px-2">{dateRange.from || dateRange.to ? `${filteredByAll.length} hasil` : "Pilih rentang tanggal"}</span><Button variant="ghost" size="xs" onClick={() => setDateRange({})}>Reset</Button></div>
               </PopoverContent>
             </Popover>
+            <Select value={teknisiFilter} onValueChange={(v) => setTeknisiFilter(v ?? "Semua")}>
+              <SelectTrigger size="sm" className="w-[160px] shrink-0 bg-background">
+                <SelectValue placeholder="Teknisi" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Semua">Semua Teknisi</SelectItem>
+                {teknisiOptions.map((name) => (
+                  <SelectItem key={name} value={name}>{name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             <Select value={paymentFilter} onValueChange={(v) => setPaymentFilter(v ?? "Semua")}>
               <SelectTrigger size="sm" className="w-[160px] shrink-0 bg-background">
                 <SelectValue placeholder="Pembayaran" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="Semua">Semua pembayaran</SelectItem>
+                <SelectItem value="Semua">Semua Pembayaran</SelectItem>
                 <SelectItem value="Lunas">Lunas</SelectItem>
                 <SelectItem value="DP">DP</SelectItem>
                 <SelectItem value="Belum dibayar">Belum dibayar</SelectItem>
@@ -760,7 +795,7 @@ export default function ServisPage() {
         }
       />
 
-      <main className={view === "kanban" ? "w-full max-w-none px-4 py-4" : "mx-auto max-w-6xl px-4 sm:px-6 lg:px-10 py-6 lg:py-8"}>
+      <main className={view === "kanban" ? "w-full max-w-none px-4 py-4" : "mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-6 lg:py-8"}>
         {servisError ? (
           <div role="alert" className="mb-4 rounded-xl border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
             {servisError}
@@ -769,7 +804,7 @@ export default function ServisPage() {
         {view === "table" && (
           <div className="relative -mx-1">
             <div className="overflow-x-auto scrollbar-none pb-3 px-1 mx-auto w-fit max-w-full [mask-image:linear-gradient(to_right,transparent,black_12px,black_calc(100%-12px),transparent)]">
-              <JellyRadio items={jellyItems} defaultValue="Semua" onChange={(v: string) => setFilter(v)} chipColor="#e4e4e7" activeColor="#18181b" textColor="#18181b" activeTextColor="#f5f5f5" size="md" gap={8} radius={18} />
+              <JellyRadio items={jellyItems} defaultValue="Semua" onChange={(v: string) => setFilter(v)} chipColor="#e4e4e7" activeColor="#18181b" textColor="#18181b" activeTextColor="#f5f5f5" invertDark size="md" gap={8} radius={18} />
             </div>
           </div>
         )}
@@ -800,11 +835,11 @@ export default function ServisPage() {
                     onCheckedChange={(v) => toggleAll(!!v)}
                   />
                 </TableHead>
-                <TableHead>Servis</TableHead><TableHead>Device</TableHead><TableHead>Status</TableHead><TableHead>Teknisi</TableHead><TableHead>Pembayaran</TableHead><TableHead className="text-right">Harga</TableHead></TableRow></TableHeader>
+                <TableHead>Servis</TableHead><TableHead>Device</TableHead><TableHead>Status</TableHead><TableHead>Teknisi</TableHead><TableHead>Pembayaran</TableHead><TableHead className="text-right"><button type="button" onClick={() => setPriceSort((prev) => prev === "none" ? "asc" : prev === "asc" ? "desc" : "none")} className="inline-flex items-center gap-1 font-medium hover:text-foreground" aria-label="Urutkan harga">Harga{priceSort === "asc" ? <ArrowUpIcon className="size-3" /> : priceSort === "desc" ? <ArrowDownIcon className="size-3" /> : <ArrowUpDownIcon className="size-3 opacity-40" />}</button></TableHead></TableRow></TableHeader>
             <TableBody>
               {pageItems.map((r) => (
                 <ServisContextMenu key={r.id} servis={r} onViewDetails={handleViewDetails} onStatusChange={handleStatusChange} onEdit={handleEdit} onPrint={handlePrint} onInvoice={handleInvoice} onBayar={handleBayar} onDelete={handleDelete}>
-                  <TableRow className="cursor-context-menu hover:bg-muted/40" data-state={selectedIds.has(r.id) ? "selected" : undefined}>
+                  <TableRow className="cursor-context-menu hover:bg-muted/40" data-state={selectedIds.has(r.id) ? "selected" : undefined} onDoubleClick={() => handleViewDetails(r)}>
                     <TableCell>
                       <Checkbox
                         aria-label={`Select ${servisLabel(r)}`}
@@ -886,6 +921,7 @@ export default function ServisPage() {
                     }
                     await updateServisStatus(moved.item.id, "Batal");
                     applyLocalStatus(moved.item, "Batal");
+                    playPageTransition();
                     setKanbanValue(next);
                   })
                   .catch((error: unknown) => {

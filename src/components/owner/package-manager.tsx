@@ -4,6 +4,7 @@ import { useState } from "react";
 import { PencilIcon, PlusIcon, SaveIcon } from "lucide-react";
 import { toast } from "sonner";
 import { savePackage } from "@/app/owner/actions";
+import { playPageTransition } from "@/components/layout/page-transition";
 import { formatRupiah } from "@/lib/format";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -65,6 +66,7 @@ export function PackageManager({ packages }: { packages: PackageRow[] }) {
         branchLimit: form.branchLimit,
         userLimit: form.userLimit || null,
       });
+      playPageTransition();
       toast.success(form.id ? "Package diperbarui" : "Package dibuat");
       reset();
     } catch (error) {

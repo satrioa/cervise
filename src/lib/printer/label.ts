@@ -1,5 +1,4 @@
 import { code128Svg } from "@/lib/barcode/code128";
-import { formatCurrencyPlain } from "@/lib/format";
 import { normalizeAscii } from "./escpos";
 import { printHtml } from "./transports/browserPrint";
 
@@ -31,20 +30,18 @@ function escapeHtml(value: string): string {
     .replace(/"/g, "&quot;");
 }
 
-/** Satu label HTML. */
+/** Satu label HTML. Harga sengaja tidak dicetak; teks rata tengah. */
 function renderLabel(item: SkuLabelInput): string {
-  const price = item.price == null ? "" : formatCurrencyPlain(item.price);
   return `<div class="label">
   <div class="name">${escapeHtml(item.name)}</div>
   ${item.variant && item.variant !== "—" ? `<div class="meta">${escapeHtml(item.variant)}</div>` : ""}
   <div class="sku">${escapeHtml(item.sku)}</div>
-  ${price ? `<div class="price">${escapeHtml(price)}</div>` : ""}
   <div class="code">${code128Svg(item.sku, { height: 28, moduleWidth: 1, margin: 2 })}</div>
 </div>`;
 }
 
 /** Dokumen cetak berisi seluruh label, satu label per halaman 50 × 25 mm. */
-export function renderSkuLabelHtml(items: SkuLabelInput[]): string {
+export function renderSkuLabelHtml(items: SkuLabelInput[], autoPrint = true): string {
   return `<!doctype html><html><head><meta charset="utf-8"><title>Label SKU</title>
 <style>
   @page { size: ${LABEL_WIDTH_MM}mm ${LABEL_HEIGHT_MM + LABEL_GAP_MM}mm; margin: 0; }
@@ -61,17 +58,17 @@ export function renderSkuLabelHtml(items: SkuLabelInput[]): string {
     overflow: hidden;
     break-inside: avoid;
     page-break-inside: avoid;
+    text-align: center;
   }
   .name { font-size: 8pt; font-weight: 700; line-height: 1.1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .meta { font-size: 6.5pt; line-height: 1.2; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .sku { font-size: 6.5pt; font-family: ui-monospace, monospace; letter-spacing: .02em; }
-  .price { font-size: 7.5pt; font-weight: 700; font-variant-numeric: tabular-nums; }
   .code { margin-top: auto; }
   .code svg { width: 100%; height: 7mm; display: block; }
 </style>
 </head><body>
 ${items.map(renderLabel).join("\n")}
-<script>window.print();</script>
+${autoPrint ? "<script>window.print();</script>" : ""}
 </body></html>`;
 }
 

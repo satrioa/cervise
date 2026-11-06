@@ -17,6 +17,7 @@ import {
 import { formatCurrencyPlain } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { addCashAdjustment } from "@/app/app/actions/cash";
+import { playPageTransition } from "@/components/layout/page-transition";
 
 /**
  * Saldo masuk atau keluar di luar penjualan: setoran owner, koreksi, pengeluaran
@@ -70,6 +71,7 @@ export function AdjustmentDialog({
     }
     setSaving(false);
     reset();
+    playPageTransition();
     onOpenChange(false);
     toast.success(direction === "pemasukan" ? "Pemasukan dicatat" : "Pengeluaran dicatat");
     onSaved?.();

@@ -130,8 +130,8 @@ describe("daftar dan kartu: bentuk sesuai hasil render", () => {
   it("timeline servis menggambar titik, garis, dan waktu", () => {
     const source = read("src/components/servis/servis-detail-view.tsx");
     const loading = source.slice(source.indexOf("logsLoading ? ("), source.indexOf("timelineEvents.length === 0 ?"));
-    expect(loading).toContain("size-[34px] rounded-full");
-    expect(loading).toContain("bg-border/50");
+    expect(loading).toContain("size-8 rounded-full");
+    expect(loading).toContain("w-14 shrink-0");
   });
 
   it("pembayaran servis menggambar header 4 kolom + baris", () => {

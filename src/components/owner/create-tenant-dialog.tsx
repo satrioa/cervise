@@ -10,6 +10,7 @@ import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
 import { toast } from "sonner";
 import { createTenant } from "@/app/owner/actions";
 import { TempPasswordDialog } from "@/components/temp-password-dialog";
+import { playPageTransition } from "@/components/layout/page-transition";
 
 export function CreateTenantDialog() {
   const router = useRouter();
@@ -37,6 +38,7 @@ export function CreateTenantDialog() {
       setOwnerEmail("");
       setOwnerPhone("");
       setOpen(false);
+      playPageTransition();
       router.refresh();
 
       if (result.tempPassword) {

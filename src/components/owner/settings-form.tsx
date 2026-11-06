@@ -4,6 +4,7 @@ import { useState } from "react";
 import { SaveIcon } from "lucide-react";
 import { toast } from "sonner";
 import { updatePlatformSettings } from "@/app/owner/actions";
+import { playPageTransition } from "@/components/layout/page-transition";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -27,6 +28,7 @@ export function SettingsForm({ settings }: { settings: Settings }) {
     setSaving(true);
     try {
       await updatePlatformSettings({ renewalLeadDays, defaultGraceDays, ownerWhatsapp, ownerEmail });
+      playPageTransition();
       toast.success("Settings platform disimpan");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Gagal menyimpan settings");

@@ -17,6 +17,7 @@ const base: PrintData = {
     tanggalTerima: "2026-09-18",
     trackingCode: "A3BD9F2C4B",
     tenantSlug: "servisin",
+    payment: { status: "Lunas", methods: "Tunai", paid: 350000, remaining: 0 },
   },
   customer: { name: "RINA", phone: "0812 3456 7890" },
   admin: "Sari",
@@ -114,6 +115,58 @@ describe("struk memuat kode cek publik", () => {
   });
 });
 
+describe("informasi pembayaran di nota", () => {
+  it("mencetak status dan metode yang benar, bukan Cash", () => {
+    for (const html of [renderJetHtml(base), renderDotMatrixHtml(base), renderThermalHtml(base)]) {
+      expect(html).toContain("Pembayaran");
+      expect(html).toContain("Lunas");
+      expect(html).toContain("Tunai");
+      expect(html).not.toContain(">Cash<");
+    }
+  });
+
+  it("memakai tagihan penuh dan menampilkan sisa saat DP", () => {
+    const data = toPrintData(
+      {
+        id: "s1",
+        service_number: "SRV-2026-0011",
+        status: "Dikerjakan",
+        price: 250000,
+        price_estimasi: 1_000_000,
+        paidAmount: 250000,
+        paymentMethods: "Tunai",
+      },
+      { brandName: "Servisin" },
+      { price: 250000, price_estimasi: 1_000_000 },
+    );
+
+    expect(data.service.price).toBe(1_000_000);
+    expect(data.service.payment).toEqual({
+      status: "DP",
+      methods: "Tunai",
+      paid: 250000,
+      remaining: 750000,
+    });
+    for (const html of [renderJetHtml(data), renderDotMatrixHtml(data), renderThermalHtml(data)]) {
+      expect(html).toContain("DP");
+      expect(html).toContain("Sisa");
+    }
+  });
+
+  it("servis belum dibayar tidak mencetak metode kosong", () => {
+    const data = toPrintData(
+      { id: "s1", status: "Masuk", price_estimasi: 500000 },
+      { brandName: "Servisin" },
+    );
+
+    expect(data.service.payment.status).toBe("Belum dibayar");
+    for (const html of [renderJetHtml(data), renderDotMatrixHtml(data), renderThermalHtml(data)]) {
+      expect(html).toContain("Belum dibayar");
+      expect(html).not.toContain("Metode:");
+    }
+  });
+});
+
 describe("status belum selesai memakai estimasi", () => {
   it("mencetak Estimasi, bukan Total, dan tanpa sparepart", () => {
     const data = toPrintData(
@@ -185,6 +238,42 @@ describe("nomor struk memakai nomor servis", () => {
     expect(data.invoiceNo).toBe("\u2014");
     for (const render of [renderJetHtml, renderDotMatrixHtml, renderThermalHtml]) {
       expect(render(data)).not.toMatch(/INV-\d{8}/);
+    }
+  });
+});
+
+describe("garansi di nota", () => {
+  // Garansi baru mulai saat perangkat diambil, jadi nota masuk tidak punya
+  // `garansi_until`. Dulu barisnya mencetak "-" tanpa memberi tahu lamanya.
+  const belumAktif = toPrintData(
+    { id: "s1", service_number: "SRV-2026-0020", status: "Masuk", garansi_value: 3, garansi_unit: "bulan" },
+    { brandName: "Servisin" },
+  );
+
+  it("mencetak lama garansi dan badge belum aktif di ketiga template", () => {
+    for (const html of [renderJetHtml(belumAktif), renderDotMatrixHtml(belumAktif), renderThermalHtml(belumAktif)]) {
+      expect(html).toContain("3 bulan");
+      expect(html).toContain("belum aktif");
+      expect(html).not.toMatch(/Garansi sampai[^<]*<[^>]*>[^<]*\u2014/);
+    }
+  });
+
+  it("garansi aktif mencetak tanggal akhir, tanpa badge", () => {
+    const aktif = toPrintData(
+      {
+        id: "s1",
+        service_number: "SRV-2026-0021",
+        status: "Sudah Diambil",
+        garansi_value: 1,
+        garansi_unit: "bulan",
+        garansi_until: "2026-11-26T00:00:00.000Z",
+      },
+      { brandName: "Servisin" },
+    );
+    for (const html of [renderJetHtml(aktif), renderDotMatrixHtml(aktif), renderThermalHtml(aktif)]) {
+      expect(html).toContain("1 bulan");
+      expect(html).toContain("2026-11-26");
+      expect(html).not.toContain("belum aktif");
     }
   });
 });

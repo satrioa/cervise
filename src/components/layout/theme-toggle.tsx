@@ -2,79 +2,60 @@
 
 import { useSyncExternalStore } from "react";
 import { useTheme } from "next-themes";
-import { CheckIcon, LaptopIcon, MoonIcon, SunIcon } from "lucide-react";
+import { MoonIcon, SunIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import BlurFadeThemeTransition, {
+  useBlurFadeThemeTransition,
+} from "@/components/ui/BlurFadeThemeTransition";
 import { cn } from "@/lib/utils";
 
-const OPTIONS = [
-  { value: "light", label: "Terang", Icon: SunIcon },
-  { value: "dark", label: "Gelap", Icon: MoonIcon },
-  { value: "system", label: "Sistem", Icon: LaptopIcon },
-] as const;
-
 /**
- * Pengalih tema terang/gelap/sistem untuk APLIKASI.
+ * Pengalih tema terang/gelap untuk APLIKASI.
  *
  * Menyimpan ke `localStorage["cervise-theme"]` lewat `next-themes`, dan hanya
  * memengaruhi `<html>` lewat class `dark`. Tidak ada hubungannya dengan
  * pengaturan tampilan halaman Lacak di `/app/pengaturan/tampilan`: yang itu
  * milik toko, disimpan di database, dan tidak menyentuh class pada `<html>`.
  *
- * Button ini meniru gaya CommandSearchTrigger di sebelahnya, dan memakai
- * primitive coss yang sudah ada di repo (Button + Popover) -
- * tidak menambah dependensi.
+ * `BlurFadeThemeTransition` dipakai dalam mode terkontrol supaya next-themes
+ * tetap satu-satunya pemilik state tema.
  */
 export function ThemeToggle({ className }: { className?: string }) {
-  const { theme, setTheme } = useTheme();
+  const { resolvedTheme, setTheme } = useTheme();
+  return (
+    <BlurFadeThemeTransition
+      theme={resolvedTheme === "dark" ? "dark" : "light"}
+      onThemeChange={setTheme}
+    >
+      <ThemeToggleInner className={className} />
+    </BlurFadeThemeTransition>
+  );
+}
+
+function ThemeToggleInner({ className }: { className?: string }) {
+  const { theme, triggerTransition, isAnimating } = useBlurFadeThemeTransition();
   // Tema hanya diketahui di client. useSyncExternalStore mengembalikan false di
-  // server dan true di client, jadi ikon tidak akan hydration-mismatch tanpa
-  // perlu useEffect + setState (yang juga complained oleh lint react-hooks).
+  // server dan true di client, jadi ikon tidak hydration-mismatch.
   const mounted = useSyncExternalStore(
     () => () => {},
     () => true,
     () => false,
   );
 
-  const current = OPTIONS.find((option) => option.value === theme) ?? OPTIONS[0];
-  const Icon = mounted ? current.Icon : SunIcon;
+  const isDark = mounted && theme === "dark";
+  const Icon = isDark ? SunIcon : MoonIcon;
 
   return (
-    <Popover>
-      <PopoverTrigger
-        render={
-          <Button
-            variant="outline"
-            size="sm"
-            aria-label="Ubah tema"
-            title="Ubah tema"
-            className={cn("size-8 shrink-0 p-0", className)}
-          />
-        }
-      >
-        <Icon className="size-4" />
-      </PopoverTrigger>
-      <PopoverContent align="end" className="w-44 p-1">
-        <div className="flex flex-col gap-0.5">
-          {OPTIONS.map((option) => (
-            <button
-              key={option.value}
-              type="button"
-              onClick={() => setTheme(option.value)}
-              className={cn(
-                "flex items-center justify-between gap-2 rounded-md px-2 py-1.5 text-sm transition-colors hover:bg-foreground/[0.04]",
-                mounted && theme === option.value && "bg-foreground/[0.06] font-medium",
-              )}
-            >
-              <span className="flex items-center gap-2">
-                <option.Icon className="size-3.5 opacity-60" />
-                {option.label}
-              </span>
-              {mounted && theme === option.value ? <CheckIcon className="size-3.5" /> : null}
-            </button>
-          ))}
-        </div>
-      </PopoverContent>
-    </Popover>
+    <Button
+      variant="outline"
+      size="sm"
+      onClick={() => triggerTransition()}
+      disabled={isAnimating}
+      aria-label={isDark ? "Ubah ke tema terang" : "Ubah ke tema gelap"}
+      title={isDark ? "Tema terang" : "Tema gelap"}
+      className={cn("size-8 shrink-0 p-0", className)}
+    >
+      <Icon className="size-4" />
+    </Button>
   );
 }

@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/dialog";
 import { formatCurrencyPlain } from "@/lib/format";
 import { checkOpenCashSession, openCashSession, type CashSessionRow } from "@/app/app/actions/cash";
+import { playPageTransition } from "@/components/layout/page-transition";
 
 /**
  * Saldo awal wajib.
@@ -78,6 +79,7 @@ export function OpeningBalanceDialog({
       return;
     }
     setOpen(false);
+    playPageTransition();
     onOpened?.(result.data);
   };
 

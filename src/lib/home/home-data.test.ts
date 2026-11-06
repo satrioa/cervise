@@ -47,6 +47,15 @@ describe("data Home dirender server", () => {
     expect(homeData).not.toMatch(/select\("status, created_at"\)/);
   });
 
+  it("antrean dihitung lintas hari, bukan hanya servis hari ini", () => {
+    // `countToday()` memasang `.gte("created_at", since)`. Antrean tidak boleh
+    // memakainya, kalau tidak angka di kartu balik nol tiap pagi padahal
+    // servis kemarin masih menggantung.
+    const kpiBlock = homeData.slice(homeData.indexOf("export async function loadFrontlinerKpi"));
+    expect(kpiBlock).toContain("FRONTLINER_IN_PROGRESS_STATUSES");
+    expect(kpiBlock).not.toMatch(/countToday\(\)\.in\("status"/);
+  });
+
   it("antrean kasir hanya meminta penjualan untuk servis yang diambil", () => {
     // Versi lama mengambil SELURUH penjualan cabang hanya untuk membentuk
     // himpunan id yang sudah dibayar.

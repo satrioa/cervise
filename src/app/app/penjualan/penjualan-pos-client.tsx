@@ -20,7 +20,7 @@ import { printReceipt } from "@/lib/printer";
 import { kalenderWIB } from "@/lib/operational/periode-bulan";
 import { PenjualanProductGrid } from "@/components/penjualan/penjualan-product-grid";
 import { PenjualanTable } from "@/components/penjualan/penjualan-table";
-import { PenjualanCartPanel } from "@/components/penjualan/penjualan-cart-panel";
+import { PenjualanCartPanel, PenjualanCartExpander } from "@/components/penjualan/penjualan-cart-panel";
 import { PenjualanOrderPanel } from "@/components/penjualan/penjualan-order-panel";
 import { PenjualanPaymentPanel, type PaymentOutcome } from "@/components/penjualan/penjualan-payment-panel";
 import { PenjualanReceiptDialog } from "@/components/penjualan/penjualan-receipt-dialog";
@@ -28,6 +28,7 @@ import { haptic } from "@/lib/haptic";
 import type { PosCartItem, PosCustomer, PosNewCustomer } from "@/components/penjualan/pos-types";
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
 import { ProductCardsSkeleton } from "@/components/ui/route-skeleton";
+import { playPageTransition } from "@/components/layout/page-transition";
 import { TableRowsSkeleton } from "@/components/ui/skeleton-shapes";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
@@ -72,6 +73,7 @@ export function PenjualanPOSClient({ initialRows, receiptContext }: { initialRow
   const [printing, setPrinting] = useState(false);
   const [receiptOpen, setReceiptOpen] = useState(false);
   const [riwayatOpen, setRiwayatOpen] = useState(false);
+  const [mobileRiwayatOpen, setMobileRiwayatOpen] = useState(false);
   const [detailOpen, setDetailOpen] = useState(false);
   const [detail, setDetail] = useState<any>(null);
   const [returOpen, setReturOpen] = useState(false);
@@ -118,23 +120,24 @@ export function PenjualanPOSClient({ initialRows, receiptContext }: { initialRow
     return out;
   }, [products, q, kategori, stockFilter, sortHarga]);
 
-  const addToCart = (p: ProductRow) => {
+  const addToCart = (p: ProductRow, qtyToAdd = 1) => {
     if (p.stock_qty <= 0) { toast.error(`${p.name} stok habis`); haptic([30, 50, 30]); return; }
+    const amount = Math.max(1, Math.floor(qtyToAdd));
     let didAdd = false;
     let isNew = false;
     setCart((prev) => {
       const idx = prev.findIndex((c) => c.product.id === p.id);
       if (idx >= 0) {
         const cur = prev[idx];
-        if (cur.qty + 1 > p.stock_qty) { toast.error("Melebihi stok"); haptic([20, 30, 20]); return prev; }
+        if (cur.qty + amount > p.stock_qty) { toast.error("Melebihi stok"); haptic([20, 30, 20]); return prev; }
         const next = [...prev];
-        next[idx] = { ...cur, qty: cur.qty + 1 };
+        next[idx] = { ...cur, qty: cur.qty + amount };
         didAdd = true;
         return next;
       }
       didAdd = true;
       isNew = true;
-      return [...prev, { product: p, qty: 1, unit_price: p.price }];
+      return [...prev, { product: p, qty: amount, unit_price: p.price }];
     });
     if (didAdd) haptic(isNew ? 50 : 20);
   };
@@ -200,6 +203,7 @@ export function PenjualanPOSClient({ initialRows, receiptContext }: { initialRow
     // kasir tidak menekan Selesai dua kali kalau pengambilan nota gagal.
     resetCheckout();
     setSaving(false);
+    playPageTransition();
     haptic([50, 30, 80]);
     try {
       const detail = await getSaleDetail(res.saleId);
@@ -277,6 +281,7 @@ export function PenjualanPOSClient({ initialRows, receiptContext }: { initialRow
     if (!rets.length) { toast.error("Pilih qty retur"); return; }
     try {
       const result = await returnSaleItems(returSale.id, rets);
+      playPageTransition();
       // Nominal dari RPC, bukan dari perkiraan di layar - ini uang yang benar
       // benar keluar dari laci.
       toast.success(result.refund > 0 ? `Retur berhasil — uang kembali ${formatCurrencyPlain(result.refund)}` : "Retur berhasil — tanpa uang kembali");
@@ -303,13 +308,24 @@ export function PenjualanPOSClient({ initialRows, receiptContext }: { initialRow
       )
     : 0;
 
+  const riwayatPopover = (open: boolean, onOpenChange: (open: boolean) => void) => (
+    <Popover open={open} onOpenChange={onOpenChange}>
+      <PopoverTrigger render={<CossButton variant="outline" size="sm"><History className="size-3.5" /> Riwayat</CossButton>} />
+      <PopoverContent align="end" className="w-[560px] max-w-[95vw] p-0">
+        <div className="max-h-[60vh] overflow-auto p-2">
+          <PenjualanTable rows={initialRows} onDetail={(id) => { onOpenChange(false); handleDetail(id); }} onPrint={(id) => { onOpenChange(false); handlePrint(id); }} onRetur={(id) => { onOpenChange(false); handleReturOpen(id); }} />
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+
   return (
     <>
       {/* Compact shell: akar mengisi sisa tinggi `main` supaya frame produk dan
           keranjang berhenti di atas bottom bar — tombol Bayar tidak perlu
           di-scroll. `lg:h-dvh` tetap dipakai AppShell (legacy), di sana
           `[data-main-content]` hanya `min-h-full` sehingga `h-full` = auto. */}
-      <div className={`mx-auto grid max-w-[1600px] gap-4 px-4 lg:px-6 py-3 lg:h-dvh lg:grid-rows-[minmax(0,1fr)] lg:items-stretch items-start lg:overflow-hidden lg:group-data-[shell=compact]/shell:h-full transition-[grid-template-columns] duration-300 ease-out ${stage === "cart" ? "lg:grid-cols-[1fr_360px] xl:grid-cols-[1fr_380px]" : "lg:grid-cols-[360px_1fr] xl:grid-cols-[380px_1fr]"}`}>
+      <div className={`mx-auto grid max-w-[1600px] ${stage === "cart" ? "gap-4" : "gap-2"} px-4 lg:px-6 py-3 lg:h-dvh lg:grid-rows-[minmax(0,1fr)] lg:items-stretch items-start lg:overflow-hidden lg:group-data-[shell=compact]/shell:h-full transition-[grid-template-columns] duration-300 ease-out ${stage === "cart" ? "lg:grid-cols-[1fr_360px] xl:grid-cols-[1fr_380px]" : "lg:grid-cols-[360px_1fr] xl:grid-cols-[380px_1fr]"}`}>
         {stage === "cart" ? (
         <CardFrame className="min-w-0 flex flex-col h-[calc(100dvh-96px)] max-h-[calc(100dvh-96px)] overflow-hidden lg:h-full lg:max-h-full animate-in fade-in-0 duration-200">
           <CardFrameHeader className="grid-rows-1 py-3 px-4 gap-2">
@@ -326,7 +342,7 @@ export function PenjualanPOSClient({ initialRows, receiptContext }: { initialRow
           <Card className="flex-1 flex flex-col overflow-hidden min-h-0">
             <CardPanel className="flex-none px-3 py-2 border-b flex flex-col gap-1.5">
               <div className="flex items-center gap-2">
-                <InputGroup className="w-full">
+                <InputGroup className="w-full min-w-0 flex-1">
                   <InputGroupAddon><SearchIcon className="size-3.5 text-muted-foreground" /></InputGroupAddon>
                   <InputGroupInput placeholder="Cari Produk" value={q} onChange={(e) => setQ(e.target.value)} nativeInput onKeyDown={(e) => { if (e.key === "Enter") { const term = q.trim(); if (term) { const hit = filteredProducts.find((p) => p.sku.toLowerCase() === term.toLowerCase() || (p.barcode && p.barcode.toLowerCase() === term.toLowerCase())); if (hit) addToCart(hit); } } }} className="text-sm h-8" />
                 </InputGroup>
@@ -345,6 +361,7 @@ export function PenjualanPOSClient({ initialRows, receiptContext }: { initialRow
                   <BarcodeIcon className="size-3.5 fill-current" />
                   Scan
                 </Button>
+                <div className="lg:hidden">{riwayatPopover(mobileRiwayatOpen, setMobileRiwayatOpen)}</div>
               </div>
 
               <div className="flex flex-wrap items-center gap-1.5 overflow-x-auto scrollbar-none">
@@ -371,7 +388,7 @@ export function PenjualanPOSClient({ initialRows, receiptContext }: { initialRow
                 </Select>
               </div>
             </CardPanel>
-            <CardPanel className="flex-1 overflow-y-auto p-2.5 bg-muted/20 min-h-0">
+            <CardPanel className="flex-1 overflow-y-auto p-2.5 pb-24 bg-muted/20 min-h-0 lg:pb-2.5">
               {productsError ? (
                 <div role="alert" className="m-2 rounded-xl border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
                   {productsError}
@@ -465,17 +482,19 @@ export function PenjualanPOSClient({ initialRows, receiptContext }: { initialRow
           </Card>
         </CardFrame>
         ) : (
-          <PenjualanOrderPanel
-            cart={cart}
-            setCart={setCart}
-            customer={customer}
-            newCustomer={newCustomer}
-            subtotal={subtotal}
-            onBack={() => setStage("cart")}
-          />
+          <div className="hidden min-w-0 lg:flex">
+            <PenjualanOrderPanel
+              cart={cart}
+              setCart={setCart}
+              customer={customer}
+              newCustomer={newCustomer}
+              subtotal={subtotal}
+              onBack={() => setStage("cart")}
+            />
+          </div>
         )}
 
-        <div className="lg:sticky lg:top-6 flex flex-col lg:self-stretch min-h-0">
+        <div className={`${stage === "cart" ? "hidden lg:flex" : "flex"} lg:sticky lg:top-6 flex-col lg:self-stretch min-h-0`}>
           {stage === "cart" ? (
             <PenjualanCartPanel
               cart={cart}
@@ -487,16 +506,7 @@ export function PenjualanPOSClient({ initialRows, receiptContext }: { initialRow
               subtotal={subtotal}
               onBayar={handleBayar}
               saving={saving}
-              riwayatAction={
-                <Popover open={riwayatOpen} onOpenChange={setRiwayatOpen}>
-                  <PopoverTrigger render={<CossButton variant="outline" size="sm"><History className="size-3.5" /> Riwayat</CossButton>} />
-                  <PopoverContent align="end" className="w-[560px] max-w-[95vw] p-0">
-                    <div className="max-h-[60vh] overflow-auto p-2">
-                      <PenjualanTable rows={initialRows} onDetail={(id) => { setRiwayatOpen(false); handleDetail(id); }} onPrint={(id) => { setRiwayatOpen(false); handlePrint(id); }} onRetur={(id) => { setRiwayatOpen(false); handleReturOpen(id); }} />
-                    </div>
-                  </PopoverContent>
-                </Popover>
-              }
+              riwayatAction={riwayatPopover(riwayatOpen, setRiwayatOpen)}
             />
           ) : (
             <PenjualanPaymentPanel
@@ -506,16 +516,27 @@ export function PenjualanPOSClient({ initialRows, receiptContext }: { initialRow
               total={subtotal}
               onSelesai={handleSelesai}
               saving={saving}
+              onBack={() => setStage("cart")}
+              customerName={customer?.name ?? newCustomer?.name?.trim() ?? undefined}
+              itemCount={cart.length}
             />
-          )}
-          {stage === "cart" && (
-            <div className="lg:hidden fixed bottom-[72px] left-1/2 z-30 -translate-x-1/2 w-[95vw] max-w-sm rounded-2xl border bg-background/95 backdrop-blur-xl p-3 shadow-2xl flex justify-between items-center lg:hidden">
-              <span className="font-mono text-xs">Keranjang</span>
-              <Button size="sm" onClick={() => document.querySelector<HTMLElement>("[data-cart-panel]")?.scrollIntoView({ behavior: "smooth" })}>Lihat Keranjang</Button>
-            </div>
           )}
         </div>
       </div>
+
+      {stage === "cart" && cart.length > 0 && (
+        <PenjualanCartExpander
+          cart={cart}
+          setCart={setCart}
+          customer={customer}
+          onSelectCustomer={setCustomer}
+          newCustomer={newCustomer}
+          onNewCustomerChange={setNewCustomer}
+          subtotal={subtotal}
+          onBayar={handleBayar}
+          saving={saving}
+        />
+      )}
 
       <DialogPrimitive.Root open={detailOpen} onOpenChange={setDetailOpen}>
         <DialogPrimitive.Portal>

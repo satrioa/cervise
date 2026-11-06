@@ -11,7 +11,10 @@ import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
 import { XIcon, PackageIcon } from "lucide-react";
 import { toast } from "sonner";
 import { createProduct, searchProductsForSale } from "@/app/app/penjualan/actions";
+import { uploadProductPhoto } from "@/app/app/inventori/photo-actions";
+import { ProductPhotoPicker } from "@/components/inventori/product-photo";
 import { useBranch } from "@/lib/branch-context";
+import { playPageTransition } from "@/components/layout/page-transition";
 
 type Props = {
   open: boolean;
@@ -41,6 +44,7 @@ export function ProductVariantDialog({ open, onOpenChange, onSuccess }: Props) {
   const [garansiOn, setGaransiOn] = useState(false);
   const [garansiDays, setGaransiDays] = useState("30");
   const [saving, setSaving] = useState(false);
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [showSuggest, setShowSuggest] = useState(false);
 
@@ -60,6 +64,7 @@ export function ProductVariantDialog({ open, onOpenChange, onSuccess }: Props) {
     setKondisi("");
     setGaransiOn(false);
     setGaransiDays("30");
+    setPhotoFile(null);
   }, [open]);
 
   // autocomplete for name
@@ -91,7 +96,7 @@ export function ProductVariantDialog({ open, onOpenChange, onSuccess }: Props) {
     }
     setSaving(true);
     try {
-      await createProduct({
+      const created = await createProduct({
         name: name.trim(),
         category,
         stock_qty: variantType === "BARU" ? Number(stockQty || 0) : undefined,
@@ -106,7 +111,23 @@ export function ProductVariantDialog({ open, onOpenChange, onSuccess }: Props) {
         garansi_days: variantType === "BEKAS" && garansiOn ? Number(garansiDays) : null,
         imei: variantType === "BEKAS" ? imei.trim() : null,
       } as any);
+      if (photoFile) {
+        // Produk sudah tersimpan; kegagalan foto tidak boleh membuat kasir
+        // mengira produknya gagal dan mengirim ulang.
+        try {
+          const formData = new FormData();
+          formData.append("file", photoFile);
+          await uploadProductPhoto(created.id, formData);
+        } catch (photoError) {
+          toast.warning(
+            `Produk tersimpan, tetapi foto gagal diunggah: ${
+              photoError instanceof Error ? photoError.message : "coba lagi dari kartu produk"
+            }`,
+          );
+        }
+      }
       toast.success(`${variantType === "BARU" ? "Varian Baru" : "Unit Bekas"} ditambahkan — ${name} ${storage} ${warna}`);
+      playPageTransition();
       onOpenChange(false);
       onSuccess?.();
     } catch (e: any) {
@@ -178,6 +199,11 @@ export function ProductVariantDialog({ open, onOpenChange, onSuccess }: Props) {
             </div>
 
             <div className="space-y-1.5"><Label>Barcode (opsional)</Label><Input value={barcode} onChange={(e) => setBarcode(e.target.value)} placeholder="Scan / ketik SKU" /></div>
+
+            <div className="space-y-1.5">
+              <Label>Foto produk (opsional)</Label>
+              <ProductPhotoPicker value={null} onFile={setPhotoFile} disabled={saving} />
+            </div>
 
             {variantType === "BEKAS" && (
               <>

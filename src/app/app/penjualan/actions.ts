@@ -56,6 +56,7 @@ export type ProductRow = {
   garansi_days: number | null;
   imei: string | null;
   parent_key: string | null;
+  image_url: string | null;
 };
 
 function slugParent(name: string): string {
@@ -69,7 +70,7 @@ export async function searchProductsForSale(q: string, opts?: { variant_type?: "
   let query = applyBranchScope(
     supabase
       .from("cervise_products")
-      .select("id, branch_id, sku, barcode, name, category, stock_qty, cost, price, is_serialized, is_active, variant_type, storage, warna, bh_percent, kondisi_notes, garansi_days, imei, parent_key")
+      .select("id, branch_id, sku, barcode, name, category, stock_qty, cost, price, is_serialized, is_active, variant_type, storage, warna, bh_percent, kondisi_notes, garansi_days, imei, parent_key, image_url")
       .eq("is_active", true),
     actor,
   )
@@ -159,7 +160,9 @@ export async function createProduct(input: {
   }
   if (input.cost < 0 || input.price < 0) throw new Error("Nilai tidak boleh negatif");
 
+  const id = randomUUID();
   const payload: any = {
+    id,
     branch_id: branchId,
     organization_id,
     sku,
@@ -201,7 +204,7 @@ export async function createProduct(input: {
   }
   revalidatePath("/app/penjualan");
   revalidatePath("/app/inventori");
-  return { sku };
+  return { id, sku };
 }
 
 export async function getSalesOrders(filters?: { q?: string; metode?: string; status?: string; from?: string; to?: string }) {

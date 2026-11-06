@@ -27,19 +27,19 @@ function chain(result: unknown) {
   query.or = vi.fn(() => query);
   query.order = vi.fn(() => query);
   query.limit = vi.fn(() => query);
+  query.maybeSingle = vi.fn(() => Promise.resolve(result));
   query.then = (resolve: (value: unknown) => unknown) => Promise.resolve(result).then(resolve);
   return query;
 }
 
-const productRow = {
-  id: "product-1",
-  sku: "AK-001",
-  name: "Layar AMOLED",
-  category: "Aksesori",
+const sparepartRow = {
+  id: "sparepart-1",
+  sku: "BAT-001",
+  name: "Baterai iPhone 12",
+  category: "Baterai",
   stock_qty: 4,
   cost: 90000,
   price: 150000,
-  is_serialized: false,
   is_active: true,
 };
 
@@ -59,16 +59,16 @@ describe("servis sparepart actions", () => {
     });
   });
 
-  it("searches the branch catalog in rupiah", async () => {
-    mocks.from.mockReturnValue(chain({ data: [productRow], error: null }));
+  it("searches the branch sparepart table in rupiah", async () => {
+    mocks.from.mockReturnValue(chain({ data: [sparepartRow], error: null }));
 
-    const rows = await searchSparepartStock("layar");
+    const rows = await searchSparepartStock("baterai");
 
-    expect(mocks.from).toHaveBeenCalledWith("cervise_products");
-    expect(rows[0]).toMatchObject({ id: "product-1", sku: "AK-001", qty: 4, price: 150000, cost: 90000 });
+    expect(mocks.from).toHaveBeenCalledWith("cervise_spareparts");
+    expect(rows[0]).toMatchObject({ id: "sparepart-1", sku: "BAT-001", qty: 4, price: 150000, cost: 90000 });
   });
 
-  it("propagates catalog query errors instead of returning empty rows", async () => {
+  it("propagates sparepart query errors instead of returning empty rows", async () => {
     mocks.from.mockReturnValue(chain({ data: null, error: { message: "boom" } }));
 
     await expect(searchSparepartStock("x")).rejects.toThrow("boom");
@@ -79,10 +79,11 @@ describe("servis sparepart actions", () => {
       data: [
         {
           id: "line-1",
-          product_id: "product-1",
-          sku: "AK-001",
-          name: "Layar AMOLED",
-          category: "Aksesori",
+          product_id: null,
+          sparepart_id: "sparepart-1",
+          sku: "BAT-001",
+          name: "Baterai iPhone 12",
+          category: "Baterai",
           qty: 2,
           unit_price: 150000,
           cost: 90000,
@@ -99,25 +100,25 @@ describe("servis sparepart actions", () => {
     const rows = await getServisSpareparts("servis-1");
 
     expect(mocks.from).toHaveBeenCalledWith("cervise_service_spareparts");
-    expect(rows[0]).toMatchObject({ product_id: "product-1", qty: 2, unit_price: 150000, is_returned: false });
+    expect(rows[0]).toMatchObject({ sparepart_id: "sparepart-1", qty: 2, unit_price: 150000, is_returned: false });
   });
 
   it("consumes spareparts and flips the stage through one rpc", async () => {
-    await useSparepartsForServis("servis-1", [{ product_id: "product-1", qty: 2 }]);
+    await useSparepartsForServis("servis-1", [{ sparepart_id: "sparepart-1", qty: 2 }]);
 
     expect(mocks.rpc).toHaveBeenCalledWith("consume_service_spareparts", {
       p_servis_id: "servis-1",
-      p_items: [{ product_id: "product-1", qty: 2 }],
+      p_items: [{ sparepart_id: "sparepart-1", qty: 2 }],
       p_set_status: true,
     });
   });
 
   it("adds spareparts without touching the stage", async () => {
-    await addSparepartsToServis("servis-1", [{ product_id: "product-1", qty: 1 }]);
+    await addSparepartsToServis("servis-1", [{ sparepart_id: "sparepart-1", qty: 1 }]);
 
     expect(mocks.rpc).toHaveBeenCalledWith("consume_service_spareparts", {
       p_servis_id: "servis-1",
-      p_items: [{ product_id: "product-1", qty: 1 }],
+      p_items: [{ sparepart_id: "sparepart-1", qty: 1 }],
       p_set_status: false,
     });
   });
@@ -208,5 +209,28 @@ describe("servis sparepart actions", () => {
       p_signature: svg,
       p_note: "Customer tidak ada",
     });
+  });
+
+  it("menolak pengambilan kalau servis belum lunas", async () => {
+    mocks.from.mockImplementation((table: string) => {
+      if (table === "cervise_services") return chain({ data: { price: 0, price_estimasi: 500_000 }, error: null });
+      return chain({ data: [{ amount: 200_000 }], error: null });
+    });
+
+    await expect(confirmServisPickup("servis-1", '<svg viewBox="0 0 1 1"></svg>')).rejects.toThrow(
+      "belum lunas",
+    );
+    expect(mocks.rpc).not.toHaveBeenCalled();
+  });
+
+  it("mengizinkan pengambilan setelah pembayaran menutup tagihan", async () => {
+    mocks.from.mockImplementation((table: string) => {
+      if (table === "cervise_services") return chain({ data: { price: 500_000, price_estimasi: 500_000 }, error: null });
+      return chain({ data: [{ amount: 500_000 }], error: null });
+    });
+
+    await confirmServisPickup("servis-1", '<svg viewBox="0 0 1 1"></svg>');
+
+    expect(mocks.rpc).toHaveBeenCalledWith("set_service_picked_up", expect.objectContaining({ p_servis_id: "servis-1" }));
   });
 });

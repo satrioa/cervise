@@ -1,15 +1,14 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import type { ComponentType } from "react";
 import Link from "next/link";
 import {
   ArrowRightIcon,
   ChevronRightIcon,
   LockIcon,
   PackageCheckIcon,
-  PrinterIcon,
   ScanBarcodeIcon,
-  SearchIcon,
   ShoppingCartIcon,
   WalletIcon,
   WrenchIcon,
@@ -22,6 +21,7 @@ import {
   BentoMenuItem,
   useBentoStagger,
 } from "./bento-card";
+import SignaturePad from "@/components/kokonutui/signature-pad";
 import { CandyButton } from "@/components/ui/candy-button";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -32,10 +32,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { ShiftReportView } from "@/components/cash/shift-report";
-import { printShiftReport } from "@/components/cash/shift-thermal-print";
+import { ShiftDetailDialog } from "@/components/cash/shift-detail-dialog";
 import { TaskNoteCard } from "./task-note-card";
 import { NewServisDialog } from "@/components/servis/new-servis-dialog";
+import { ServisPaymentDialog } from "@/components/servis/servis-payment-dialog";
 import { AdjustmentDialog } from "@/components/cash/adjustment-dialog";
 import { ClosingDialog } from "@/components/cash/closing-dialog";
 import {
@@ -48,10 +48,13 @@ import {
   type FrontlinerKpi,
   type FrontlinerQueueItem,
 } from "@/app/app/actions/cash";
+import { confirmServisPickup } from "@/app/app/servis/sparepart-actions";
 import type { FrontlinerHomeData, PickupServiceItem } from "@/lib/home/types";
 import { rupiah, type ShiftReport } from "@/lib/operational/laporan-shift";
+import { servisOutstanding } from "@/lib/operational/servis-price";
 import { kalenderWIB } from "@/lib/operational/periode-bulan";
 import { cn } from "@/lib/utils";
+import { playPageTransition } from "@/components/layout/page-transition";
 
 /**
  * Jarak antar kartu, dalam detik.
@@ -215,7 +218,7 @@ export function FrontlinerDashboard({
   return (
     // Latar halaman memakai kanvas shell. `h-full` menyambung rantai tinggi
     // dari `main` shell: grid bento mengisi sisa viewport dan berhenti tepat
-    // di atas bottom-nav (main sudah punya `pb-24`), bukan menggulir halaman.
+    // di atas bottom-nav (main sudah punya padding bawah), bukan menggulir halaman.
     <div className="flex h-full min-h-0 flex-col bg-canvas text-foreground">
       <div className="flex min-h-0 flex-1 flex-col px-4 py-6 sm:px-6 sm:py-8 lg:px-8 lg:py-10">
         <div className="mx-auto flex min-h-0 w-full max-w-[1264px] flex-1 flex-col">
@@ -267,6 +270,7 @@ export function FrontlinerDashboard({
                 candy="accent"
                 onClick={() => setNewServisOpen(true)}
                 title="Servis baru"
+                cellClassName="max-sm:order-3"
               >
                 <BentoMenuItem icon={WrenchIcon} label="Servis baru" />
               </BentoCard>
@@ -280,44 +284,55 @@ export function FrontlinerDashboard({
                 onClick={openAdjustment}
                 title="Catat Kas"
                 className={session ? undefined : "opacity-60"}
+                cellClassName="max-sm:order-4"
               >
                 <BentoMenuItem icon={WalletIcon} label="Catat Kas" />
               </BentoCard>
 
               {/* 3. Rekap kas hari ini, tiga baris. Di mobile menjadi kartu
                   selebar dua kolom. */}
-              <BentoCard rowSpan={3} className="max-sm:col-span-2">
-                <RingkasanHariIni report={report} queue={queue} staleDate={staleDate} />
+              <BentoCard rowSpan={3} className="max-sm:col-span-2" cellClassName="max-sm:order-7">
+                <RingkasanHariIni
+                  report={report}
+                  queue={queue}
+                  staleDate={staleDate}
+                  onCloseShop={() => setClosingOpen(true)}
+                />
               </BentoCard>
 
-              {/* 3b. Device siap diambil. Kartu candy biru, membuka panel
-                  pencarian; daftar lengkapnya tidak muat di satu sel. */}
-              <PengambilanDeviceCard queue={queue} />
-
-              {/* 4. Daftar servis terbaru, satu baris. Putih di mobile seperti
-                  frame Figma. */}
+              {/* 3b. Daftar servis terbaru */}
               <BentoCard
                 rowSpan={1}
                 className="max-sm:col-span-2 max-sm:bg-white/70 max-sm:hover:bg-white/70 max-sm:dark:bg-white/[0.06] max-sm:dark:hover:bg-white/[0.06]"
+                cellClassName="max-sm:order-9"
               >
                 <h2 className="text-[15px] font-medium tracking-tight">Servis terbaru</h2>
                 <TerbaruList queue={queue} />
               </BentoCard>
 
-              {/* 5. Kartu aksi. */}
-              <BentoCard candy="green" href="/app/penjualan" title="Penjualan">
+              {/* 4. Device siap diambil */}
+              <PengambilanDeviceCard queue={queue} onSaved={() => void reload()} />
+
+              {/* 5. Kartu aksi. Di mobile naik ke bawah Catat Kas. */}
+              <BentoCard
+                candy="green"
+                href="/app/penjualan"
+                title="Penjualan"
+                cellClassName="max-sm:order-5"
+              >
                 <BentoMenuItem icon={ShoppingCartIcon} label="Penjualan" />
               </BentoCard>
 
-              {/* 6. Tiga angka servis, satu kolom. */}
-              <BentoCard>
+              {/* 6. Sisa antrean + tiga angka servis hari ini, satu kolom. Di
+                  mobile selebar dua kolom. */}
+              <BentoCard className="max-sm:col-span-2" cellClassName="max-sm:order-8">
                 <RingkasanServis kpi={kpi} />
               </BentoCard>
 
               {/* 7. Servis selesai yang belum dibayar, melebar dua kolom.
                   Tanpa `hug`: kartu mengisi sel bento dan daftarnya menggulir
                   di dalam, jadi tingginya selalu sama dengan kartu tetangga. */}
-              <BentoCard span={2} className="max-sm:col-span-2">
+              <BentoCard span={2} className="max-sm:col-span-2" cellClassName="max-sm:order-1">
                 <ServisSelesaiBelumDibayar queue={queue} />
               </BentoCard>
 
@@ -326,7 +341,7 @@ export function FrontlinerDashboard({
                   dalam sel, di mobile kartunya ikut tinggi isi. Daftar dan
                   mention-nya sudah dimuat server, jadi kartu tidak perlu
                   meminta ulang saat mount. */}
-              <BentoCard className="max-sm:col-span-2">
+              <BentoCard className="max-sm:col-span-2" cellClassName="max-sm:order-2">
                 <TaskNoteCard
                   variant="compact"
                   initialTodos={initialData.todos}
@@ -334,6 +349,10 @@ export function FrontlinerDashboard({
                 />
               </BentoCard>
             </motion.div>
+
+            {/* Ruang gulir ekstra di mobile: To-Do adalah kartu terakhir dan
+                sebelumnya tertutup bottom bar. */}
+            <div aria-hidden className="h-24 shrink-0 sm:hidden" />
           </div>
         </div>
       </div>
@@ -372,11 +391,14 @@ function RingkasanHariIni({
   report,
   queue,
   staleDate,
+  onCloseShop,
 }: {
   report: ShiftReport | null;
   queue: FrontlinerQueueItem[];
   /** Tanggal buka shift kalau bukan hari ini; null untuk shift hari ini. */
   staleDate: string | null;
+  /** Membuka dialog Tutup Toko dari dalam detail shift. */
+  onCloseShop: () => void;
 }) {
   // Shift yang masih terbuka sejak kemarin bukan "hari ini": judulnya harus
   // menyebut tanggalnya supaya angka di dalamnya tidak disalahartikan.
@@ -399,24 +421,33 @@ function RingkasanHariIni({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-      <div className="flex shrink-0 items-baseline justify-between gap-2">
-        <h2 className="min-w-0 truncate text-[15px] font-medium tracking-tight">{title}</h2>
+      <div className="flex shrink-0 items-start justify-between gap-3">
+        <div className="flex min-w-0 items-center gap-2.5">
+          <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-black/[0.05] dark:bg-white/[0.08]">
+            <WalletIcon className="size-4 opacity-70" />
+          </span>
+          <div className="min-w-0">
+            <p className="text-[10px] font-medium uppercase tracking-[0.16em] opacity-50">Rekap kas</p>
+            <h2 className="truncate text-[15px] font-semibold leading-tight tracking-tight">{title}</h2>
+          </div>
+        </div>
         <button
           type="button"
           onClick={() => setDetailOpen(true)}
-          className="flex shrink-0 items-center gap-0.5 text-[11px] opacity-60 transition-opacity hover:opacity-100"
+          className="flex shrink-0 items-center gap-0.5 rounded-full border border-black/10 bg-white/40 px-2 py-1 text-[11px] font-medium opacity-70 transition hover:opacity-100 dark:border-white/15 dark:bg-white/[0.06]"
         >
-          Lihat detail
+          Detail
           <ChevronRightIcon className="size-3" />
         </button>
       </div>
 
       {/* Hanya daftar ini yang menggulir. Blok total di bawah sengaja berada
           di luar `<ul>` supaya tetap terlihat saat daftar transaksi panjang. */}
-      <ul className="-mx-1 mt-1 flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto scrollbar-thin pr-1 text-[13px]">
-        <Row label="Saldo Awal" value={rupiah(report.openingBalance)} boxed />
+      <ul className="mt-3 flex min-h-0 flex-1 flex-col overflow-y-auto pr-1 text-[13px] scrollbar-thin">
+        <Row label="Saldo Awal" value={rupiah(report.openingBalance)} />
 
         <GroupLabel
+          icon={WrenchIcon}
           label="Servis"
           count={report.services.length}
           items={layananTerbayar.map((line) => ({
@@ -428,6 +459,7 @@ function RingkasanHariIni({
         />
 
         <GroupLabel
+          icon={ShoppingCartIcon}
           label="Penjualan"
           count={report.sales.length}
           items={produkTerbayar.map((line) => ({
@@ -439,6 +471,7 @@ function RingkasanHariIni({
         />
 
         <GroupLabel
+          icon={WalletIcon}
           label="Transaksi Kas Manual"
           count={report.cashTx.length}
           items={report.cashTx.map((line) => ({
@@ -454,130 +487,113 @@ function RingkasanHariIni({
        * Keempat angka ini satu blok, bukan empat baris terpisah.
        * kartu induknya sudah abu-abu, jadi latarnya yang memisahkannya dari
        * daftar di atas. Putih penuh (#fff) di atas #E7E7E7 terlalu kontras -
-       * blok ini jadi bidang paling terang di dashboard. `white/55` menjaga
+       * blok ini jadi bidang paling terang di dashboard. `white/60` menjaga
        * pemisahan tanpa menarik mata, dan dark mode memakai lapisan putih tipis
        * di atas neutral-900 alih-alih neutral-800 yang juga terlalu terang.
        */}
-      <div className="mt-1.5 shrink-0 overflow-hidden rounded-xl bg-white/55 text-neutral-900 ring-1 ring-black/5 dark:bg-white/[0.06] dark:text-neutral-100 dark:ring-white/10">
+      <div className="mt-2 shrink-0 rounded-xl bg-white/60 p-2.5 ring-1 ring-black/5 dark:bg-white/[0.06] dark:ring-white/10">
         <TotalRow label="Omzet servis" value={rupiah(report.totals.services)} />
         <TotalRow label="Omzet Penjualan" value={rupiah(report.totals.sales)} />
         <TotalRow label="Transaksi Manual" value={rupiah(report.totals.manualNet)} />
-        <TotalRow label="Harus ada di laci" value={rupiah(report.expectedCash)} strong />
+        <div className="my-2 h-px bg-black/[0.08] dark:bg-white/10" />
+        <div className="flex items-baseline justify-between gap-2 px-0.5">
+          <span className="text-xs font-medium">Harus ada di laci</span>
+          <span className="text-lg font-semibold leading-none tabular-nums">{rupiah(report.expectedCash)}</span>
+        </div>
       </div>
 
-      <Dialog open={detailOpen} onOpenChange={setDetailOpen}>
-        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Detail {title}</DialogTitle>
-            <DialogDescription>
-              Rincian lengkap per sesi kas. Angka di kartu ringkasan hanya preview.
-            </DialogDescription>
-          </DialogHeader>
-          <ShiftReportView report={report} showClosing />
-          <div className="flex justify-end">
-            <Button
-              variant="outline"
-              onClick={async () => {
-                const printed = await printShiftReport(report);
-                if (!printed) toast.error("Struk gagal dibuat. Cetak manual dari Laporan Shift.");
-              }}
-            >
-              <PrinterIcon className="size-4" /> Cetak
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <ShiftDetailDialog
+        open={detailOpen}
+        onOpenChange={setDetailOpen}
+        report={report}
+        title={title}
+        onCloseShop={() => {
+          // Tutup detail dulu: Tutup Toko punya dialog sendiri, dan dua modal
+          // bertumpuk membuat urutan Escape/focus tidak jelas.
+          setDetailOpen(false);
+          onCloseShop();
+        }}
+      />
     </div>
   );
 }
 
-/** Baris label-kiri, nilai-kanan, untuk blok putih rekap. */
-function TotalRow({ label, value, strong = false }: { label: string; value: string; strong?: boolean }) {
+/** Baris label-kiri, nilai-kanan, untuk blok total rekap. */
+function TotalRow({ label, value }: { label: string; value: string }) {
   return (
-    <div
-      className={cn(
-        "flex items-center justify-between gap-2 border-b border-black/5 px-2.5 py-1.5 last:border-b-0 dark:border-white/10",
-        strong && "bg-black/[0.03] font-medium dark:bg-white/[0.06]",
-      )}
-    >
-      <span>{label}</span>
-      <span className="tabular-nums">{value}</span>
+    <div className="flex items-center justify-between gap-2 px-0.5 py-1 text-xs">
+      <span className="opacity-65">{label}</span>
+      <span className="font-medium tabular-nums">{value}</span>
     </div>
   );
 }
 
-/** Baris label-kiri, nilai-kanan. */
-function Row({
-  label,
-  value,
-  boxed = false,
-  strong = false,
-}: {
-  label: string;
-  value: string;
-  boxed?: boolean;
-  strong?: boolean;
-}) {
+/** Baris pembuka (saldo awal). */
+function Row({ label, value }: { label: string; value: string }) {
   return (
-    <li
-      className={
-        boxed
-          ? "flex items-center justify-between gap-2 rounded-lg border border-black/5 px-2 py-1.5 dark:border-white/10"
-          : "flex items-center justify-between gap-2 px-2 py-0.5 text-sm opacity-70"
-      }
-    >
-      <span className={strong ? "font-medium" : undefined}>{label}</span>
-      <span className={strong ? "font-medium tabular-nums" : "tabular-nums"}>{value}</span>
+    <li className="flex items-center justify-between gap-2 rounded-lg bg-black/[0.04] px-2.5 py-2 dark:bg-white/[0.06]">
+      <span className="text-xs opacity-65">{label}</span>
+      <span className="font-medium tabular-nums">{value}</span>
     </li>
   );
 }
 
 /** Judul kelompok + jumlah, lalu baris-baris di dalamnya. */
 function GroupLabel({
+  icon: Icon,
   label,
   count,
   items,
   empty,
 }: {
+  icon: ComponentType<{ className?: string }>;
   label: string;
   count: number;
   items: { key: string; text: string; value: string }[];
   empty: string;
 }) {
   // Preview saja. Jumlah baris tidak boleh menentukan tinggi kartu: 10 atau 100
-  // transaksi harus tetap setinggi kartu tetangganya. Sisanya dibuka di Laporan
-  // Shift, tempat daftar penuh memang tempatnya.
-  const shown = items.slice(0, GROUP_PREVIEW_ROWS);
+  // transaksi harus tetap setinggi kartu tetangganya. Sisanya dibuka di tempat
+  // karena frontliner tidak punya akses ke /app/laporan/shift.
+  const [expanded, setExpanded] = useState(false);
+  const shown = expanded ? items : items.slice(0, GROUP_PREVIEW_ROWS);
   const hidden = items.length - shown.length;
 
   return (
     <>
-      <li className="flex items-center justify-between gap-2 px-2 py-0.5 text-sm opacity-70">
-        <span>{label}</span>
-        <span className="tabular-nums">({count})</span>
+      <li className="mt-3 flex items-center gap-1.5 px-2.5 pb-1 text-[10px] font-medium uppercase tracking-[0.12em] opacity-55">
+        <Icon className="size-3" />
+        <span className="flex-1">{label}</span>
+        <span className="rounded-full bg-black/[0.06] px-1.5 py-0.5 text-[10px] tabular-nums dark:bg-white/[0.08]">
+          {count}
+        </span>
       </li>
       {items.length === 0 ? (
-        <li className="px-2 py-0.5 text-xs opacity-40">{empty}</li>
+        <li className="px-2.5 py-1 text-xs italic opacity-40">{empty}</li>
       ) : (
         <>
-          {shown.map((item) => (
+          {shown.map((item, index) => (
             <li
               key={item.key}
-              className="flex items-center justify-between gap-2 rounded-lg border border-black/5 px-2 py-1.5 dark:border-white/10"
+              className={cn(
+                "flex items-center justify-between gap-2 px-2.5 py-1.5 text-xs",
+                index < shown.length - 1 && "border-b border-black/[0.04] dark:border-white/[0.06]",
+              )}
             >
-              <span className="min-w-0 flex-1 truncate text-xs">{item.text}</span>
-              <span className="shrink-0 text-xs tabular-nums">{item.value}</span>
+              <span className="min-w-0 flex-1 truncate">{item.text}</span>
+              <span className="shrink-0 font-medium tabular-nums">{item.value}</span>
             </li>
           ))}
           {hidden > 0 ? (
             <li>
-              <Link
-                href="/app/laporan/shift"
-                className="flex items-center justify-between gap-2 rounded-lg px-2 py-1 text-xs opacity-60 transition-opacity hover:opacity-100"
+              <button
+                type="button"
+                onClick={() => setExpanded(true)}
+                className="mt-0.5 flex w-full items-center justify-between gap-2 rounded-lg px-2.5 py-1.5 text-xs opacity-60 transition-opacity hover:opacity-100"
               >
                 <span>+{hidden} lainnya</span>
                 <ArrowRightIcon className="size-3" />
-              </Link>
+              </button>
             </li>
           ) : null}
         </>
@@ -586,9 +602,16 @@ function GroupLabel({
   );
 }
 
-/** Tiga angka servis hari ini dalam satu strip. */
+/**
+ * Sisa antrean sebagai angka utama, tiga angka harian sebagai pendamping.
+ *
+ * Dua kelompok ini beda rentang: `proses` menghitung semua servis yang masih
+ * dikerjakan (lintas hari), sedangkan masuk/selesai/diambil hanya servis yang
+ * dibuat hari ini. Karena itu keduanya dipisah jadi dua panel, bukan satu baris
+ * empat angka yang seolah sebentuk.
+ */
 function RingkasanServis({ kpi }: { kpi: FrontlinerKpi | null }) {
-  const items = [
+  const harian = [
     { label: "Masuk", value: kpi?.masuk },
     { label: "Selesai", value: kpi?.selesai },
     { label: "Diambil", value: kpi?.diambil },
@@ -597,15 +620,27 @@ function RingkasanServis({ kpi }: { kpi: FrontlinerKpi | null }) {
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <h2 className="text-[15px] font-medium tracking-tight">Ringkasan Servis</h2>
-      <div className="-mx-1 mt-1 grid min-h-0 flex-1 grid-cols-3 divide-x divide-black/5 rounded-lg border border-black/5 dark:divide-white/10 dark:border-white/10">
-        {items.map((item) => (
-          <div key={item.label} className="flex min-w-0 flex-col items-center justify-center gap-0.5 px-1">
-            <span className="font-heading text-2xl font-normal leading-none tabular-nums">
-              {item.value === undefined ? "—" : String(item.value)}
-            </span>
-            <span className="text-[10px] opacity-60">{item.label}</span>
-          </div>
-        ))}
+      <div className="mt-2 grid min-h-0 flex-1 grid-cols-[1.05fr_1fr] gap-2">
+        <div className="flex min-w-0 flex-col justify-center rounded-xl bg-brand/[0.08] px-3 py-2">
+          <span className="font-heading text-[2.25rem] font-normal leading-none tracking-[-0.03em] tabular-nums sm:text-[2.5rem]">
+            {kpi?.proses === undefined ? "—" : String(kpi.proses)}
+          </span>
+          <span className="mt-1.5 flex items-center gap-1 text-[11px] font-medium leading-none">
+            <span className="size-1.5 rounded-full bg-brand" />
+            Antrian
+          </span>
+          <span className="mt-1 text-[10px] leading-none opacity-50">sisa proses</span>
+        </div>
+        <div className="flex min-w-0 flex-col justify-center divide-y divide-black/5 dark:divide-white/10">
+          {harian.map((item) => (
+            <div key={item.label} className="flex items-baseline justify-between gap-2 py-2 first:pt-0 last:pb-0">
+              <span className="truncate text-[11px] leading-none opacity-60">{item.label}</span>
+              <span className="font-heading shrink-0 text-base leading-none tabular-nums">
+                {item.value === undefined ? "—" : String(item.value)}
+              </span>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );
@@ -724,24 +759,20 @@ type BarcodeDetectorCtor = new (options: { formats: string[] }) => BarcodeDetect
  * Satu sel saja: daftar hasil pencarian hidup di dialog, jadi kartu ini tetap
  * ringkas dan tidak mendorong kartu lain keluar grid.
  */
-function PengambilanDeviceCard({ queue }: { queue: FrontlinerQueueItem[] }) {
+function PengambilanDeviceCard({ queue, onSaved }: { queue: FrontlinerQueueItem[]; onSaved?: () => void }) {
   const [open, setOpen] = useState(false);
-  const ready = queue.filter((item) => item.status === "Selesai").length;
 
   return (
     <>
-      <BentoCard candy="blue" onClick={() => setOpen(true)} title="Pengambilan Device">
+      <BentoCard candy="blue" onClick={() => setOpen(true)} title="Pengambilan Device" cellClassName="max-sm:order-6">
         <span className="flex flex-1 flex-col items-start justify-between gap-3">
           <PackageCheckIcon className="size-7 drop-shadow-sm" />
           <span className="text-[15px] font-medium leading-tight">
             Pengambilan Device
-            <span className="mt-0.5 block text-[11px] font-normal opacity-80">
-              {ready} siap diambil
-            </span>
           </span>
         </span>
       </BentoCard>
-      <PickupDialog open={open} onOpenChange={setOpen} />
+      <PickupDialog open={open} onOpenChange={setOpen} queue={queue} onSaved={onSaved} />
     </>
   );
 }
@@ -754,12 +785,17 @@ function PengambilanDeviceCard({ queue }: { queue: FrontlinerQueueItem[] }) {
  * kalau tidak ada, panel tetap bisa dipakai dengan scanner USB/Bluetooth yang
  * mengetik ke input.
  */
-function PickupDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
+function PickupDialog({ open, onOpenChange, queue, onSaved }: { open: boolean; onOpenChange: (open: boolean) => void; queue: FrontlinerQueueItem[]; onSaved?: () => void }) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<PickupServiceItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [scanning, setScanning] = useState(false);
   const [scanError, setScanError] = useState<string | null>(null);
+  const [confirmItem, setConfirmItem] = useState<PickupServiceItem | null>(null);
+  const [payItem, setPayItem] = useState<PickupServiceItem | null>(null);
+  const [pickedBy, setPickedBy] = useState("");
+  const [signature, setSignature] = useState("");
+  const [saving, setSaving] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -829,7 +865,6 @@ function PickupDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (op
             .then((codes) => {
               const value = codes[0]?.rawValue?.trim();
               if (!value) return;
-              setQuery(value);
               setScanning(false);
             })
             .catch(() => {});
@@ -848,15 +883,99 @@ function PickupDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (op
     };
   }, [scanning]);
 
+  // Antrean rekomendasi belum punya baris kas, jadi dianggap belum dibayar.
+  const fromQueue = (item: FrontlinerQueueItem): PickupServiceItem => ({
+    id: item.id,
+    serviceNumber: item.serviceNumber,
+    device: item.device,
+    customerName: item.customerName,
+    customerPhone: null,
+    updatedAt: item.createdAt,
+    bill: item.price,
+    paidAmount: 0,
+  });
+
+  /**
+   * Servis yang belum lunas harus dibayar dulu. Dialog pickup ditutup selama
+   * pembayaran supaya dua dialog tidak bertumpuk, lalu dibuka lagi di form
+   * tanda tangan setelah `onPaid`.
+   */
+  const startPickup = (item: PickupServiceItem) => {
+    if (servisOutstanding(item.bill, item.paidAmount) > 0) {
+      setPayItem(item);
+      onOpenChange(false);
+      return;
+    }
+    setConfirmItem(item);
+  };
+
+  const finishPayment = () => {
+    const item = payItem;
+    setPayItem(null);
+    onOpenChange(true);
+    if (item) setConfirmItem(item);
+    onSaved?.();
+  };
+
+  const handleSave = async () => {
+    if (!confirmItem || saving) return;
+    if (!signature.startsWith("<svg")) {
+      toast.error("Tanda tangan wajib diisi");
+      return;
+    }
+    setSaving(true);
+    try {
+      await confirmServisPickup(confirmItem.id, signature, pickedBy.trim() || null);
+      playPageTransition();
+      toast.success("Pengambilan dicatat");
+      setConfirmItem(null);
+      setPickedBy("");
+      setSignature("");
+      onOpenChange(false);
+      onSaved?.();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Gagal menyimpan pengambilan");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <>
+      <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>Pengambilan Device</DialogTitle>
-          <DialogDescription>
-            Cari device yang sudah selesai dikerjakan dan siap diambil.
-          </DialogDescription>
-        </DialogHeader>
+        {confirmItem ? (
+          <>
+            <DialogHeader>
+              <DialogTitle>Pengambilan Device</DialogTitle>
+              <DialogDescription>
+                {confirmItem.serviceNumber ?? "Tanpa nomor"} · {confirmItem.device}
+                <span className="block text-xs opacity-60 mt-1">{confirmItem.customerName ?? "-"}</span>
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-3">
+              <div>
+                <label className="text-sm font-medium">Siapa yang mengambil</label>
+                <Input value={pickedBy} onChange={(e) => setPickedBy(e.target.value)} placeholder="Nama pengambil" />
+              </div>
+              <div>
+                <label className="text-sm font-medium">Tanda tangan</label>
+                <SignaturePad className="max-w-none" onChange={(svg) => setSignature(svg ?? "")} label="Tanda tangan" />
+              </div>
+              <div className="flex justify-end gap-2 pt-2">
+                <Button type="button" variant="outline" onClick={() => { setConfirmItem(null); setPickedBy(""); setSignature(""); }}>Batal</Button>
+                <Button type="button" onClick={() => void handleSave()} disabled={saving}>{saving ? "Menyimpan..." : "Simpan"}</Button>
+              </div>
+            </div>
+          </>
+        ) : (
+          <>
+            <DialogHeader>
+              <DialogTitle>Pengambilan Device</DialogTitle>
+              <DialogDescription>
+                Cari device yang sudah selesai dikerjakan dan siap diambil.
+              </DialogDescription>
+            </DialogHeader>
 
         <div className="flex gap-2">
           <Input
@@ -866,19 +985,20 @@ function PickupDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (op
             placeholder="No. servis / nama customer / no. HP"
             aria-label="Cari device siap diambil"
           />
-          <Button
+          <CandyButton
             type="button"
-            variant="outline"
-            size="icon-sm"
+            tone="accent-cyan"
             aria-label={scanning ? "Hentikan kamera" : "Scan barcode"}
             title="Scan barcode"
             onClick={() => {
               setScanError(null);
               setScanning((previous) => !previous);
             }}
+            className="shrink-0 gap-1.5 px-3"
           >
             <ScanBarcodeIcon className="size-4" />
-          </Button>
+            <span className="text-xs font-medium">Scan</span>
+          </CandyButton>
         </div>
 
         {scanning ? (
@@ -892,40 +1012,78 @@ function PickupDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (op
           <p className="text-xs text-destructive">{scanError}</p>
         ) : null}
 
-        <div className="min-h-24">
-          {loading ? (
+        <div className="max-h-[280px] overflow-y-auto scrollbar-thin">
+          {query.trim().length < 2 ? (
+            <div className="space-y-1.5">
+              <p className="text-sm opacity-60">Ketik minimal 2 karakter atau scan barcode.</p>
+              {/* Rekomendasi siap diambil */}
+              <ul className="space-y-1">
+                {queue.filter((i: any) => i.status === "Selesai").slice(0, 3).map((item: any) => (
+                  <li key={item.id ?? item.serviceNumber}>
+                    <button
+                      onClick={() => { startPickup(fromQueue(item)); }}
+                      className="w-full text-left truncate text-sm px-1 py-1 rounded hover:bg-black/[0.03] dark:hover:bg-white/[0.05]"
+                    >
+                      <span className="font-medium">{item.serviceNumber ?? "Tanpa nomor"}</span>
+                      <span className="opacity-60"> · {item.device}</span>
+                      <span className="opacity-50"> · {item.customerName ?? "-"}</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : loading ? (
             <p className="text-sm opacity-60">Mencari...</p>
-          ) : query.trim().length < 2 ? (
-            <p className="text-sm opacity-60">Ketik minimal 2 karakter atau scan barcode.</p>
           ) : results.length === 0 ? (
             <p className="text-sm opacity-60">Tidak ada device siap diambil yang cocok.</p>
-          ) : (
-            <ul className="space-y-1.5">
-              {results.map((item) => (
-                <li key={item.id}>
-                  <Link
-                    href={`/app/servis?q=${encodeURIComponent(item.serviceNumber ?? item.device)}`}
-                    onClick={() => onOpenChange(false)}
-                    className="flex items-center gap-2 rounded-xl border border-black/5 px-3 py-2 transition-colors hover:bg-black/[0.03] dark:border-white/10 dark:hover:bg-white/[0.05]"
-                  >
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate text-[13px] font-medium">
-                        {item.serviceNumber ?? "Tanpa nomor"} · {item.device}
+          ) : (() => {
+            const list = (query.trim().length < 2 ? queue.filter((i: any) => i.status === "Selesai") : results);
+            if (list.length === 0) return <p className="text-sm opacity-60">Tidak ada device siap diambil.</p>;
+            const visible = list.slice(0, 5);
+            return (
+              <ul className="space-y-1.5 max-h-[240px] overflow-y-auto scrollbar-thin">
+                {visible.map((item: any) => (
+                  <li key={item.id ?? item.serviceNumber ?? item.device}>
+                    <button
+                      onClick={() => {
+                        startPickup(item);
+                      }}
+                      className="flex w-full items-center gap-2 rounded-xl border border-black/5 px-3 py-2 text-left transition-colors hover:bg-black/[0.03] dark:border-white/10 dark:hover:bg-white/[0.05]"
+                    >
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-[13px] font-medium">
+                          {item.serviceNumber ?? "Tanpa nomor"} · {item.device}
+                        </span>
+                        <span className="block truncate text-[11px] opacity-60">
+                          {item.customerName ?? "Tanpa nama"}
+                          {item.customerPhone ? ` · ${item.customerPhone}` : ""}
+                        </span>
                       </span>
-                      <span className="block truncate text-[11px] opacity-60">
-                        {item.customerName ?? "Tanpa nama"}
-                        {item.customerPhone ? ` · ${item.customerPhone}` : ""}
-                      </span>
-                    </span>
-                    <ArrowRightIcon className="size-3.5 shrink-0 opacity-50" />
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          )}
+                      {servisOutstanding(item.bill, item.paidAmount) > 0 ? (
+                        <span className="shrink-0 rounded-full bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 dark:text-amber-400">
+                          Belum dibayar
+                        </span>
+                      ) : null}
+                      <ArrowRightIcon className="size-3.5 shrink-0 opacity-50" />
+                    </button>
+                  </li>
+                ))}
+                {list.length > 5 ? <li className="text-xs opacity-60 px-1">+{list.length - 5} lainnya</li> : null}
+              </ul>
+            );
+          })()}
         </div>
+      </>
+    )}
       </DialogContent>
     </Dialog>
+      <ServisPaymentDialog
+        servisId={payItem?.id ?? null}
+        open={payItem !== null}
+        onOpenChange={(value) => { if (!value) setPayItem(null); }}
+        onPaid={finishPayment}
+      />
+    </>
   );
 }
 

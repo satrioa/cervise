@@ -18,7 +18,7 @@ export const COMPACT_MENU_HIDDEN_HREFS: readonly string[] = ["/app", "/app/anali
  * `navFor` sudah membuangnya lebih dulu dan href di sini tidak berefek apa-apa.
  */
 const PRIMARY_BY_ROLE: Partial<Record<AppRole, readonly string[]>> = {
-  TECHNICIAN: ["/app/servis", "/app/kategori-sparepart", "/app/laporan/servis"],
+  TECHNICIAN: ["/app/servis", "/app/sparepart", "/app/laporan/servis"],
   FRONTLINER: ["/app/servis", "/app/penjualan", "/app/laporan/servis"],
 };
 

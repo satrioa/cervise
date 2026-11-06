@@ -17,6 +17,7 @@ import {
   updateTodo,
   type StaffTodo,
 } from "@/app/app/actions/todos";
+import { playPageTransition } from "@/components/layout/page-transition";
 
 /**
  * Kartu catatan tugas pribadi.
@@ -223,6 +224,7 @@ export function TaskNoteCard({
       return;
     }
     setTodos((prev) => [result.data, ...prev]);
+    playPageTransition();
     setDraft("");
     setDraftMentions([]);
     setComposing(false);
@@ -289,6 +291,7 @@ export function TaskNoteCard({
       return;
     }
     setTodos((prev) => prev.map((t) => (t.id === todo.id ? { ...t, doneAt: result.data.doneAt } : t)));
+    playPageTransition();
   };
 
   const onDelete = async (todo: StaffTodo) => {
@@ -313,6 +316,7 @@ export function TaskNoteCard({
       setTodos(previous);
       toast.error(result.error);
     }
+    playPageTransition();
   };
 
   const onRename = async (todo: StaffTodo, title: string) => {
@@ -332,6 +336,7 @@ export function TaskNoteCard({
       return;
     }
     setTodos((prev) => prev.map((t) => (t.id === todo.id ? result.data : t)));
+    playPageTransition();
     setEditing(null);
   };
 

@@ -1,18 +1,19 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { getActiveTenant, type Actor } from "@/lib/supabase/actor";
+import { getActiveTenant } from "@/lib/supabase/actor";
 import { canManageEmployees } from "@/lib/auth/account-input";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { assertCanWrite, assertCanRead } from "@/lib/auth/require-menu";
-import { sanitizePermissions, permissionsForSystemRole, CUSTOM_BASE_ROLES } from "@/lib/auth/permissions";
+import { permissionsForSystemRole } from "@/lib/nav/manifest";
+import { CUSTOM_BASE_ROLES } from "@/lib/auth/permissions";
 import type { CustomBaseRole } from "@/lib/auth/permissions";
-import { type PermissionKey, PERMISSION_CATALOG, isPermissionKey, BASE_ROLE_LABEL } from "@/lib/auth/permissions";
+import { type PermissionKey, PERMISSION_CATALOG, BASE_ROLE_LABEL } from "@/lib/auth/permissions";
 
-type RoleRow = {
+export type RoleRow = {
   key: string;
   name: string;
-  baseRole: string;
+  baseRole: CustomBaseRole;
   permissions: string[];
   isSystem: boolean;
 };
@@ -138,7 +139,7 @@ export async function deleteRole(key: string): Promise<{ ok: true }> {
 }
 
 /** Daftar basis role + izin mereka (untuk UI). */
-export function getBaseRoleCatalog() {
+export async function getBaseRoleCatalog() {
   return CUSTOM_BASE_ROLES.map((baseRole) => ({
     baseRole,
     label: BASE_ROLE_LABEL[baseRole],
@@ -147,7 +148,7 @@ export function getBaseRoleCatalog() {
 }
 
 /** Semua grup izin untuk UI checklist. */
-export function getPermissionGroups() {
+export async function getPermissionGroups() {
   return PERMISSION_CATALOG.map((group) => ({
     group: group.group,
     label: group.label,

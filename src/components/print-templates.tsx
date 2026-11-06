@@ -1,7 +1,7 @@
 "use client";
 
 import { format } from "date-fns";
-import { servisPrice } from "@/lib/operational/servis-price";
+import { servisBill } from "@/lib/operational/servis-price";
 import { code128Svg } from "@/lib/barcode/code128";
 
 export type PrintData = {
@@ -28,6 +28,9 @@ export type PrintData = {
     teknisi: string;
     complaint?: string;
     date: string;
+    /** Lama garansi, mis. "3 bulan". Tercetak walau garansi belum mulai. */
+    garansi?: string;
+    /** Tanggal akhir garansi; kosong = garansi belum aktif. */
     garansiSampai?: string;
     tanggalTerima?: string;
     passwordType?: string;
@@ -36,6 +39,13 @@ export type PrintData = {
     trackingCode?: string;
     /** Slug tenant, dipakai menyusun URL halaman lacak publik. */
     tenantSlug?: string | null;
+    /** Ringkasan pembayaran: status, metode, nominal dibayar, dan sisa. */
+    payment: {
+      status: "Lunas" | "DP" | "Belum dibayar";
+      methods: string;
+      paid: number;
+      remaining: number;
+    };
   };
   customer: { name: string; phone: string; address?: string | null };
   admin: string;
@@ -68,8 +78,34 @@ function priceLabel(service: PrintData["service"]): string {
   return service.isEstimate ? "Estimasi" : "Total";
 }
 
-/** Barcode Code 128 nomor servis. Kosong bila nomor tidak ada. */
-function barcodeBlock(code: string | undefined, opts: { height?: number; fontSize?: string } = {}): string {
+/**
+ * Satu baris ringkas untuk nota A4 / dot matrix. Baris metode hanya muncul
+ * kalau memang ada pembayaran, jadi servis yang belum dibayar tidak mencetak
+ * "Metode: —".
+ */
+function paymentSummary(service: PrintData["service"]): string {
+  const { status, methods, paid, remaining } = service.payment;
+  const parts = [`Pembayaran: ${status}`];
+  if (paid > 0) {
+    parts.push(`Metode: ${methods || EM_DASH}`, `Dibayar ${formatEn(paid)}`);
+  }
+  if (remaining > 0) parts.push(`Sisa ${formatEn(remaining)}`);
+  return parts.join(" \u00b7 ");
+}
+
+/**
+ * Nilai baris garansi: lama garansi selalu tampil, tanggal akhir hanya setelah
+ * garansi mulai (perangkat sudah diambil). Sebelum itu diberi badge "belum aktif".
+ */
+function garansiHtml(service: PrintData["service"]): string {
+  const durasi = service.garansi ? escapeHtml(service.garansi) : EM_DASH;
+  if (!service.garansiSampai) {
+    return `${durasi} <span style="border:1px solid #000; padding:0 3px; font-size:8px; white-space:nowrap;">belum aktif</span>`;
+  }
+  return `${durasi} (s/d ${escapeHtml(service.garansiSampai)})`;
+}
+
+/** Barcode Code 128 nomor servis. Kosong bila nomor tidak ada. */function barcodeBlock(code: string | undefined, opts: { height?: number; fontSize?: string } = {}): string {
   const value = (code ?? "").trim();
   if (!value) return "";
   return `<div style="margin-top:4px;"><div style="text-align:center;">${code128Svg(value, { height: opts.height ?? 34, moduleWidth: 1 })}</div><div style="text-align:center; font-family:ui-monospace,monospace; font-size:${opts.fontSize ?? "8pt"}; letter-spacing:.12em;">${escapeHtml(value)}</div></div>`;
@@ -178,16 +214,27 @@ export function toPrintData(servis: any, context: PrintContext, detail?: any): P
   // nominal bisa berubah.
   const finished = status === "Selesai" || status === "Sudah Diambil";
   const sparepart = finished ? (s?.sparepart ?? null) : null;
-  const price = typeof s?.price === "number" && Number.isFinite(s.price)
-    ? servisPrice(s.price, s?.price_estimasi)
-    : s?.price_estimasi != null
-      ? servisPrice(null, s.price_estimasi)
-      : null;
+  // `cervise_services.price` berisi total yang SUDAH dibayar setelah
+  // record_service_payment, jadi tagihan diambil dari price_estimasi. Baris
+  // list sudah membawa `bill` hasil servisBill().
+  const bill = servisBill(
+    detail ? detail.price : (servis?.bill ?? servis?.price),
+    detail ? detail.price_estimasi : servis?.price_estimasi,
+  );
+  const price = Number.isFinite(bill) ? bill : null;
+  const paid = Math.max(0, Number(servis?.paidAmount ?? 0) || 0);
+  const remaining = Math.max(0, bill - paid);
+  const paymentStatus: PrintData["service"]["payment"]["status"] =
+    paid <= 0 ? "Belum dibayar" : remaining > 0 ? "DP" : "Lunas";
+  const paymentMethods = String(servis?.paymentMethods ?? "").trim();
   const teknisiName = s?.teknisi?.full_name || s?.teknisi || null;
   const adminName = s?.creator?.full_name || null;
   const createdAt = s?.created_at || s?.date || null;
   const tanggalTerima = createdAt ? format(new Date(createdAt), "yyyy-MM-dd") : null;
   const garansiSampai = s?.garansi_until ? format(new Date(s.garansi_until), "yyyy-MM-dd") : null;
+  // Garansi baru berjalan saat perangkat diambil, jadi `garansi_until` masih
+  // kosong di nota masuk. Lamanya tetap dicetak supaya pelanggan tahu haknya.
+  const garansiDurasi = s?.garansi_value && s?.garansi_unit ? `${s.garansi_value} ${s.garansi_unit}` : null;
   // Nomor struk = nomor servis (service_number), bukan nomor yang dihitung ulang.
   // Dulu ini `s?.invoice_no || formatInvoiceNo(createdAt)`: kolom invoice_no tidak
   // pernah ada di tabel servis, jadi setiap cetak menghasilkan nomor BERBEDA
@@ -227,7 +274,8 @@ export function toPrintData(servis: any, context: PrintContext, detail?: any): P
       teknisi: text(teknisiName),
       complaint: s?.complaint || (kerusakan.length ? kerusakan.join(", ") : undefined),
       date: text(tanggalTerima),
-      garansiSampai: text(garansiSampai),
+      garansi: garansiDurasi ?? undefined,
+      garansiSampai: garansiSampai ?? undefined,
       tanggalTerima: text(tanggalTerima),
       // Ditampilkan sebagai POLA hanya bila record benar-benar tipe POLA.
       passwordType: s?.password_type || undefined,
@@ -240,6 +288,12 @@ export function toPrintData(servis: any, context: PrintContext, detail?: any): P
           ? String(servis.trackingCode).toUpperCase()
           : undefined,
       tenantSlug: context.tenantSlug ?? null,
+      payment: {
+        status: paymentStatus,
+        methods: paymentMethods,
+        paid,
+        remaining,
+      },
     },
     customer: {
       name: text(customerName).toUpperCase(),
@@ -381,10 +435,11 @@ export function renderJetHtml(data: PrintData): string {
       ${optionalLine(customer.address, (v) => `<div class="row bullet"><span class="label">Alamat</span><span class="colon">:</span><span class="val" style="overflow-wrap:break-word;">${escapeHtml(v)}</span></div>`)}
       <div class="row bullet"><span class="label">Telepon</span><span class="colon">:</span><span class="val phone">${maskedCustomerPhone}</span></div>
       <div class="row bullet"><span class="label">Tanggal Service</span><span class="colon">:</span><span class="val">${service.date}</span></div>
-      <div class="row bullet"><span class="label">Garansi sampai</span><span class="colon">:</span><span class="val">${service.garansiSampai}</span></div>
+      <div class="row bullet"><span class="label">Garansi</span><span class="colon">:</span><span class="val">${garansiHtml(service)}</span></div>
     </div>
   </div>
   <div class="total-row"><span class="total">${priceLabel(service)} &nbsp; ${formatEn(service.price)}</span></div>
+  <div style="font-size:9pt; margin-top:6px;">${paymentSummary(service)}</div>
   <div class="checks"><span>Cek Service</span><span>Cek Garansi</span></div>
   ${service.trackingCode ? `<div class="row bullet"><span class="label">Kode cek</span><span class="colon">:</span><span class="val" style="font-family:ui-monospace,monospace; letter-spacing:.04em;">${trackingCodeLine(service.trackingCode)}</span></div>${trackingPathLine(branch.website, service.tenantSlug, service.trackingCode) ? `<div class="row"><span class="label" style="font-size:6.5pt;">Cek status</span><span class="colon">:</span><span class="val" style="font-size:6.5pt;">${escapeHtml(trackingPathLine(branch.website, service.tenantSlug, service.trackingCode))}</span></div>` : ""}` : ""}
   ${barcodeBlock(invoiceNo)}
@@ -436,6 +491,7 @@ export function renderDotMatrixHtml(data: PrintData): string {
     <dt>Teknisi :</dt><dd>${teknisi}</dd>
     <dt>Deskripsi :</dt><dd>${service.deskripsi}</dd>
     <dt>Tanggal terima :</dt><dd>${service.tanggalTerima}</dd>
+    <dt>Garansi :</dt><dd>${garansiHtml(service)}</dd>
   </dl>
   <div style="text-align:center; font-size:11px; margin:6px 0;">Cek Service &nbsp;&nbsp; Cek Garansi</div>
   ${service.trackingCode ? `<div style="text-align:center; font-size:12px; letter-spacing:.06em; margin:0 0 6px;">KODE CEK: ${trackingCodeLine(service.trackingCode)}</div>${trackingPathLine(branch.website, service.tenantSlug, service.trackingCode) ? `<div style="text-align:center; font-size:9px; margin:0 0 6px;">Cek status: ${escapeHtml(trackingPathLine(branch.website, service.tenantSlug, service.trackingCode))}</div>` : ""}` : ""}
@@ -448,6 +504,7 @@ export function renderDotMatrixHtml(data: PrintData): string {
   <tbody><tr><td>${(service.merk || service.device.split(" ")[0]).toUpperCase()} ${service.tipe || ""}</td><td>${kelengkapanStr}</td><td>${kerusakanStr}</td><td>${formatEn(service.price)}</td></tr></tbody></table>
   <hr class="dashed">
   <div class="totals">${priceLabel(service)} &nbsp; ${formatEn(service.price)}</div>
+  <div style="margin:4px 0;">${paymentSummary(service)}</div>
   <hr class="double">
   <div>Catatan :</div><ol class="notes"><li>Garansi 2 Minggu, berlaku barang sudah diambil.</li><li>Slip ini wajib dibawa ketika akan mengambil service.</li><li>Garansi berlaku pada kerusakan yang sama.</li><li>Cek kembali barang service anda saat penyerahan.</li></ol>
   <hr class="dashed">
@@ -490,7 +547,7 @@ export function renderThermalHtml(data: PrintData): string {
   <div class="field"><span class="label">Tanggal Service</span><span class="value">${service.date}</span></div>
   <div class="field"><span class="label">No. Servis</span><span class="value">${invoiceNo}</span></div>
   <div class="field"><span class="label">Tanggal terima</span><span class="value">${service.tanggalTerima}</span></div>
-  <div class="field"><span class="label">Garansi sampai</span><span class="value">${service.garansiSampai}</span></div>
+  <div class="field"><span class="label">Garansi</span><span class="value">${garansiHtml(service)}</span></div>
   <hr class="sep">
   <div class="field"><span class="label">Konsumen</span><span class="value">${customer.name}</span></div>
   ${customer.address ? `<div class="field"><span class="label">Alamat</span><span class="value" style="word-break:break-word; overflow-wrap:anywhere;">${escapeHtml(customer.address)}</span></div>` : ""}
@@ -505,8 +562,10 @@ export function renderThermalHtml(data: PrintData): string {
   <hr class="sep">
   <div class="row bold"><span>${kerusaanStr}</span><span>${formatEn(service.price)}</span></div>
   <hr class="sep">
-  <div class="row"><span>Payment</span><span>Cash</span></div>
   <div class="row bold"><span>${priceLabel(service)}</span><span>${formatEn(service.price)}</span></div>
+  <div class="row"><span>Pembayaran</span><span>${service.payment.status}</span></div>
+  ${service.payment.paid > 0 ? `<div class="row"><span>Metode</span><span>${escapeHtml(service.payment.methods || EM_DASH)}</span></div><div class="row"><span>Dibayar</span><span>${formatEn(service.payment.paid)}</span></div>` : ""}
+  ${service.payment.remaining > 0 ? `<div class="row"><span>Sisa</span><span>${formatEn(service.payment.remaining)}</span></div>` : ""}
   <hr class="sep">
   <div class="center bold">###CEK SERVICE DAN GARANSI###</div>
   ${service.trackingCode ? `<div class="center bold" style="letter-spacing:.08em;">KODE: ${trackingCodeLine(service.trackingCode)}</div>${trackingPathLine(branch.website, service.tenantSlug, service.trackingCode) ? `<div class="center" style="font-size:9px; margin-top:2px; word-break:break-all;">Cek status: ${escapeHtml(trackingPathLine(branch.website, service.tenantSlug, service.trackingCode))}</div>` : ""}` : ""}

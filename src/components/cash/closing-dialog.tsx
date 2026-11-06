@@ -18,6 +18,7 @@ import {
 import { formatCurrencyPlain } from "@/lib/format";
 import type { ShiftReport } from "@/lib/operational/laporan-shift";
 import { closeCashSession, getShiftPreview, type CashSessionRow } from "@/app/app/actions/cash";
+import { playPageTransition } from "@/components/layout/page-transition";
 import { ShiftReportView, VarianceRow } from "./shift-report";
 import { printShiftReport } from "./shift-thermal-print";
 
@@ -148,6 +149,7 @@ export function ClosingDialog({
       return;
     }
     setSaving(false);
+    playPageTransition();
     onOpenChange(false);
     toast.success(
       result.data.variance === 0

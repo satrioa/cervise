@@ -11,6 +11,8 @@ import { PlainTableRowsSkeleton, TableRowsSkeleton } from "@/components/ui/skele
 import { format } from "date-fns";
 import { id as localeId } from "date-fns/locale";
 import { Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
+import { EvilComposedChart } from "@/components/evilcharts/charts/recharts-composed-chart";
+import type { ChartConfig } from "@/components/evilcharts/ui/recharts-chart";
 import { PageHeader } from "@/components/layout/page-header";
 import { DateRangeFilter } from "@/components/date-range-filter";
 import { getLaporanKeuangan } from "@/app/app/laporan/keuangan/actions";
@@ -19,14 +21,10 @@ import type { FinanceTx } from "@/lib/operational/laporan-keuangan";
 
 type Tx = FinanceTx;
 
-const SLICE_COLORS = [
-  "rgb(99 102 241)",
-  "rgb(16 185 129)",
-  "rgb(56 189 248)",
-  "rgb(245 158 11)",
-  "rgb(244 63 94)",
-  "rgb(168 85 247)",
-];
+const SOURCE_COLORS: Record<string, string> = {
+  Servis: "rgb(99 102 241)",
+  Penjualan: "rgb(16 185 129)",
+};
 
 function formatHarian(iso: string) {
   return format(new Date(iso + "T12:00:00"), "EEEE, d MMMM yyyy", { locale: localeId });
@@ -94,7 +92,7 @@ export default function LaporanKeuanganPage() {
     harian: { key: string; masuk: number; keluar: number; net: number; count: number }[];
     bulanan: { key: string; masuk: number; keluar: number; net: number; count: number }[];
     byBranch: { branchId: string | null; branchName: string; masuk: number; keluar: number; net: number; count: number }[];
-    byDescription: { name: string; amount: number; pct: number }[];
+    bySource: { name: "Servis" | "Penjualan"; amount: number; pct: number }[];
     monthComparison: { current: number; previous: number; changePct: number | null };
   } | null>(null);
   const [loading, setLoading] = useState(true);
@@ -140,11 +138,11 @@ export default function LaporanKeuanganPage() {
 
   const bulanan = useMemo(() => (report?.bulanan ?? []).map((row) => ({ ...row, month: row.key, total: row.count })), [report]);
 
-  // Net per day for the trend chart, oldest first.
+  // Arus kas per hari for the composed chart, oldest first.
   const chartData = useMemo(() => {
     return harian
       .slice(-30)
-      .map((g) => ({ date: g.date.slice(5), net: g.net }));
+      .map((g) => ({ date: g.date.slice(5), masuk: g.masuk, keluar: g.keluar, net: g.net }));
   }, [harian]);
 
   const totalMasuk = report?.totalMasuk ?? 0;
@@ -153,20 +151,13 @@ export default function LaporanKeuanganPage() {
 
   const monthComparison = report?.monthComparison ?? { current: 0, previous: 0, changePct: null };
 
-  // Real daily income for the month sparkline; no synthetic series when empty.
-  const series = useMemo(() => {
-    return harian
-      .slice(-24)
-      .map((g) => g.masuk / 1000);
-  }, [harian]);
-
-  // Income split by the description actually recorded on each transaction.
+  // Income split by where it came from: service payments vs sales.
   const allocation = useMemo(() => {
-    return (report?.byDescription ?? []).slice(0, 6).map((entry, index) => ({
+    return (report?.bySource ?? []).map((entry) => ({
       name: entry.name,
       pct: entry.pct,
       amount: entry.amount,
-      color: SLICE_COLORS[index % SLICE_COLORS.length],
+      color: SOURCE_COLORS[entry.name] ?? SOURCE_COLORS.Penjualan,
     }));
   }, [report]);
 
@@ -196,7 +187,11 @@ export default function LaporanKeuanganPage() {
               resultLabel={report ? `${report.transactionCount} transaksi` : undefined}
             />
             <Select value={cabang} onValueChange={(v) => setCabang((v as string) ?? "all")}>
-              <SelectTrigger size="sm" className="shrink-0"><SelectValue placeholder="Semua cabang" /></SelectTrigger>
+              <SelectTrigger size="sm" className="shrink-0">
+                <SelectValue>
+                  {cabang === "all" ? "Semua cabang" : branches.find((b) => b.id === cabang)?.name ?? "Semua cabang"}
+                </SelectValue>
+              </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Semua cabang</SelectItem>
                 {branches.map((b) => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
@@ -206,7 +201,7 @@ export default function LaporanKeuanganPage() {
         }
       />
 
-      <main className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-10 py-8 space-y-8">
+      <main className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-8 space-y-8">
 
         {error ? (
           <div role="alert" className="rounded-xl border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
@@ -255,20 +250,15 @@ export default function LaporanKeuanganPage() {
               </div>
             </div>
             <div className="mt-5">
-              {series.length > 0 ? (
-                <PriceChart values={series} positive={monthComparison.changePct === null || monthComparison.changePct >= 0} />
-              ) : (
-                <div className="flex h-24 items-center justify-center text-sm text-muted-foreground">Belum ada pemasukan untuk ditampilkan</div>
-              )}
-            </div>
-            {chartData.length > 0 ? (
-              <div className="mt-5 border-t pt-4">
-                <div className="font-mono text-[10px] text-muted-foreground uppercase tracking-[0.25em]">Netto harian</div>
-                <div className="mt-2 h-28 w-full">
-                  <NetChart data={chartData} />
-                </div>
+              <div className="font-mono text-[10px] text-muted-foreground uppercase tracking-[0.25em]">Arus Kas Harian</div>
+              <div className="mt-2">
+                {chartData.length > 0 ? (
+                  <ArusKasChart data={chartData} />
+                ) : (
+                  <div className="flex h-64 items-center justify-center text-sm text-muted-foreground">Belum ada transaksi harian</div>
+                )}
               </div>
-            ) : null}
+            </div>
           </div>
           <div className="bg-background p-6">
             <div className="font-mono text-[10px] text-muted-foreground uppercase tracking-[0.3em]">Sumber Pemasukan</div>
@@ -301,7 +291,7 @@ export default function LaporanKeuanganPage() {
                     </li>
                   ))}
                 </ul>
-                <p className="mt-3 text-[11px] text-muted-foreground">Dihitung dari deskripsi yang dicatat pada tiap transaksi pemasukan.</p>
+                <p className="mt-3 text-[11px] text-muted-foreground">Dipisah dari sumber transaksi: pembayaran servis dan penjualan.</p>
               </>
             )}
           </div>
@@ -503,47 +493,38 @@ export default function LaporanKeuanganPage() {
   );
 }
 
-function PriceChart({ values, positive }: { values: number[]; positive: boolean }) {
-  const w = 700;
-  const h = 200;
-  const max = Math.max(...values);
-  const min = Math.min(...values);
-  const range = Math.max(0.001, max - min);
-  const stepX = w / (values.length - 1);
-  const pts = values.map((v, i) => `${i * stepX},${h - ((v - min) / range) * (h - 20) - 10}`).join(" L ");
-  const color = positive ? "rgb(16 185 129)" : "rgb(244 63 94)";
-  return (
-    <svg viewBox={`0 0 ${w} ${h}`} className="h-48 w-full" preserveAspectRatio="none">
-      <defs>
-        <linearGradient id="mkt-grad" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor={color} stopOpacity="0.3" />
-          <stop offset="100%" stopColor={color} stopOpacity="0" />
-        </linearGradient>
-      </defs>
-      {[0.25, 0.5, 0.75].map((y) => (
-        <line key={y} x1="0" x2={w} y1={h * y} y2={h * y} stroke="rgb(127 127 127 / 0.1)" strokeDasharray="2 4" />
-      ))}
-      <path d={`M 0,${h} L ${pts} L ${w},${h} Z`} fill="url(#mkt-grad)" />
-      <path d={`M ${pts}`} fill="none" stroke={color} strokeWidth="1.75" />
-    </svg>
-  );
+const ARUS_KAS_CONFIG = {
+  masuk: { label: "Masuk", colors: { light: ["#10b981"], dark: ["#34d399"] } },
+  keluar: { label: "Keluar", colors: { light: ["#f43f5e"], dark: ["#fb7185"] } },
+  net: { label: "Net", colors: { light: ["#6366f1"], dark: ["#818cf8"] } },
+} satisfies ChartConfig;
+
+/** Rupiah ringkas untuk sumbu Y: 1.500.000 → "1,5jt". */
+function compactRupiah(value: number): string {
+  const abs = Math.abs(value);
+  if (abs >= 1_000_000) return `${Math.round(value / 100_000) / 10}jt`;
+  if (abs >= 1_000) return `${Math.round(value / 100) / 10}rb`;
+  return String(value);
 }
 
-function NetChart({ data }: { data: { date: string; net: number }[] }) {
-  const w = 700;
-  const h = 110;
-  const values = data.map((d) => d.net);
-  const max = Math.max(...values, 0);
-  const min = Math.min(...values, 0);
-  const range = Math.max(1, max - min);
-  const stepX = w / Math.max(1, data.length - 1);
-  const y = (v: number) => h - ((v - min) / range) * (h - 20) - 10;
-  const pts = data.map((d, i) => `${i * stepX},${y(d.net)}`).join(" L ");
-  const zeroY = y(0);
+function ArusKasChart({ data }: { data: { date: string; masuk: number; keluar: number; net: number }[] }) {
   return (
-    <svg viewBox={`0 0 ${w} ${h}`} className="h-full w-full" preserveAspectRatio="none" role="img" aria-label="Netto harian">
-      <line x1="0" x2={w} y1={zeroY} y2={zeroY} stroke="rgb(127 127 127 / 0.25)" strokeDasharray="2 4" />
-      <path d={`M ${pts}`} fill="none" stroke="rgb(99 102 241)" strokeWidth="1.75" />
-    </svg>
+    <EvilComposedChart
+      className="h-64 w-full"
+      xDataKey="date"
+      data={data}
+      config={ARUS_KAS_CONFIG}
+      chartProps={{ margin: { top: 8, right: 8, left: 0, bottom: 0 } }}
+    >
+      <EvilComposedChart.Grid />
+      <EvilComposedChart.XAxis dataKey="date" />
+      <EvilComposedChart.YAxis width={52} tickFormatter={(value) => compactRupiah(Number(value))} />
+      <EvilComposedChart.Brush height={36} formatLabel={(value) => String(value)} />
+      <EvilComposedChart.Legend isClickable />
+      <EvilComposedChart.Tooltip />
+      <EvilComposedChart.Bar dataKey="masuk" radius={2} isClickable />
+      <EvilComposedChart.Bar dataKey="keluar" radius={2} isClickable />
+      <EvilComposedChart.Line dataKey="net" curveType="monotoneX" isClickable />
+    </EvilComposedChart>
   );
 }

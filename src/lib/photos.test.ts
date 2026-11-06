@@ -7,6 +7,7 @@ import {
   formatBytes,
   initialsOf,
   isSafeObjectPath,
+  productPhotoPath,
   publicPhotoUrl,
   tenantLogoPath,
   validatePhotoFile,
@@ -74,6 +75,11 @@ describe("object paths", () => {
     expect(path).toMatch(/^tenant-logos\/org-456\/[a-f0-9]{24}\.jpg$/);
   });
 
+  it("nests product photos under the product id", () => {
+    const path = productPhotoPath("product-789", "webp");
+    expect(path).toMatch(/^products\/product-789\/[a-f0-9]{24}\.webp$/);
+  });
+
   it("never reuses a filename, so old links stop resolving after a change", () => {
     const seen = new Set(Array.from({ length: 200 }, () => accountPhotoPath("user-1", "png")));
     expect(seen.size).toBe(200);
@@ -92,6 +98,7 @@ describe("isSafeObjectPath", () => {
   it("accepts paths this module generates", () => {
     expect(isSafeObjectPath(accountPhotoPath("u-1", "png"))).toBe(true);
     expect(isSafeObjectPath(tenantLogoPath("o-1", "webp"))).toBe(true);
+    expect(isSafeObjectPath(productPhotoPath("p-1", "jpg"))).toBe(true);
   });
 
   it("rejects traversal, absolute paths, and foreign hosts", () => {

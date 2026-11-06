@@ -10,6 +10,7 @@ import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
 import { XIcon } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { searchSparepartStock, useSparepartsForServis, addSparepartsToServis, cancelServisWithSpareparts, getServisSpareparts, type SparepartStockRow } from "@/app/app/servis/sparepart-actions";
+import { playPageTransition } from "@/components/layout/page-transition";
 
 type Selected = { row: SparepartStockRow; qty: number };
 
@@ -74,7 +75,7 @@ export function SparepartPickDialog({
     setSaving(true);
     setError(null);
     try {
-      const items = opts?.skip ? [] : selected.map((s) => ({ product_id: s.row.id, qty: s.qty }));
+      const items = opts?.skip ? [] : selected.map((s) => ({ sparepart_id: s.row.id, qty: s.qty }));
       // validate qty <= stock client side
       for (const s of selected) {
         if (s.qty > s.row.qty) throw new Error(`Stok ${s.row.name} sisa ${s.row.qty}, diminta ${s.qty}`);
@@ -85,6 +86,7 @@ export function SparepartPickDialog({
         if (items.length === 0) throw new Error("Pilih minimal 1 sparepart");
         await addSparepartsToServis(servis.id, items);
       }
+      playPageTransition();
       onSuccess();
       onOpenChange(false);
     } catch (e: any) {
@@ -108,7 +110,7 @@ export function SparepartPickDialog({
             </DialogPrimitive.Title>
             <DialogPrimitive.Description className="text-sm text-muted-foreground">
               {mode === "transition" ? (
-                <>Pilih sparepart untuk servis <span className="font-mono font-medium text-foreground">{servis?.serviceNumber ?? servis?.id?.slice(0, 8).toUpperCase()}</span> · {servis?.device ?? ""} — akan langsung mengurangi stok inventory. Boleh dilewati jika tidak pakai part.</>
+                <>Pilih sparepart untuk servis <span className="font-mono font-medium text-foreground">{servis?.serviceNumber ?? servis?.id?.slice(0, 8).toUpperCase()}</span> · {servis?.device ?? ""} — stok sparepart langsung terpotong. Boleh dilewati jika tidak pakai part.</>
               ) : (
                 <>Tambah pemakaian sparepart saat status Dikerjakan — stok akan langsung terpotong.</>
               )}
@@ -257,6 +259,7 @@ export function CancelSparepartDialog({
     setError(null);
     try {
       await cancelServisWithSpareparts(servis.id, decision, reason);
+      playPageTransition();
       onSuccess();
       onOpenChange(false);
     } catch (e: any) {

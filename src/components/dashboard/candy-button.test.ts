@@ -166,10 +166,12 @@ describe("grid bento delapan sel", () => {
     expect(frontliner).toMatch(/expectedCash/);
   });
 
-  it("pembayaran lewat detail servis, bukan dari dashboard", () => {
-    // Dashboard tidak punya tombol bayar. Baris daftar servis membuka
-    // `/app/servis/{id}` dan pembayaran dilakukan di halaman detail.
-    expect(frontliner).not.toMatch(/PaymentDialog/);
+  it("pembayaran hanya sebagai gerbang pengambilan, bukan tombol bayar di dashboard", () => {
+    // Dashboard tidak punya tombol bayar mandiri. ServisPaymentDialog dipakai
+    // untuk servis yang mau diambil tapi belum lunas: bayar dulu, baru form
+    // tanda tangan (lihat startPickup).
+    expect(frontliner).toMatch(/<ServisPaymentDialog/);
+    expect(frontliner).toMatch(/startPickup\(/);
     expect(frontliner).toMatch(/`\/app\/servis\/\$\{item\.id\}`/);
     expect(technician).toMatch(/`\/app\/servis\/\$\{item\.id\}`/);
   });
@@ -212,6 +214,9 @@ describe("grid bento delapan sel", () => {
     expect(frontliner).toMatch(/"Masuk"/);
     expect(frontliner).toMatch(/"Selesai"/);
     expect(frontliner).toMatch(/"Diambil"/);
+    // Sisa antrean lintas hari, bukan angka harian seperti tiga di atasnya.
+    expect(frontliner).toMatch(/Antrian/);
+    expect(frontliner).toMatch(/kpi\?\.proses/);
     expect(frontliner).not.toMatch(/Batal/);
   });
 

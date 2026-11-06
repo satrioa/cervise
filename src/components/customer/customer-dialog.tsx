@@ -9,6 +9,7 @@ import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
 import { XIcon } from "lucide-react";
 import { createCustomer, updateCustomer } from "@/app/app/customer/actions";
 import { useRouter } from "next/navigation";
+import { playPageTransition } from "@/components/layout/page-transition";
 
 type Props = {
   open: boolean;
@@ -61,6 +62,7 @@ export function CustomerDialog({ open, onOpenChange, mode, initial, onSuccess }:
       } else if (initial?.id) {
         await updateCustomer(initial.id, { name, phone });
       }
+      playPageTransition();
       onOpenChange(false);
       router.refresh();
       onSuccess?.();

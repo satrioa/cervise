@@ -87,7 +87,7 @@ export default function AnalitikServisPage() {
       />
 
       {error ? (
-        <p className="mx-auto max-w-6xl px-6 pt-6 text-sm text-destructive">{error}</p>
+        <p className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 pt-6 text-sm text-destructive">{error}</p>
       ) : null}
 
       <CerviseAnalyticsSection

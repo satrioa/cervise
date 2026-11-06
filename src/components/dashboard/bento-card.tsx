@@ -199,6 +199,8 @@ export type BentoCardProps = {
    */
   hug?: boolean;
   className?: string;
+  /** Kelas untuk sel grid (pembungkus animasi), mis. `order`/`col-span` mobile. */
+  cellClassName?: string;
   onClick?: () => void;
   href?: string;
   title?: string;
@@ -243,6 +245,7 @@ export function BentoCard({
   surface = "neutral",
   hug = false,
   className,
+  cellClassName,
   onClick,
   href,
   title,
@@ -278,7 +281,7 @@ export function BentoCard({
 
   if (href) {
     return (
-      <motion.div {...animation} className="h-full min-h-0 w-full">
+      <motion.div {...animation} className={cn("h-full min-h-0 w-full", cellClassName)}>
         <Link href={href} className={classes} title={title}>
           {children}
         </Link>
@@ -287,7 +290,7 @@ export function BentoCard({
   }
   if (onClick) {
     return (
-      <motion.div {...animation} className="h-full min-h-0 w-full">
+      <motion.div {...animation} className={cn("h-full min-h-0 w-full", cellClassName)}>
         <button type="button" onClick={onClick} className={classes} title={title}>
           {children}
         </button>
@@ -295,7 +298,7 @@ export function BentoCard({
     );
   }
   return (
-    <motion.div {...animation} className={classes}>
+    <motion.div {...animation} className={cn(classes, cellClassName)}>
       {children}
     </motion.div>
   );

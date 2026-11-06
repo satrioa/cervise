@@ -10,8 +10,9 @@ import { FullscreenToggle } from "@/components/layout/fullscreen-toggle";
 import { ShellChromeProvider } from "@/components/layout/shell-chrome";
 import { CompactMenuSheet } from "@/components/layout/compact-menu-sheet";
 import { CompactBottomBar } from "@/components/layout/compact-bottom-bar";
+import { CompactDockNav } from "@/components/layout/compact-dock-nav";
+import { PageTransition } from "@/components/layout/page-transition";
 import { AsciiPage } from "@/components/layout/ascii-page";
-import { useIdleVisibility } from "@/hooks/use-idle-visibility";
 import { BranchProvider } from "@/lib/branch-context";
 import { TenantProvider } from "@/lib/tenant-context";
 import { LocaleProvider } from "@/lib/localization-context";
@@ -72,12 +73,6 @@ function CompactShellInner({
 }) {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
-
-  // Header dan bottom bar memudar sendiri setelah 5 detik tanpa aktivitas.
-  // `suspended: open` menahannya selama drawer menu terbuka: saat itu user
-  // sedang berinteraksi dengan chrome yang sama.
-  const chrome = useIdleVisibility({ suspended: open });
-  const chromeFade = "transition-opacity duration-500 ease-out motion-reduce:transition-none";
   const t = useTranslations("nav");
   const role = normalizeAppRole(actor.role);
 
@@ -91,7 +86,7 @@ function CompactShellInner({
       : [
           { href: "/app", label: "Home" },
           { href: "/app/servis", label: t("items.service") },
-          { href: "/app/kategori-sparepart", label: t("items.sparepart") },
+          { href: "/app/sparepart", label: t("items.sparepart") },
         ];
 
   // Saldo awal hanya untuk role yang menjalankan shift kas. TECHNICIAN punya
@@ -121,18 +116,8 @@ function CompactShellInner({
       // milik kartu/baris di dalam halaman.
       className="group/shell flex h-svh w-full flex-col overflow-hidden bg-canvas text-neutral-900 dark:text-neutral-100"
     >
-      <header
-        onPointerEnter={chrome.holdPointer}
-        onPointerLeave={chrome.releasePointer}
-        // `inert` saat tersembunyi: tombol yang opacity-nya 0 tetap bisa
-        // dijangkau Tab dan diklik kalau tidak dimatikan.
-        inert={!chrome.visible}
-        className={cn(
-          "shrink-0 px-4 pt-3 sm:px-6 sm:pt-4 lg:px-8",
-          chromeFade,
-          chrome.visible ? "opacity-100" : "pointer-events-none opacity-0",
-        )}
-      >
+      <PageTransition />
+      <header className="hidden shrink-0 px-4 pt-3 sm:px-6 sm:pt-4 lg:block lg:px-8">
         <div className="flex w-full items-center gap-2">
           <nav
             aria-label="Navigasi utama"
@@ -172,9 +157,12 @@ function CompactShellInner({
               <LayoutGrid fill="currentColor" className="size-[18px]" />
             </SheetTrigger>
             <SheetContent
-              side="left"
+              side="bottom"
               showCloseButton={false}
-              className="gap-0 overflow-hidden rounded-[28px] bg-[#F1F1F1] p-0 shadow-[0_30px_80px_-32px_rgba(0,0,0,0.55)] duration-300 ease-[linear(0,0.35,0.85,1.06,1.02,0.995,1)] data-[side=left]:inset-y-4 data-[side=left]:left-4 data-[side=left]:h-[calc(100%-2rem)] data-[side=left]:w-[calc(100%-2rem)] data-[side=left]:border-0 dark:bg-neutral-950 data-[side=left]:sm:max-w-[340px] data-[side=left]:data-starting-style:translate-x-[-110%]! data-[side=left]:data-ending-style:translate-x-[-110%]!"
+              // Tinggi tetap supaya section yang panjang bisa scroll di dalam
+              // sheet; `h-full` milik CompactMenuSheet butuh parent berketinggian.
+              style={{ height: "85dvh" }}
+              className="gap-0 overflow-hidden rounded-t-[28px] bg-[#F1F1F1] p-0 shadow-[0_-30px_80px_-32px_rgba(0,0,0,0.55)] duration-300 ease-[linear(0,0.35,0.85,1.06,1.02,0.995,1)] dark:bg-neutral-950"
             >
               <CompactMenuSheet
                 role={actor.role}
@@ -188,14 +176,10 @@ function CompactShellInner({
               className="hidden h-10 w-[260px] justify-start rounded-full border-0 bg-white/80 px-4 shadow-sm ring-1 ring-black/5 hover:bg-white dark:bg-neutral-900/80 dark:ring-white/10 dark:hover:bg-neutral-900 lg:flex"
               aria-label="Cari atau buka perintah"
             />
-            <CommandSearchTrigger
-              className="flex size-10 items-center justify-center rounded-full border-0 bg-white p-0 shadow-sm ring-1 ring-black/5 hover:bg-white dark:bg-neutral-900 dark:ring-white/10 dark:hover:bg-neutral-800 lg:hidden [&>kbd]:hidden"
-              aria-label="Cari"
-            />
             {/* Kontrol suara ada di section "Sound System" drawer, bukan di
                 header: di samping tombol layar penuh ia hanya menambah satu
                 tombol yang jarang dipakai. */}
-            <FullscreenToggle className="hidden size-10 rounded-full border-0 bg-white shadow-sm ring-1 ring-black/5 dark:bg-neutral-900 dark:ring-white/10 md:inline-flex" />
+            <FullscreenToggle className="inline-flex size-10 rounded-full border-0 bg-white shadow-sm ring-1 ring-black/5 dark:bg-neutral-900 dark:ring-white/10" />
           </div>
         </div>
       </header>
@@ -203,20 +187,23 @@ function CompactShellInner({
       <main
         key={pathname}
         data-main-content
-        className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden pb-24 sm:pb-24"
+        className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden pt-[calc(5.5rem_+_env(safe-area-inset-top))] pb-[calc(5rem_+_env(safe-area-inset-bottom))] lg:pt-0 lg:pb-32"
       >
         {/* `h-full` menjaga rantai tinggi halaman (POS mengisi sisa `main`).
             Reveal hanya membungkus isi halaman, bukan chrome shell. */}
         <AsciiPage className="h-full">{children}</AsciiPage>
       </main>
 
+      <CompactDockNav
+        role={actor.role}
+        menuOpen={open}
+        onOpenMenu={() => setOpen(true)}
+      />
+
       <CompactBottomBar
         role={actor.role}
         fullName={actor.fullName}
         avatarUrl={actor.avatarUrl}
-        hidden={!chrome.visible}
-        onPointerEnter={chrome.holdPointer}
-        onPointerLeave={chrome.releasePointer}
       />
 
       {/* Saldo awal wajib. Dialog ini yang menentukan boleh tidaknya

@@ -133,7 +133,7 @@ export default function LaporanShiftClient() {
         description="Rekap kas per shift: layanan servis, penjualan, dan transaksi manual."
       />
 
-      <main className="mx-auto max-w-6xl px-6 py-6">
+      <main className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-6">
         {error ? <p className="mb-4 text-sm text-destructive">{error}</p> : null}
 
         {sessions.length === 0 && !loading ? (

@@ -213,7 +213,7 @@ async function resolveTenant(options: { allowExpiredSubscription: boolean }): Pr
   // Role buatan pengguna: dibatasi oleh role dasar (employees.role). Kalau
   // role_key tidak ditemukan, atau dasar role-nya tidak cocok, jatuh ke role
   // bawaan — tanpa kehilangan akses yang memang dimiliki role dasar.
-  const roleKey = (actorRow.role_key as string | null) ?? role;
+  let roleKey = (actorRow.role_key as string | null) ?? role;
   let permissions: PermissionKey[] | undefined;
   let roleLabel: string | undefined;
   let isCustomRole = false;

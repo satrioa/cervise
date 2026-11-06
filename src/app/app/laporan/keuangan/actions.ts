@@ -34,7 +34,7 @@ export async function getLaporanKeuangan(query: LaporanKeuanganQuery): Promise<L
   let request = applyBranchScope(
     supabase
       .from("cervise_finance_tx")
-      .select("id, amount, type, kas_date, branch_id, description, metode"),
+      .select("id, amount, type, kas_date, branch_id, servis_id, description, metode"),
     actor,
   )
     .order("kas_date", { ascending: false })

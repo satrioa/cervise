@@ -368,7 +368,7 @@ describe("menu per role", () => {
       "/app",
       "/app/servis",
       "/app/inventori",
-      "/app/kategori-sparepart",
+      "/app/sparepart",
       "/app/analitik-servis",
       "/app/laporan/servis",
       "/app/garansi",

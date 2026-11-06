@@ -213,7 +213,7 @@ export default function TransaksiPage() {
         }
       />
 
-      <main className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-10 py-8">
+      <main className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-8">
         {loadError ? (
           <div role="alert" className="mb-4 rounded-xl border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
             {loadError}

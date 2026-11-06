@@ -77,7 +77,7 @@ export default async function KaryawanPage({ searchParams }: { searchParams: Pro
         }
       />
 
-      <main className="mx-auto max-w-6xl px-10 py-8">
+      <main className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-8">
         <KaryawanList rows={filtered} branches={branches} />
         <p className="mt-3 text-xs text-muted-foreground">Email tersimpan di profiles.email · hapus karyawan ikut hapus login auth.</p>
       </main>

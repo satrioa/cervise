@@ -16,6 +16,7 @@ import {
   saveTestimonial,
   uploadLacakBanner,
 } from "@/app/app/pengaturan/tampilan/actions";
+import { playPageTransition } from "@/components/layout/page-transition";
 import type { PublicTenant } from "@/lib/public/landing";
 
 /**
@@ -55,6 +56,7 @@ export function LandingSection({
         instagramUrl: instagramUrl.trim() || null,
         tiktokUrl: tiktokUrl.trim() || null,
       });
+      playPageTransition();
       router.refresh();
       toast.success("Identitas toko untuk halaman Lacak disimpan");
     } catch (e: unknown) {
@@ -71,6 +73,7 @@ export function LandingSection({
       form.append("file", file);
       const hasil = await uploadLacakBanner(form);
       ganti({ bannerUrl: hasil.url ?? null });
+      playPageTransition();
       router.refresh();
       toast.success("Banner diperbarui");
     } catch (e: unknown) {
@@ -86,6 +89,7 @@ export function LandingSection({
     try {
       await removeLacakBanner();
       ganti({ bannerUrl: null });
+      playPageTransition();
       router.refresh();
       toast.success("Banner dihapus, halaman memakai warna toko");
     } catch (e: unknown) {
@@ -102,6 +106,7 @@ export function LandingSection({
       setNama("");
       setIsi("");
       setRating(null);
+      playPageTransition();
       router.refresh();
       toast.success("Testimoni ditambahkan");
     } catch (e: unknown) {
@@ -116,6 +121,7 @@ export function LandingSection({
     try {
       await deleteTestimonial(id);
       ganti({ testimonials: tenant.testimonials.filter((t) => t.id !== id) });
+      playPageTransition();
       router.refresh();
       toast.success("Testimoni dihapus");
     } catch (e: unknown) {

@@ -14,6 +14,7 @@ import { toast } from "sonner";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
+import { playPageTransition } from "@/components/layout/page-transition";
 
 type BranchItem = {
   id: string;
@@ -124,6 +125,7 @@ export function CabangDrawer({ branch, open, onOpenChange }: { branch: BranchIte
     setError(null);
     try {
       await updateCabang(branch.id, { name, alamat, telepon });
+      playPageTransition();
       toast.success(`Cabang "${name.trim()}" diperbarui`);
       setEditOpen(false);
       router.refresh();
@@ -144,6 +146,7 @@ export function CabangDrawer({ branch, open, onOpenChange }: { branch: BranchIte
     setIntensifEnabled(next);
     try {
       await toggleCabangIntensif(branch.id, next);
+      playPageTransition();
       toast.success(next ? "Insentif diaktifkan" : "Insentif dinonaktifkan");
       router.refresh();
     } catch (e: any) {
@@ -173,6 +176,7 @@ export function CabangDrawer({ branch, open, onOpenChange }: { branch: BranchIte
     setErrorIntensif(null);
     try {
       await updateCabangIntensif(branch.id, { mode: intensifMode, value: val, targetCount: target });
+      playPageTransition();
       toast.success("Insentif cabang diperbarui");
       router.refresh();
     } catch (e: any) {

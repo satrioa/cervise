@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -8,9 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Select, SelectTrigger, SelectPopup, SelectItem, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
-import { Switch } from "@/components/ui/switch";
-import { ChevronRight } from "lucide-react";
-import { cn } from "@/lib/utils";
+import JellyRadio from "@/components/ui/jelly-radio";
 import { KerusakanTagInput } from "./kerusakan-tag-input";
 import { KelengkapanSelect } from "./kelengkapan-select";
 import { GaransiField } from "./garansi-field";
@@ -20,7 +18,12 @@ import { KondisiAwalForm } from "./kondisi-awal-form";
 import { teknisiLabel } from "@/lib/servis-technisi-label";
 import { toast } from "sonner";
 import { useUnsavedGuard } from "@/hooks/use-unsaved-guard";
-import { createServis, getTeknisi, updateKondisiAwal } from "@/app/app/servis/actions";
+import { createServis, getServisDetail, getTeknisi, updateKondisiAwal } from "@/app/app/servis/actions";
+import { publicTrackingUrl, renderThermalHtml, toPrintData, type PrintContext } from "@/components/print-templates";
+import { printReceipt } from "@/lib/printer";
+import { useBranchOptional } from "@/lib/branch-context";
+import { useTenantOptional } from "@/lib/tenant-context";
+import { playPageTransition } from "@/components/layout/page-transition";
 import type { KondisiAwal } from "@/lib/servis-constants";
 
 type ServisFormProps = {
@@ -30,6 +33,22 @@ type ServisFormProps = {
 
 export function ServisForm({ onSuccess, onCancel }: ServisFormProps) {
   const router = useRouter();
+  const branchCtx = useBranchOptional();
+  const tenantCtx = useTenantOptional();
+  const activeTenant = useMemo(
+    () => tenantCtx?.tenants.find((t) => t.id === tenantCtx.activeOrgId) ?? null,
+    [tenantCtx?.tenants, tenantCtx?.activeOrgId],
+  );
+  // Header nota memakai brand organisasi, sama seperti cetak manual di halaman servis.
+  const printContext = useMemo<PrintContext>(
+    () => ({
+      brandName: activeTenant?.name ?? null,
+      branchName: branchCtx?.branch.label ?? null,
+      phone: branchCtx?.branch.phone ?? null,
+      tenantSlug: activeTenant?.slug ?? null,
+    }),
+    [activeTenant?.name, activeTenant?.slug, branchCtx?.branch.label, branchCtx?.branch.phone],
+  );
 
   // device
   const [merk, setMerk] = useState("");
@@ -56,10 +75,9 @@ export function ServisForm({ onSuccess, onCancel }: ServisFormProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Alur kondisi awal. `kondisiEnabled` menentukan apakah tombolnya tampil,
-  // `kondisiOpen` apakah formnya terbuka. Keduanya terpisah supaya mematikan
-  // switch tidak menghapus state yang sudah diisi tanpa sengaja.
-  const [kondisiEnabled, setKondisiEnabled] = useState(true);
+  // Alur kondisi awal. `kondisiYa` = periksa kondisi setelah servis tersimpan;
+  // "Tidak" = simpan lalu langsung selesai. `kondisiOpen` menampilkan formnya.
+  const [kondisiYa, setKondisiYa] = useState(true);
   const [kondisiOpen, setKondisiOpen] = useState(false);
 
   // post-save: form kondisi menggantikan tampilan form, bukan modal di atasnya.
@@ -106,6 +124,28 @@ export function ServisForm({ onSuccess, onCancel }: ServisFormProps) {
     return null;
   };
 
+  /**
+   * Nota servis langsung dicetak setelah create. Nomor servis baru ada setelah
+   * baris tersimpan, jadi detail diambil ulang lalu dikirim ke printer yang
+   * sama dengan tombol cetak di halaman servis. Kegagalan cetak tidak
+   * membatalkan servis yang sudah masuk.
+   */
+  const printNota = async (servisId: string) => {
+    try {
+      const detail = await getServisDetail(servisId);
+      const data = toPrintData(detail, printContext, detail);
+      const result = await printReceipt({
+        kind: "service",
+        html: renderThermalHtml(data),
+        trackingUrl: publicTrackingUrl(data.service.tenantSlug, data.service.trackingCode),
+        service: data,
+      });
+      if (!result.fallback) toast.success("Nota servis dikirim ke printer");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Gagal mencetak nota servis");
+    }
+  };
+
   /** Memvalidasi lalu menyimpan servis. Satu jalur untuk dua pemicu. */
   const saveServis = async () => {
     const msg = validate();
@@ -133,6 +173,9 @@ export function ServisForm({ onSuccess, onCancel }: ServisFormProps) {
         garansi_unit: garansiUnit,
         price_estimasi: priceEstimasi === "" ? null : Number(priceEstimasi),
       });
+      playPageTransition();
+      // Cetak otomatis setelah servis tersimpan; jangan tunggu layar kondisi.
+      void printNota(res.id);
       return res;
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Gagal menyimpan");
@@ -144,36 +187,24 @@ export function ServisForm({ onSuccess, onCancel }: ServisFormProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const res = await saveServis();
-    if (!res) return;
-    setSavedId(res.id);
-    // Tombol "Simpan Servis" selalu membuka langkah kondisi: switch menentukan
-    // apakah itu perlu, dan kondisinya yang sudah tersimpan tidak hilang kalau
-    // user menutupnya lalu memakai tombol ini.
-    if (kondisiEnabled) setKondisiOpen(true);
-  };
-
-  /**
-   * "Check Kondisi": simpan servis dulu, baru buka form kondisi.
-   *
-   * Ini yang membuat alurnya masuk akal -- `updateKondisiAwal` butuh id servis,
-   * dan id itu hanya ada setelah create. Jadi klik tombol berarti "simpan, lalu
-   * periksa", bukan membuka form yang datanya belum bisa disimpan.
-   */
-  const handleKondisiClick = async () => {
+    // Sudah tersimpan (mis. lewat Check Kondisi lalu switch kondisi dimatikan):
+    // jangan buat servis kedua, langsung selesaikan.
     if (savedId) {
-      setKondisiOpen((open) => !open);
+      finish();
       return;
     }
     const res = await saveServis();
     if (!res) return;
     setSavedId(res.id);
-    setKondisiOpen(true);
+    // "Ya" membuka langkah kondisi; "Tidak" langsung selesai.
+    if (kondisiYa) setKondisiOpen(true);
+    else finish();
   };
 
   const handleKondisiSave = async (data: KondisiAwal) => {
     if (!savedId) return;
     await updateKondisiAwal(savedId, data);
+    playPageTransition();
     finish();
   };
   const handleSkip = () => {
@@ -221,7 +252,7 @@ export function ServisForm({ onSuccess, onCancel }: ServisFormProps) {
                     {teknisiLabel(teknisiOpts.find((t) => t.id === teknisiId))}
                   </SelectValue>
                 </SelectTrigger>
-                <SelectPopup>
+                <SelectPopup matchTriggerWidth>
                   {teknisiOpts.length === 0 ? <SelectItem value="__empty" disabled>Tidak ada teknisi</SelectItem> : teknisiOpts.map((t) => (
                     <SelectItem key={t.id} value={t.id}>{teknisiLabel(t)}</SelectItem>
                   ))}
@@ -316,51 +347,34 @@ export function ServisForm({ onSuccess, onCancel }: ServisFormProps) {
             <Label>Estimasi (Rp)</Label>
             <Input type="number" min={0} placeholder="Kosongkan jika belum tahu, cth: 350000" value={priceEstimasi} onChange={(e) => { const v = e.target.value; if (v === "") setPriceEstimasi(""); else setPriceEstimasi(Math.max(0, Number(v))); }} />
             <p className="text-[11px] text-muted-foreground">Hanya info awal. Total bayar final dari riwayat pembayaran di detail servis.</p>
+          </CardContent>
+        </Card>
 
-            {/* Switch "Kondisi" menentukan apakah pemeriksaan kondisi awal ikut
-                jadi bagian dari alur ini. Mati = lewati, dan tombolnya ikut
-                disembunyikan supaya tidak ada tombol yang tidak bisa dipakai. */}
-            <div className="flex items-center justify-between gap-3 rounded-lg border px-3 py-2.5">
-              <Label htmlFor="srv-kondisi-toggle" className="cursor-pointer">
-                Kondisi
-                <span className="block text-[11px] font-normal text-muted-foreground">
-                  Periksa kondisi perangkat sebelum dikerjakan
-                </span>
-              </Label>
-              <Switch
-                id="srv-kondisi-toggle"
-                checked={kondisiEnabled}
-                onCheckedChange={(v: boolean) => {
-                  setKondisiEnabled(v);
-                  // Mematikan switch harus ikut menutup form yang sudah terbuka,
-                  // kalau tidak isinya menggantung di layar tanpa jalan menutup.
-                  if (!v) setKondisiOpen(false);
-                }}
-              />
-            </div>
-
-            {kondisiEnabled ? (
-              <div className="grid transition-[grid-template-rows] duration-200 ease-out grid-rows-[1fr]">
-                <div className="overflow-hidden">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="w-full justify-between"
-                    disabled={loading}
-                    aria-expanded={kondisiOpen}
-                    onClick={handleKondisiClick}
-                  >
-                    <span>Check Kondisi</span>
-                    <ChevronRight
-                      className={cn(
-                        "size-4 transition-transform duration-200",
-                        kondisiOpen && "rotate-90",
-                      )}
-                    />
-                  </Button>
-                </div>
-              </div>
-            ) : null}
+        {/* Kondisi awal — dipisah dari Estimasi biaya. "Ya" membuka form
+            pemeriksaan setelah servis tersimpan; "Tidak" langsung selesai. */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Kondisi Awal</CardTitle>
+            <CardDescription>Periksa kondisi perangkat sebelum dikerjakan.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <JellyRadio
+              items={[{ value: "ya", label: "Ya" }, { value: "tidak", label: "Tidak" }]}
+              value={kondisiYa ? "ya" : "tidak"}
+              onChange={(v: string) => setKondisiYa(v === "ya")}
+              chipColor="#e4e4e7"
+              activeColor="#18181b"
+              textColor="#18181b"
+              activeTextColor="#f5f5f5"
+              invertDark
+              size="md"
+              gap={8}
+              radius={18}
+              ariaLabel="Check kondisi awal"
+            />
+            <p className="text-[11px] text-muted-foreground">
+              {kondisiYa ? "Form pemeriksaan muncul setelah servis disimpan." : "Servis langsung selesai tanpa pemeriksaan kondisi."}
+            </p>
           </CardContent>
         </Card>
 

@@ -12,6 +12,7 @@ import { toast } from "sonner";
 import { PageHeader } from "@/components/layout/page-header";
 import { PhotoUpload } from "@/components/photo-upload";
 import { uploadAccountPhoto, removeAccountPhoto } from "@/app/app/pengaturan/photo-actions";
+import { playPageTransition } from "@/components/layout/page-transition";
 
 type BranchOpt = { id: string; name: string };
 
@@ -64,6 +65,7 @@ export function SettingsProfileCervise({
     setSaving(true);
     try {
       await onSave({ fullName: fullName.trim(), phone: phone.trim(), branchId: initial.isMasterAdmin ? branchId : initial.branchId });
+      playPageTransition();
       toast.success("Profil diperbarui");
       setDirty(false);
     } catch (e: any) {
@@ -76,6 +78,7 @@ export function SettingsProfileCervise({
   const handleReset = async () => {
     try {
       await onResetPassword(initial.email);
+      playPageTransition();
       toast.success("Link ganti password dikirim ke email");
     } catch (e: any) {
       toast.error(e?.message ?? "Gagal mengirim link");

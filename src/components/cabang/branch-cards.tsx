@@ -11,6 +11,7 @@ import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
 import { toggleCabangActive } from "@/app/app/cabang/actions";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { playPageTransition } from "@/components/layout/page-transition";
 
 type BranchItem = {
   id: string;
@@ -102,6 +103,7 @@ export function BranchCards({ branches, onKelola, canManage = true }: { branches
     setItems((cur) => cur.map((b) => (b.id === branch.id ? { ...b, is_active: enabled } : b)));
     try {
       await toggleCabangActive(branch.id, enabled);
+      playPageTransition();
       toast.success(enabled ? `Cabang "${branch.name}" diaktifkan` : `Cabang "${branch.name}" dinonaktifkan`);
       router.refresh();
     } catch (e) {

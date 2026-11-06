@@ -10,6 +10,7 @@ import { Select, SelectItem, SelectPopup, SelectTrigger, SelectValue } from "@/c
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { createKaryawan, updateKaryawan, getKaryawanBranches } from "@/app/app/karyawan/actions";
 import { validatePhone } from "@/lib/phone";
+import { playPageTransition } from "@/components/layout/page-transition";
 
 type Editing = { profileId: string; employeeId: string; fullName: string; email: string | null; phone: string | null; role: string; branchId: string | null } | null;
 
@@ -75,10 +76,12 @@ export function KaryawanFormDialog({ open, onOpenChange, editing, onDone }: { op
     try {
       if (isEdit && editing) {
         await updateKaryawan({ profileId: editing.profileId, employeeId: editing.employeeId, fullName: n, phone, email: e, role, branchId });
+        playPageTransition();
         toast.success("Karyawan diperbarui");
         onOpenChange(false); onDone();
       } else {
         const res = await createKaryawan({ fullName: n, email: e, phone, role, branchId });
+        playPageTransition();
         toast.success("Karyawan dibuat");
         onOpenChange(false); onDone({ tempPassword: res.tempPassword, email: e });
       }

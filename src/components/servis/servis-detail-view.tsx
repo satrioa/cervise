@@ -10,8 +10,9 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
-import { format, formatDistanceToNow } from "date-fns";
+import { format } from "date-fns";
 import { id as localeId } from "date-fns/locale";
+import { playPageTransition } from "@/components/layout/page-transition";
 import {
   UserIcon,
   WrenchIcon,
@@ -33,7 +34,6 @@ import {
   Trash2Icon,
   ShieldIcon,
   UserPlusIcon,
-  ChevronDownIcon,
   PenLineIcon,
 } from "lucide-react";
 import type { ComponentType } from "react";
@@ -105,64 +105,73 @@ function formatInvoiceNo(createdAt: string | null, id: string) {
 type TimelineSeverity = "info" | "warn" | "danger";
 interface TimelineEvent {
   actor: string;
-  initials: string;
   action: string;
   target?: string;
   Icon: ComponentType<{ className?: string }>;
   severity: TimelineSeverity;
-  time: string;
-  diff?: { before: string; after: string };
+  at: string | null;
 }
 
-const SEV_RING: Record<TimelineSeverity, string> = {
-  info: "bg-foreground/[0.06] text-foreground",
+const SEV_ICON: Record<TimelineSeverity, string> = {
+  info: "bg-muted text-foreground/70",
   warn: "bg-amber-500/15 text-amber-700 dark:text-amber-400",
-  danger: "bg-rose-500/15 text-rose-700 dark:text-rose-400",
+  danger: "bg-destructive/10 text-destructive",
 };
-const SEV_DOT: Record<TimelineSeverity, string> = {
-  info: "bg-foreground/40",
-  warn: "bg-amber-500",
-  danger: "bg-rose-500",
-};
+
+function dayLabel(iso: string) {
+  const date = new Date(iso);
+  const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  const days = Math.round((startOfDay(new Date()) - startOfDay(date)) / 86_400_000);
+  if (days === 0) return "Hari ini";
+  if (days === 1) return "Kemarin";
+  return format(date, "d MMM yyyy", { locale: localeId });
+}
+
+function groupEventsByDay(events: TimelineEvent[]) {
+  const groups: { key: string; label: string; events: TimelineEvent[] }[] = [];
+  for (const event of events) {
+    const key = event.at ? format(new Date(event.at), "yyyy-MM-dd") : "tanpa-tanggal";
+    const last = groups[groups.length - 1];
+    if (last?.key === key) last.events.push(event);
+    else groups.push({ key, label: event.at ? dayLabel(event.at) : "Tanpa tanggal", events: [event] });
+  }
+  return groups;
+}
 
 function mapLogsToEvents(logs: any[], history: any[], detail: any): TimelineEvent[] {
   const events: TimelineEvent[] = [];
   // logs from DB
   for (const log of logs) {
     const actor = log.actor?.full_name ?? log.actor?.email ?? "System";
-    const init = initials(actor);
-    const time = log.created_at ? formatDistanceToNow(new Date(log.created_at), { addSuffix: true, locale: localeId }) : "—";
     let Icon: ComponentType<{ className?: string }> = PencilIcon;
     let severity: TimelineSeverity = "info";
     let action = log.action;
     let target: string | undefined = log.to_value ?? undefined;
-    let diff: { before: string; after: string } | undefined;
     if (log.action === "create") {
       Icon = UserPlusIcon; severity = "info"; action = "membuat servis"; target = log.to_value ?? detail?.device;
     } else if (log.action === "status_change") {
-      Icon = WrenchIcon; severity = log.to_value === "Batal" ? "danger" : "warn"; action = "ubah status"; target = `${log.from_value ?? "—"} → ${log.to_value ?? "—"}`; diff = { before: log.from_value ?? "", after: log.to_value ?? "" };
+      Icon = WrenchIcon; severity = log.to_value === "Batal" ? "danger" : "warn"; action = "ubah status"; target = `${log.from_value ?? "—"} → ${log.to_value ?? "—"}`;
     } else if (log.action === "assign_teknisi") {
-      Icon = UserCogIcon; severity = "warn"; action = "ganti teknisi"; target = log.to_value ? `→ ${log.to_value.slice(0, 8)}` : undefined; diff = { before: log.from_value ?? "", after: log.to_value ?? "" };
+      Icon = UserCogIcon; severity = "warn"; action = "ganti teknisi"; target = log.to_value ? `→ ${log.to_value.slice(0, 8)}` : undefined;
     } else if (log.action === "edit_field") {
-      Icon = PencilIcon; severity = "info"; action = "edit field"; target = log.to_value?.slice(0, 80); diff = log.payload ? { before: JSON.stringify(log.payload).slice(0, 120), after: log.to_value ?? "" } : undefined;
+      Icon = PencilIcon; severity = "info"; action = "edit field"; target = log.to_value?.slice(0, 80);
     } else if (log.action === "pembayaran") {
       Icon = WalletIcon; severity = "info"; action = "pembayaran"; target = log.payload ? `${formatCurrencyPlain(Number(log.payload.amount ?? log.to_value))} ${log.payload.metode ?? ""}` : log.to_value;
     } else if (log.action === "kondisi_check") {
       Icon = ClipboardCheckIcon; severity = "info"; action = "check kondisi";
     }
-    events.push({ actor, initials: init, action, target, Icon, severity, time, diff });
+    events.push({ actor, action, target, Icon, severity, at: log.created_at ?? null });
   }
   // history fallback for pembayaran if no log yet
   if (events.filter((e) => e.action === "pembayaran").length === 0 && history.length) {
     for (const h of history) {
       events.push({
         actor: "Kasir",
-        initials: "KS",
         action: "pembayaran",
         target: `${formatCurrencyPlain(Number(h.amount))} ${h.metode ?? ""}`,
         Icon: WalletIcon,
         severity: "info",
-        time: h.kas_date ? format(new Date(h.kas_date), "d MMM yyyy") : formatDistanceToNow(new Date(h.created_at), { addSuffix: true, locale: localeId }),
+        at: h.created_at ?? h.kas_date ?? null,
       });
     }
   }
@@ -170,12 +179,11 @@ function mapLogsToEvents(logs: any[], history: any[], detail: any): TimelineEven
   if (events.length === 0 && detail) {
     events.push({
       actor: detail.creator?.full_name ?? detail.teknisi?.full_name ?? "System",
-      initials: initials(detail.creator?.full_name ?? detail.teknisi?.full_name),
       action: "membuat servis",
       target: detail.device,
       Icon: UserPlusIcon,
       severity: "info",
-      time: detail.created_at ? formatDistanceToNow(new Date(detail.created_at), { addSuffix: true, locale: localeId }) : "baru saja",
+      at: detail.created_at ?? null,
     });
   }
   // sort by time desc? logs already asc, keep asc for timeline top->bottom old to new, but show newest first? keep asc
@@ -252,6 +260,7 @@ export function ServisDetailView({ data }: Props) {
     setRemoving(true);
     try {
       for (const id of pendingRemove) await removeServisSparepart(id, "Dihapus dari servis");
+      playPageTransition();
       toast.success(`${pendingRemove.length} sparepart dikembalikan ke stok`);
       setPendingRemove([]);
       setConfirmRemoveOpen(false);
@@ -279,6 +288,7 @@ export function ServisDetailView({ data }: Props) {
   }, [d?.id]);
 
   const timelineEvents = useMemo(() => mapLogsToEvents(logs, history, d), [logs, history, d]);
+  const timelineGroups = groupEventsByDay(timelineEvents);
 
   return (
     <div className="flex flex-col gap-4 flex-1 min-h-0 overflow-hidden">
@@ -571,74 +581,70 @@ export function ServisDetailView({ data }: Props) {
           <ScrollArea scrollFade className="flex-1 min-h-0">
             <div className="pr-3">
           <Card>
-            <CardHeader className="pb-3"><CardTitle className="text-base">Timeline</CardTitle><CardDescription>Status, pembayaran, edit field, ganti teknisi — reten 30 hari</CardDescription></CardHeader>
+            <CardHeader className="pb-3"><CardTitle className="text-base">Timeline</CardTitle><CardDescription>Aktivitas servis — status, pembayaran, sparepart · 30 hari terakhir</CardDescription></CardHeader>
             <CardContent>
               {logsLoading ? (
-                // Bentuk timeline: lingkaran ikon + garis vertikal, baris
-                // teks, dan waktu di kanan.
-                <div aria-hidden className="rounded-xl border border-border/60 bg-background/40 px-5 py-3">
-                  <ol className="relative">
-                    <span className="absolute top-2 bottom-2 left-[1.0625rem] w-px bg-border/50" />
+                <div aria-hidden className="rounded-xl border border-border/60 bg-background/40 px-4 py-3">
+                  <div className="space-y-2.5">
+                    <Skeleton className="h-2.5 w-20" />
                     {[0, 1, 2].map((row) => (
-                      <li
-                        key={row}
-                        className="relative grid grid-cols-[34px_1fr_auto] items-start gap-3 py-3"
-                      >
-                        <Skeleton className="z-10 size-[34px] rounded-full" />
-                        <div className="min-w-0 space-y-1.5 pt-1.5">
-                          <div className="flex items-center gap-2">
-                            <Skeleton className="size-5 rounded-full" />
-                            <Skeleton
-                              className="h-3.5"
-                              style={{ width: `${35 + ((row * 13) % 30)}%` }}
-                            />
-                          </div>
+                      <div key={row} className="grid grid-cols-[32px_1fr_auto] items-start gap-3 py-1.5">
+                        <Skeleton className="size-8 rounded-full" />
+                        <div className="min-w-0 space-y-1.5 pt-1">
+                          <Skeleton
+                            className="h-3.5"
+                            style={{ width: `${35 + ((row * 13) % 30)}%` }}
+                          />
                           <Skeleton
                             className="h-2.5"
                             style={{ width: `${45 + ((row * 7) % 30)}%` }}
                           />
                         </div>
-                        <Skeleton className="h-2.5 w-16 shrink-0" />
-                      </li>
+                        <Skeleton className="mt-1 h-2.5 w-14 shrink-0" />
+                      </div>
                     ))}
-                  </ol>
+                  </div>
                 </div>
               ) : timelineEvents.length === 0 ? (
-                <div className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">Belum ada aktivitas. Timeline akan terisi saat status/pembayaran/edit terjadi.</div>
+                <div className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">Belum ada aktivitas. Timeline akan terisi saat status, pembayaran, atau sparepart berubah.</div>
               ) : (
-                <div className="rounded-xl border border-border/60 bg-background/40 px-5 py-3">
-                  <ol className="relative">
-                    <span aria-hidden className="absolute top-2 bottom-2 left-[1.0625rem] w-px bg-border/50" />
-                    {timelineEvents.map((e, i) => (
-                      <li key={i} className="relative grid grid-cols-[34px_1fr_auto] items-start gap-3 py-3">
-                        <span className={"z-10 grid size-[34px] place-items-center rounded-full ring-4 ring-background " + SEV_RING[e.severity]}>
-                          <e.Icon className="size-3.5" />
-                        </span>
-                        <div className="min-w-0 pt-1.5">
-                          <div className="flex items-center gap-2 text-sm">
-                            <Avatar className="size-5"><AvatarFallback className="text-[9px]">{e.initials}</AvatarFallback></Avatar>
-                            <span className="font-medium">{e.actor}</span>
-                            <span className="text-muted-foreground">{e.action}</span>
-                            {e.target ? <span className="truncate text-foreground/85">{e.target}</span> : null}
-                          </div>
-                          {e.diff ? (
-                            <details className="group mt-2">
-                              <summary className="inline-flex cursor-pointer list-none items-center gap-1 rounded bg-foreground/[0.04] px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground uppercase tracking-[0.2em] hover:bg-foreground/[0.06]">
-                                <ChevronDownIcon className="size-3 -rotate-90 transition-transform group-open:rotate-0" /> diff
-                              </summary>
-                              <div className="mt-2 overflow-hidden rounded-md border border-border/60 font-mono text-[11px]">
-                                <div className="border-rose-500/20 border-b bg-rose-500/[0.06] px-2 py-1 text-rose-700 dark:text-rose-400">- {e.diff.before}</div>
-                                <div className="bg-emerald-500/[0.06] px-2 py-1 text-emerald-700 dark:text-emerald-400">+ {e.diff.after}</div>
+                <div className="space-y-5">
+                  {timelineGroups.map((group) => (
+                    <section key={group.key}>
+                      <h3 className="mb-1.5 flex items-center gap-3 text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+                        {group.label}
+                        <span aria-hidden className="h-px flex-1 bg-border/60" />
+                      </h3>
+                      <ol className="relative">
+                        {group.events.map((e, i) => (
+                          <li key={`${group.key}-${i}`} className="relative grid grid-cols-[32px_1fr_auto] items-start gap-3 py-2.5">
+                            {i < group.events.length - 1 ? (
+                              <span aria-hidden className="absolute bottom-0 left-4 top-11 w-px bg-border/60" />
+                            ) : null}
+                            <span className={"z-10 grid size-8 place-items-center rounded-full " + SEV_ICON[e.severity]}>
+                              <e.Icon className="size-3.5" />
+                            </span>
+                            <div className="min-w-0 pt-0.5">
+                              <div className="flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5 text-sm">
+                                <span className="font-medium">{e.actor}</span>
+                                <span className="text-muted-foreground">{e.action}</span>
                               </div>
-                            </details>
-                          ) : null}
-                          <div className="mt-1 flex items-center gap-2 font-mono text-[10px] text-muted-foreground">
-                            <span className={"size-1 rounded-full " + SEV_DOT[e.severity]} /> {e.time}
-                          </div>
-                        </div>
-                      </li>
-                    ))}
-                  </ol>
+                              {e.target ? (
+                                <p className="mt-0.5 line-clamp-2 text-sm text-muted-foreground">{e.target}</p>
+                              ) : null}
+                            </div>
+                            <time
+                              dateTime={e.at ?? undefined}
+                              title={e.at ? format(new Date(e.at), "d MMM yyyy HH:mm", { locale: localeId }) : undefined}
+                              className="shrink-0 text-right pt-1 font-mono text-[11px] tabular-nums text-muted-foreground"
+                            >
+                              {e.at ? format(new Date(e.at), "HH:mm", { locale: localeId }) : "—"}
+                            </time>
+                          </li>
+                        ))}
+                      </ol>
+                    </section>
+                  ))}
                 </div>
               )}
             </CardContent>
@@ -723,9 +729,9 @@ export function ServisDetailView({ data }: Props) {
       <DialogPrimitive.Root open={openBayar} onOpenChange={setOpenBayar}>
         <DialogPrimitive.Portal>
           <DialogPrimitive.Backdrop className="fixed inset-0 z-50 bg-black/60 backdrop-blur-md" />
-          <DialogPrimitive.Popup className="dark scheme-dark fixed left-1/2 top-1/2 z-50 flex max-h-[92dvh] w-[96vw] max-w-4xl -translate-x-1/2 -translate-y-1/2 flex-col rounded-xl border border-white/10 bg-background p-6 text-foreground shadow-2xl overflow-hidden">
+          <DialogPrimitive.Popup className="dark scheme-dark fixed left-1/2 top-1/2 z-50 flex h-[80dvh] max-h-[80dvh] w-[96vw] max-w-4xl -translate-x-1/2 -translate-y-1/2 flex-col rounded-xl border border-white/10 bg-background p-6 text-foreground shadow-2xl overflow-hidden">
             <DialogPrimitive.Title className="shrink-0 font-semibold text-white">Catat Pembayaran</DialogPrimitive.Title>
-            <div className="mt-4 min-h-0 overflow-y-auto">
+            <div className="mt-4 flex min-h-0 flex-1 flex-col overflow-y-auto">
               <ServisPaymentPanel servisId={id} estimasi={estimasiVal} totalPaid={totalPaid} onSuccess={() => { setOpenBayar(false); setHistoryLoading(true); getPembayaranHistory(id).then((h) => setHistory(h as any[])).finally(() => setHistoryLoading(false)); }} onClose={() => setOpenBayar(false)} />
             </div>
             <DialogPrimitive.Close className="absolute right-3 top-3 rounded-md p-1 text-muted-foreground hover:bg-muted"><XIcon className="size-4" /></DialogPrimitive.Close>

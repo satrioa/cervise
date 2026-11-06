@@ -33,6 +33,10 @@ export type PickupServiceItem = {
   customerName: string | null;
   customerPhone: string | null;
   updatedAt: string;
+  /** Tagihan penuh servis (price_estimasi). */
+  bill: number;
+  /** Total yang sudah masuk ke kas untuk servis ini. */
+  paidAmount: number;
 };
 
 /**

@@ -24,6 +24,7 @@ import {
   type ShiftServiceRow,
   type ShiftSession,
 } from "@/lib/operational/laporan-shift";
+import { servisBill } from "@/lib/operational/servis-price";
 import type { Actor } from "@/lib/supabase/actor";
 import { sanitizeSearchTerm } from "@/lib/search-term";
 import type { StaffTodo } from "@/app/app/actions/todos";
@@ -253,6 +254,29 @@ async function loadCustomerNames(
 /** Batas hasil pencarian pengambilan device; panelnya kecil, bukan halaman. */
 const PICKUP_LIMIT = 10;
 
+/** Total pembayaran per servis dari ledger kas (bukan dari kolom `price`). */
+async function loadPaidServiceAmounts(
+  supabase: Actor["supabase"],
+  branchId: string,
+  serviceIds: string[],
+): Promise<Map<string, number>> {
+  if (serviceIds.length === 0) return new Map();
+  const { data, error } = await supabase
+    .from("finance_tx")
+    .select("servis_id, amount")
+    .eq("branch_id", branchId)
+    .eq("type", "pemasukan")
+    .in("servis_id", serviceIds);
+  if (error) throw new Error(error.message);
+  const totals = new Map<string, number>();
+  for (const row of data ?? []) {
+    const id = row.servis_id as string | null;
+    if (!id) continue;
+    totals.set(id, (totals.get(id) ?? 0) + Number(row.amount ?? 0));
+  }
+  return totals;
+}
+
 /**
  * Cari servis berstatus `Selesai` (siap diambil) berdasarkan nomor servis,
  * perangkat, nama customer, atau nomor HP.
@@ -283,7 +307,7 @@ export async function searchPickupServices(
 
   const { data, error } = await supabase
     .from("cervise_services")
-    .select("id, service_number, device, customer_id, updated_at")
+    .select("id, service_number, device, customer_id, updated_at, price, price_estimasi")
     .eq("branch_id", branchId)
     .eq("status", "Selesai")
     .or(filters.join(","))
@@ -311,6 +335,12 @@ export async function searchPickupServices(
     }
   }
 
+  const paid = await loadPaidServiceAmounts(
+    supabase,
+    branchId,
+    rows.map((row) => row.id as string),
+  );
+
   return rows.map((row) => {
     const customer = row.customer_id ? contact.get(row.customer_id as string) : undefined;
     return {
@@ -320,19 +350,23 @@ export async function searchPickupServices(
       customerName: customer?.name ?? null,
       customerPhone: customer?.phone ?? null,
       updatedAt: row.updated_at as string,
+      bill: servisBill(row.price as number | null, row.price_estimasi as number | null),
+      paidAmount: paid.get(row.id as string) ?? 0,
     };
   });
 }
 
 /**
- * Empat angka "Ringkasan Servis" hari ini.
+ * Angka "Ringkasan Servis": tiga angka hari ini + sisa antrean.
  *
  * Dulu 500 baris diambil lalu dihitung di JavaScript. Sekarang yang diminta ke
  * database hanya jumlahnya (`head: true` + `count: "exact"`), dan keempat
  * hitungan berjalan paralel.
  *
  * `proses` sengaja mencakup `Masuk` juga — itu perilaku yang sudah ada dan
- * yang dibaca kartu "Ringkasan Servis".
+ * yang dibaca kartu "Ringkasan Servis". Beda dengan tiga angka lain, ia TIDAK
+ * dibatasi `created_at` hari ini: servis yang masuk kemarin dan belum selesai
+ * masih mengantre hari ini, jadi angkanya tidak boleh balik ke nol tiap pagi.
  */
 export async function loadFrontlinerKpi(ctx: HomeContext): Promise<FrontlinerKpi> {
   const { supabase, branchId } = ctx;
@@ -349,7 +383,12 @@ export async function loadFrontlinerKpi(ctx: HomeContext): Promise<FrontlinerKpi
     countToday().eq("status", "Masuk"),
     countToday().eq("status", "Selesai"),
     countToday().eq("status", "Sudah Diambil"),
-    countToday().in("status", [...FRONTLINER_IN_PROGRESS_STATUSES]),
+    // Tanpa `countToday()`: sisa antrean lintas hari, bukan servis hari ini.
+    supabase
+      .from("cervise_services")
+      .select("id", { count: "exact", head: true })
+      .eq("branch_id", branchId)
+      .in("status", [...FRONTLINER_IN_PROGRESS_STATUSES]),
   ]);
 
   for (const result of [masuk, selesai, diambil, proses]) {

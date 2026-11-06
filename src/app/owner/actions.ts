@@ -27,6 +27,7 @@ type PackageRow = {
 
 type SubscriptionRow = {
   organization_id: string;
+  package_id: string;
   status: string;
   custom_monthly_price: number | null;
   current_period_start: string | null;
@@ -78,7 +79,7 @@ export async function getOwnerDashboard() {
       supabase
         .from("tenant_subscriptions")
         .select(
-          "organization_id, status, custom_monthly_price, current_period_start, current_period_end, trial_ends_at, grace_days, package:packages!inner(id, code, name, description, monthly_price, branch_limit, user_limit, is_active, sort_order)",
+          "organization_id, package_id, status, custom_monthly_price, current_period_start, current_period_end, trial_ends_at, grace_days, package:packages!inner(id, code, name, description, monthly_price, branch_limit, user_limit, is_active, sort_order)",
         ),
       supabase.from("branches").select("organization_id, is_active"),
       supabase
@@ -238,7 +239,7 @@ export async function getTenantDetail(organizationId: string) {
       supabase
         .from("tenant_subscriptions")
         .select(
-          "id, status, custom_monthly_price, current_period_start, current_period_end, trial_ends_at, grace_days, package:packages!inner(id, code, name, description, monthly_price, branch_limit, user_limit, is_active, sort_order)",
+          "id, package_id, status, custom_monthly_price, current_period_start, current_period_end, trial_ends_at, grace_days, package:packages!inner(id, code, name, description, monthly_price, branch_limit, user_limit, is_active, sort_order)",
         )
         .eq("organization_id", organizationId)
         .maybeSingle(),

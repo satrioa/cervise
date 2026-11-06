@@ -27,7 +27,7 @@ export default async function InventoriPage({
         description={`${summary.groups} produk induk · ${summary.varian} varian (Baru ${summary.baru} · Bekas ${summary.bekas})`}
         actions={<InventoriHeaderActions groups={groups} />}
       />
-      <main className="mx-auto max-w-6xl px-6 py-6">
+      <main className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-6">
         <InventoriClient
           groups={groups}
           summary={summary}

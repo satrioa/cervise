@@ -40,9 +40,11 @@ const service: ServiceReceiptInput = {
     sparepart: "LCD original",
     price: 1850000,
     status: "Selesai",
+    garansi: "1 bulan",
     garansiSampai: "26/11/2026",
     trackingCode: "ABC123",
     tenantSlug: "servisin",
+    payment: { status: "Lunas", methods: "QRIS", paid: 1850000, remaining: 0 },
   },
 };
 
@@ -107,12 +109,52 @@ describe("nota servis 58mm", () => {
     expect(text).toContain("Samsung Galaxy S23");
     expect(text).toContain("Keluhan:");
     expect(text).toContain("Layar retak");
-    expect(text).toContain("Garansi s/d");
+    expect(text).toContain("Garansi");
+    expect(text).toContain("1 bulan s/d 26/11/2026");
     expect(text).toContain("1.850.000");
   });
 
-  it("menyertakan QR tracking hanya kalau URL tersedia", () => {
-    const withQr = Array.from(buildServiceEscpos(service, { trackingUrl: "https://app.cervise.id/servisin/lacak/ABC123" }));
+  it("garansi belum aktif: cetak lama garansi, bukan tanda hubung", () => {
+    const belumAktif = {
+      ...service,
+      service: { ...service.service, garansiSampai: undefined },
+    };
+    const text = buildServiceReceiptLines(belumAktif).join("\n");
+
+    expect(text).toContain("1 bulan (belum aktif)");
+    expect(text).not.toContain("Garansi s/d");
+  });
+
+  it("mencetak perangkat sekali, tanpa mengulang merk dan tipe", () => {
+    const text = buildServiceReceiptLines(service).join("\n");
+
+    expect(text.match(/Samsung Galaxy S23/g)).toHaveLength(1);
+    expect(text).not.toContain("SM-S911");
+  });
+
+  it("mencetak status, metode, dan nominal pembayaran", () => {
+    const text = buildServiceReceiptLines(service).join("\n");
+
+    expect(text).toContain("Pembayaran");
+    expect(text).toContain("QRIS");
+    expect(text).toContain("Dibayar");
+  });
+
+  it("mencetak sisa tagihan saat pembayaran DP", () => {
+    const dp: ServiceReceiptInput = {
+      ...service,
+      service: {
+        ...service.service,
+        payment: { status: "DP", methods: "Tunai", paid: 500000, remaining: 1350000 },
+      },
+    };
+    const text = buildServiceReceiptLines(dp).join("\n");
+
+    expect(text).toContain("DP");
+    expect(text).toContain("Sisa");
+  });
+
+  it("menyertakan QR tracking hanya kalau URL tersedia", () => {    const withQr = Array.from(buildServiceEscpos(service, { trackingUrl: "https://app.cervise.id/servisin/lacak/ABC123" }));
     const withoutQr = Array.from(buildServiceEscpos(service));
 
     const hasQr = (bytes: number[]) =>

@@ -17,7 +17,7 @@ import { cn } from "@/lib/utils";
  */
 const TILE_CLASS: Record<string, string> = {
   "/app/servis": "bg-[#2F80ED]",
-  "/app/kategori-sparepart": "bg-[#EB5757]",
+  "/app/sparepart": "bg-[#EB5757]",
   "/app/laporan/servis": "bg-[#F2C94C]",
   "/app/penjualan": "bg-[#27AE60]",
   "/app/inventori": "bg-[#9B51E0]",
@@ -32,7 +32,7 @@ const TILE_CLASS: Record<string, string> = {
 /** Label khusus frame Figma; selebihnya memakai label manifest. */
 const TILE_LABEL_KEY: Record<string, string> = {
   "/app/servis": "dataService",
-  "/app/kategori-sparepart": "dataSparepart",
+  "/app/sparepart": "dataSparepart",
 };
 
 const FALLBACK_TILE = "bg-neutral-400";

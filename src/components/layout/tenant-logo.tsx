@@ -36,7 +36,7 @@ export function TenantLogo({
     <span
       title={title}
       className={cn(
-        "relative flex shrink-0 overflow-hidden rounded-lg bg-muted font-medium text-muted-foreground",
+        "relative flex shrink-0 items-center justify-center overflow-hidden rounded-lg bg-muted font-medium text-muted-foreground",
         className ?? "size-8 text-xs",
       )}
     >

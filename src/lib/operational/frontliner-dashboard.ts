@@ -40,7 +40,14 @@ export type FrontlinerKpi = {
   selesai: number;
   /** Status `Sudah Diambil` hari ini. */
   diambil: number;
-  /** Status servis yang masih dikerjakan. */
+  /**
+   * Sisa antrean: servis yang masih di salah satu status pengerjaan.
+   *
+   * Saat dibaca dari database (`loadFrontlinerKpi`) hitungan ini tidak
+   * dibatasi tanggal — servis kemarin yang belum selesai tetap mengantre.
+   * `buildFrontlinerKpi` menghitung apa pun baris yang diberikan, jadi
+   * pemanggil yang menentukan rentangnya.
+   */
   proses: number;
 };
 

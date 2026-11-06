@@ -21,6 +21,7 @@ import { extendGaransi, getGaransiList } from "@/app/app/garansi/actions";
 import { PageHeader } from "@/components/layout/page-header";
 import { garansiMeta } from "@/lib/operational/garansi-meta";
 import { toDays } from "@/lib/operational/garansi-list";
+import { playPageTransition } from "@/components/layout/page-transition";
 
 type GaransiRow = {
   id: string;
@@ -141,6 +142,7 @@ export default function GaransiPage() {
     try {
       const result = await extendGaransi(selected.id, val, unit);
       const newUntil = result.garansiUntil.slice(0, 10);
+      playPageTransition();
       setRows((prev) => prev.map((r) => (r.id === selected.id ? { ...r, garansiValue: val, garansiUnit: unit, garansiUntil: newUntil } : r)));
       setPerpanjangOpen(false);
     } catch (error) {
@@ -228,7 +230,7 @@ export default function GaransiPage() {
         }
       />
 
-      <main className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-10 py-6 lg:py-8">
+      <main className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-6 lg:py-8">
         <div className="rounded-xl border bg-card shadow-xs/5 overflow-hidden">
           <div className="overflow-x-auto scrollbar-none">
             <Table>

@@ -70,6 +70,33 @@ describe("mapServisListRows", () => {
     });
   });
 
+  it("menggabungkan metode pembayaran unik untuk dicetak di nota", () => {
+    const [row] = mapServisListRows({
+      services: [{
+        id: "service-2",
+        service_number: "SRV-2026-0002",
+        tracking_code: null,
+        device: "iPhone 15",
+        complaint: null,
+        status: "Selesai",
+        price: 1_000_000,
+        price_estimasi: 1_000_000,
+        customer_id: null,
+        teknisi_id: null,
+        created_at: "2026-09-25T08:00:00.000Z",
+      }],
+      customers: [],
+      profiles: [],
+      finance: [
+        { servis_id: "service-2", amount: 500_000, metode: "Tunai" },
+        { servis_id: "service-2", amount: 500_000, metode: "QRIS" },
+        { servis_id: "service-2", amount: 0, metode: "Tunai" },
+      ],
+    });
+
+    expect(row.paymentMethods).toBe("Tunai + QRIS");
+  });
+
   it("falls back to the estimate when the service price is still zero", () => {
     // `cervise_services.price` tidak pernah diisi lewat UI (create selalu 0),
     // jadi nominal asli ada di `price_estimasi`. Tanpa fallback ini kolom

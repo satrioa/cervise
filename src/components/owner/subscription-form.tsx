@@ -4,6 +4,7 @@ import { useState } from "react";
 import { SaveIcon } from "lucide-react";
 import { toast } from "sonner";
 import { updateTenantSubscription } from "@/app/owner/actions";
+import { playPageTransition } from "@/components/layout/page-transition";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -31,6 +32,7 @@ export function SubscriptionForm({
     setSaving(true);
     try {
       await updateTenantSubscription({ organizationId, packageId, customPrice, graceDays, status });
+      playPageTransition();
       toast.success("Subscription diperbarui");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Gagal memperbarui subscription");

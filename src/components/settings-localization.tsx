@@ -49,6 +49,7 @@ import {
   type TimezoneItem,
 } from "@/lib/localization-context";
 import { updateLocale as updateLocaleAction } from "@/app/app/pengaturan/lokalisasi/actions";
+import { playPageTransition } from "@/components/layout/page-transition";
 
 export function SettingsLocalizationShowcasePage() {
   const { locale, setLocale } = useLocale();
@@ -99,6 +100,7 @@ export function SettingsLocalizationShowcasePage() {
     try {
       setLocale(draft);
       await updateLocaleAction(draft);
+      playPageTransition();
       toast.success("Lokalisasi diperbarui");
     } catch (e: any) {
       toast.error(e?.message ?? "Gagal menyimpan");

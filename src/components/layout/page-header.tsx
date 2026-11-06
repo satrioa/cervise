@@ -42,7 +42,7 @@ export function PageHeader({
     >
       <div
         className={cn(
-          "mx-auto flex min-h-16 w-full max-w-6xl flex-row items-center justify-between gap-4 px-4 sm:px-6 lg:px-10",
+          "mx-auto flex min-h-16 w-full max-w-6xl flex-row items-center justify-between gap-4 px-4 sm:px-6 lg:px-8",
           containerClassName,
         )}
       >
@@ -56,7 +56,7 @@ export function PageHeader({
         <div className="border-t border-border/40">
           <div
             className={cn(
-              "mx-auto flex h-12 w-full max-w-6xl items-center gap-3 px-4 sm:px-6 lg:px-10",
+              "mx-auto flex h-12 w-full max-w-6xl items-center gap-3 px-4 sm:px-6 lg:px-8",
               containerClassName,
               row2ClassName,
             )}

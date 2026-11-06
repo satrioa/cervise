@@ -18,10 +18,35 @@ export type DashboardService = {
 };
 
 export type DashboardFinance = {
+  id?: string;
   branch_id: string;
   type: string;
   amount: number;
   kas_date: string;
+  created_at?: string | null;
+  description?: string | null;
+  metode?: string | null;
+  servis_id?: string | null;
+  created_by?: string | null;
+};
+
+export type DashboardServiceLog = {
+  id: string;
+  created_at: string;
+  action: string;
+  from_value: string | null;
+  to_value: string | null;
+  servis_id: string | null;
+  actor_id: string | null;
+};
+
+export type DashboardCashSession = {
+  id: string;
+  open_at: string;
+  closed_at: string | null;
+  employee_id: string;
+  opening_balance: number;
+  closing_balance: number | null;
 };
 
 export type DashboardProfile = {
@@ -316,4 +341,151 @@ export function buildRecentActivity(input: {
       customer: (service.customer_id ? namesById.get(service.customer_id) : null) ?? "Tanpa nama",
       createdAt: service.created_at,
     }));
+}
+
+export type DashboardFeedKind = "service" | "transaction" | "activity";
+
+export type DashboardFeedItem = {
+  id: string;
+  kind: DashboardFeedKind;
+  /** Kode aksi mentah; dipakai filter Aktivitas (edit/hapus/tambah/buka-tutup). */
+  action: string;
+  actionLabel: string;
+  title: string;
+  /** Salinan sudut pandang internal: siapa melakukan apa pada entitas mana. */
+  detail: string;
+  actor: string;
+  serviceId: string | null;
+  device: string | null;
+  amount: number | null;
+  createdAt: string;
+};
+
+const ACTION_LABEL: Record<string, string> = {
+  create: "Tambah",
+  edit_field: "Edit",
+  delete: "Hapus",
+  status_change: "Status",
+  extend_garansi: "Garansi",
+  add_sparepart: "Sparepart",
+  return_sparepart: "Sparepart",
+  keep_sparepart: "Sparepart",
+  session_open: "Buka Toko",
+  session_close: "Tutup Toko",
+  transaction: "Transaksi",
+};
+
+function shortId(id: string): string {
+  return id.slice(0, 8).toUpperCase();
+}
+
+function personName(id: string | null | undefined, names: Map<string, string>): string {
+  if (!id) return "Sistem";
+  return names.get(id) ?? "Staf";
+}
+
+export function buildDashboardFeed(input: {
+  services: Pick<DashboardService, "id" | "device">[];
+  logs: DashboardServiceLog[];
+  finance: DashboardFinance[];
+  sessions: DashboardCashSession[];
+  actors: { id: string; full_name: string | null }[];
+  limit: number;
+}): DashboardFeedItem[] {
+  const { services, logs, finance, sessions, actors, limit } = input;
+  const names = new Map(
+    actors.map((actor) => [actor.id, actor.full_name?.trim() || "Staf"]),
+  );
+  const devices = new Map(services.map((service) => [service.id, service.device]));
+
+  const items: DashboardFeedItem[] = [];
+
+  for (const log of logs) {
+    const actor = personName(log.actor_id, names);
+    const device = (log.servis_id ? devices.get(log.servis_id) : null) ?? null;
+    const serviceRef = log.servis_id ? shortId(log.servis_id) : "—";
+    const entity = device ? `servis ${serviceRef} · ${device}` : `servis ${serviceRef}`;
+    const kind: DashboardFeedKind =
+      log.action === "edit_field" || log.action === "delete" ? "activity" : "service";
+    const detail =
+      log.action === "edit_field"
+        ? `${actor} mengubah ${log.from_value || "data servis"}`
+        : log.action === "delete"
+          ? `${actor} menghapus ${entity}`
+          : log.action === "status_change"
+            ? `${actor} mengubah status ${entity} menjadi ${log.to_value ?? "—"}`
+            : log.action === "create"
+              ? `${actor} menambah ${entity}`
+              : `${actor} · ${ACTION_LABEL[log.action] ?? log.action} · ${entity}`;
+
+    items.push({
+      id: `log:${log.id}`,
+      kind,
+      action: log.action,
+      actionLabel: ACTION_LABEL[log.action] ?? log.action,
+      title: device ?? "Servis",
+      detail,
+      actor,
+      serviceId: log.servis_id,
+      device,
+      amount: null,
+      createdAt: log.created_at,
+    });
+  }
+
+  for (const tx of finance) {
+    const actor = personName(tx.created_by, names);
+    const label = tx.type === "pengeluaran" ? "pengeluaran" : "pemasukan";
+    items.push({
+      id: `tx:${tx.id ?? `${tx.branch_id}:${tx.kas_date}:${tx.amount}`}`,
+      kind: "transaction",
+      action: "transaction",
+      actionLabel: "Transaksi",
+      title: tx.description?.trim() || `Transaksi ${label}`,
+      detail: `${actor} mencatat ${label} Rp${Number(tx.amount ?? 0).toLocaleString("id-ID")}${
+        tx.metode ? ` via ${tx.metode}` : ""
+      }`,
+      actor,
+      serviceId: tx.servis_id ?? null,
+      device: tx.servis_id ? devices.get(tx.servis_id) ?? null : null,
+      amount: Number(tx.amount ?? 0),
+      createdAt: tx.created_at || `${tx.kas_date}T00:00:00`,
+    });
+  }
+
+  for (const session of sessions) {
+    const actor = personName(session.employee_id, names);
+    items.push({
+      id: `session-open:${session.id}`,
+      kind: "activity",
+      action: "session_open",
+      actionLabel: "Buka Toko",
+      title: "Buka Toko",
+      detail: `${actor} membuka toko · saldo awal Rp${Number(session.opening_balance ?? 0).toLocaleString("id-ID")}`,
+      actor,
+      serviceId: null,
+      device: null,
+      amount: Number(session.opening_balance ?? 0),
+      createdAt: session.open_at,
+    });
+    if (session.closed_at) {
+      items.push({
+        id: `session-close:${session.id}`,
+        kind: "activity",
+        action: "session_close",
+        actionLabel: "Tutup Toko",
+        title: "Tutup Toko",
+        detail: `${actor} menutup toko · saldo akhir Rp${Number(session.closing_balance ?? 0).toLocaleString("id-ID")}`,
+        actor,
+        serviceId: null,
+        device: null,
+        amount: session.closing_balance === null ? null : Number(session.closing_balance),
+        createdAt: session.closed_at,
+      });
+    }
+  }
+
+  return items
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+    .slice(0, Math.max(0, limit));
 }

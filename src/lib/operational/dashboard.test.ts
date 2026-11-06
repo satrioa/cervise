@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildBranches,
   buildBuckets,
+  buildDashboardFeed,
   buildProblems,
   buildRecentActivity,
   buildTechnicians,
@@ -392,5 +393,56 @@ describe("buildRecentActivity", () => {
     });
 
     expect(result[0].customer).toBe("Citra");
+  });
+});
+
+describe("buildDashboardFeed", () => {
+  it("writes service-log detail from the internal POV with actor and device", () => {
+    const result = buildDashboardFeed({
+      services: [{ id: "abcdef1234", device: "iPhone 13" }],
+      logs: [
+        {
+          id: "log-1",
+          created_at: sep(23, 10),
+          action: "edit_field",
+          from_value: "harga",
+          to_value: null,
+          servis_id: "abcdef1234",
+          actor_id: "u1",
+        },
+      ],
+      finance: [],
+      sessions: [],
+      actors: [{ id: "u1", full_name: "Budi" }],
+      limit: 10,
+    });
+
+    expect(result).toHaveLength(1);
+    expect(result[0].kind).toBe("activity");
+    expect(result[0].detail).toContain("Budi mengubah harga");
+    expect(result[0].device).toBe("iPhone 13");
+  });
+
+  it("merges finance and cash sessions, newest first and capped", () => {
+    const result = buildDashboardFeed({
+      services: [],
+      logs: [],
+      finance: [finance({ id: "tx-1", amount: 150000, created_at: sep(23, 9), created_by: "u1" })],
+      sessions: [
+        {
+          id: "cash-1",
+          open_at: sep(23, 8),
+          closed_at: sep(23, 12),
+          employee_id: "u1",
+          opening_balance: 50000,
+          closing_balance: 200000,
+        },
+      ],
+      actors: [{ id: "u1", full_name: "Budi" }],
+      limit: 2,
+    });
+
+    expect(result.map((item) => item.id)).toEqual(["session-close:cash-1", "tx:tx-1"]);
+    expect(result[1].amount).toBe(150000);
   });
 });

@@ -10,7 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
  */
 export default function Loading() {
   return (
-    <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-10 py-8">
+    <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-8">
       <RouteHeaderSkeleton
         titleWidth="10rem"
         descriptionWidth="20rem"

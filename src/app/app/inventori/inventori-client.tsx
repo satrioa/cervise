@@ -6,11 +6,14 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
 import { InventoriToolbar } from "@/components/inventori/inventori-toolbar";
+import { EditProductDialog } from "@/components/inventori/edit-product-dialog";
+import { ProductPhotoButton } from "@/components/inventori/product-photo";
 import { Checkbox } from "@/components/ui/checkbox";
 import { formatCurrencyPlain } from "@/lib/format";
-import { printSkuLabels } from "@/lib/printer/label";
-import { ChevronRightIcon, PackageIcon, PrinterIcon, SearchIcon, SmartphoneIcon, XIcon } from "lucide-react";
+import { printSkuLabels, renderSkuLabelHtml, type SkuLabelInput } from "@/lib/printer/label";
+import { ChevronRightIcon, PencilIcon, PrinterIcon, SearchIcon, SmartphoneIcon, XIcon } from "lucide-react";
 import { toast } from "sonner";
 import {
   filterInventoryGroups,
@@ -50,13 +53,31 @@ function groupSummaryText(group: InventoryGroup): string {
   return `Total stok ${group.totalStok} · Baru ${group.baru.length} varian (${baruStok} unit) · Bekas ${group.bekas.length} unit (${group.bekasTersedia} tersedia)`;
 }
 
-function BekasRow({ variant }: { variant: InventoryProduct }) {
+function HoverActions({ product, onEdit, onPrint }: { product: InventoryProduct; onEdit: (p: InventoryProduct) => void; onPrint: (p: InventoryProduct) => void }) {
+  return (
+    <div className="flex shrink-0 items-start gap-1 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
+      <Button size="icon-sm" variant="ghost" aria-label={`Edit ${product.sku}`} title="Edit" onClick={() => onEdit(product)}>
+        <PencilIcon className="size-3.5" />
+      </Button>
+      <Button size="icon-sm" variant="ghost" aria-label={`Cetak SKU ${product.sku}`} title="Cetak SKU" onClick={() => onPrint(product)}>
+        <PrinterIcon className="size-3.5" />
+      </Button>
+    </div>
+  );
+}
+
+function BekasRow({ variant, onEdit, onPrint }: { variant: InventoryProduct; onEdit: (p: InventoryProduct) => void; onPrint: (p: InventoryProduct) => void }) {
   const stock = variant.stock_qty ?? 0;
   return (
-    <div className={`flex gap-3 rounded-lg border p-3 ${stock === 0 ? "bg-muted/20 opacity-50" : "border-amber-500/20 bg-amber-500/5"}`}>
-      <div className="flex size-10 shrink-0 items-center justify-center rounded-md bg-amber-500/15 text-amber-700">
-        <SmartphoneIcon className="size-5" />
-      </div>
+    <div className={`group flex gap-3 rounded-lg border p-3 ${stock === 0 ? "bg-muted/20 opacity-50" : "border-amber-500/20 bg-amber-500/5"}`}>
+      <ProductPhotoButton
+        productId={variant.id}
+        imageUrl={variant.image_url ?? null}
+        name={variantLabel(variant)}
+        variantType={variant.variant_type}
+        category={variant.category}
+        className="size-10"
+      />
       <div className="min-w-0 flex-1">
         <div className="truncate font-mono text-xs font-medium">
           {variantLabel(variant)}
@@ -72,6 +93,7 @@ function BekasRow({ variant }: { variant: InventoryProduct }) {
           {variant.price != null ? ` → ${formatCurrencyPlain(variant.price)}` : ""}
         </div>
       </div>
+      <HoverActions product={variant} onEdit={onEdit} onPrint={onPrint} />
       <Badge variant="outline" size="sm" className={stock > 0 ? "border-emerald-500 text-emerald-700" : "border-zinc-400 text-zinc-500"}>
         {stock > 0 ? "Tersedia" : "Terjual"}
       </Badge>
@@ -79,7 +101,7 @@ function BekasRow({ variant }: { variant: InventoryProduct }) {
   );
 }
 
-function CardView({ groups }: { groups: InventoryGroup[] }) {
+function CardView({ groups, onEdit, onPrint }: { groups: InventoryGroup[]; onEdit: (p: InventoryProduct) => void; onPrint: (p: InventoryProduct) => void }) {
   return (
     <div className="space-y-4">
       {groups.map((group) => (
@@ -103,10 +125,15 @@ function CardView({ groups }: { groups: InventoryGroup[] }) {
                 </div>
                 <div className="grid gap-2 sm:grid-cols-2">
                   {group.baru.map((variant) => (
-                    <div key={variant.id} className="flex gap-3 rounded-lg border bg-card p-3">
-                      <div className="flex size-10 shrink-0 items-center justify-center rounded-md bg-emerald-500/10 text-emerald-600">
-                        <PackageIcon className="size-5" />
-                      </div>
+                    <div key={variant.id} className="group flex gap-3 rounded-lg border bg-card p-3">
+                      <ProductPhotoButton
+                        productId={variant.id}
+                        imageUrl={variant.image_url ?? null}
+                        name={variantLabel(variant)}
+                        variantType={variant.variant_type}
+                        category={variant.category}
+                        className="size-10"
+                      />
                       <div className="min-w-0 flex-1">
                         <div className="truncate text-sm font-medium">{variantLabel(variant)}</div>
                         <div className="truncate font-mono text-xs text-muted-foreground">{variant.sku}</div>
@@ -117,6 +144,7 @@ function CardView({ groups }: { groups: InventoryGroup[] }) {
                           ) : null}
                         </div>
                       </div>
+                      <HoverActions product={variant} onEdit={onEdit} onPrint={onPrint} />
                     </div>
                   ))}
                 </div>
@@ -129,7 +157,7 @@ function CardView({ groups }: { groups: InventoryGroup[] }) {
                 </div>
                 <div className="space-y-2">
                   {group.bekas.map((variant) => (
-                    <BekasRow key={variant.id} variant={variant} />
+                    <BekasRow key={variant.id} variant={variant} onEdit={onEdit} onPrint={onPrint} />
                   ))}
                 </div>
               </div>
@@ -141,7 +169,7 @@ function CardView({ groups }: { groups: InventoryGroup[] }) {
   );
 }
 
-function TableView({ groups }: { groups: InventoryGroup[] }) {
+function TableView({ groups, onEdit, onPrint }: { groups: InventoryGroup[]; onEdit: (p: InventoryProduct) => void; onPrint: (products: InventoryProduct[]) => void }) {
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(() => new Set());
   const [selected, setSelected] = useState<ReadonlySet<string>>(() => new Set());
   const rows = useMemo(() => toInventoryTableRows(groups, expanded), [groups, expanded]);
@@ -189,18 +217,6 @@ function TableView({ groups }: { groups: InventoryGroup[] }) {
   const allSelected = visibleProducts.length > 0 && visibleProducts.every((product) => selected.has(product.id));
   const someSelected = visibleProducts.some((product) => selected.has(product.id));
 
-  const printLabels = (products: InventoryProduct[]) => {
-    const opened = printSkuLabels(
-      products.map((product) => ({
-        name: product.name,
-        variant: variantLabel(product),
-        sku: product.sku,
-        price: product.price,
-      })),
-    );
-    if (!opened) toast.error("Pop-up diblokir — izinkan pop-up untuk mencetak label");
-  };
-
   return (
     <div className="space-y-2">
       {selectedProducts.length > 0 ? (
@@ -210,7 +226,7 @@ function TableView({ groups }: { groups: InventoryGroup[] }) {
             <Button size="sm" variant="outline" onClick={() => setSelected(new Set())}>
               Batal pilih
             </Button>
-            <Button size="sm" onClick={() => printLabels(selectedProducts)}>
+            <Button size="sm" onClick={() => onPrint(selectedProducts)}>
               <PrinterIcon className="size-4" /> Cetak Label ({selectedProducts.length})
             </Button>
           </div>
@@ -235,7 +251,7 @@ function TableView({ groups }: { groups: InventoryGroup[] }) {
             <TableHead className="text-right">Stok</TableHead>
             <TableHead className="text-right">Modal</TableHead>
             <TableHead className="text-right">Jual</TableHead>
-            <TableHead className="text-right">Cetak SKU</TableHead>
+            <TableHead className="text-right">Aksi</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -244,13 +260,20 @@ function TableView({ groups }: { groups: InventoryGroup[] }) {
               const { group } = row;
               const isOpen = expanded.has(group.key) || group.items.length === 1;
               return (
-                <TableRow key={`parent-${group.key}`} className="bg-muted/30 hover:bg-muted/40">
+                <TableRow
+                  key={`parent-${group.key}`}
+                  className="group cursor-pointer bg-muted/30 hover:bg-muted/40"
+                  onClick={() => group.items.length > 1 && toggle(group.key)}
+                >
                   <TableCell />
                   <TableCell>
                     {group.items.length > 1 ? (
                       <button
                         type="button"
-                        onClick={() => toggle(group.key)}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          toggle(group.key);
+                        }}
                         aria-label={isOpen ? `Ciutkan ${group.name}` : `Buka varian ${group.name}`}
                         aria-expanded={isOpen}
                         className="flex size-6 items-center justify-center rounded hover:bg-foreground/10"
@@ -278,7 +301,7 @@ function TableView({ groups }: { groups: InventoryGroup[] }) {
             const { product } = row;
             const stock = product.stock_qty ?? 0;
             return (
-              <TableRow key={`child-${product.id}`} className={stock === 0 ? "text-muted-foreground" : undefined}>
+              <TableRow key={`child-${product.id}`} className={`group ${stock === 0 ? "text-muted-foreground" : ""}`}>
                 <TableCell>
                   <Checkbox
                     checked={selected.has(product.id)}
@@ -289,11 +312,14 @@ function TableView({ groups }: { groups: InventoryGroup[] }) {
                 <TableCell />
                 <TableCell className="pl-10">
                   <div className="flex items-center gap-2">
-                    {product.variant_type === "BEKAS" ? (
-                      <SmartphoneIcon className="size-3.5 shrink-0 text-amber-600" />
-                    ) : (
-                      <PackageIcon className="size-3.5 shrink-0 text-emerald-600" />
-                    )}
+                    <ProductPhotoButton
+                      productId={product.id}
+                      imageUrl={product.image_url ?? null}
+                      name={variantLabel(product)}
+                      variantType={product.variant_type}
+                      category={product.category}
+                      className="size-7"
+                    />
                     <span className="truncate text-sm">{variantLabel(product)}</span>
                   </div>
                   {product.variant_type === "BEKAS" && product.kondisi_notes ? (
@@ -316,15 +342,14 @@ function TableView({ groups }: { groups: InventoryGroup[] }) {
                   {product.price != null ? formatCurrencyPlain(product.price) : "—"}
                 </TableCell>
                 <TableCell className="text-right">
-                  <Button
-                    size="icon-sm"
-                    variant="ghost"
-                    aria-label={`Cetak SKU ${product.sku}`}
-                    title="Cetak SKU"
-                    onClick={() => printLabels([product])}
-                  >
-                    <PrinterIcon className="size-4" />
-                  </Button>
+                  <div className="flex justify-end gap-1 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
+                    <Button size="icon-sm" variant="ghost" aria-label={`Edit ${product.sku}`} title="Edit" onClick={() => onEdit(product)}>
+                      <PencilIcon className="size-4" />
+                    </Button>
+                    <Button size="icon-sm" variant="ghost" aria-label={`Cetak SKU ${product.sku}`} title="Cetak SKU" onClick={() => onPrint([product])}>
+                      <PrinterIcon className="size-4" />
+                    </Button>
+                  </div>
                 </TableCell>
               </TableRow>
             );
@@ -353,8 +378,23 @@ export function InventoriClient({
   stok: string;
 }) {
   const [view, setView] = useState<View>("kartu");
+  const [editTarget, setEditTarget] = useState<InventoryProduct | null>(null);
+  const [labelPreview, setLabelPreview] = useState<SkuLabelInput[] | null>(null);
   const router = useRouter();
   const pathname = usePathname();
+
+  /** Pratinjau dulu; dialog cetak browser baru muncul setelah "Cetak". */
+  const openLabelPreview = (products: InventoryProduct[]) => {
+    if (products.length === 0) return;
+    setLabelPreview(
+      products.map((product) => ({
+        name: product.name,
+        variant: variantLabel(product),
+        sku: product.sku,
+        price: product.price,
+      })),
+    );
+  };
 
   // Disaring di client: `getInventori` sudah mengambil seluruh katalog sekali
   // jalan, jadi menyaring ulang hanya menambah latency tanpa menambah data.
@@ -411,10 +451,52 @@ export function InventoriClient({
           </Button>
         </div>
       ) : view === "kartu" ? (
-        <CardView groups={filteredGroups} />
+        <CardView groups={filteredGroups} onEdit={setEditTarget} onPrint={(p) => openLabelPreview([p])} />
       ) : (
-        <TableView groups={filteredGroups} />
+        <TableView groups={filteredGroups} onEdit={setEditTarget} onPrint={openLabelPreview} />
       )}
+
+      <EditProductDialog
+        product={editTarget}
+        onOpenChange={(open) => {
+          if (!open) setEditTarget(null);
+        }}
+        onSuccess={() => router.refresh()}
+      />
+
+      <DialogPrimitive.Root open={labelPreview !== null} onOpenChange={(open) => !open && setLabelPreview(null)}>
+        <DialogPrimitive.Portal>
+          <DialogPrimitive.Backdrop className="fixed inset-0 z-50 bg-black/20 backdrop-blur-sm" />
+          <DialogPrimitive.Popup className="fixed left-1/2 top-1/2 z-50 flex max-h-[90vh] w-[95vw] max-w-2xl -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-xl border bg-background shadow-2xl">
+            <div className="border-b px-5 py-3">
+              <DialogPrimitive.Title className="font-heading text-base font-semibold">Pratinjau Label SKU</DialogPrimitive.Title>
+              <DialogPrimitive.Description className="text-xs text-muted-foreground">
+                {labelPreview?.length ?? 0} label · 50 × 25 mm
+              </DialogPrimitive.Description>
+            </div>
+            <div className="flex-1 overflow-auto bg-muted/30 p-4">
+              <iframe
+                title="Pratinjau label SKU"
+                className="mx-auto h-[420px] w-full max-w-[420px] rounded-lg border bg-white"
+                srcDoc={labelPreview ? renderSkuLabelHtml(labelPreview, false) : ""}
+              />
+            </div>
+            <div className="flex justify-end gap-2 border-t bg-muted/20 px-5 py-3">
+              <Button variant="outline" onClick={() => setLabelPreview(null)}>Batal</Button>
+              <Button
+                onClick={() => {
+                  if (labelPreview && !printSkuLabels(labelPreview)) {
+                    toast.error("Pop-up diblokir — izinkan pop-up untuk mencetak label");
+                  }
+                  setLabelPreview(null);
+                }}
+              >
+                <PrinterIcon className="size-4" /> Cetak
+              </Button>
+            </div>
+          </DialogPrimitive.Popup>
+        </DialogPrimitive.Portal>
+      </DialogPrimitive.Root>
     </div>
   );
 }

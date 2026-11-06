@@ -76,51 +76,36 @@ describe("form kondisi awal (inline, bukan modal)", () => {
   });
 });
 
-describe("switch dan tombol check kondisi", () => {
+describe("radio check kondisi", () => {
   const parent = readFileSync(
     join(process.cwd(), "src", "components", "servis", "servis-form.tsx"),
     "utf8",
   );
 
-  it("switch Kondisi ada dan gerbang menampilkan tombolnya", () => {
-    // Mematikan switch harus menyembunyikan tombol, bukan hanya menonaktifkannya --
-    // tombol yang terlihat tapi tidak bisa dipakai lebih buruk dari yang
-    // tidak terlihat.
-    expect(parent).toMatch(/\{kondisiEnabled \?/);
-    expect(parent).toContain("kondisiEnabled");
+  it("memakai radio Ya/Tidak, bukan switch lama", () => {
+    expect(parent).toContain("JellyRadio");
+    expect(parent).toContain('{ value: "ya", label: "Ya" }');
+    expect(parent).toContain('{ value: "tidak", label: "Tidak" }');
+    expect(parent).not.toContain("kondisiEnabled");
   });
 
-  it("tombolnya berlabel Check Kondisi dengan chevron di sisi kanan", () => {
-    expect(parent).toContain("Check Kondisi");
-    const button = parent.match(/<Button[\s\S]{0,600}?Check Kondisi[\s\S]{0,400}?<\/Button>/);
-    expect(button).not.toBeNull();
-    // `justify-between` + chevron setelah span = chevron di tepi kanan.
-    expect(button?.[0]).toContain("justify-between");
-    expect(button?.[0]).toContain("ChevronRight");
+  it("default-nya Ya supaya alur pemeriksaan tidak terlewat", () => {
+    expect(parent).toMatch(/useState\(true\)/);
+    expect(parent).toMatch(/value=\{kondisiYa \? "ya" : "tidak"\}/);
   });
 
-  it("chevron berputar saat formnya terbuka", () => {
-    expect(parent).toMatch(/kondisiOpen\s*&&\s*"rotate-90"/);
+  it("Ya membuka form kondisi setelah servis tersimpan", () => {
+    const submit = parent.match(/const handleSubmit[\s\S]{0,900}?\n  \};/)?.[0] ?? "";
+    expect(submit).toContain("saveServis()");
+    expect(submit).toContain("setSavedId(res.id)");
+    expect(submit).toMatch(/if \(kondisiYa\) setKondisiOpen\(true\)/);
+    expect(submit.indexOf("saveServis()")).toBeLessThan(submit.indexOf("setKondisiOpen(true)"));
   });
 
-  it("memakai aria-expanded supaya keadaan tombol terbaca assistive tech", () => {
-    expect(parent).toContain("aria-expanded={kondisiOpen}");
-  });
-
-  it("klik Check Kondisi menyimpan servis dulu sebelum membuka form", () => {
-    // `updateKondisiAwal` butuh id servis, dan id itu hanya ada setelah create.
-    // Kalau urutan dibalik, formnya terbuka untuk data yang belum bisa disimpan.
-    const handler = parent.match(/const handleKondisiClick[\s\S]{0,700}?\n  \};/);
-    expect(handler).not.toBeNull();
-    const body = handler?.[0] ?? "";
-    expect(body).toContain("saveServis()");
-    expect(body.indexOf("saveServis()")).toBeLessThan(body.indexOf("setKondisiOpen(true)"));
-    expect(body).toContain("setSavedId(res.id)");
-  });
-
-  it("mematikan switch ikut menutup form yang terbuka", () => {
-    // Kalau tidak, isi yang sudah diketik menggantung di layar tanpa jalan
-    // menutupnya -- dan user tidak tahu datanya masih di state.
-    expect(parent).toMatch(/if \(!v\) setKondisiOpen\(false\)/);
+  it("Tidak langsung menyelesaikan servis tanpa membuka form", () => {
+    const submit = parent.match(/const handleSubmit[\s\S]{0,900}?\n  \};/)?.[0] ?? "";
+    expect(submit).toContain("else finish()");
+    // Servis yang sudah tersimpan tidak boleh dibuat dua kali.
+    expect(submit).toMatch(/if \(savedId\) \{\s*finish\(\)/);
   });
 });

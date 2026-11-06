@@ -58,9 +58,18 @@ export type ServiceReceiptInput = {
     /** Belum Selesai/Sudah Diambil: nominal masih estimasi. */
     isEstimate?: boolean;
     date?: string;
+    /** Lama garansi, mis. "3 bulan". Tercetak walau garansi belum mulai. */
+    garansi?: string;
+    /** Tanggal akhir garansi; kosong = garansi belum aktif. */
     garansiSampai?: string;
     trackingCode?: string;
     tenantSlug?: string | null;
+    payment: {
+      status: "Lunas" | "DP" | "Belum dibayar";
+      methods: string;
+      paid: number;
+      remaining: number;
+    };
   };
 };
 

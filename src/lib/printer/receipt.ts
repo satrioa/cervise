@@ -35,10 +35,6 @@ function safe(value: string | null | undefined, fallback = EM_DASH): string {
   return trimmed === "" ? fallback : normalizeAscii(trimmed);
 }
 
-function pipeSeparated(...parts: (string | null | undefined)[]): string {
-  return parts.map((part) => safe(part, "")).filter(Boolean).join(" - ");
-}
-
 export function buildSaleReceiptLines(input: SalesReceiptInput): string[] {
   const { context, sale, customer, items } = input;
   const brand = context.brandName?.trim() || context.branchName?.trim() || "Nota Penjualan";
@@ -107,7 +103,7 @@ export function buildServiceReceiptLines(input: ServiceReceiptInput): string[] {
   lines.push(columns("Teknisi", safe(input.teknisi)));
 
   lines.push(line());
-  lines.push(...wrap(pipeSeparated(service.device, service.merk, service.tipe)));
+  lines.push(...wrap(service.device));
   if (service.complaint?.trim()) {
     lines.push(line("-"));
     lines.push("Keluhan:");
@@ -122,10 +118,29 @@ export function buildServiceReceiptLines(input: ServiceReceiptInput): string[] {
   lines.push(line());
   const price = service.price === null || !Number.isFinite(service.price) ? EM_DASH : formatCurrencyPlain(service.price);
   lines.push(columns(service.isEstimate ? "ESTIMASI" : "TOTAL", price));
+  lines.push(columns("Pembayaran", safe(service.payment.status)));
+  if (service.payment.paid > 0) {
+    lines.push(columns("Metode", safe(service.payment.methods)));
+    lines.push(columns("Dibayar", formatCurrencyPlain(service.payment.paid)));
+  }
+  if (service.payment.remaining > 0) {
+    lines.push(columns("Sisa", formatCurrencyPlain(service.payment.remaining)));
+  }
 
-  if (service.garansiSampai?.trim()) {
+  const garansi = service.garansi?.trim();
+  const garansiSampai = service.garansiSampai?.trim();
+  if (garansi || garansiSampai) {
     lines.push(line());
-    lines.push(columns("Garansi s/d", service.garansiSampai.trim()));
+    // Garansi belum mulai (perangkat belum diambil): tanggal akhir belum ada,
+    // jadi cetak lamanya + penanda supaya pelanggan tidak membaca "-".
+    lines.push(
+      columns(
+        "Garansi",
+        garansiSampai
+          ? [garansi, `s/d ${garansiSampai}`].filter(Boolean).join(" ")
+          : `${garansi ?? ""} (belum aktif)`.trim(),
+      ),
+    );
   }
 
   lines.push(line());
@@ -159,7 +174,7 @@ export function buildServiceEscpos(
       ...text(line()),
     );
   }
-  after.push(...align("center"), ...barcode(input.invoiceNo), ...text(centerLine(input.invoiceNo)), ...align("left"));
+  after.push(...align("center"), ...barcode(input.invoiceNo), ...align("left"));
   return renderLines(buildServiceReceiptLines(input), {
     boldLine: (row) => row.startsWith("TOTAL") || row.startsWith("ESTIMASI"),
     afterLines: after,

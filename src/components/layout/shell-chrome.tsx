@@ -4,6 +4,7 @@ import { createContext, useContext } from "react";
 
 import { cn } from "@/lib/utils";
 import { CommandSearchTrigger } from "./command-palette-provider";
+import { PrinterStatusButton } from "./printer-status-button";
 import { ThemeToggle } from "./theme-toggle";
 
 /**
@@ -25,6 +26,14 @@ const ShellChromeContext = createContext(false);
 export const ShellChromeProvider = ShellChromeContext.Provider;
 
 /**
+ * Role aktif, supaya `ShellChrome` bisa menampilkan tombol printer hanya untuk
+ * admin tanpa mengubah 21 pemanggil `PageHeader`.
+ */
+const ShellRoleContext = createContext<string | null>(null);
+
+export const ShellRoleProvider = ShellRoleContext.Provider;
+
+/**
  * `true` kalau shell sudah merender search dan tema sendiri.
  *
  * Dipakai `PageHeader` untuk melewati baris search + tema. Default `false`
@@ -32,6 +41,10 @@ export const ShellChromeProvider = ShellChromeContext.Provider;
  */
 export function useShellChrome() {
   return useContext(ShellChromeContext);
+}
+
+export function useShellRole() {
+  return useContext(ShellRoleContext);
 }
 
 /**
@@ -51,11 +64,14 @@ export function useShellChrome() {
  */
 export function ShellChrome({ className }: { className?: string }) {
   const shellHasChrome = useShellChrome();
+  const role = useShellRole();
   if (shellHasChrome) return null;
+  const showPrinter = role === "MASTER_ADMIN" || role === "ADMIN";
   return (
     <div className={cn("flex shrink-0 items-center gap-1.5", className)}>
       <ThemeToggle />
       <CommandSearchTrigger />
+      {showPrinter ? <PrinterStatusButton /> : null}
     </div>
   );
 }

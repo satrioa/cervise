@@ -3,17 +3,19 @@
 import { getActiveTenant } from "@/lib/supabase/actor";
 import {
   buildBranches,
+  buildDashboardFeed,
   buildProblems,
-  buildRecentActivity,
   buildTechnicians,
   summarizeDashboard,
   type DashboardBranch,
+  type DashboardCashSession,
+  type DashboardFeedItem,
   type DashboardFinance,
   type DashboardPeriod,
   type DashboardProfile,
   type DashboardService,
+  type DashboardServiceLog,
   type DashboardTechnician,
-  type DashboardActivity,
   type DashboardProblem,
   type DashboardSummary,
 } from "@/lib/operational/dashboard";
@@ -35,7 +37,7 @@ export type DashboardData = {
   technicians: DashboardTechnician[];
   problems: DashboardProblem[];
   branches: DashboardBranch[];
-  recent: DashboardActivity[];
+  feed: DashboardFeedItem[];
 };
 
 function periodStartIso(period: DashboardPeriod, now: Date): string {
@@ -59,7 +61,19 @@ export async function getDashboardData(period: DashboardPeriod): Promise<Dashboa
   const financeQuery = applyBranchScope(
     supabase
       .from("cervise_finance_tx")
-      .select("branch_id, type, amount, kas_date"),
+      .select("id, branch_id, type, amount, kas_date, created_at, description, metode, servis_id, created_by"),
+    actor,
+  );
+  const logsQuery = applyBranchScope(
+    supabase
+      .from("cervise_service_logs")
+      .select("id, created_at, action, from_value, to_value, servis_id, actor_id"),
+    actor,
+  );
+  const sessionsQuery = applyBranchScope(
+    supabase
+      .from("cervise_cash_sessions")
+      .select("id, open_at, closed_at, employee_id, opening_balance, closing_balance"),
     actor,
   );
   const branchQuery = allScope
@@ -74,21 +88,36 @@ export async function getDashboardData(period: DashboardPeriod): Promise<Dashboa
         .eq("id", actor.branchId ?? NEVER_MATCH_BRANCH_ID)
         .maybeSingle();
 
-  const [servicesResult, financeResult, branchResult] = await Promise.all([
+  const since = periodStartIso(period, now);
+
+  // Feed menyediakan filter Hari ini/Kemarin, jadi sumbernya minimal sejak awal
+  // kemarin walau periode chart hanya "hari ini".
+  const feedStart = new Date(now);
+  feedStart.setHours(0, 0, 0, 0);
+  feedStart.setDate(feedStart.getDate() - 1);
+  const feedSince = new Date(Math.min(new Date(since).getTime(), feedStart.getTime()));
+
+  const [servicesResult, financeResult, branchResult, logsResult, sessionsResult] = await Promise.all([
     servicesQuery.order("created_at", { ascending: false }).limit(SERVICE_ROW_CAP),
     financeQuery
-      .gte("kas_date", toLocalDateString(new Date(periodStartIso(period, now))))
+      .gte("kas_date", toLocalDateString(feedSince))
       .lte("kas_date", toLocalDateString(now))
       .limit(FINANCE_ROW_CAP),
     branchQuery,
+    logsQuery.gte("created_at", feedSince.toISOString()).order("created_at", { ascending: false }).limit(200),
+    sessionsQuery.gte("open_at", feedSince.toISOString()).order("open_at", { ascending: false }).limit(50),
   ]);
 
   if (servicesResult.error) throw new Error(servicesResult.error.message);
   if (financeResult.error) throw new Error(financeResult.error.message);
   if (branchResult.error) throw new Error(branchResult.error.message);
+  if (logsResult.error) throw new Error(logsResult.error.message);
+  if (sessionsResult.error) throw new Error(sessionsResult.error.message);
 
   const services = (servicesResult.data ?? []) as DashboardService[];
   const finance = (financeResult.data ?? []) as DashboardFinance[];
+  const logs = (logsResult.data ?? []) as DashboardServiceLog[];
+  const sessions = (sessionsResult.data ?? []) as DashboardCashSession[];
   const branchRows = allScope
     ? ((branchResult.data ?? []) as { id: string; name: string }[])
     : branchResult.data
@@ -96,18 +125,19 @@ export async function getDashboardData(period: DashboardPeriod): Promise<Dashboa
       : [];
 
   const teknisiIds = Array.from(new Set(services.map((s) => s.teknisi_id).filter((id): id is string => Boolean(id))));
-  const customerIds = Array.from(new Set(services.map((s) => s.customer_id).filter((id): id is string => Boolean(id))));
+  const actorIds = Array.from(
+    new Set([
+      ...logs.map((log) => log.actor_id).filter((id): id is string => Boolean(id)),
+      ...finance.map((tx) => tx.created_by).filter((id): id is string => Boolean(id)),
+      ...sessions.map((session) => session.employee_id).filter((id): id is string => Boolean(id)),
+    ]),
+  );
+  const profileIds = Array.from(new Set([...teknisiIds, ...actorIds]));
 
-  const [profilesResult, customersResult] = await Promise.all([
-    teknisiIds.length
-      ? supabase.from("profiles").select("id, full_name, branch_id").in("id", teknisiIds)
-      : Promise.resolve({ data: [], error: null }),
-    customerIds.length
-      ? supabase.from("cervise_customers").select("id, name").in("id", customerIds)
-      : Promise.resolve({ data: [], error: null }),
-  ]);
+  const profilesResult = profileIds.length
+    ? await supabase.from("profiles").select("id, full_name, branch_id").in("id", profileIds)
+    : { data: [], error: null };
   if (profilesResult.error) throw new Error(profilesResult.error.message);
-  if (customersResult.error) throw new Error(customersResult.error.message);
 
   return {
     period,
@@ -126,10 +156,13 @@ export async function getDashboardData(period: DashboardPeriod): Promise<Dashboa
       period,
       now,
     }),
-    recent: buildRecentActivity({
+    feed: buildDashboardFeed({
       services,
-      customers: (customersResult.data ?? []) as { id: string; name: string }[],
-      limit: 5,
+      logs,
+      finance,
+      sessions,
+      actors: (profilesResult.data ?? []) as { id: string; full_name: string | null }[],
+      limit: 200,
     }),
   };
 }

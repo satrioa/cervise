@@ -9,56 +9,101 @@ import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@
 import { Trash2, Pencil, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { getRoles, createRole, updateRole, deleteRole, type RoleRow } from "@/app/app/pengaturan/role/actions";
-import { BASE_ROLE_LABEL, type PermissionKey } from "@/lib/auth/permissions";
+import {
+  BASE_ROLE_LABEL,
+  isPermissionKey,
+  type CustomBaseRole,
+  type PermissionKey,
+} from "@/lib/auth/permissions";
+import { playPageTransition } from "@/components/layout/page-transition";
 
-type RoleFormData = {
+type FormState = {
   key: string;
   name: string;
-  baseRole: string;
+  baseRole: CustomBaseRole;
   permissions: PermissionKey[];
 };
 
 type Props = {
   roles: RoleRow[];
-  baseCatalog: Array<{ baseRole: string; label: string; permissions: string[] }>;
-  permissionGroups: Array<{ group: string; label: string; permissions: Array<{ key: string; label: string }> }>;
+  baseCatalog: Array<{ baseRole: CustomBaseRole; label: string; permissions: PermissionKey[] }>;
+  permissionGroups: Array<{ group: string; label: string; permissions: Array<{ key: PermissionKey; label: string }> }>;
 };
 
 export function RoleManager({ roles, baseCatalog, permissionGroups }: Props) {
   const t = useTranslations("pengaturan");
   const [openKey, setOpenKey] = useState<string | null>(null);
+  const [form, setForm] = useState<FormState | null>(null);
   const [toast, setToast] = useState<{ kind: "ok" | "err"; msg: string } | null>(null);
   const [isBusy, setIsBusy] = useState(false);
 
-  const onNew = () => setOpenKey("__new__");
-  const onEdit = (k: string) => setOpenKey(k);
-  const onClose = () => setOpenKey(null);
+  const isNew = openKey === "__new__";
+  const editing = openKey && !isNew ? roles.find((r) => r.key === openKey) ?? null : null;
 
-  const editing = openKey !== null ? roles.find((r) => r.key === openKey) : null;
+  const openForm = (key: string) => {
+    const row = key === "__new__" ? null : roles.find((r) => r.key === key) ?? null;
+    setOpenKey(key);
+    setForm(
+      row
+        ? {
+            key: row.key,
+            name: row.name,
+            baseRole: row.baseRole,
+            permissions: row.permissions.filter(isPermissionKey),
+          }
+        : { key: "", name: "", baseRole: baseCatalog[0].baseRole, permissions: [] },
+    );
+  };
 
-  const onSubmit = async (data: RoleFormData) => {
+  const allowedPermissions =
+    baseCatalog.find((b) => b.baseRole === form?.baseRole)?.permissions ?? [];
+
+  const changeBaseRole = (value: CustomBaseRole) => {
+    if (!form) return;
+    const allowed = new Set(baseCatalog.find((b) => b.baseRole === value)?.permissions ?? []);
+    setForm({
+      ...form,
+      baseRole: value,
+      permissions: form.permissions.filter((p) => allowed.has(p)),
+    });
+  };
+
+  const togglePermission = (key: PermissionKey) => {
+    if (!form || !allowedPermissions.includes(key)) return;
+    setForm({
+      ...form,
+      permissions: form.permissions.includes(key)
+        ? form.permissions.filter((p) => p !== key)
+        : [...form.permissions, key],
+    });
+  };
+
+  const onSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!form) return;
     setIsBusy(true);
     try {
-      if (openKey === "__new__") {
+      if (isNew) {
         await createRole({
-          key: data.key,
-          name: data.name,
-          baseRole: data.baseRole,
-          permissions: data.permissions,
+          key: form.key.trim().toUpperCase(),
+          name: form.name.trim(),
+          baseRole: form.baseRole,
+          permissions: form.permissions,
         });
       } else if (editing) {
         await updateRole({
-          key: openKey,
-          name: data.name,
-          baseRole: data.baseRole,
-          permissions: data.permissions,
+          key: editing.key,
+          name: form.name.trim(),
+          baseRole: form.baseRole,
+          permissions: form.permissions,
         });
       }
-      onClose();
+      setOpenKey(null);
+      setForm(null);
+      playPageTransition();
       setToast({ kind: "ok", msg: t("saved") });
-      await refresh();
-    } catch (e: any) {
-      setToast({ kind: "err", msg: e?.message ?? t("failed") });
+    } catch (e) {
+      setToast({ kind: "err", msg: e instanceof Error ? e.message : t("failed") });
     } finally {
       setIsBusy(false);
     }
@@ -69,26 +114,14 @@ export function RoleManager({ roles, baseCatalog, permissionGroups }: Props) {
     setIsBusy(true);
     try {
       await deleteRole(k);
-      await refresh();
+      playPageTransition();
       setToast({ kind: "ok", msg: t("deleted") });
-    } catch (e: any) {
-      setToast({ kind: "err", msg: e?.message ?? t("failed") });
+    } catch (e) {
+      setToast({ kind: "err", msg: e instanceof Error ? e.message : t("failed") });
     } finally {
       setIsBusy(false);
     }
   };
-
-  const onEdit = (k: string) => setOpenKey(k);
-  const onClose = () => setOpenKey(null);
-
-  const refresh = async () => {
-    await getRoles();
-  }
-
-  const baseRole = editing?.baseRole ?? baseCatalog[0].baseRole;
-  const allowedPermissions = baseCatalog
-    .find((b) => b.baseRole === baseRoleFromCurrent)
-    ?.permissions ?? [];
 
   return (
     <div className="min-h-svh bg-background text-foreground">
@@ -98,11 +131,11 @@ export function RoleManager({ roles, baseCatalog, permissionGroups }: Props) {
             <h1 className="text-2xl font-semibold">{t("title")}</h1>
             <p className="text-sm text-muted-foreground mt-1">{t("subtitle")}</p>
           </div>
-          <Button onClick={onNew}>{t("create_role")}</Button>
+          <Button onClick={() => openForm("__new__")}>{t("create_role")}</Button>
         </div>
       </div>
 
-      <div className="mx-auto max-w-6xl px-8 py-8">
+      <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-8">
         {roles.length === 0 ? (
           <p className="py-16 text-center text-muted-foreground">{t("empty")}</p>
         ) : (
@@ -125,12 +158,13 @@ export function RoleManager({ roles, baseCatalog, permissionGroups }: Props) {
                   <TableCell className="text-sm">{r.permissions.length}</TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-1">
-                      <Button size="icon" variant="outline" onClick={() => onEdit(r.key)}>
+                      <Button size="icon" variant="outline" onClick={() => openForm(r.key)}>
                         <Pencil className="size-4" />
                       </Button>
                       <Button
                         size="icon"
                         variant="destructive"
+                        disabled={isBusy}
                         onClick={() => confirmDelete(r.key)}
                       >
                         <Trash2 className="size-4" />
@@ -144,14 +178,14 @@ export function RoleManager({ roles, baseCatalog, permissionGroups }: Props) {
         )}
       </div>
 
-      {openKey !== null && (
+      {form && (
         <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center">
-          <div className="bg-white rounded-xl p-6 w-full">
+          <form onSubmit={onSubmit} className="bg-white rounded-xl p-6 w-full">
             <div className="flex items-center justify-between border-b p-4">
               <h2 className="text-lg font-semibold">
                 {isNew ? t("create_role") : t("edit_role")}
               </h2>
-              <button onClick={onClose} className="text-muted-foreground">
+              <button type="button" onClick={() => setOpenKey(null)} className="text-muted-foreground">
                 <X className="size-5" />
               </button>
             </div>
@@ -160,21 +194,24 @@ export function RoleManager({ roles, baseCatalog, permissionGroups }: Props) {
                 <label className="block text-sm mb-1">{t("key_label")}</label>
                 <Input
                   placeholder={isNew ? t("default_key") : editing?.key ?? ""}
-                  defaultValue={editing?.key ?? ""}
+                  value={form.key}
+                  onChange={(e) => setForm({ ...form, key: e.target.value })}
                   disabled={!isNew}
+                  required
                 />
               </div>
               <div>
                 <label className="block text-sm mb-1">{t("name_label")}</label>
                 <Input
                   placeholder={t("name_placeholder")}
-                  defaultValue={editing?.name ?? ""}
+                  value={form.name}
+                  onChange={(e) => setForm({ ...form, name: e.target.value })}
                   required
                 />
               </div>
               <div>
                 <label className="block text-sm mb-1">{t("base_role_label")}</label>
-                <Select defaultValue={editing?.baseRole ?? baseCatalog[0].baseRole}>
+                <Select value={form.baseRole} onValueChange={(value) => changeBaseRole(value as CustomBaseRole)}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
@@ -192,24 +229,26 @@ export function RoleManager({ roles, baseCatalog, permissionGroups }: Props) {
                 {permissionGroups.map((gp) => (
                   <div key={gp.group} className="space-y-1.5">
                     <span className="text-xs text-muted-foreground">{gp.label}</span>
-                    {gp.permissions.map((p) => (
-                      <label
-                        key={p.key}
-                        className="flex items-center gap-2 text-sm"
-                      >
-                        <input
-                          type="checkbox"
-                          className="h-4 w-4 rounded accent-brand-600"
-                          readOnly={!allowedPermissions.includes(p.key)}
-                        />
-                        {p.label}
-                      </label>
-                    ))}
+                    {gp.permissions.map((p) => {
+                      const allowed = allowedPermissions.includes(p.key);
+                      return (
+                        <label key={p.key} className={`flex items-center gap-2 text-sm ${allowed ? "" : "opacity-40"}`}>
+                          <input
+                            type="checkbox"
+                            className="h-4 w-4 rounded accent-brand-600"
+                            checked={form.permissions.includes(p.key)}
+                            disabled={!allowed}
+                            onChange={() => togglePermission(p.key)}
+                          />
+                          {p.label}
+                        </label>
+                      );
+                    })}
                   </div>
                 ))}
               </div>
               <div className="flex justify-end gap-2 pt-2">
-                <Button type="button" onClick={onClose}>
+                <Button type="button" variant="outline" onClick={() => setOpenKey(null)}>
                   {t("cancel")}
                 </Button>
                 <Button type="submit" disabled={isBusy}>
@@ -217,7 +256,7 @@ export function RoleManager({ roles, baseCatalog, permissionGroups }: Props) {
                 </Button>
               </div>
             </div>
-          </div>
+          </form>
         </div>
       )}
 
@@ -233,6 +272,3 @@ export function RoleManager({ roles, baseCatalog, permissionGroups }: Props) {
     </div>
   );
 }
-
-const t = useTranslations("pengaturan");
-const allowedSet = new Set(permissionGroups.flatMap((g) => g.permissions.map((p) => p.key)));

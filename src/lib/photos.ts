@@ -92,6 +92,10 @@ export function tenantLogoPath(orgId: string, extension: string): string {
   return `tenant-logos/${orgId}/${randomSegment()}.${extension}`;
 }
 
+export function productPhotoPath(productId: string, extension: string): string {
+  return `products/${productId}/${randomSegment()}.${extension}`;
+}
+
 /**
  * Path yang tersimpan di kolom database kembali ke browser dan dipakai untuk
  * menyusun URL. Kalau nilainya bisa disuntik (mis. "../" atau "http://"),
@@ -103,7 +107,7 @@ export function isSafeObjectPath(path: string | null | undefined): path is strin
   if (path.length > 200) return false;
   if (path.includes("..")) return false;
   if (path.startsWith("/") || path.includes("\\")) return false;
-  if (!/^(avatars|tenant-logos)\/[A-Za-z0-9_-]+\/[A-Za-z0-9_-]+\.[A-Za-z0-9]+$/.test(path)) return false;
+  if (!/^(avatars|tenant-logos|products)\/[A-Za-z0-9_-]+\/[A-Za-z0-9_-]+\.[A-Za-z0-9]+$/.test(path)) return false;
   return true;
 }
 

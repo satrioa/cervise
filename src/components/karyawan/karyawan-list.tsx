@@ -15,6 +15,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { KaryawanFormDialog, TempPasswordDialog } from "./karyawan-form-dialog";
 import { deleteKaryawan, resetKaryawanPassword, setKaryawanActive, updateKaryawan } from "@/app/app/karyawan/actions";
 import type { KaryawanRow } from "@/app/app/karyawan/actions";
+import { playPageTransition } from "@/components/layout/page-transition";
 
 const ROLES: { label: string; value: string }[] = [
   { label: "Master Admin", value: "MASTER_ADMIN" },
@@ -46,6 +47,7 @@ export function KaryawanList({ rows, branches }: { rows: KaryawanRow[]; branches
     try {
       await updateKaryawan({ profileId: row.profileId, employeeId: row.employeeId, fullName: row.fullName, phone: row.phone ?? "", email: row.email ?? "", role: nextRole, branchId: row.branchId ?? branches[0]?.id ?? "" });
       toast.success("Role diperbarui");
+      playPageTransition();
       refresh();
     } catch (e: unknown) { toast.error(e instanceof Error ? e.message : "Gagal"); }
     finally { setBusy(false); }
@@ -57,6 +59,7 @@ export function KaryawanList({ rows, branches }: { rows: KaryawanRow[]; branches
     try {
       await setKaryawanActive(toggle.employeeId, !toggle.isActive);
       toast.success(toggle.isActive ? "Dinonaktifkan" : "Diaktifkan");
+      playPageTransition();
       refresh();
     } catch (e: unknown) { toast.error(e instanceof Error ? e.message : "Gagal"); }
     finally { setBusy(false); setToggle(null); }
@@ -68,6 +71,7 @@ export function KaryawanList({ rows, branches }: { rows: KaryawanRow[]; branches
     try {
       await deleteKaryawan(del.profileId, del.employeeId);
       toast.success("Karyawan dihapus (login ikut terhapus)");
+      playPageTransition();
       refresh();
     } catch (e: unknown) { toast.error(e instanceof Error ? e.message : "Gagal hapus"); }
     finally { setBusy(false); setDel(null); }
@@ -77,6 +81,7 @@ export function KaryawanList({ rows, branches }: { rows: KaryawanRow[]; branches
     setBusy(true);
     try {
       await resetKaryawanPassword(row.profileId);
+      playPageTransition();
       toast.success(`Email reset dikirim ke ${row.email ?? "akun tersebut"}`);
     } catch (e: unknown) { toast.error(e instanceof Error ? e.message : "Gagal reset"); }
     finally { setBusy(false); }

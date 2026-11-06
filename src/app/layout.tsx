@@ -28,6 +28,18 @@ export const viewport: Viewport = {
   themeColor: "#0a0a0a",
 };
 
+/**
+ * Script no-flash tema, dijalankan server sebelum paint.
+ *
+ * next-themes merender script-nya sendiri dari client component; React 19.2
+ * memperingatkan setiap `<script>` yang dibuat di client (upstream issue
+ * pacocoursey/next-themes#385). Karena script itu hanya berguna sebelum
+ * hydration, versi server ini yang dipakai dan salinan milik provider
+ * dimatikan lewat `scriptProps` bertipe non-JavaScript.
+ * Harus sama dengan storageKey + attribute ThemeProvider di bawah.
+ */
+const THEME_SCRIPT = `!function(){try{var e=localStorage.getItem("cervise-theme")||"system",t=e==="system"?window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light":e,d=document.documentElement;d.classList.remove("light","dark"),d.classList.add(t),d.style.colorScheme=t}catch(e){}}()`;
+
 export default async function RootLayout({ children }: LayoutProps<"/">) {
   const locale = await getLocale();
   const messages = await getMessages();
@@ -38,11 +50,20 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
       suppressHydrationWarning
     >
       <body className="min-h-full flex flex-col">
+        {/* Dijalankan sebelum body selesai di-parse, jadi tidak ada kedip tema. */}
+        <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
         {/* enableSystem wajib true supaya opsi "Sistem" di ThemeToggle benar-benar
             mengikuti prefers-color-scheme; dengan false, pilihan itu diam-diam
             diabaikan. defaultTheme "system" juga menghormati setelan OS dari
             kunjungan pertama, tanpa memaksa light. */}
-        <ThemeProvider attribute="class" defaultTheme="system" enableSystem storageKey="cervise-theme" disableTransitionOnChange={false}>
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="system"
+          enableSystem
+          storageKey="cervise-theme"
+          disableTransitionOnChange={false}
+          scriptProps={{ type: "application/json" }}
+        >
           <NextIntlClientProvider messages={messages}>{children}</NextIntlClientProvider>
           <SoundLayer />
           <Toaster richColors position="top-right" />

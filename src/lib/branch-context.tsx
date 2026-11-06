@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { setBranchScope } from "@/app/app/actions/branch-scope";
 import { sfx } from "@/lib/sound";
+import { playPageTransition } from "@/components/layout/page-transition";
 
 export type Branch = {
   id: string;
@@ -172,7 +173,10 @@ export function BranchProvider({
       // Sumber kebenaran adalah cookie server; label saja tidak cukup.
       // `router.refresh()` membuat ulang server components dengan scope baru.
       setBranchScope(next.id)
-        .then(() => router.refresh())
+        .then(() => {
+          playPageTransition();
+          router.refresh();
+        })
         .catch(() => {
           setBranchState(previous);
           if (typeof window !== "undefined") {

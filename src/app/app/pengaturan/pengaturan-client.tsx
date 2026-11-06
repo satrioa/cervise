@@ -10,9 +10,9 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { getBrand, getMasterAdmins, updateBrand } from "@/app/app/pengaturan/actions";
 import { createMasterAdmin } from "@/app/app/pengaturan/master-admin-actions";
+import { playPageTransition } from "@/components/layout/page-transition";
 import { uploadTenantLogo, removeTenantLogo } from "@/app/app/pengaturan/photo-actions";
 import { PhotoUpload } from "@/components/photo-upload";
-import { PrinterCard } from "@/components/pengaturan/printer-card";
 import { TempPasswordDialog } from "@/components/temp-password-dialog";
 import { useBranch } from "@/lib/branch-context";
 import { toast } from "sonner";
@@ -55,6 +55,7 @@ export default function GeneralPage() {
     setLoading(true);
     try {
       await updateBrand({ name: brandName });
+      playPageTransition();
       toast.success("Nama brand disimpan");
     } catch (e: any) {
       toast.error(e.message ?? "Gagal simpan");
@@ -74,6 +75,7 @@ export default function GeneralPage() {
         // cabang milik actor, karena id itu tidak diketahui di client.
         branchId: branch.id,
       });
+      playPageTransition();
       setCreatedAccount({ email: result.email ?? maEmail, tempPassword: result.tempPassword ?? "" });
       setMaName("");
       setMaEmail("");
@@ -94,7 +96,7 @@ export default function GeneralPage() {
         containerClassName="max-w-4xl"
       />
 
-      <div className="mx-auto max-w-4xl px-6 py-8 space-y-8">
+      <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8 py-8 space-y-8">
       <Card>
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2"><BuildingIcon className="size-4" /> Nama Brand & Logo</CardTitle>
@@ -171,7 +173,6 @@ export default function GeneralPage() {
         </CardContent>
       </Card>
 
-      <PrinterCard />
       </div>
 
       <TempPasswordDialog

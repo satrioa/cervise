@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PenjualanPaymentPanel } from "@/components/penjualan/penjualan-payment-panel";
 import { addPembayaran } from "@/app/app/servis/actions";
+import { playPageTransition } from "@/components/layout/page-transition";
 
 type Metode = "Tunai" | "Debit" | "Transfer" | "QRIS" | "E-Wallet";
 
@@ -28,8 +29,6 @@ type Props = {
  * Yang membedakan hanya sumber nomornya: penjualan memakai total keranjang,
  * servis memakai sisa estimasi (`price_estimasi` -ledger kas). Patokan lunas
  * di server juga `price_estimasi`, jadi menyamakan UI saja sudah cukup.
- *
- * Kode promo disembunyikan: diskon penjualan tidak berlaku untuk servis.
  */
 export function ServisPaymentPanel({ servisId, estimasi, totalPaid = 0, onSuccess, onClose }: Props) {
   const [metode, setMetode] = useState<Metode>("Tunai");
@@ -78,6 +77,7 @@ export function ServisPaymentPanel({ servisId, estimasi, totalPaid = 0, onSucces
         metode,
         keterangan: outcome.notes,
       });
+      playPageTransition();
       toast.success("Pembayaran tersimpan");
       onSuccess?.(res.total);
     } catch (err) {
@@ -88,7 +88,7 @@ export function ServisPaymentPanel({ servisId, estimasi, totalPaid = 0, onSucces
   };
 
   return (
-    <div className="space-y-3">
+    <div className="flex h-full flex-col gap-3">
       <div className="flex flex-wrap gap-2 text-xs">
         {punyaEstimasi ? (
           <>
@@ -122,7 +122,6 @@ export function ServisPaymentPanel({ servisId, estimasi, totalPaid = 0, onSucces
           onSelesai={handleSelesai}
           saving={saving}
           submitLabel="Simpan Pembayaran"
-          showPromo={false}
           embedded
         />
       ) : null}

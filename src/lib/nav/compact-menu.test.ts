@@ -13,7 +13,7 @@ describe("operationalEntries", () => {
     const hrefs = operationalEntries("TECHNICIAN").map((entry) => entry.href);
     expect(hrefs.slice(0, 3)).toEqual([
       "/app/servis",
-      "/app/kategori-sparepart",
+      "/app/sparepart",
       "/app/laporan/servis",
     ]);
   });
@@ -22,7 +22,7 @@ describe("operationalEntries", () => {
     const hrefs = operationalEntries("TECHNICIAN").map((entry) => entry.href);
     expect(hrefs).toEqual([
       "/app/servis",
-      "/app/kategori-sparepart",
+      "/app/sparepart",
       "/app/laporan/servis",
       "/app/inventori",
       "/app/garansi",
@@ -34,7 +34,7 @@ describe("operationalEntries", () => {
     expect(hrefs.slice(0, 3)).toEqual(["/app/servis", "/app/penjualan", "/app/laporan/servis"]);
     expect(hrefs).toContain("/app/customer");
     expect(hrefs).toContain("/app/keuangan/transaksi");
-    expect(hrefs).not.toContain("/app/kategori-sparepart");
+    expect(hrefs).not.toContain("/app/sparepart");
     expect(hrefs).toHaveLength(10);
   });
 

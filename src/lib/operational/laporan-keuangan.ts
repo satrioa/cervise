@@ -4,6 +4,8 @@ export type FinanceTx = {
   type: string;
   kas_date: string;
   branch_id: string | null;
+  /** Ada isinya = pemasukan dari pembayaran servis, bukan penjualan. */
+  servis_id?: string | null;
   description: string | null;
   metode: string | null;
   created_at?: string | null;
@@ -26,8 +28,8 @@ export type BranchRow = {
   count: number;
 };
 
-export type DescriptionRow = {
-  name: string;
+export type SourceRow = {
+  name: "Servis" | "Penjualan";
   amount: number;
   pct: number;
 };
@@ -50,12 +52,20 @@ export type LaporanKeuangan = {
   harian: PeriodRow[];
   bulanan: PeriodRow[];
   byBranch: BranchRow[];
-  byDescription: DescriptionRow[];
+  bySource: SourceRow[];
   monthComparison: { current: number; previous: number; changePct: number | null };
   recent: RecentRow[];
 };
 
-const NO_DESCRIPTION = "Tanpa keterangan";
+/**
+ * Sumber pemasukan hanya dua: pembayaran servis (baris finance_tx membawa
+ * servis_id) dan penjualan (sisanya). Deskripsi tidak dipakai karena teksnya
+ * bebas diubah kasir.
+ */
+function incomeSource(transaction: FinanceTx): "Servis" | "Penjualan" {
+  return transaction.servis_id ? "Servis" : "Penjualan";
+}
+
 
 function amountOf(value: number | null | undefined): number {
   const parsed = Number(value ?? 0);
@@ -84,7 +94,7 @@ export function buildLaporanKeuangan(input: {
   const harianMap = new Map<string, PeriodRow>();
   const bulananMap = new Map<string, PeriodRow>();
   const branchMap = new Map<string, BranchRow>();
-  const descriptionMap = new Map<string, number>();
+  const sourceMap = new Map<string, number>();
 
   for (const transaction of transactions) {
     const amount = amountOf(transaction.amount);
@@ -128,16 +138,20 @@ export function buildLaporanKeuangan(input: {
     branchMap.set(branchKey, branch);
 
     if (isIncome) {
-      const name = transaction.description?.trim() || NO_DESCRIPTION;
-      descriptionMap.set(name, (descriptionMap.get(name) ?? 0) + amount);
+      const name = incomeSource(transaction);
+      sourceMap.set(name, (sourceMap.get(name) ?? 0) + amount);
     }
   }
 
-  const byDescription: DescriptionRow[] =
+  const bySource: SourceRow[] =
     totalMasuk > 0
-      ? Array.from(descriptionMap.entries())
-          .map(([name, amount]) => ({ name, amount, pct: Math.round((amount / totalMasuk) * 100) }))
-          .sort((a, b) => b.amount - a.amount || a.name.localeCompare(b.name))
+      ? (["Servis", "Penjualan"] as const)
+          .filter((name) => (sourceMap.get(name) ?? 0) > 0)
+          .map((name) => {
+            const amount = sourceMap.get(name) ?? 0;
+            return { name, amount, pct: Math.round((amount / totalMasuk) * 100) };
+          })
+          .sort((a, b) => b.amount - a.amount)
       : [];
 
   const currentMonth = monthKey(now);
@@ -166,7 +180,7 @@ export function buildLaporanKeuangan(input: {
     harian: Array.from(harianMap.values()).sort((a, b) => (a.key < b.key ? -1 : 1)),
     bulanan: Array.from(bulananMap.values()).sort((a, b) => (a.key < b.key ? -1 : 1)),
     byBranch: Array.from(branchMap.values()).sort((a, b) => b.masuk - a.masuk || b.keluar - a.keluar),
-    byDescription,
+    bySource,
     monthComparison: {
       current,
       previous,

@@ -25,7 +25,7 @@ describe("buildLaporanKeuangan", () => {
     expect(result.harian).toEqual([]);
     expect(result.bulanan).toEqual([]);
     expect(result.byBranch).toEqual([]);
-    expect(result.byDescription).toEqual([]);
+    expect(result.bySource).toEqual([]);
     expect(result.monthComparison.changePct).toBeNull();
   });
 
@@ -117,39 +117,49 @@ describe("buildLaporanKeuangan", () => {
     expect(result.byBranch).toHaveLength(1);
   });
 
-  it("breaks income down by the description actually recorded", () => {
+  it("splits income into Servis and Penjualan from servis_id", () => {
     const result = buildLaporanKeuangan({
       transactions: [
-        tx({ id: "a", description: "Servis", amount: 300_000 }),
-        tx({ id: "b", description: "Servis", amount: 100_000 }),
-        tx({ id: "c", description: "Sparepart", amount: 100_000 }),
+        tx({ id: "a", servis_id: "svc-1", description: "Pembayaran servis SRV-1 - Tunai", amount: 300_000 }),
+        tx({ id: "b", servis_id: "svc-2", description: "Pembayaran servis SRV-2 - QRIS", amount: 100_000 }),
+        tx({ id: "c", description: "Penjualan SLV-1", amount: 100_000 }),
       ],
       branches: [],
       now: new Date(2026, 8, 23),
     });
 
-    expect(result.byDescription[0]).toMatchObject({ name: "Servis", amount: 400_000, pct: 80 });
-    expect(result.byDescription[1]).toMatchObject({ name: "Sparepart", amount: 100_000, pct: 20 });
+    expect(result.bySource[0]).toMatchObject({ name: "Servis", amount: 400_000, pct: 80 });
+    expect(result.bySource[1]).toMatchObject({ name: "Penjualan", amount: 100_000, pct: 20 });
   });
 
-  it("labels income with no description", () => {
+  it("counts manual cash income as Penjualan, not a third source", () => {
     const result = buildLaporanKeuangan({
-      transactions: [tx({ description: null })],
+      transactions: [tx({ description: "Modal awal", servis_id: null })],
       branches: [],
       now: new Date(2026, 8, 23),
     });
 
-    expect(result.byDescription[0].name).toBe("Tanpa keterangan");
+    expect(result.bySource).toEqual([{ name: "Penjualan", amount: 100_000, pct: 100 }]);
   });
 
-  it("leaves the breakdown empty when there is no income at all", () => {
+  it("omits a source with no income instead of printing 0%", () => {
+    const result = buildLaporanKeuangan({
+      transactions: [tx({ servis_id: "svc-1" })],
+      branches: [],
+      now: new Date(2026, 8, 23),
+    });
+
+    expect(result.bySource.map((row) => row.name)).toEqual(["Servis"]);
+  });
+
+  it("leaves the source breakdown empty when there is no income at all", () => {
     const result = buildLaporanKeuangan({
       transactions: [tx({ type: "pengeluaran", amount: 90_000 })],
       branches: [],
       now: new Date(2026, 8, 23),
     });
 
-    expect(result.byDescription).toEqual([]);
+    expect(result.bySource).toEqual([]);
   });
 
   it("compares this month against the previous one", () => {

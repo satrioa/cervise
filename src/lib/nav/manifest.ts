@@ -153,7 +153,7 @@ export const NAV_ENTRIES: NavEntry[] = [
     writePermission: "products.write",
   },
   {
-    href: "/app/kategori-sparepart",
+    href: "/app/sparepart",
     key: "sparepart",
     label: "Sparepart",
     icon: Package,

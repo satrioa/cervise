@@ -1,6 +1,7 @@
 "use client";
 
 import { Slot } from "@radix-ui/react-slot";
+import { cloneElement } from "react";
 import { cn } from "@/lib/utils";
 import { sfx, playSound, SOUND_VOLUME, type SoundName } from "@/lib/sound";
 import SmoothButton, { smoothButtonVariants } from "@/components/smoothui/smooth-button";
@@ -110,9 +111,13 @@ export function Button({
   if (render) {
     // render is a ReactElement to use as Slot
     const renderClass = cn(smoothButtonVariants({ variant: resolvedVariant, size: resolvedSize, color: resolvedColor, shape, className }));
+    // <Link href="..." /> tanpa children dulu menghasilkan kotak kosong:
+    // children milik Button tidak pernah diteruskan ke elemen render.
+    const renderChildren = (render.props as { children?: React.ReactNode }).children;
+    const target = renderChildren == null && children != null ? cloneElement(render, undefined, children) : render;
     return (
       <Slot className={renderClass} data-sfx-managed="" data-ascii="fade" onClick={handleClick} {...(restProps as any)}>
-        {render}
+        {target}
       </Slot>
     );
   }

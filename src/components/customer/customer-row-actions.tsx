@@ -12,6 +12,7 @@ import { deleteCustomer, getCustomerServis, type CustomerServisRow } from "@/app
 import { CustomerDialog } from "./customer-dialog";
 import { useRouter } from "next/navigation";
 import { Skeleton } from "@/components/ui/skeleton";
+import { playPageTransition } from "@/components/layout/page-transition";
 
 type Customer = {
   id: string;
@@ -46,6 +47,7 @@ export function CustomerRowActions({ customer }: { customer: Customer }) {
     setDeleting(true);
     try {
       await deleteCustomer(customer.id);
+      playPageTransition();
       setDeleteOpen(false);
       router.refresh();
     } catch (e: any) {

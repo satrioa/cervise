@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { servisBill, servisOutstanding } from "@/lib/operational/servis-price";
 import { getActiveTenant } from "@/lib/supabase/actor";
 import { sanitizeSearchTerm } from "@/lib/search-term";
 
@@ -11,17 +12,17 @@ export type SparepartStockRow = {
   qty: number;
   price: number;
   cost: number;
-  is_serialized: boolean;
 };
 
 export type SparepartUsageInput = {
-  product_id: string;
+  sparepart_id: string;
   qty: number;
 };
 
 export type ServisSparepartRow = {
   id: string;
-  product_id: string;
+  product_id: string | null;
+  sparepart_id: string | null;
   sku: string;
   name: string;
   category: string | null;
@@ -36,7 +37,8 @@ export type ServisSparepartRow = {
 
 type ServiceSparepartDbRow = {
   id: string;
-  product_id: string;
+  product_id: string | null;
+  sparepart_id: string | null;
   sku: string | null;
   name: string;
   category: string | null;
@@ -51,14 +53,13 @@ type ServiceSparepartDbRow = {
 
 type Actor = Awaited<ReturnType<typeof getActiveTenant>>;
 
-type ProductStockRow = {
+type SparepartDbRow = {
   id: string;
   sku: string | null;
   name: string;
   stock_qty: number | null;
   cost: number | null;
   price: number | null;
-  is_serialized: boolean | null;
 };
 
 async function getActor(): Promise<Actor> {
@@ -76,10 +77,10 @@ function requireText(value: string, label: string, min = 3) {
 function normalizeUsage(items: SparepartUsageInput[]): SparepartUsageInput[] {
   if (!items || items.length === 0) throw new Error("Pilih minimal 1 sparepart");
   return items.map((item) => {
-    if (!item?.product_id) throw new Error("Sparepart tidak valid");
+    if (!item?.sparepart_id) throw new Error("Sparepart tidak valid");
     const qty = Number(item.qty);
     if (!Number.isInteger(qty) || qty <= 0) throw new Error("Qty harus bilangan bulat > 0");
-    return { product_id: item.product_id, qty };
+    return { sparepart_id: item.sparepart_id, qty };
   });
 }
 
@@ -94,8 +95,8 @@ export async function searchSparepartStock(q: string): Promise<SparepartStockRow
   const term = sanitizeSearchTerm(q);
 
   let query = actor.supabase
-    .from("cervise_products")
-    .select("id, sku, name, stock_qty, cost, price, is_serialized")
+    .from("cervise_spareparts")
+    .select("id, sku, name, stock_qty, cost, price")
     .eq("branch_id", actor.branchId)
     .eq("is_active", true);
 
@@ -106,14 +107,13 @@ export async function searchSparepartStock(q: string): Promise<SparepartStockRow
   const { data, error } = await query.order("name").limit(50);
   if (error) throw new Error(error.message);
 
-  return ((data ?? []) as ProductStockRow[]).map((row) => ({
+  return ((data ?? []) as SparepartDbRow[]).map((row) => ({
     id: row.id,
     sku: row.sku ?? "",
     name: row.name,
     qty: Number(row.stock_qty ?? 0),
     price: Number(row.price ?? 0),
     cost: Number(row.cost ?? 0),
-    is_serialized: Boolean(row.is_serialized),
   }));
 }
 
@@ -123,7 +123,7 @@ export async function getServisSpareparts(servisId: string): Promise<ServisSpare
 
   const { data, error } = await actor.supabase
     .from("cervise_service_spareparts")
-    .select("id, product_id, sku, name, category, qty, unit_price, cost, line_total, is_returned, returned_at, created_at")
+    .select("id, product_id, sparepart_id, sku, name, category, qty, unit_price, cost, line_total, is_returned, returned_at, created_at")
     .eq("servis_id", servisId)
     .order("created_at", { ascending: true });
 
@@ -131,7 +131,8 @@ export async function getServisSpareparts(servisId: string): Promise<ServisSpare
 
   return ((data ?? []) as ServiceSparepartDbRow[]).map((row) => ({
     id: row.id,
-    product_id: row.product_id,
+    product_id: row.product_id ?? null,
+    sparepart_id: row.sparepart_id ?? null,
     sku: row.sku ?? "",
     name: row.name,
     category: row.category ?? null,
@@ -214,11 +215,48 @@ export async function cancelServisWithSpareparts(
   return { ok: true };
 }
 
+/**
+ * Servis hanya boleh diambil setelah lunas.
+ *
+ * `set_service_picked_up` dan `set_service_status` di database tidak memeriksa
+ * pembayaran, jadi guard-nya di sini. Sisa tagihan dihitung dari ledger kas
+ * (`finance_tx`), bukan dari `cervise_services.price`, karena kolom itu berisi
+ * total yang SUDAH dibayar.
+ */
+async function assertServisLunas(actor: Actor, servisId: string): Promise<void> {
+  const branchId = actor.branchId;
+  if (!branchId) throw new Error("Branch not set for tenant");
+
+  const { data: service, error } = await actor.supabase
+    .from("cervise_services")
+    .select("price, price_estimasi")
+    .eq("id", servisId)
+    .eq("branch_id", branchId)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!service) throw new Error("Servis tidak ditemukan");
+
+  const { data: payments, error: paymentError } = await actor.supabase
+    .from("finance_tx")
+    .select("amount")
+    .eq("branch_id", branchId)
+    .eq("servis_id", servisId)
+    .eq("type", "pemasukan");
+  if (paymentError) throw new Error(paymentError.message);
+
+  const paid = (payments ?? []).reduce((total, row) => total + Number(row.amount ?? 0), 0);
+  const bill = servisBill(service.price as number | null, service.price_estimasi as number | null);
+  if (servisOutstanding(bill, paid) > 0) {
+    throw new Error("Servis belum lunas. Selesaikan pembayaran dulu sebelum pengambilan.");
+  }
+}
+
 export async function confirmServisPickup(servisId: string, signature: string, note?: string | null) {
   if (!servisId) throw new Error("Servis wajib");
   const actor = await getActor();
   const svg = signature?.trim() ?? "";
   if (!svg.startsWith("<svg")) throw new Error("Tanda tangan wajib");
+  await assertServisLunas(actor, servisId);
 
   await callRpc(actor, "set_service_picked_up", {
     p_servis_id: servisId,
@@ -234,6 +272,9 @@ export async function updateServisStatus(servisId: string, nextStatus: string, n
   if (!servisId) throw new Error("Servis wajib");
   const actor = await getActor();
   if (!nextStatus?.trim()) throw new Error("Status wajib");
+  if (nextStatus.trim() === "picked_up" || nextStatus.trim() === "Sudah Diambil") {
+    await assertServisLunas(actor, servisId);
+  }
 
   await callRpc(actor, "set_service_status", {
     p_servis_id: servisId,

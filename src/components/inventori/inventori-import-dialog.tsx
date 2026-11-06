@@ -16,6 +16,7 @@ import {
   type InventoriImportRow,
 } from "@/lib/inventori/import";
 import type { InventoryGroup } from "@/lib/operational/inventori";
+import { playPageTransition } from "@/components/layout/page-transition";
 
 /**
  * Impor katalog dari Excel. Template diunduh dari aplikasi supaya header dan
@@ -78,6 +79,7 @@ export function InventoriImportDialog({
     setImporting(true);
     try {
       const { inserted } = await importInventori(rows);
+      playPageTransition();
       toast.success(`${inserted} produk diimpor`);
       reset();
       onOpenChange(false);

@@ -7,6 +7,7 @@ const read = (relative: string) => readFileSync(join(process.cwd(), relative), "
 const pageHeader = read("src/components/layout/page-header.tsx");
 const compactShell = read("src/components/layout/compact-shell.tsx");
 const compactBottomBar = read("src/components/layout/compact-bottom-bar.tsx");
+const compactDockNav = read("src/components/layout/compact-dock-nav.tsx");
 const legacyShell = read("src/components/layout/app-shell.tsx");
 
 /**
@@ -37,6 +38,36 @@ describe("shell chrome", () => {
     expect(compactShell).toMatch(/CommandSearchTrigger/);
     expect(compactShell).toMatch(/FullscreenToggle/);
     expect(compactShell).not.toMatch(/ThemeToggle/);
+  });
+
+  it("bar identitas jadi top bar mobile, dock tetap di bawah", () => {
+    // Header hanya dirender di `lg`; di bawah itu bar identitas (tenant,
+    // search, profil) menempel di atas layar, sedangkan tab halaman di bawah.
+    expect(compactShell).toMatch(/<header[^>]*hidden[^>]*lg:block/);
+    expect(compactBottomBar).toMatch(/fixed inset-x-0 top-0/);
+    expect(compactBottomBar).toMatch(/CommandSearchTrigger/);
+    expect(compactDockNav).toMatch(/fixed inset-x-0 bottom-0/);
+    expect(compactDockNav).not.toMatch(/CommandSearchTrigger/);
+  });
+
+  it("bottom nav berisi Home, Servis, item role-aware, dan Menu", () => {
+    // Menu lengkap tetap di sheet; bottom nav cuma tujuan halaman utama.
+    expect(compactDockNav).toMatch(/href: "\/app", label: "Home"/);
+    expect(compactDockNav).toMatch(/\/app\/servis/);
+    expect(compactDockNav).toMatch(/\/app\/penjualan/);
+    expect(compactDockNav).toMatch(/\/app\/sparepart/);
+    expect(compactDockNav).toMatch(/TECHNICIAN/);
+    expect(compactDockNav).toMatch(/t\("menu\.title"\)/);
+    // Overlay mengambang di atas isi halaman.
+    expect(compactDockNav).toMatch(/z-40/);
+    expect(compactDockNav).toMatch(/pb-\[max/);
+  });
+
+  it("chrome compact tidak auto-hide lagi", () => {
+    // Search ada di bar yang dulu memudar setelah 5 detik; kalau auto-hide
+    // dikembalikan, fitur utamanya ikut hilang dari layar.
+    expect(compactShell).not.toMatch(/useIdleVisibility/);
+    expect(compactShell).toMatch(/menuOpen=\{open\}/);
   });
 
   it("tombol layar penuh memakai Fullscreen API dan sinkron dengan Esc", () => {
