@@ -24,6 +24,8 @@ import { PenjualanCartPanel, PenjualanCartExpander } from "@/components/penjuala
 import { PenjualanOrderPanel } from "@/components/penjualan/penjualan-order-panel";
 import { PenjualanPaymentPanel, type PaymentOutcome } from "@/components/penjualan/penjualan-payment-panel";
 import { PenjualanReceiptDialog } from "@/components/penjualan/penjualan-receipt-dialog";
+import { BarcodeScannerDialog } from "@/components/scan/barcode-scanner-dialog";
+import { matchProductByCode } from "@/lib/sales/barcode-match";
 import { haptic } from "@/lib/haptic";
 import type { PosCartItem, PosCustomer, PosNewCustomer } from "@/components/penjualan/pos-types";
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
@@ -74,6 +76,7 @@ export function PenjualanPOSClient({ initialRows, receiptContext }: { initialRow
   const [receiptOpen, setReceiptOpen] = useState(false);
   const [riwayatOpen, setRiwayatOpen] = useState(false);
   const [mobileRiwayatOpen, setMobileRiwayatOpen] = useState(false);
+  const [scanOpen, setScanOpen] = useState(false);
   const [detailOpen, setDetailOpen] = useState(false);
   const [detail, setDetail] = useState<any>(null);
   const [returOpen, setReturOpen] = useState(false);
@@ -353,10 +356,7 @@ export function PenjualanPOSClient({ initialRows, receiptContext }: { initialRow
                   size="sm"
                   className="h-8 shrink-0 gap-1.5 px-2.5"
                   aria-label="Scan barcode"
-                  onClick={() => {
-                    // focus search for scanner device (hardware scanner types into input)
-                    document.querySelector<HTMLInputElement>('[placeholder="Cari Produk"]')?.focus();
-                  }}
+                  onClick={() => setScanOpen(true)}
                 >
                   <BarcodeIcon className="size-3.5 fill-current" />
                   Scan
@@ -365,7 +365,21 @@ export function PenjualanPOSClient({ initialRows, receiptContext }: { initialRow
               </div>
 
               <div className="flex flex-wrap items-center gap-1.5 overflow-x-auto scrollbar-none">
-                <JellyRadio items={KATEGORI_ITEMS} value={kategori} onChange={(v: string) => setKategori(v)} chipColor="#e4e4e7" activeColor="#18181b" textColor="#18181b" activeTextColor="#f5f5f5" size="sm" gap={3} radius={12} className="flex-1 min-w-[180px]" />
+                {/* Mobile: kategori jadi dropdown seperti filter stok/harga.
+                    Desktop tetap chip karena ruangnya cukup. */}
+                <Select value={kategori} onValueChange={(v) => setKategori((v as string) ?? "semua")}>
+                  <SelectTrigger size="sm" className="w-32 h-7 text-xs lg:hidden">
+                    <SelectValue>{KATEGORI_ITEMS.find((x) => x.value === kategori)?.label ?? "Semua"}</SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {KATEGORI_ITEMS.map((it) => (
+                      <SelectItem key={it.value} value={it.value}>{it.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <div className="hidden flex-1 min-w-[180px] lg:block">
+                  <JellyRadio items={KATEGORI_ITEMS} value={kategori} onChange={(v: string) => setKategori(v)} chipColor="#e4e4e7" activeColor="#18181b" textColor="#18181b" activeTextColor="#f5f5f5" size="sm" gap={3} radius={12} />
+                </div>
                 <Select value={stockFilter} onValueChange={(v) => setStockFilter((v as string) ?? "semua")}>
                   <SelectTrigger size="sm" className="w-32 h-7 text-xs">
                     <SelectValue>{STOK_ITEMS.find((x) => x.value === stockFilter)?.label ?? "Semua stok"}</SelectValue>
@@ -562,6 +576,23 @@ export function PenjualanPOSClient({ initialRows, receiptContext }: { initialRow
           </DialogPrimitive.Popup>
         </DialogPrimitive.Portal>
       </DialogPrimitive.Root>
+
+      <BarcodeScannerDialog
+        open={scanOpen}
+        onOpenChange={setScanOpen}
+        title="Scan produk"
+        description="Arahkan kamera ke barcode produk."
+        onDetected={(value) => {
+          const hit = matchProductByCode(products, value);
+          if (hit) {
+            addToCart(hit);
+            return;
+          }
+          // Tidak ketemu: isi kolom cari supaya kasir bisa lihat kandidat.
+          setQ(value);
+          toast.error(`Barcode ${value} tidak ditemukan`);
+        }}
+      />
 
       <PenjualanReceiptDialog
         open={receiptOpen}

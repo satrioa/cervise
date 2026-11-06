@@ -33,6 +33,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { ShiftDetailDialog } from "@/components/cash/shift-detail-dialog";
+import { BarcodeScannerDialog } from "@/components/scan/barcode-scanner-dialog";
 import { TaskNoteCard } from "./task-note-card";
 import { NewServisDialog } from "@/components/servis/new-servis-dialog";
 import { ServisPaymentDialog } from "@/components/servis/servis-payment-dialog";
@@ -747,12 +748,6 @@ function TerbaruList({ queue }: { queue: FrontlinerQueueItem[] }) {
   );
 }
 
-/** Tipe minimal BarcodeDetector; belum ada di lib DOM TypeScript. */
-type BarcodeDetectorInstance = {
-  detect(source: CanvasImageSource): Promise<{ rawValue: string }[]>;
-};
-type BarcodeDetectorCtor = new (options: { formats: string[] }) => BarcodeDetectorInstance;
-
 /**
  * Kartu candy "Pengambilan Device".
  *
@@ -781,22 +776,19 @@ function PengambilanDeviceCard({ queue, onSaved }: { queue: FrontlinerQueueItem[
  * Panel pencarian device siap diambil (`Selesai`).
  *
  * Pencarian menunggu 250 ms setelah ketikan terakhir supaya satu kata tidak
- * mengirim satu query per huruf. Scan memakai `BarcodeDetector` bawaan browser;
- * kalau tidak ada, panel tetap bisa dipakai dengan scanner USB/Bluetooth yang
- * mengetik ke input.
+ * mengirim satu query per huruf. Scan memakai kamera lewat
+ * `BarcodeScannerDialog`; hasilnya masuk ke kolom pencarian.
  */
 function PickupDialog({ open, onOpenChange, queue, onSaved }: { open: boolean; onOpenChange: (open: boolean) => void; queue: FrontlinerQueueItem[]; onSaved?: () => void }) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<PickupServiceItem[]>([]);
   const [loading, setLoading] = useState(false);
-  const [scanning, setScanning] = useState(false);
-  const [scanError, setScanError] = useState<string | null>(null);
+  const [scanOpen, setScanOpen] = useState(false);
   const [confirmItem, setConfirmItem] = useState<PickupServiceItem | null>(null);
   const [payItem, setPayItem] = useState<PickupServiceItem | null>(null);
   const [pickedBy, setPickedBy] = useState("");
   const [signature, setSignature] = useState("");
   const [saving, setSaving] = useState(false);
-  const videoRef = useRef<HTMLVideoElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   // Dialog ditutup = pencarian lama dibuang, supaya buka berikutnya bersih.
@@ -830,58 +822,6 @@ function PickupDialog({ open, onOpenChange, queue, onSaved }: { open: boolean; o
       window.clearTimeout(timer);
     };
   }, [open, query]);
-
-  useEffect(() => {
-    if (!scanning) return;
-
-    const Detector = (window as unknown as { BarcodeDetector?: BarcodeDetectorCtor }).BarcodeDetector;
-    if (!Detector) {
-      setScanError("Browser belum mendukung kamera; gunakan scanner USB/Bluetooth");
-      setScanning(false);
-      inputRef.current?.focus();
-      return;
-    }
-
-    let stream: MediaStream | null = null;
-    let timer: number | undefined;
-    let cancelled = false;
-
-    void (async () => {
-      try {
-        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
-        const video = videoRef.current;
-        if (cancelled || !video) return;
-        video.srcObject = stream;
-        await video.play();
-
-        const detector = new Detector({
-          formats: ["code_128", "code_39", "ean_13", "qr_code"],
-        });
-        timer = window.setInterval(() => {
-          const current = videoRef.current;
-          if (!current) return;
-          detector
-            .detect(current)
-            .then((codes) => {
-              const value = codes[0]?.rawValue?.trim();
-              if (!value) return;
-              setScanning(false);
-            })
-            .catch(() => {});
-        }, 350);
-      } catch {
-        setScanError("Kamera tidak bisa dibuka");
-        setScanning(false);
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-      if (timer) window.clearInterval(timer);
-      stream?.getTracks().forEach((track) => track.stop());
-      if (videoRef.current) videoRef.current.srcObject = null;
-    };
-  }, [scanning]);
 
   // Antrean rekomendasi belum punya baris kas, jadi dianggap belum dibayar.
   const fromQueue = (item: FrontlinerQueueItem): PickupServiceItem => ({
@@ -988,29 +928,15 @@ function PickupDialog({ open, onOpenChange, queue, onSaved }: { open: boolean; o
           <CandyButton
             type="button"
             tone="accent-cyan"
-            aria-label={scanning ? "Hentikan kamera" : "Scan barcode"}
+            aria-label="Scan barcode"
             title="Scan barcode"
-            onClick={() => {
-              setScanError(null);
-              setScanning((previous) => !previous);
-            }}
+            onClick={() => setScanOpen(true)}
             className="shrink-0 gap-1.5 px-3"
           >
             <ScanBarcodeIcon className="size-4" />
             <span className="text-xs font-medium">Scan</span>
           </CandyButton>
         </div>
-
-        {scanning ? (
-          <div className="overflow-hidden rounded-lg border">
-            <video ref={videoRef} muted playsInline className="block w-full bg-black" />
-            <p className="px-2 py-1 text-xs text-muted-foreground">
-              Arahkan kamera ke barcode pada nota.
-            </p>
-          </div>
-        ) : scanError ? (
-          <p className="text-xs text-destructive">{scanError}</p>
-        ) : null}
 
         <div className="max-h-[280px] overflow-y-auto scrollbar-thin">
           {query.trim().length < 2 ? (
@@ -1077,6 +1003,14 @@ function PickupDialog({ open, onOpenChange, queue, onSaved }: { open: boolean; o
     )}
       </DialogContent>
     </Dialog>
+      <BarcodeScannerDialog
+        open={scanOpen}
+        onOpenChange={setScanOpen}
+        title="Scan barcode"
+        description="Arahkan kamera ke barcode pada nota servis."
+        onDetected={(value) => setQuery(value)}
+      />
+
       <ServisPaymentDialog
         servisId={payItem?.id ?? null}
         open={payItem !== null}

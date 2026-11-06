@@ -8,13 +8,14 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
-import { XIcon, PackageIcon } from "lucide-react";
+import { XIcon, PackageIcon, ScanBarcodeIcon } from "lucide-react";
 import { toast } from "sonner";
 import { createProduct, searchProductsForSale } from "@/app/app/penjualan/actions";
 import { uploadProductPhoto } from "@/app/app/inventori/photo-actions";
 import { ProductPhotoPicker } from "@/components/inventori/product-photo";
 import { useBranch } from "@/lib/branch-context";
 import { playPageTransition } from "@/components/layout/page-transition";
+import { BarcodeScannerDialog } from "@/components/scan/barcode-scanner-dialog";
 
 type Props = {
   open: boolean;
@@ -37,6 +38,7 @@ export function ProductVariantDialog({ open, onOpenChange, onSuccess }: Props) {
   const [cost, setCost] = useState("");
   const [price, setPrice] = useState("");
   const [barcode, setBarcode] = useState("");
+  const [scanOpen, setScanOpen] = useState(false);
   // Bekas specific
   const [imei, setImei] = useState("");
   const [bh, setBh] = useState("");
@@ -198,7 +200,23 @@ export function ProductVariantDialog({ open, onOpenChange, onSuccess }: Props) {
               <div className="space-y-1.5"><Label>Harga Jual *</Label><Input type="number" min={0} value={price} onChange={(e) => setPrice(e.target.value)} placeholder="17900000" /></div>
             </div>
 
-            <div className="space-y-1.5"><Label>Barcode (opsional)</Label><Input value={barcode} onChange={(e) => setBarcode(e.target.value)} placeholder="Scan / ketik SKU" /></div>
+            <div className="space-y-1.5">
+              <Label>Barcode (opsional)</Label>
+              <div className="flex gap-2">
+                <Input value={barcode} onChange={(e) => setBarcode(e.target.value)} placeholder="Scan / ketik SKU" />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  aria-label="Scan barcode"
+                  title="Scan barcode"
+                  onClick={() => setScanOpen(true)}
+                  className="shrink-0"
+                >
+                  <ScanBarcodeIcon className="size-4" />
+                </Button>
+              </div>
+            </div>
 
             <div className="space-y-1.5">
               <Label>Foto produk (opsional)</Label>
@@ -231,6 +249,14 @@ export function ProductVariantDialog({ open, onOpenChange, onSuccess }: Props) {
           <DialogPrimitive.Close className="absolute right-3 top-3 rounded-md p-1 text-muted-foreground hover:bg-muted"><XIcon className="size-4" /></DialogPrimitive.Close>
         </DialogPrimitive.Popup>
       </DialogPrimitive.Portal>
+
+      <BarcodeScannerDialog
+        open={scanOpen}
+        onOpenChange={setScanOpen}
+        title="Scan barcode"
+        description="Arahkan kamera ke barcode produk."
+        onDetected={(value) => setBarcode(value)}
+      />
     </DialogPrimitive.Root>
   );
 }
