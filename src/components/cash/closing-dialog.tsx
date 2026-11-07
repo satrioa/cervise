@@ -27,9 +27,9 @@ type Step = "preview" | "closing" | "confirm";
 /**
  * Tutup Toko, tiga tahap.
  *
- * 1. Preview Laporan Shift — saldo akhir belum diminta. Orang harus melihat
- *    angkanya dulu sebelum menginput uang fisik; kalau urutannya dibalik,
- *    yang diinput cuma tebakan.
+ * 1. Preview Laporan Shift — sekaligus titik serah terima: Batal menutup
+ *    dialog, Ganti Shift membiarkan sesi terbuka untuk orang berikutnya,
+ *    Akhiri Shift lanjut ke input saldo akhir.
  * 2. Saldo akhir fisik.
  * 3. Konfirmasi selisih + alasan (wajib kalau kurang).
  *
@@ -185,7 +185,9 @@ export function ClosingDialog({
           <DialogDescription>
             {step === "preview" && (
               <>
-                Periksa angkanya dulu. Saldo akhir diminta setelah ini.
+                Periksa angkanya dulu. Saldo akhir diminta setelah ini. Pilih{" "}
+                <span className="font-medium">Ganti Shift</span> kalau orang berikutnya melanjutkan
+                sesi yang sama.
                 {refreshing ? <span className="ml-1 opacity-60">Memperbarui…</span> : null}
               </>
             )}
@@ -287,9 +289,20 @@ export function ClosingDialog({
 
         <DialogFooter>
           {step === "preview" ? (
-            <Button onClick={() => setStep("closing")} disabled={loading || !report}>
-              Lanjut isi saldo akhir
-            </Button>
+            <>
+              <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={saving}>
+                Batal
+              </Button>
+              {/* Ganti Shift hanya menutup dialog: sesi tetap terbuka dan orang
+                  berikutnya bisa langsung melanjutkan tanpa catatan serah
+                  terima. Tidak ada banner karena tidak ada yang berubah. */}
+              <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
+                Ganti Shift
+              </Button>
+              <Button onClick={() => setStep("closing")} disabled={loading || !report}>
+                Akhiri Shift
+              </Button>
+            </>
           ) : step === "closing" ? (
             <>
               <Button variant="outline" onClick={() => setStep("preview")} disabled={saving}>
@@ -305,7 +318,7 @@ export function ClosingDialog({
                 Kembali
               </Button>
               <Button onClick={submit} disabled={saving || (reasonRequired && !reason.trim())}>
-                {saving ? "Menyimpan..." : "Tutup Toko"}
+                {saving ? "Menyimpan..." : "Akhiri Shift"}
               </Button>
             </>
           )}

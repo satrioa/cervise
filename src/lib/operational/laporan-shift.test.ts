@@ -1,10 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
+  assignShiftNumbers,
   buildLaporanShift,
   formatShiftAsText,
   formatShiftRowsForSheet,
   rupiah,
-  shiftDateWindow,
+  shiftLabel,
   type ShiftCashRow,
   type ShiftSaleRow,
   type ShiftServiceRow,
@@ -367,73 +368,35 @@ describe("jendela waktu servis", () => {
   });
 });
 
-describe("jendela tanggal shift", () => {
-  // Kas manual dan penjualan difilter per `kas_date` (date), sementara servis
-  // per `created_at` (timestamptz). Kalau jendelanya hanya tanggal buka, shift
-  // yang dibiarkan terbuka semalam kehilangan uang hari ini padahal servisnya
-  // tetap masuk - persis bug "kas manual tidak tercatat".
-  it("shift sehari menghasilkan satu tanggal", () => {
-    // 01:00Z = 08:00 WIB, 10:00Z = 17:00 WIB - buka dan tutup di hari yang sama.
-    const window = shiftDateWindow(
-      session({ openAt: "2026-09-28T01:00:00.000Z", closedAt: "2026-09-28T10:00:00.000Z" }),
-      NOW,
-    );
-    expect(window).toEqual({ from: "2026-09-28", to: "2026-09-28" });
+describe("nomor dan label shift", () => {
+  it("memberi nomor urut per tanggal buka WIB dan reset besoknya", () => {
+    const numbers = assignShiftNumbers([
+      { id: "s2", openAt: "2026-09-28T09:00:00.000Z" }, // 16:00 WIB
+      { id: "s1", openAt: "2026-09-28T01:00:00.000Z" }, // 08:00 WIB
+      { id: "s3", openAt: "2026-09-29T01:00:00.000Z" }, // besok 08:00 WIB
+    ]);
+    expect(numbers.get("s1")).toBe(1);
+    expect(numbers.get("s2")).toBe(2);
+    expect(numbers.get("s3")).toBe(1);
   });
 
-  it("shift yang masih terbuka memakai hari ini sebagai batas atas", () => {
-    const window = shiftDateWindow(
-      session({ openAt: "2026-10-24T11:19:43.000Z" }),
-      new Date("2026-10-25T06:23:39.000Z"),
-    );
-    expect(window).toEqual({ from: "2026-10-24", to: "2026-10-25" });
+  it("label memakai jam WIB, bukan tanggal", () => {
+    expect(
+      shiftLabel(
+        { openAt: "2026-09-28T01:00:00.000Z", closedAt: "2026-09-28T10:00:00.000Z" },
+        1,
+      ),
+    ).toBe("Shift 1 · 08:00–17:00");
   });
 
-  it("shift yang ditutup di hari berikutnya mencakup kedua tanggal", () => {
-    const window = shiftDateWindow(
-      session({
-        openAt: "2026-10-24T11:19:43.000Z",
-        closedAt: "2026-10-25T15:00:00.000Z",
-      }),
-      new Date("2026-10-25T16:00:00.000Z"),
-    );
-    expect(window).toEqual({ from: "2026-10-24", to: "2026-10-25" });
-  });
-
-  it("memakai tanggal WIB, bukan tanggal UTC", () => {
-    // 00:30 WIB tanggal 29 = 17:30 UTC tanggal 28. Hari UTC akan menggeser
-    // shift ini ke tanggal 28 dan memotong tujuh jam pertama harinya.
-    const window = shiftDateWindow(
-      session({ openAt: "2026-09-28T17:30:00.000Z", closedAt: null }),
-      new Date("2026-09-28T18:00:00.000Z"),
-    );
-    expect(window.from).toBe("2026-09-29");
-    expect(window.to).toBe("2026-09-29");
-  });
-
-  it("closed_at sebelum open_at tidak menghasilkan rentang terbalik", () => {
-    // Data lama bisa punya urutan jam yang salah. Rentang terbalik membuat
-    // query mengembalikan nol baris, jadi jendelanya dipersempit ke tanggal buka.
-    const window = shiftDateWindow(
-      session({ openAt: "2026-09-28T08:00:00.000Z", closedAt: "2026-09-26T17:00:00.000Z" }),
-      NOW,
-    );
-    expect(window).toEqual({ from: "2026-09-28", to: "2026-09-28" });
-  });
-
-  it("transaksi hari berikutnya tetap masuk laporan shift yang dibuka kemarin", () => {
-    // Penjaga regresi ujung-ke-ujung: begitu baris dari jendela tanggal ikut
-    // terkirim, buildLaporanShift tidak membuangnya lagi.
-    const report = build({
-      session: session({ openAt: "2026-10-24T11:19:43.000Z" }),
-      cashTx: [
-        cash({ id: "c-24", kas_date: "2026-10-24" }),
-        cash({ id: "c-25", kas_date: "2026-10-25", amount: 50_000 }),
-      ],
-      now: new Date("2026-10-25T06:30:00.000Z"),
-    });
-    expect(report.cashTx.map((line) => line.id)).toContain("c-25");
-    expect(report.totals.manualIn).toBe(100_000);
+  it("shift yang masih terbuka berakhir di jam sekarang", () => {
+    expect(
+      shiftLabel(
+        { openAt: "2026-09-28T01:00:00.000Z", closedAt: null },
+        2,
+        new Date("2026-09-28T05:30:00.000Z"),
+      ),
+    ).toBe("Shift 2 · 08:00–12:30");
   });
 });
 

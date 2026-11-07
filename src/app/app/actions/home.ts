@@ -96,7 +96,7 @@ async function loadFrontlinerHome(
   const [queue, kpi, cash] = await Promise.all([
     settle(() => loadFrontlinerQueue(ctx), []),
     settle<FrontlinerKpi | null>(() => loadFrontlinerKpi(ctx), null),
-    settle(() => loadCashSession(ctx), { current: null, stale: null }),
+    settle(() => loadCashSession(ctx), { current: null, stale: null, lastClosingBalance: null }),
   ]);
 
   const current = cash.value.current;

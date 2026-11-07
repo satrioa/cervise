@@ -14,38 +14,48 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { formatCurrencyPlain } from "@/lib/format";
+import { kalenderWIB } from "@/lib/operational/periode-bulan";
 import { checkOpenCashSession, openCashSession, type CashSessionRow } from "@/app/app/actions/cash";
 import { playPageTransition } from "@/components/layout/page-transition";
 
 /**
- * Saldo awal wajib.
+ * Saldo awal wajib untuk frontliner.
  *
- * Tidak bisa ditutup dengan Escape atau klik backdrop: tanpa saldo awal,
- * Laporan Shift tidak punya pijakan. Sesi hanya bisa ditutup lewat
+ * Secara default tidak bisa ditutup dengan Escape atau klik backdrop: tanpa
+ * saldo awal, Laporan Shift tidak punya pijakan. Sesi hanya bisa ditutup lewat
  * tombol Tutup Toko di dashboard.
  *
+ * Manager membuka shift secara opsional dari Laporan Shift, jadi di sana
+ * dialog dipasang dengan `dismissible` supaya bisa dibatalkan.
+ *
  * `stale` memberi tahu ada shift lama yang belum ditutup. Index unik
- * satu-sesi-terbuka-per-karyawan akan menolak sesi baru, jadi pengguna
- * harus menutup shift lama dulu — dialog mengarahkan ke sana.
+ * satu-sesi-terbuka-per-cabang akan menolak sesi baru, jadi pengguna harus
+ * menutup shift lama dulu — dialog mengarahkan ke sana.
  */
 function sessionDate(session: CashSessionRow): string {
   const opened = new Date(session.openAt);
   if (Number.isNaN(opened.getTime())) return "sebelumnya";
-  return opened.toISOString().slice(0, 10);
+  return kalenderWIB(opened);
 }
 
 export function OpeningBalanceDialog({
   onOpened,
+  onClose,
   staffName,
+  dismissible = false,
 }: {
   onOpened?: (session: CashSessionRow) => void;
+  onClose?: () => void;
   staffName?: string;
+  /** Manager boleh membatalkan; frontliner tidak. */
+  dismissible?: boolean;
 }) {
   const [open, setOpen] = useState(true);
   const [balance, setBalance] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [stale, setStale] = useState<CashSessionRow | null>(null);
+  const [suggested, setSuggested] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -58,6 +68,12 @@ export function OpeningBalanceDialog({
         return;
       }
       setStale(result.data.stale);
+      // Shift berikutnya biasanya mulai dari uang yang tersisa di laci shift
+      // sebelumnya. Tetap bisa diubah: kadang laci diisi ulang dari brankas.
+      if (result.data.lastClosingBalance !== null) {
+        setBalance(String(result.data.lastClosingBalance));
+        setSuggested(true);
+      }
     });
     return () => {
       cancelled = true;
@@ -87,17 +103,18 @@ export function OpeningBalanceDialog({
     <Dialog
       open={open}
       onOpenChange={(next) => {
-        // Satu-satunya cara menutup: sesi berhasil dibuat.
-        if (!next && !saving) return;
+        // Frontliner: satu-satunya cara menutup adalah sesi berhasil dibuat.
+        if (!next && !saving && !dismissible) return;
         setOpen(next);
+        if (!next) onClose?.();
       }}
     >
-      <DialogContent showCloseButton={false} className="sm:max-w-md">
+      <DialogContent showCloseButton={dismissible} className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Saldo Awal Kas</DialogTitle>
           <DialogDescription>
-            {staffName ? `${staffName} · ` : ""}Isi saldo uang di laci sebelum mulai shift. Angka
-            ini jadi pijakan Laporan Shift.
+            {staffName ? `${staffName} · ` : ""}Isi saldo uang di laci cabang ini sebelum mulai
+            shift. Angka ini jadi pijakan Laporan Shift.
           </DialogDescription>
         </DialogHeader>
 
@@ -132,7 +149,10 @@ export function OpeningBalanceDialog({
             className="font-mono"
           />
           {balance ? (
-            <p className="text-xs text-muted-foreground">{formatCurrencyPlain(Number(balance))}</p>
+            <p className="text-xs text-muted-foreground">
+              {formatCurrencyPlain(Number(balance))}
+              {suggested ? " · saran dari saldo akhir shift sebelumnya" : ""}
+            </p>
           ) : null}
           {error ? <p className="text-xs text-destructive">{error}</p> : null}
         </div>

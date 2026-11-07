@@ -10,6 +10,7 @@
  */
 
 import { kalenderWIB } from "./periode-bulan";
+import { shiftClock } from "./shift-detail";
 
 export const SHIFT_SNAPSHOT_VERSION = 1;
 
@@ -29,6 +30,8 @@ export type ShiftSession = {
   employeeName: string;
   /** Diisi saat sesi sudah ditutup; null untuk sesi terbuka / data lama. */
   closedByName?: string | null;
+  /** Urutan shift pada tanggal buka (WIB). Dihitung, tidak disimpan di kolom. */
+  shiftNumber?: number;
 };
 
 export type ShiftServiceRow = {
@@ -144,6 +147,8 @@ export type ShiftReport = {
   durationMinutes?: number;
   serviceStats?: ShiftServiceStats;
   spareparts?: ShiftSparepartLine[];
+  /** Urutan shift pada tanggal buka. Snapshot lama belum punya field ini. */
+  shiftNumber?: number;
 };
 
 function amount(value: number | null | undefined): number {
@@ -164,40 +169,50 @@ function isSettled(status: string | null | undefined): boolean {
   return status === "lunas" || status === "dp";
 }
 
-/**
- * Rentang tanggal kalender yang dicakup satu sesi kas.
- *
- * `kas_date` bertipe `date`, jadi jamnya hilang dan laporan hanya bisa
- * mengambil per tanggal. Shift yang dibuka 24 Okt dan masih terbuka sampai
- * 25 Okt mencakup DUA tanggal. Memakai tanggal buka saja membuat penjualan
- * dan kas manual hari ini hilang dari rekap, padahal servisnya tetap masuk -
- * servis memakai `created_at` yang jamnya masih tersimpan. Akibatnya angka
- * rekap tidak konsisten: servis hari ini terhitung, uangnya tidak.
- *
- * Shift normal (buka dan tutup di hari yang sama) menghasilkan `from === to`,
- * jadi perilakunya tidak berubah.
- */
-export function shiftDateWindow(
-  session: Pick<ShiftSession, "openAt" | "closedAt">,
-  now: Date,
-): { from: string; to: string } {
+/** Tanggal kalender WIB tempat shift dibuka. */
+function shiftDate(session: ShiftSession, now: Date): string {
   const opened = new Date(session.openAt);
-  // Hari UTC akan menaruh shift yang dibuka jam 00:00-07:00 WIB di tanggal
-  // sebelumnya, jadi shift itu terpotong oleh hari yang salah di laporan.
-  const from = kalenderWIB(Number.isNaN(opened.getTime()) ? now : opened);
-
-  const closed = session.closedAt ? new Date(session.closedAt) : now;
-  const to = kalenderWIB(Number.isNaN(closed.getTime()) ? now : closed);
-
-  // Baris lama bisa punya `closed_at` sebelum `open_at`. Rentang terbalik
-  // membuat query mengembalikan nol baris, jadi jendelanya dipersempit ke
-  // satu tanggal buka.
-  return to < from ? { from, to: from } : { from, to };
+  return kalenderWIB(Number.isNaN(opened.getTime()) ? now : opened);
 }
 
-/** Tanggal kalender shift, dari `open_at`. */
-function shiftDate(session: ShiftSession, now: Date): string {
-  return shiftDateWindow(session, now).from;
+/**
+ * Nomor shift per tanggal buka WIB: Shift 1, Shift 2, … dan reset tiap hari.
+ *
+ * Nomor dihitung dari seluruh sesi cabang, bukan dari daftar yang sedang
+ * ditampilkan, supaya frontliner yang hanya melihat shift miliknya sendiri
+ * tetap mendapat nomor yang sama dengan yang dilihat manager.
+ */
+export function assignShiftNumbers(
+  sessions: Pick<ShiftSession, "id" | "openAt">[],
+): Map<string, number> {
+  const perDay = new Map<string, { id: string; openAt: string }[]>();
+  for (const session of sessions) {
+    const day = kalenderWIB(new Date(session.openAt));
+    const list = perDay.get(day);
+    if (list) list.push(session);
+    else perDay.set(day, [session]);
+  }
+
+  const numbers = new Map<string, number>();
+  for (const list of perDay.values()) {
+    list.sort((a, b) => a.openAt.localeCompare(b.openAt));
+    list.forEach((session, index) => numbers.set(session.id, index + 1));
+  }
+  return numbers;
+}
+
+/**
+ * Label shift: waktu saja, tanpa tanggal. `number` kosong untuk data lama
+ * yang belum sempat dihitung, supaya label tetap berguna.
+ */
+export function shiftLabel(
+  session: { openAt: string; closedAt?: string | null; closingAt?: string | null },
+  number: number | null | undefined,
+  now: Date = new Date(),
+): string {
+  const end = shiftClock(session.closedAt ?? session.closingAt ?? now.toISOString());
+  const range = `${shiftClock(session.openAt)}–${end}`;
+  return number ? `Shift ${number} · ${range}` : range;
 }
 
 function serviceLabel(row: ShiftServiceRow): string {
@@ -245,9 +260,9 @@ export function buildLaporanShift(input: {
   );
 
   // Servis dipotong tepat pada jam buka/tutup: created_at bertipe timestamptz
-  // (`20260925130000:41`) sehingga jamnya tersimpan. Penjualan dan kas manual
-  // tidak bisa — kas_date bertipe date dan jamnya hilang, jadi keduanya
-  // mencakup seluruh transaksi kalender hari itu.
+  // sehingga jamnya tersimpan. Penjualan dan kas manual juga memakai
+  // created_at dengan jendela yang sama (difilter di query), supaya dua shift
+  // dalam satu hari tidak saling menyalin angka.
   const openMs = new Date(session.openAt).getTime();
   const closeAt = session.closedAt ? new Date(session.closedAt).toISOString() : now.toISOString();
   const closeMs = new Date(closeAt).getTime();
@@ -423,9 +438,9 @@ export function formatShiftAsText(report: ShiftReport): string {
 
   lines.push("LAPORAN SHIFT");
   lines.push(`Toko: ${report.branchName}`);
-  lines.push(`Frontliner: ${report.employeeName}`);
-  lines.push(`Shift: ${report.date}`);
-  lines.push(`Jam: ${report.openAt} - ${report.closingAt}`);
+  lines.push(`Dibuka oleh: ${report.employeeName}`);
+  lines.push(`Tanggal: ${report.date}`);
+  lines.push(`Shift: ${shiftLabel(report, report.shiftNumber)}`);
   lines.push("");
 
   lines.push("SALDO AWAL");
@@ -498,9 +513,9 @@ export function formatShiftRowsForSheet(report: ShiftReport): (string | number)[
 
   rows.push(["LAPORAN SHIFT"]);
   rows.push(["Toko", report.branchName]);
-  rows.push(["Frontliner", report.employeeName]);
-  rows.push(["Shift", report.date]);
-  rows.push(["Jam", `${report.openAt} - ${report.closingAt}`]);
+  rows.push(["Dibuka oleh", report.employeeName]);
+  rows.push(["Tanggal", report.date]);
+  rows.push(["Shift", shiftLabel(report, report.shiftNumber)]);
   rows.push([]);
 
   rows.push(["SALDO AWAL"]);

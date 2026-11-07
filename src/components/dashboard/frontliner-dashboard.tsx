@@ -414,7 +414,11 @@ function RingkasanHariIni({
 }) {
   // Shift yang masih terbuka sejak kemarin bukan "hari ini": judulnya harus
   // menyebut tanggalnya supaya angka di dalamnya tidak disalahartikan.
-  const title = staleDate ? `Ringkasan Shift ${shortShiftDate(staleDate)}` : "Ringkasan Hari ini";
+  const title = staleDate
+    ? `Ringkasan Shift ${shortShiftDate(staleDate)}`
+    : report?.shiftNumber && report.shiftNumber > 1
+      ? `Ringkasan Shift ${report.shiftNumber}`
+      : "Ringkasan Hari ini";
   const [detailOpen, setDetailOpen] = useState(false);
 
   if (!report) {

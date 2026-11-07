@@ -3,7 +3,11 @@
 import { getActiveTenant } from "@/lib/supabase/actor";
 import { isManagerRole } from "@/lib/auth/authorization";
 import type { FrontlinerKpi } from "@/lib/operational/frontliner-dashboard";
-import type { ShiftReport, ShiftSession } from "@/lib/operational/laporan-shift";
+import {
+  assignShiftNumbers,
+  type ShiftReport,
+  type ShiftSession,
+} from "@/lib/operational/laporan-shift";
 import { kalenderWIB } from "@/lib/operational/periode-bulan";
 import {
   computeShiftReport,
@@ -61,7 +65,11 @@ function toCalendarDate(date: Date): string {
  * bisa memperingatkan sebelum membuat sesi baru.
  */
 export async function checkOpenCashSession(): Promise<
-  CashResult<{ current: CashSessionRow | null; stale: CashSessionRow | null }>
+  CashResult<{
+    current: CashSessionRow | null;
+    stale: CashSessionRow | null;
+    lastClosingBalance: number | null;
+  }>
 > {
   try {
     return { ok: true, data: await loadCashSession(await cashContext()) };
@@ -86,16 +94,16 @@ export async function openCashSession(input: { openingBalance: number }): Promis
     const { supabase, branchId, userId } = await cashContext();
 
     // Optimistic lock di level aplikasi. Index unik di database
-    // (`where closed_at is null`) adalah jaring kedua: kalau dua tab dibuka
-    // bersamaan, satu akan gagal dengan error unik yang bisa dibaca.
+    // (`where closed_at is null`) adalah jaring kedua: kalau dua orang di
+    // cabang yang sama membuka shift bersamaan, satu akan gagal.
     const { data: existing, error: existingError } = await supabase
       .from("cervise_cash_sessions")
       .select("id")
-      .eq("employee_id", userId)
+      .eq("branch_id", branchId)
       .is("closed_at", null)
       .maybeSingle();
     if (existingError) return fail(existingError.message);
-    if (existing) return fail("Masih ada sesi kas yang terbuka. Tutup toko dulu.");
+    if (existing) return fail("Shift cabang ini masih terbuka. Tutup shift dulu.");
 
     const { data, error } = await supabase
       .from("cervise_cash_sessions")
@@ -103,7 +111,14 @@ export async function openCashSession(input: { openingBalance: number }): Promis
       .select("id, branch_id, employee_id, open_at, opening_balance, closed_at, closing_balance, variance")
       .single();
 
-    if (error) return fail(error.message);
+    if (error) {
+      // Dua orang menekan Buka Shift hampir bersamaan: yang kalah ditolak
+      // index unik, bukan pesan Postgres mentah.
+      if (error.code === "23505") {
+        return fail("Shift cabang ini baru saja dibuka. Muat ulang halaman.");
+      }
+      return fail(error.message);
+    }
 
     const [session] = await hydrateSessions(supabase, [data as CashSessionRecord]);
     return { ok: true, data: session };
@@ -129,9 +144,7 @@ export async function closeCashSession(input: {
 
   try {
     const ctx = await cashContext();
-    const { supabase, userId, role } = ctx;
-
-    const isManager = isManagerRole(role);
+    const { supabase, branchId, userId } = ctx;
 
     // Verifikasi sesi masih terbuka sebelum update. Constraint database
     // `cervise_cash_sessions_closed_check` hanya menolak update yang
@@ -146,8 +159,8 @@ export async function closeCashSession(input: {
     if (readError) return fail(readError.message);
     if (!row) return fail("Sesi kas tidak ditemukan");
     if (row.closed_at) return fail("Shift ini sudah ditutup sebelumnya");
-    if (row.employee_id !== userId && !isManager) {
-      return fail("Sesi kas ini bukan milik Anda");
+    if (row.branch_id !== branchId) {
+      return fail("Sesi kas ini milik cabang lain");
     }
 
     const [session] = await hydrateSessions(supabase, [row as CashSessionRecord]);
@@ -257,14 +270,30 @@ export async function listShiftSessions(
       .order("open_at", { ascending: false })
       .limit(200);
 
-    if (scope === "mine" || !isManager) query = query.eq("employee_id", userId);
     if (filters.from) query = query.gte("open_at", filters.from);
     if (filters.to) query = query.lte("open_at", `${filters.to}T23:59:59.999Z`);
 
     const { data, error } = await query;
     if (error) return fail(error.message);
 
-    const sessions = await hydrateSessions(supabase, (data ?? []) as CashSessionRecord[]);
+    const hydrated = await hydrateSessions(supabase, (data ?? []) as CashSessionRecord[]);
+
+    // Nomor dihitung dari seluruh sesi cabang sebelum disaring, supaya
+    // frontliner yang hanya melihat shift miliknya tetap dapat nomor yang
+    // sama dengan yang dilihat manager.
+    const numbers = assignShiftNumbers(hydrated);
+    const visible =
+      scope === "mine" || !isManager
+        ? hydrated.filter((session) => session.employeeId === userId)
+        : hydrated;
+    const sessions = visible
+      .map((session) => ({ ...session, shiftNumber: numbers.get(session.id) }))
+      // Tanggal terbaru dulu, lalu Shift 1 -> 2 di dalam tanggal yang sama.
+      .sort((a, b) => {
+        const day = kalenderWIB(new Date(b.openAt)).localeCompare(kalenderWIB(new Date(a.openAt)));
+        return day !== 0 ? day : a.openAt.localeCompare(b.openAt);
+      });
+
     return { ok: true, data: sessions };
   } catch (cause) {
     return fail(cause instanceof Error ? cause.message : "Gagal memuat daftar shift");

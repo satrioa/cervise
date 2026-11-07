@@ -17,7 +17,6 @@ import {
 } from "@/lib/operational/frontliner-dashboard";
 import {
   buildLaporanShift,
-  shiftDateWindow,
   type ShiftCashRow,
   type ShiftReport,
   type ShiftSaleRow,
@@ -454,27 +453,51 @@ export async function hydrateSessions(
 }
 
 /**
- * Sesi kas terbuka milik pengguna ini, atau null.
+ * Sesi kas terbuka milik cabang ini, atau null.
  *
- * `staleSession` mengembalikan sesi terbuka yang tanggalnya sudah lewat — tahu
- * kalau ada shift yang ditinggalkan tanpa ditutup, supaya dialog saldo awal
- * bisa memperingatkan sebelum membuat sesi baru.
+ * Satu laci = satu sesi. `staleSession` mengembalikan sesi terbuka yang
+ * tanggalnya sudah lewat — tahu kalau ada shift yang ditinggalkan tanpa
+ * ditutup, supaya dialog saldo awal bisa memperingatkan sebelum membuat sesi
+ * baru.
  */
 export async function loadCashSession(
   ctx: HomeContext,
-): Promise<{ current: ShiftSession | null; stale: ShiftSession | null }> {
-  const { supabase, userId } = ctx;
+): Promise<{
+  current: ShiftSession | null;
+  stale: ShiftSession | null;
+  /** Saldo akhir shift terakhir yang tutup di hari WIB yang sama. */
+  lastClosingBalance: number | null;
+}> {
+  const { supabase, branchId } = ctx;
 
-  const { data, error } = await supabase
-    .from("cervise_cash_sessions")
-    .select("id, branch_id, employee_id, open_at, opening_balance, closed_at, closing_balance, variance")
-    .eq("employee_id", userId)
-    .is("closed_at", null)
-    .order("open_at", { ascending: false });
-  if (error) throw new Error(error.message);
+  // Dua query paralel: sesi yang masih terbuka, dan penutupan terakhir.
+  // Yang kedua hanya dipakai sebagai saran saldo awal shift berikutnya.
+  const [openResult, closedResult] = await Promise.all([
+    supabase
+      .from("cervise_cash_sessions")
+      .select("id, branch_id, employee_id, open_at, opening_balance, closed_at, closing_balance, variance")
+      .eq("branch_id", branchId)
+      .is("closed_at", null)
+      .order("open_at", { ascending: false }),
+    supabase
+      .from("cervise_cash_sessions")
+      .select("closed_at, closing_balance")
+      .eq("branch_id", branchId)
+      .not("closed_at", "is", null)
+      .order("closed_at", { ascending: false })
+      .limit(1),
+  ]);
+  if (openResult.error) throw new Error(openResult.error.message);
+  if (closedResult.error) throw new Error(closedResult.error.message);
 
   const today = kalenderWIB(new Date());
-  const hydrated = await hydrateSessions(supabase, (data ?? []) as CashSessionRecord[]);
+  const hydrated = await hydrateSessions(supabase, (openResult.data ?? []) as CashSessionRecord[]);
+
+  const lastClosed = closedResult.data?.[0];
+  const lastClosingBalance =
+    lastClosed?.closed_at && kalenderWIB(new Date(lastClosed.closed_at)) === today
+      ? lastClosed.closing_balance ?? null
+      : null;
 
   return {
     // Index unik `where closed_at is null` menjamin paling banyak satu, tapi
@@ -482,6 +505,7 @@ export async function loadCashSession(
     current:
       hydrated.find((row) => kalenderWIB(new Date(row.openAt)) === today) ?? hydrated[0] ?? null,
     stale: hydrated.find((row) => kalenderWIB(new Date(row.openAt)) !== today) ?? null,
+    lastClosingBalance,
   };
 }
 
@@ -514,16 +538,17 @@ export async function computeShiftReport(
 ): Promise<ShiftReport> {
   const { supabase, branchId } = ctx;
   const now = new Date();
-  // Satu shift bisa mencakup lebih dari satu tanggal: shift kemarin yang masih
-  // terbuka sampai hari ini harus memuat penjualan dan kas manual hari ini.
-  // Memakai tanggal buka saja membuat uang hari ini hilang dari rekap sementara
-  // servisnya tetap masuk (servis memakai `created_at` yang jamnya tersimpan).
-  const { from: openDate, to: closeDate } = shiftDateWindow(session, now);
+  // Satu shift bisa mencakup lebih dari satu tanggal. Semua sumber dipotong
+  // dengan jendela jam yang sama (buka s/d tutup), bukan tanggal kalender:
+  // dua shift dalam satu hari tidak boleh saling menyalin angka, dan transaksi
+  // di jeda tutup -> buka tidak masuk laporan mana pun.
+  const closeAt = session.closedAt ?? now.toISOString();
+  const openedAt = new Date(session.openAt);
+  const dayStart = awalHariWIB(Number.isNaN(openedAt.getTime()) ? now : openedAt);
 
-  // Tiga query paralel. Setiap filter mengikuti bentuk kolomnya masing-masing:
-  // servis pakai created_at (timestamptz, jamnya ada), penjualan dan kas pakai
-  // kas_date (date, jamnya hilang) jadi satu rentang tanggal shift.
-  const [servicesResult, salesResult, cashResult] = await Promise.all([
+  // Empat query paralel: tiga sumber laporan, plus hitungan sesi sebelumnya
+  // pada hari WIB yang sama untuk nomor shift.
+  const [servicesResult, salesResult, cashResult, earlierResult] = await Promise.all([
     supabase
       .from("cervise_services")
       .select("id, service_number, device, status, price, created_at, updated_at")
@@ -535,19 +560,25 @@ export async function computeShiftReport(
       .from("cervise_sales")
       .select("id, sale_number, total, paid, payment_status, payment_method, kas_date, servis_id")
       .eq("branch_id", branchId)
-      .gte("kas_date", openDate)
-      .lte("kas_date", closeDate)
+      .gte("created_at", session.openAt)
+      .lt("created_at", closeAt)
       .order("created_at", { ascending: false })
       .limit(SALE_ROW_CAP),
     supabase
       .from("cervise_finance_tx")
       .select("id, type, amount, description, kas_date, source, metode")
       .eq("branch_id", branchId)
-      .gte("kas_date", openDate)
-      .lte("kas_date", closeDate)
+      .gte("created_at", session.openAt)
+      .lt("created_at", closeAt)
       .in("source", ["kas_manual", "penyesuaian", "retur"])
       .order("created_at", { ascending: false })
       .limit(CASH_ROW_CAP),
+    supabase
+      .from("cervise_cash_sessions")
+      .select("id", { count: "exact", head: true })
+      .eq("branch_id", branchId)
+      .gte("open_at", dayStart.toISOString())
+      .lt("open_at", session.openAt),
   ]);
 
   if (servicesResult.error) throw new Error(servicesResult.error.message);
@@ -557,7 +588,6 @@ export async function computeShiftReport(
   // Sparepart dipotong dengan jendela jam yang sama seperti servis: baris
   // sparepart dibuat saat teknisi memakainya, jadi created_at-nya setara.
   // Baris yang sudah dikembalikan tidak dihitung sebagai pemakaian.
-  const closeAt = session.closedAt ?? now.toISOString();
   const sparepartsResult = await supabase
     .from("cervise_service_spareparts")
     .select("name, qty")
@@ -576,16 +606,21 @@ export async function computeShiftReport(
     sparepartQty.set(name, (sparepartQty.get(name) ?? 0) + Number(row.qty ?? 0));
   }
 
-  return buildLaporanShift({
-    session,
-    services: (servicesResult.data ?? []) as ShiftServiceRow[],
-    sales: (salesResult.data ?? []) as ShiftSaleRow[],
-    cashTx: (cashResult.data ?? []) as ShiftCashRow[],
-    spareparts: [...sparepartQty.entries()]
-      .map(([name, qty]) => ({ name, qty }))
-      .sort((a, b) => a.name.localeCompare(b.name)),
-    now,
-  });
+  return {
+    ...buildLaporanShift({
+      session,
+      services: (servicesResult.data ?? []) as ShiftServiceRow[],
+      sales: (salesResult.data ?? []) as ShiftSaleRow[],
+      cashTx: (cashResult.data ?? []) as ShiftCashRow[],
+      spareparts: [...sparepartQty.entries()]
+        .map(([name, qty]) => ({ name, qty }))
+        .sort((a, b) => a.name.localeCompare(b.name)),
+      now,
+    }),
+    // Kegagalan hitungan nomor tidak boleh menggagalkan laporan; nomor hanya
+    // label tampilan.
+    shiftNumber: (earlierResult.count ?? 0) + 1,
+  };
 }
 
 // ---------------------------------------------------------------------------

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -11,17 +11,22 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { formatCurrencyPlain } from "@/lib/format";
-import type { ShiftReport } from "@/lib/operational/laporan-shift";
+import { kalenderWIB } from "@/lib/operational/periode-bulan";
+import { shiftLabel, type ShiftReport } from "@/lib/operational/laporan-shift";
 import { getShiftPreview, getShiftReport, listShiftSessions, type CashSessionRow } from "@/app/app/actions/cash";
 import { ShiftReportView } from "@/components/cash/shift-report";
 import { ShiftExportBar } from "@/components/cash/shift-export-bar";
+import { OpeningBalanceDialog } from "@/components/cash/opening-balance-dialog";
+import { ClosingDialog } from "@/components/cash/closing-dialog";
+import { AdjustmentDialog } from "@/components/cash/adjustment-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PlainTableRowsSkeleton } from "@/components/ui/skeleton-shapes";
 import { PageHeader } from "@/components/layout/page-header";
+import { ALL_BRANCH, useBranch } from "@/lib/branch-context";
 
 function sessionDate(session: CashSessionRow): string {
   const opened = new Date(session.openAt);
-  return Number.isNaN(opened.getTime()) ? "—" : opened.toISOString().slice(0, 10);
+  return Number.isNaN(opened.getTime()) ? "—" : kalenderWIB(opened);
 }
 
 function varianceTone(variance: number | null): string {
@@ -89,12 +94,42 @@ function ShiftReportSkeleton() {
  * sudah diunduh tidak berubah karena ada koreksi di kemudian hari.
  */
 export default function LaporanShiftClient() {
+  const { branch } = useBranch();
   const [sessions, setSessions] = useState<CashSessionRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [viewing, setViewing] = useState<CashSessionRow | null>(null);
   const [report, setReport] = useState<ShiftReport | null>(null);
   const [viewLoading, setViewLoading] = useState(false);
+  const [openingOpen, setOpeningOpen] = useState(false);
+  const [closingOpen, setClosingOpen] = useState(false);
+  const [adjustOpen, setAdjustOpen] = useState(false);
+
+  // Kas adalah aksi per cabang. Saat scope "Semua cabang", server action tidak
+  // punya `branchId`, jadi tombol dimatikan dan meminta pengguna memilih satu.
+  const cashUnavailable = branch.id === ALL_BRANCH.id;
+  const cashHint = cashUnavailable ? "Pilih cabang dulu" : undefined;
+  const openSession = sessions.find((session) => session.closedAt === null) ?? null;
+
+  const reload = useCallback(async () => {
+    if (cashUnavailable) {
+      setLoading(false);
+      return;
+    }
+    const result = await listShiftSessions();
+    if (result.ok) {
+      setSessions(result.data);
+      setError(null);
+    } else {
+      setError(result.error);
+    }
+    setLoading(false);
+  }, [cashUnavailable]);
+
+  const handleOpened = useCallback(() => {
+    setOpeningOpen(false);
+    void reload();
+  }, [reload]);
 
   // Effect hanya melakukan fetch; state awal sudah `loading`, jadi tidak ada
   // setState sinkron di body. Refresh dipanggil dari event handler.
@@ -102,8 +137,12 @@ export default function LaporanShiftClient() {
     let cancelled = false;
     listShiftSessions().then((result) => {
       if (cancelled) return;
-      if (result.ok) setSessions(result.data);
-      else setError(result.error);
+      if (result.ok) {
+        setSessions(result.data);
+        setError(null);
+      } else {
+        setError(result.error);
+      }
       setLoading(false);
     });
     return () => {
@@ -131,21 +170,62 @@ export default function LaporanShiftClient() {
         title="Laporan Shift"
         titleClassName="font-heading text-2xl"
         description="Rekap kas per shift: layanan servis, penjualan, dan transaksi manual."
+        actions={
+          <div className="flex items-center gap-2">
+            {openSession ? (
+              <>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={cashUnavailable}
+                  title={cashHint}
+                  onClick={() => setAdjustOpen(true)}
+                >
+                  Catat Kas
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={cashUnavailable}
+                  title={cashHint}
+                  onClick={() => setClosingOpen(true)}
+                >
+                  Tutup Shift
+                </Button>
+              </>
+            ) : (
+              <Button
+                size="sm"
+                disabled={cashUnavailable || loading}
+                title={cashHint}
+                onClick={() => setOpeningOpen(true)}
+              >
+                Buka Shift
+              </Button>
+            )}
+          </div>
+        }
       />
 
       <main className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-6">
-        {error ? <p className="mb-4 text-sm text-destructive">{error}</p> : null}
+        {error && !cashUnavailable ? (
+          <p className="mb-4 text-sm text-destructive">{error}</p>
+        ) : null}
 
-        {sessions.length === 0 && !loading ? (
+        {cashUnavailable ? (
+          <p className="text-sm text-muted-foreground">
+            Pilih cabang dulu untuk melihat laporan shift.
+          </p>
+        ) : sessions.length === 0 && !loading ? (
           <p className="text-sm text-muted-foreground">Belum ada shift kas tercatat.</p>
         ) : (
           <div className="overflow-hidden rounded-lg border border-border/60">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border/60 bg-muted/20 text-left font-mono text-[10px] text-muted-foreground uppercase tracking-[0.2em]">
-                  <th className="px-3 py-2 font-normal">Tanggal</th>
+                  <th className="px-3 py-2 font-normal">Tanggal / Shift</th>
                   <th className="px-3 py-2 font-normal">Cabang</th>
-                  <th className="px-3 py-2 font-normal">Frontliner</th>
+                  <th className="px-3 py-2 font-normal">Dibuka oleh</th>
                   <th className="px-3 py-2 text-right font-normal">Saldo awal</th>
                   <th className="px-3 py-2 text-right font-normal">Saldo akhir</th>
                   <th className="px-3 py-2 text-right font-normal">Selisih</th>
@@ -165,7 +245,12 @@ export default function LaporanShiftClient() {
                   const closed = session.closedAt !== null;
                   return (
                     <tr key={session.id} className="border-b border-border/60 last:border-0">
-                      <td className="px-3 py-2 font-mono text-xs">{sessionDate(session)}</td>
+                      <td className="px-3 py-2 font-mono text-xs">
+                        <span className="block">{sessionDate(session)}</span>
+                        <span className="block text-[10px] text-muted-foreground">
+                          {shiftLabel(session, session.shiftNumber)}
+                        </span>
+                      </td>
                       <td className="px-3 py-2">{session.branchName}</td>
                       <td className="px-3 py-2">{session.employeeName}</td>
                       <td className="px-3 py-2 text-right font-mono text-xs">
@@ -220,9 +305,10 @@ export default function LaporanShiftClient() {
         <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>
-              Laporan Shift {viewing ? sessionDate(viewing) : ""}
+              Laporan {viewing ? shiftLabel(viewing, viewing.shiftNumber) : ""}
             </DialogTitle>
             <DialogDescription>
+              {viewing ? `${sessionDate(viewing)} · ` : ""}
               {viewing?.closedAt
                 ? "Dibaca dari snapshot saat shift ditutup."
                 : "Shift masih terbuka — angka dihitung live dan bisa berubah."}
@@ -241,6 +327,27 @@ export default function LaporanShiftClient() {
           )}
         </DialogContent>
       </Dialog>
+
+      {openingOpen ? (
+        <OpeningBalanceDialog
+          dismissible
+          onClose={() => setOpeningOpen(false)}
+          onOpened={handleOpened}
+        />
+      ) : null}
+
+      <ClosingDialog
+        open={closingOpen}
+        onOpenChange={setClosingOpen}
+        session={openSession}
+        onClosed={() => void reload()}
+      />
+
+      <AdjustmentDialog
+        open={adjustOpen}
+        onOpenChange={setAdjustOpen}
+        onSaved={() => void reload()}
+      />
     </div>
   );
 }
