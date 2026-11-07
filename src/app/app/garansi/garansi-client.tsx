@@ -36,10 +36,16 @@ type GaransiRow = {
   status: string;
 };
 
-export default function GaransiPage() {
+export default function GaransiPage({
+  initialQuery = "",
+  initialStatus = "Semua",
+}: {
+  initialQuery?: string;
+  initialStatus?: string;
+}) {
   const { branch } = useBranch();
-  const [q, setQ] = useState("");
-  const [status, setStatus] = useState<string>("Semua");
+  const [q, setQ] = useState(initialQuery);
+  const [status, setStatus] = useState<string>(initialStatus);
   const [dateRange, setDateRange] = useState<{ from?: Date; to?: Date }>({});
   const [rows, setRows] = useState<GaransiRow[]>([]);
   const [loading, setLoading] = useState(true);

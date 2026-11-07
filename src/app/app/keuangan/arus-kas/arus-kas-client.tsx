@@ -28,10 +28,10 @@ function labelFor(iso: string) {
   return format(d, "EEEE, d MMM yyyy", { locale: localeId });
 }
 
-export default function ArusKasPage() {
+export default function ArusKasPage({ initialQuery = "" }: { initialQuery?: string }) {
   const { formatCurrency } = useLocale();
   const formatRp = (n: number) => formatCurrency(Number(n));
-  const [q, setQ] = useState("");
+  const [q, setQ] = useState(initialQuery);
   const [branchFilter, setBranchFilter] = useState<string>("all");
   const [typeFilter, setTypeFilter] = useState<string>("all");
   const [dateRange, setDateRange] = useState<{ from?: Date; to?: Date }>({});

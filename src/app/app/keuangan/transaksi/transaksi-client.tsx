@@ -23,8 +23,8 @@ import { id as localeId } from "date-fns/locale";
 
 type Direction = "in" | "out";
 
-export default function TransaksiPage() {
-  const [q, setQ] = useState("");
+export default function TransaksiPage({ initialQuery = "" }: { initialQuery?: string }) {
+  const [q, setQ] = useState(initialQuery);
   const [branchFilter, setBranchFilter] = useState<string>("all");
   const [typeFilter, setTypeFilter] = useState<string>("all");
   const [dateRange, setDateRange] = useState<{ from?: Date; to?: Date }>({});

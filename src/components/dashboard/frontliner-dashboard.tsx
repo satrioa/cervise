@@ -130,9 +130,12 @@ function frontlinerState(data: FrontlinerHomeData): FrontlinerState {
 export function FrontlinerDashboard({
   fullName,
   initialData,
+  initialAction = null,
 }: {
   fullName: string | null;
   initialData: FrontlinerHomeData;
+  /** Deep-link dari command palette: buka dialog kas saat halaman dimuat. */
+  initialAction?: "catat-kas" | "tutup-kas" | null;
 }) {
   const { gridProps } = useBentoStagger(BENTO_STAGGER);
 
@@ -176,6 +179,14 @@ export function FrontlinerDashboard({
     }
     setAdjustOpen(true);
   };
+
+  // Deep-link `?action=catat-kas|tutup-kas` dari command palette. Hanya sekali
+  // saat mount; setelah dialog ditutup pengguna tetap di dashboard.
+  useEffect(() => {
+    if (initialAction === "catat-kas") openAdjustment();
+    if (initialAction === "tutup-kas") setClosingOpen(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     // Satu kali per pesan; string yang sama tidak memicu toast berulang saat

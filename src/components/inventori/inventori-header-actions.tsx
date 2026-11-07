@@ -9,9 +9,15 @@ import { ProductVariantDialog } from "./product-variant-dialog";
 import { InventoriExportDialog } from "./inventori-export-dialog";
 import { InventoriImportDialog } from "./inventori-import-dialog";
 
-export function InventoriHeaderActions({ groups }: { groups: InventoryGroup[] }) {
+export function InventoriHeaderActions({
+  groups,
+  initialNewOpen = false,
+}: {
+  groups: InventoryGroup[];
+  initialNewOpen?: boolean;
+}) {
   const router = useRouter();
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(initialNewOpen);
   const [exportOpen, setExportOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
 

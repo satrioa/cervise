@@ -60,6 +60,34 @@ export async function getInventori(): Promise<InventoriData> {
   return { groups, summary: summarizeInventory(groups), truncated };
 }
 
+export type QuickProductRow = {
+  id: string;
+  name: string;
+  sku: string;
+};
+
+/**
+ * Daftar ringkas untuk saran command palette. Hanya id/nama/SKU supaya satu
+ * round-trip tetap murah; katalog penuh tetap lewat `getInventori`.
+ */
+export async function getProductQuickList(): Promise<QuickProductRow[]> {
+  const actor = await getActiveTenant();
+  requireInventoryAccess(actor.role);
+
+  const { data, error } = await applyBranchScope(
+    actor.supabase.from("cervise_products").select("id, name, sku"),
+    actor,
+  )
+    .eq("is_active", true)
+    .order("name")
+    // shortcut: palet hanya menyarankan 300 produk pertama per cabang; naikkan
+    // kalau katalog nyata sudah mendekati angka ini.
+    .limit(300);
+
+  if (error) throw new Error(error.message);
+  return (data ?? []) as QuickProductRow[];
+}
+
 export type UpdateProductVariantInput = {
   id: string;
   name: string;

@@ -256,11 +256,18 @@ export default function ServisPage() {
     loadServis();
   }, [branch.id, loadServis]);
 
-  // Palet ⌘K membuka halaman ini dengan `?q=<nomor servis>`. Dibaca dari
-  // `window`, bukan `useSearchParams`, supaya halaman tidak butuh Suspense.
+  // Palet ⌘K membuka halaman ini dengan `?q=`, `?bayar=belum`, atau
+  // `?periode=hari-ini`. Dibaca dari `window`, bukan `useSearchParams`, supaya
+  // halaman tidak butuh Suspense.
   useEffect(() => {
-    const q = new URLSearchParams(window.location.search).get("q");
+    const params = new URLSearchParams(window.location.search);
+    const q = params.get("q");
     if (q) setSearch(q);
+    if (params.get("bayar") === "belum") setPaymentFilter("Belum dibayar");
+    if (params.get("periode") === "hari-ini") {
+      const today = new Date();
+      setDateRange({ from: today, to: today });
+    }
   }, []);
 
   const matchesSearch = (item: ServisItem) => {

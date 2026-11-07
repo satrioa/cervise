@@ -5,8 +5,8 @@ import { UserPlusIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { CustomerDialog } from "./customer-dialog";
 
-export function CustomerCreateButton() {
-  const [open, setOpen] = useState(false);
+export function CustomerCreateButton({ initialOpen = false }: { initialOpen?: boolean }) {
+  const [open, setOpen] = useState(initialOpen);
   return (
     <>
       <Button size="sm" onClick={() => setOpen(true)}>

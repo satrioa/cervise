@@ -12,9 +12,9 @@ const ROLES: { label: string; value: string }[] = [
   { label: "Teknisi", value: "TECHNICIAN" },
 ];
 
-export default async function KaryawanPage({ searchParams }: { searchParams: Promise<{ q?: string; cabang?: string; role?: string; status?: string }> }) {
+export default async function KaryawanPage({ searchParams }: { searchParams: Promise<{ q?: string; cabang?: string; role?: string; status?: string; new?: string }> }) {
   await requireMenu("karyawan");
-  const { q, cabang, role, status } = await searchParams;
+  const { q, cabang, role, status, new: newParam } = await searchParams;
   const query = (q ?? "").trim().toLowerCase();
   const cabangFilter = (cabang ?? "").trim() || KARYAWAN_DEFAULTS.cabang;
   const roleFilter = (role ?? "").trim() || KARYAWAN_DEFAULTS.role;
@@ -71,7 +71,7 @@ export default async function KaryawanPage({ searchParams }: { searchParams: Pro
         }
         actions={
           <>
-            <KaryawanHeaderActions branches={branches} />
+            <KaryawanHeaderActions branches={branches} initialCreateOpen={newParam === "1"} />
             <KaryawanExportButton exportRows={exportRows} />
           </>
         }

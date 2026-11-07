@@ -16,8 +16,8 @@ function statusTone(s: string) {
   return "bg-muted-foreground/40";
 }
 
-export default async function CustomerPage({ searchParams }: { searchParams: Promise<{ q?: string; status?: string; sort?: string }> }) {
-  const { q, status, sort } = await searchParams;
+export default async function CustomerPage({ searchParams }: { searchParams: Promise<{ q?: string; status?: string; sort?: string; new?: string }> }) {
+  const { q, status, sort, new: newParam } = await searchParams;
   const query = (q ?? "").trim().toLowerCase();
   const statusFilter = (status ?? "").trim() || CUSTOMER_DEFAULTS.status;
   const sortKey = (sort ?? "").trim() || CUSTOMER_DEFAULTS.sort;
@@ -77,7 +77,7 @@ export default async function CustomerPage({ searchParams }: { searchParams: Pro
         }
         actions={
           <>
-            <CustomerCreateButton />
+            <CustomerCreateButton initialOpen={newParam === "1"} />
             <CustomerExportButton
               exportRows={sorted.map((c) => ({
                 name: c.name,

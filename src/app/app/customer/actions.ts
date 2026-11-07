@@ -85,6 +85,38 @@ export async function getCustomersSafe(): Promise<{
   }
 }
 
+export type QuickCustomerRow = {
+  id: string;
+  name: string;
+  phone: string;
+  phoneDisplay: string;
+};
+
+/** Daftar ringkas untuk saran command palette (maks 300 customer per cabang). */
+export async function getCustomerQuickList(): Promise<QuickCustomerRow[]> {
+  const actor = await getActiveTenant();
+  requireCustomerAccess(actor.role);
+
+  const { data, error } = await applyBranchScope(
+    actor.supabase.from("cervise_customers").select("id, name, phone"),
+    actor,
+  )
+    .order("name")
+    .limit(300);
+  if (error) throw new Error(error.message);
+
+  return (data ?? []).map((row: { id: string; name: string; phone: string | null }) => {
+    const norm = String(row.phone ?? "").replace(/\D/g, "");
+    const phone = norm.startsWith("0") ? "62" + norm.slice(1) : norm;
+    return {
+      id: row.id,
+      name: row.name,
+      phone,
+      phoneDisplay: formatPhoneDisplay(phone),
+    };
+  });
+}
+
 export async function createCustomer(form: { name: string; phone: string }) {
   const { supabase, branchId, role } = await getActiveTenant();
   requireCustomerAccess(role);

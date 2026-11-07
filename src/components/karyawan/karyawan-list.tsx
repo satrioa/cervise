@@ -196,8 +196,8 @@ export function KaryawanList({ rows, branches }: { rows: KaryawanRow[]; branches
   );
 }
 
-export function KaryawanHeaderActions(_props: { branches: { id: string; name: string }[] }) {
-  const [open, setOpen] = useState(false);
+export function KaryawanHeaderActions({ initialCreateOpen = false }: { branches: { id: string; name: string }[]; initialCreateOpen?: boolean }) {
+  const [open, setOpen] = useState(initialCreateOpen);
   const [temp, setTemp] = useState<{ email: string; password: string } | null>(null);
   const router = useRouter();
   return (

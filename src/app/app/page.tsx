@@ -21,15 +21,28 @@ import { getHomeData } from "./actions/home";
  * pemilihan shell di `layout.tsx`, supaya tidak ada daftar role yang ditulis
  * dua kali di tempat berbeda.
  */
-export default async function DashboardPage() {
+export default async function DashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ action?: string }>;
+}) {
   const actor = await getActiveTenant();
+  const { action } = await searchParams;
 
   if (surfaceFor(actor.role) === "compact") {
     // Data dirakit di server dan dikirim sebagai prop, jadi angka pertama
     // sudah ada di HTML pertama - bukan setelah komponen ter-hydrate.
     const home = await getHomeData();
     if (home.kind === "frontliner") {
-      return <FrontlinerDashboard fullName={actor.fullName} initialData={home} />;
+      const initialAction =
+        action === "catat-kas" || action === "tutup-kas" ? action : null;
+      return (
+        <FrontlinerDashboard
+          fullName={actor.fullName}
+          initialData={home}
+          initialAction={initialAction}
+        />
+      );
     }
     return <TechnicianDashboard fullName={actor.fullName} initialData={home} />;
   }

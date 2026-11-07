@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -368,6 +368,7 @@ export function InventoriClient({
   q,
   tipe,
   stok,
+  edit,
 }: {
   groups: InventoryGroup[];
   summary: InventorySummary;
@@ -376,12 +377,22 @@ export function InventoriClient({
   q: string;
   tipe: string;
   stok: string;
+  /** Id varian dari command palette; dialog edit dibuka sekali lalu URL dibersihkan. */
+  edit?: string;
 }) {
   const [view, setView] = useState<View>("kartu");
   const [editTarget, setEditTarget] = useState<InventoryProduct | null>(null);
   const [labelPreview, setLabelPreview] = useState<SkuLabelInput[] | null>(null);
   const router = useRouter();
   const pathname = usePathname();
+
+  useEffect(() => {
+    if (!edit) return;
+    const target = groups.flatMap((group) => group.items).find((item) => item.id === edit);
+    if (!target) return;
+    setEditTarget(target);
+    router.replace(pathname, { scroll: false });
+  }, [edit, groups, pathname, router]);
 
   /** Pratinjau dulu; dialog cetak browser baru muncul setelah "Cetak". */
   const openLabelPreview = (products: InventoryProduct[]) => {

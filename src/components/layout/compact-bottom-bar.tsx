@@ -55,13 +55,13 @@ export function CompactBottomBar({
             logoUrl={tenant?.logoUrl ?? null}
             name={tenantName}
             title={tenantName}
-            className="size-9 rounded-full bg-neutral-900 text-[11px] font-semibold text-white dark:bg-white dark:text-neutral-900"
+            className="size-6 rounded-full bg-neutral-900 text-[11px] font-semibold text-white dark:bg-white dark:text-neutral-900"
           />
           <span className="hidden max-w-[9rem] truncate text-sm font-medium sm:inline">
             {tenantName}
           </span>
           {branchLabel ? (
-            <span className="max-w-[8rem] truncate rounded-full bg-[#2563EB] px-2.5 py-1 text-[10px] font-medium text-white sm:text-[11px]">
+            <span className="inline-block h-6 max-w-[8rem] truncate rounded-full bg-[#2563EB] px-2.5 text-[10px] font-medium leading-6 text-white sm:text-[11px]">
               {branchLabel}
             </span>
           ) : null}
@@ -69,7 +69,7 @@ export function CompactBottomBar({
 
         <CommandSearchTrigger
           aria-label={t("search.placeholder")}
-          className="pointer-events-auto flex size-11 items-center justify-center rounded-full border-0 bg-white p-0 shadow-[0_16px_38px_-24px_rgba(0,0,0,0.55)] ring-1 ring-black/5 hover:bg-white lg:hidden dark:bg-neutral-900 dark:ring-white/10 dark:hover:bg-neutral-800 [&>kbd]:hidden"
+          className="pointer-events-auto flex size-9 items-center justify-center rounded-full border-0 bg-white p-0 shadow-[0_16px_38px_-24px_rgba(0,0,0,0.55)] ring-1 ring-black/5 hover:bg-white lg:hidden dark:bg-neutral-900 dark:ring-white/10 dark:hover:bg-neutral-800 [&>kbd]:hidden"
         />
 
         <div className="pointer-events-auto justify-self-end rounded-full bg-white p-1.5 shadow-[0_16px_38px_-24px_rgba(0,0,0,0.55)] ring-1 ring-black/5 dark:bg-neutral-900 dark:ring-white/10">
@@ -86,13 +86,13 @@ export function CompactBottomBar({
               <IdentityAvatar
                 photoUrl={avatarUrl}
                 name={fullName ?? "?"}
-                className="size-9 bg-neutral-900 text-[11px] text-white dark:bg-white dark:text-neutral-900"
+                className="size-6 bg-neutral-900 text-[11px] text-white dark:bg-white dark:text-neutral-900"
               />
               <span className="hidden max-w-[10rem] pl-1 md:block">
-                <span className="block truncate text-sm font-medium leading-tight">
+                <span className="block truncate text-[11px] font-medium leading-none">
                   {fullName ?? "Pengguna"}
                 </span>
-                <span className="block truncate text-[11px] leading-tight text-muted-foreground">
+                <span className="mt-0.5 block truncate text-[9px] leading-none text-muted-foreground">
                   {roleLabel}
                 </span>
               </span>
