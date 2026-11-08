@@ -140,35 +140,58 @@ function ServisTableSkeleton({ view }: { view: "table" | "kanban" }) {
   // Column widths mirror the real table: checkbox, Servis, Device, Status,
   // Teknisi, Pembayaran, Harga.
   return (
-    <div className="overflow-hidden rounded-xl border">
-      <div className="flex items-center gap-4 border-b bg-muted/30 px-4 py-2.5">
-        <Skeleton className="size-4 shrink-0 rounded" />
-        <Skeleton className="h-3 w-24 shrink-0" />
-        <Skeleton className="h-3 w-28 flex-1" />
-        <Skeleton className="h-3 w-20 shrink-0" />
-        <Skeleton className="h-3 w-20 shrink-0" />
-        <Skeleton className="h-3 w-16 shrink-0" />
-        <Skeleton className="h-3 w-20 shrink-0" />
-      </div>
-      {Array.from({ length: 8 }).map((_, rowIndex) => (
-        <div
-          key={rowIndex}
-          className="flex items-center gap-4 border-b px-4 py-3 last:border-b-0"
-        >
+    <>
+      <div className="hidden overflow-hidden rounded-xl border md:block">
+        <div className="flex items-center gap-4 border-b bg-muted/30 px-4 py-2.5">
           <Skeleton className="size-4 shrink-0 rounded" />
-          <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-            <Skeleton className="h-3 w-28" />
-            <Skeleton className="h-3 w-36" />
-            <Skeleton className="h-2.5 w-20" />
-          </div>
-          <Skeleton className="h-4 w-28 shrink-0" />
-          <Skeleton className="h-5 w-20 shrink-0 rounded-full" />
+          <Skeleton className="h-3 w-24 shrink-0" />
+          <Skeleton className="h-3 w-28 flex-1" />
+          <Skeleton className="h-3 w-20 shrink-0" />
+          <Skeleton className="h-3 w-20 shrink-0" />
           <Skeleton className="h-3 w-16 shrink-0" />
-          <Skeleton className="h-6 w-16 shrink-0 rounded-full" />
-          <Skeleton className="h-4 w-24 shrink-0" />
+          <Skeleton className="h-3 w-20 shrink-0" />
         </div>
-      ))}
-    </div>
+        {Array.from({ length: 8 }).map((_, rowIndex) => (
+          <div
+            key={rowIndex}
+            className="flex items-center gap-4 border-b px-4 py-3 last:border-b-0"
+          >
+            <Skeleton className="size-4 shrink-0 rounded" />
+            <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+              <Skeleton className="h-3 w-28" />
+              <Skeleton className="h-3 w-36" />
+              <Skeleton className="h-2.5 w-20" />
+            </div>
+            <Skeleton className="h-4 w-28 shrink-0" />
+            <Skeleton className="h-5 w-20 shrink-0 rounded-full" />
+            <Skeleton className="h-3 w-16 shrink-0" />
+            <Skeleton className="h-6 w-16 shrink-0 rounded-full" />
+            <Skeleton className="h-4 w-24 shrink-0" />
+          </div>
+        ))}
+      </div>
+      <div className="space-y-2 md:hidden">
+        {Array.from({ length: 4 }).map((_, cardIndex) => (
+          <div key={cardIndex} className="rounded-xl border bg-card p-3">
+            <div className="flex items-start gap-3">
+              <Skeleton className="mt-0.5 size-4 shrink-0 rounded" />
+              <div className="flex min-w-0 flex-1 flex-col gap-2">
+                <div className="flex items-center justify-between gap-2">
+                  <Skeleton className="h-3 w-24" />
+                  <Skeleton className="h-5 w-16 rounded-full" />
+                </div>
+                <Skeleton className="h-4 w-3/4" />
+                <Skeleton className="h-3 w-1/2" />
+                <div className="flex items-center justify-between gap-2 pt-1">
+                  <Skeleton className="h-5 w-28 rounded-full" />
+                  <Skeleton className="h-4 w-20" />
+                </div>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </>
   );
 }
 
@@ -764,8 +787,14 @@ export default function ServisPage() {
                 <CalendarIcon className="size-4 opacity-70" /><span className="truncate">{dateLabel}</span>
                 {(dateRange.from || dateRange.to) && (<span role="button" tabIndex={0} onClick={(e) => { e.stopPropagation(); setDateRange({}); }} className="ml-1 rounded p-0.5 hover:bg-foreground/10 -mr-1" aria-label="Hapus rentang tanggal"><XIcon className="size-3.5" /></span>)}
               </PopoverTrigger>
-              <PopoverContent align="end" className="w-auto p-0">
-                <Calendar mode="range" selected={dateRange.from ? { from: dateRange.from, to: dateRange.to } : undefined} onSelect={(range) => { if (!range) setDateRange({}); else setDateRange({ from: range?.from, to: range?.to }); }} numberOfMonths={2} />
+              <PopoverContent align="end" className="w-auto max-w-[calc(100vw-1rem)] p-0">
+                <Calendar
+                  mode="range"
+                  selected={dateRange.from ? { from: dateRange.from, to: dateRange.to } : undefined}
+                  onSelect={(range) => { if (!range) setDateRange({}); else setDateRange({ from: range?.from, to: range?.to }); }}
+                  numberOfMonths={2}
+                  className="[&_.rdp-month:last-child]:hidden md:[&_.rdp-month:last-child]:block"
+                />
                 <div className="flex items-center justify-between border-t p-2"><span className="text-xs text-muted-foreground px-2">{dateRange.from || dateRange.to ? `${filteredByAll.length} hasil` : "Pilih rentang tanggal"}</span><Button variant="ghost" size="xs" onClick={() => setDateRange({})}>Reset</Button></div>
               </PopoverContent>
             </Popover>
@@ -810,8 +839,23 @@ export default function ServisPage() {
         ) : null}
         {view === "table" && (
           <div className="relative -mx-1">
-            <div className="overflow-x-auto scrollbar-none pb-3 px-1 mx-auto w-fit max-w-full [mask-image:linear-gradient(to_right,transparent,black_12px,black_calc(100%-12px),transparent)]">
-              <JellyRadio items={jellyItems} defaultValue="Semua" onChange={(v: string) => setFilter(v)} chipColor="#e4e4e7" activeColor="#18181b" textColor="#18181b" activeTextColor="#f5f5f5" invertDark size="md" gap={8} radius={18} />
+            <div className="hidden overflow-x-auto scrollbar-none pb-3 px-1 mx-auto w-fit max-w-full [mask-image:linear-gradient(to_right,transparent,black_12px,black_calc(100%-12px),transparent)] md:block">
+              <JellyRadio items={jellyItems} value={filter} onChange={(v: string) => setFilter(v)} chipColor="#e4e4e7" activeColor="#18181b" textColor="#18181b" activeTextColor="#f5f5f5" invertDark size="md" gap={8} radius={18} />
+            </div>
+            {/* Di mobile chip gooey terlalu lebar dan menggeser isi; dropdown
+                penuh lebih cepat dipakai dengan satu tangan. */}
+            <div className="pb-3 md:hidden">
+              <Select value={filter} onValueChange={(v) => setFilter(v ?? "Semua")}>
+                <SelectTrigger className="w-full bg-background" aria-label="Filter status servis">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Semua">Semua status</SelectItem>
+                  {STAGES.map((stage) => (
+                    <SelectItem key={stage.key} value={stage.key}>{stage.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
         )}
@@ -831,6 +875,7 @@ export default function ServisPage() {
         ) : null}
         {servisData.length > 0 && (view === "table" ? (
           <>
+          <div className="hidden md:block">
           <Table variant="card" className="mt-2">
             <TableHeader>
               <TableRow>
@@ -867,6 +912,47 @@ export default function ServisPage() {
               {pageItems.length === 0 && (<TableRow><TableCell colSpan={7} className="text-center text-sm text-muted-foreground py-8">Tidak ada data</TableCell></TableRow>)}
             </TableBody>
           </Table>
+          </div>
+          {/* Tabel tujuh kolom tidak muat di ponsel; kartu memuat informasi
+              yang sama dan tap-nya membuka bottom sheet aksi. */}
+          <ul className="mt-3 space-y-2 md:hidden">
+            {pageItems.map((r) => (
+              <ServisContextMenu key={r.id} servis={r} onViewDetails={handleViewDetails} onStatusChange={handleStatusChange} onEdit={handleEdit} onPrint={handlePrint} onInvoice={handleInvoice} onBayar={handleBayar} onDelete={handleDelete}>
+                <li className="rounded-xl border bg-card p-3 active:bg-muted/50">
+                  <div className="flex items-start gap-3">
+                    <Checkbox
+                      aria-label={`Select ${servisLabel(r)}`}
+                      checked={selectedIds.has(r.id)}
+                      onCheckedChange={(v) => toggleOne(r.id, !!v)}
+                      onClick={(e) => e.stopPropagation()}
+                      className="mt-0.5"
+                    />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="truncate font-mono text-xs">{servisLabel(r)}</span>
+                        <PaymentBadge status={getPaymentStatus(r)} />
+                      </div>
+                      <p className="mt-1 truncate text-sm font-medium">{r.device}</p>
+                      <p className="truncate text-xs text-muted-foreground">
+                        {r.customer} · {format(new Date(r.date), "d MMM yyyy", { locale: localeId })}
+                      </p>
+                      <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+                        <StageTrack stage={r.status} />
+                        <span className="shrink-0 font-mono text-sm tabular-nums">
+                          {r.price > 0 ? formatCurrencyPlain(r.price) : "—"}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </li>
+              </ServisContextMenu>
+            ))}
+            {pageItems.length === 0 && (
+              <li className="rounded-xl border bg-card py-8 text-center text-sm text-muted-foreground">
+                Tidak ada data
+              </li>
+            )}
+          </ul>
           {filteredTable.length > PAGE_SIZE && (
             <Pagination className="mt-4">
               <PaginationContent>

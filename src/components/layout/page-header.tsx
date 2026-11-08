@@ -54,18 +54,29 @@ export function PageHeader({
       </div>
       {hasRow2 ? (
         <div className="border-t border-border/40">
+          {/* Mobile: search + aksi di baris pertama, filter di baris kedua.
+              Sebelumnya search `w-56` dan filter berebut satu baris `h-12`
+              sehingga filter terdorong/terpotong di layar sempit. */}
           <div
             className={cn(
-              "mx-auto flex h-12 w-full max-w-6xl items-center gap-3 px-4 sm:px-6 lg:px-8",
+              "mx-auto flex w-full max-w-6xl flex-wrap items-center gap-2 px-4 py-2 sm:h-12 sm:flex-nowrap sm:gap-3 sm:py-0 sm:px-6 lg:px-8",
               containerClassName,
               row2ClassName,
             )}
           >
-            {search ? <div className="w-56 shrink-0 sm:w-64 lg:w-72 [&_input]:h-8 [&_button]:h-8">{search}</div> : null}
-            <div className="flex min-w-0 flex-1 items-center justify-end gap-2 overflow-x-auto scrollbar-none">
-              {filters}
-              {actions}
-            </div>
+            {search ? (
+              <div className="order-1 min-w-0 flex-1 sm:w-56 sm:flex-none md:w-64 lg:w-72 [&_input]:h-8 [&_button]:h-8">
+                {search}
+              </div>
+            ) : null}
+            {actions ? (
+              <div className="order-2 ml-auto flex shrink-0 items-center gap-2 sm:order-3">{actions}</div>
+            ) : null}
+            {filters ? (
+              <div className="order-3 flex w-full min-w-0 items-center gap-2 overflow-x-auto scrollbar-none sm:order-2 sm:w-auto sm:flex-1 sm:justify-end">
+                {filters}
+              </div>
+            ) : null}
           </div>
         </div>
       ) : null}
