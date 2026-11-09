@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode, type UIEvent } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { LayoutGrid } from "lucide-react";
@@ -43,6 +43,10 @@ export type CompactShellActor = {
   avatarUrl: string | null;
 };
 
+const MENU_MAX_DVH = 95;
+const MENU_MIN_DVH = 70;
+const MENU_RANGE_PX = 160;
+
 export function CompactShell({ children, actor }: { children: ReactNode; actor: CompactShellActor }) {
   return (
     <LocaleProvider>
@@ -72,9 +76,27 @@ function CompactShellInner({
   actor: CompactShellActor;
 }) {
   const [open, setOpen] = useState(false);
+  // Drawer menu: tinggi mengikuti nilai scroll konten, bukan snap. Paling atas
+  // 70dvh, membesar linear sampai 95dvh setelah 160px scroll.
+  const [menuHeight, setMenuHeight] = useState(MENU_MIN_DVH);
   const pathname = usePathname();
   const t = useTranslations("nav");
   const role = normalizeAppRole(actor.role);
+
+  // scrollTop kembali 0 saat drawer dibuka tanpa memicu event scroll.
+  function setMenuOpen(next: boolean) {
+    setOpen(next);
+    if (next) setMenuHeight(MENU_MIN_DVH);
+  }
+
+  function handleMenuScroll(event: UIEvent<HTMLDivElement>) {
+    const top = event.currentTarget.scrollTop;
+    // Scroll ke bawah -> drawer drag-naik mengikuti nilai scroll, batas atas
+    // 95dvh; scroll ke atas -> drag-balik turun ke 70dvh.
+    setMenuHeight(
+      Math.min(MENU_MAX_DVH, MENU_MIN_DVH + (top / MENU_RANGE_PX) * (MENU_MAX_DVH - MENU_MIN_DVH)),
+    );
+  }
 
   const tabs =
     role === "FRONTLINER"
@@ -143,7 +165,7 @@ function CompactShellInner({
             })}
           </nav>
 
-          <Sheet open={open} onOpenChange={setOpen}>
+          <Sheet open={open} onOpenChange={setMenuOpen}>
             <SheetTrigger
               render={
                 <button
@@ -159,14 +181,15 @@ function CompactShellInner({
             <SheetContent
               side="bottom"
               showCloseButton={false}
-              // Tinggi tetap supaya section yang panjang bisa scroll di dalam
-              // sheet; `h-full` milik CompactMenuSheet butuh parent berketinggian.
-              style={{ height: "85dvh" }}
+              // Tinggi mengikuti scroll (lihat `handleMenuScroll`); `h-full`
+              // milik CompactMenuSheet butuh parent berketinggian.
+              style={{ height: `${menuHeight}dvh` }}
               className="gap-0 overflow-hidden rounded-t-[28px] bg-[#F1F1F1] p-0 shadow-[0_-30px_80px_-32px_rgba(0,0,0,0.55)] duration-300 ease-[linear(0,0.35,0.85,1.06,1.02,0.995,1)] dark:bg-neutral-950"
             >
               <CompactMenuSheet
                 role={actor.role}
                 onNavigate={() => setOpen(false)}
+                onScroll={handleMenuScroll}
               />
             </SheetContent>
           </Sheet>
@@ -197,7 +220,7 @@ function CompactShellInner({
       <CompactDockNav
         role={actor.role}
         menuOpen={open}
-        onOpenMenu={() => setOpen(true)}
+        onOpenMenu={() => setMenuOpen(true)}
       />
 
       <CompactBottomBar

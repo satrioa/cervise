@@ -1,5 +1,6 @@
 "use client";
 
+import type { UIEvent } from "react";
 import { BarChart3, LayoutGrid, Printer, Sun, Volume2 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { SheetDescription, SheetTitle } from "@/components/ui/sheet";
@@ -29,9 +30,11 @@ import { PrinterSettings } from "@/components/pengaturan/printer-card";
 export function CompactMenuSheet({
   role,
   onNavigate,
+  onScroll,
 }: {
   role: string;
   onNavigate?: () => void;
+  onScroll?: (event: UIEvent<HTMLDivElement>) => void;
 }) {
   const t = useTranslations("nav.menu");
 
@@ -40,7 +43,10 @@ export function CompactMenuSheet({
       <SheetTitle className="sr-only">{t("title")}</SheetTitle>
       <SheetDescription className="sr-only">{t("description")}</SheetDescription>
 
-      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain scrollbar-none px-5 pb-2 pt-2">
+      <div
+        onScroll={onScroll}
+        className="min-h-0 flex-1 overflow-y-auto overscroll-contain scrollbar-none px-5 pb-2 pt-2"
+      >
         <MenuSection icon={LayoutGrid} label={t("operational")} defaultOpen>
           <MenuOperational role={role} onNavigate={onNavigate} />
         </MenuSection>
