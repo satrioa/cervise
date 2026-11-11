@@ -6,7 +6,7 @@ const read = (relative: string) => readFileSync(join(process.cwd(), relative), "
 
 const homeData = read("src/lib/home/home-data.ts");
 const homeAction = read("src/app/app/actions/home.ts");
-const page = read("src/app/app/page.tsx");
+const page = read("src/app/app/(home)/page.tsx");
 const actor = read("src/lib/supabase/actor.ts");
 
 /**

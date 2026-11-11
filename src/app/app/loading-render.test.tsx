@@ -13,6 +13,7 @@ import Servis from "./servis/loading";
 import Customer from "./customer/loading";
 import AuditLog from "./audit-log/loading";
 import Analitik from "./analitik-servis/loading";
+import Home from "./(home)/loading";
 import Global from "./loading";
 
 /**
@@ -37,16 +38,17 @@ const ROUTES: [string, () => React.ReactElement][] = [
   ["customer", Customer],
   ["audit-log", AuditLog],
   ["analitik-servis", Analitik],
+  ["(home)", Home],
   ["(global)", Global],
 ];
 
 describe("loading.tsx route", () => {
-  it("semua route render tanpa error dan menghasilkan skeleton Dither", () => {
+  it("semua route render tanpa error dan menghasilkan skeleton", () => {
     for (const [name, Component] of ROUTES) {
       const html = renderToStaticMarkup(<Component />);
       expect(html.length, `${name} tidak menghasilkan markup`).toBeGreaterThan(200);
-      // `ars` = kelas dari ascii-reveal; tanpanya tidak ada pola Dither.
-      expect(html, `${name} tidak punya skeleton ASCII`).toContain("ars");
+      // `data-slot="skeleton"` = primitive `Skeleton` (coss shimmer).
+      expect(html, `${name} tidak punya skeleton`).toContain('data-slot="skeleton"');
     }
   });
 

@@ -1,9 +1,9 @@
 import { getActiveTenant } from "@/lib/supabase/actor";
 import { surfaceFor } from "@/lib/nav/manifest";
-import DashboardOwnerClient from "./dashboard-owner-client";
+import DashboardOwnerClient from "../dashboard-owner-client";
 import { TechnicianDashboard } from "@/components/dashboard/technician-dashboard";
 import { FrontlinerDashboard } from "@/components/dashboard/frontliner-dashboard";
-import { getHomeData } from "./actions/home";
+import { getHomeData } from "../actions/home";
 
 /**
  * Dashboard `/app` untuk tiga kelompok pengguna yang sangat berbeda.
