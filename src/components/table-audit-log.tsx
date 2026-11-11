@@ -167,7 +167,7 @@ export function CerviseAuditLogTable({ cabangFilter }: { cabangFilter?: string }
           <p className="mt-0.5 flex items-center gap-1.5 text-sm text-muted-foreground">
             <WrenchIcon className="size-3.5" />
             {loading ? (
-              <Skeleton as="span" className="h-3 w-28" />
+              <Skeleton className="h-3 w-28" />
             ) : (
               `${filtered.length} dari ${scoped.length} catatan`
             )}

@@ -98,7 +98,7 @@ function Counter({ label, value, loading }: { label: string; value: number; load
     <span className="flex flex-1 items-center justify-center gap-1.5 py-1.5">
       <span className="text-neutral-500 dark:text-neutral-400">{label}</span>
       {loading ? (
-        <Skeleton as="span" className="h-2.5 w-4 rounded-sm" rows={2} />
+        <Skeleton className="h-2.5 w-4 rounded-sm" />
       ) : (
         <span className="font-semibold tabular-nums text-neutral-900 dark:text-neutral-100">{value}</span>
       )}

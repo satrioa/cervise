@@ -91,6 +91,7 @@
   --color-smooth-900: var(--smooth-900);
   --color-smooth-950: var(--smooth-950);
   --color-smooth-1000: var(--smooth-1000);
+  --animate-skeleton: skeleton 2s -1s infinite linear;
 }
 
 /*
@@ -416,6 +417,10 @@
   @keyframes shimmer {
     0% { transform: translateX(-100%); }
     100% { transform: translateX(200%); }
+  }
+  @keyframes skeleton {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
   }
   /* Confetti nota penjualan. Posisi/arah datang dari inline style di komponen. */
   @keyframes penjualan-confetti {

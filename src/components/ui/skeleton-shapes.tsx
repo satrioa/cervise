@@ -312,7 +312,7 @@ export type ChartSkeletonShape = keyof typeof AREA_SHAPES;
 function ChartArea({ shape }: { shape: ChartSkeletonShape }) {
   return (
     <div className="absolute inset-0" style={{ clipPath: AREA_SHAPES[shape] }}>
-      <Skeleton rows={20} className="h-full w-full rounded-none text-[7px]" />
+      <Skeleton className="h-full w-full rounded-none" />
     </div>
   );
 }
