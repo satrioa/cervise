@@ -72,7 +72,9 @@ export function CompactBottomBar({
           className="pointer-events-auto flex size-9 items-center justify-center rounded-full border-0 bg-white p-0 shadow-[0_16px_38px_-24px_rgba(0,0,0,0.55)] ring-1 ring-black/5 hover:bg-white lg:hidden dark:bg-neutral-900 dark:ring-white/10 dark:hover:bg-neutral-800 [&>kbd]:hidden"
         />
 
-        <div className="pointer-events-auto justify-self-end rounded-full bg-white p-1.5 shadow-[0_16px_38px_-24px_rgba(0,0,0,0.55)] ring-1 ring-black/5 dark:bg-neutral-900 dark:ring-white/10">
+        {/* `col-start-3`: di `lg` tombol cari disembunyikan, jadi tanpa ini
+            pil profil auto-place ke kolom tengah dan muncul di tengah layar. */}
+        <div className="pointer-events-auto col-start-3 justify-self-end rounded-full bg-white p-1.5 shadow-[0_16px_38px_-24px_rgba(0,0,0,0.55)] ring-1 ring-black/5 dark:bg-neutral-900 dark:ring-white/10">
           <Popover open={accountOpen} onOpenChange={setAccountOpen}>
             <PopoverTrigger
               render={

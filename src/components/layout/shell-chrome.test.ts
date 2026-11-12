@@ -50,6 +50,13 @@ describe("shell chrome", () => {
     expect(compactDockNav).not.toMatch(/CommandSearchTrigger/);
   });
 
+  it("pil profil tetap di kanan saat tombol cari disembunyikan di lg", () => {
+    // `lg:hidden` menghapus tombol cari dari grid, jadi tanpa `col-start-3`
+    // pil profil auto-place ke kolom tengah: profil dan popover-nya muncul di
+    // tengah layar.
+    expect(compactBottomBar).toMatch(/col-start-3/);
+  });
+
   it("bottom nav berisi Home, Servis, item role-aware, dan Menu", () => {
     // Menu lengkap tetap di sheet; bottom nav cuma tujuan halaman utama.
     expect(compactDockNav).toMatch(/href: "\/app", label: "Home"/);
