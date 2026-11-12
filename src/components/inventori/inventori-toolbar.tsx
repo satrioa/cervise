@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import { LayoutGridIcon, TableIcon } from "lucide-react";
+import { FilterGroup } from "@/components/layout/filter-group";
 import {
   INVENTORI_DEFAULTS,
   STOK_OPTIONS,
@@ -113,6 +114,18 @@ export function InventoriToolbar({
     (initialTipe !== INVENTORI_DEFAULTS.tipe ? 1 : 0) +
     (initialStok !== INVENTORI_DEFAULTS.stok ? 1 : 0);
 
+  const filterOnlyCount =
+    (initialTipe !== INVENTORI_DEFAULTS.tipe ? 1 : 0) +
+    (initialStok !== INVENTORI_DEFAULTS.stok ? 1 : 0);
+  const filterSummary = [
+    initialTipe !== INVENTORI_DEFAULTS.tipe
+      ? `Tipe: ${TIPE_OPTIONS.find((option) => option.value === initialTipe)?.label ?? initialTipe}`
+      : null,
+    initialStok !== INVENTORI_DEFAULTS.stok
+      ? `Stok: ${STOK_OPTIONS.find((option) => option.value === initialStok)?.label ?? initialStok}`
+      : null,
+  ].filter(Boolean).join(" · ");
+
   const clear = () => {
     setQ("");
     commit({ q: "", tipe: INVENTORI_DEFAULTS.tipe, stok: INVENTORI_DEFAULTS.stok });
@@ -121,7 +134,7 @@ export function InventoriToolbar({
   return (
     <div className="flex flex-col gap-3 rounded-xl border bg-card p-3 shadow-xs/5">
       <div className="flex flex-wrap items-center gap-2">
-        <InputGroup className="w-72">
+        <InputGroup className="w-full sm:w-72">
           <InputGroupAddon>
             <SearchIcon className="size-4 text-muted-foreground" />
           </InputGroupAddon>
@@ -138,8 +151,14 @@ export function InventoriToolbar({
           </InputGroupAddon>
         </InputGroup>
         <Separator orientation="vertical" className="mx-1 h-6 hidden sm:block" />
+        <FilterGroup
+          count={filterOnlyCount}
+          summary={filterSummary}
+          onClear={() => commit({ tipe: INVENTORI_DEFAULTS.tipe, stok: INVENTORI_DEFAULTS.stok })}
+          className="sm:flex-1"
+        >
         <Select value={initialTipe} onValueChange={(value) => commit({ tipe: value ?? INVENTORI_DEFAULTS.tipe })}>
-          <SelectTrigger className="w-36" size="sm">
+          <SelectTrigger className="w-full sm:w-36" size="sm">
             <SelectValue>
               {TIPE_OPTIONS.find((option) => option.value === initialTipe)?.label ?? "Semua tipe"}
             </SelectValue>
@@ -153,7 +172,7 @@ export function InventoriToolbar({
           </SelectContent>
         </Select>
         <Select value={initialStok} onValueChange={(value) => commit({ stok: value ?? INVENTORI_DEFAULTS.stok })}>
-          <SelectTrigger className="w-40" size="sm">
+          <SelectTrigger className="w-full sm:w-40" size="sm">
             <SelectValue>
               {STOK_OPTIONS.find((option) => option.value === initialStok)?.label ?? "Semua stok"}
             </SelectValue>
@@ -166,6 +185,7 @@ export function InventoriToolbar({
             ))}
           </SelectContent>
         </Select>
+        </FilterGroup>
         {/* Switch tampilan memakai `Tabs` icon-only, sama seperti di /app/servis
             dan /app/penjualan, supaya toolbar ini konsisten dengan halaman lain.
             Diletakkan di kanan baris pertama, terpisah dari filter. */}
@@ -199,7 +219,7 @@ export function InventoriToolbar({
           />
           Menampilkan {shown} dari {total} varian
           {activeCount > 0 ? (
-            <Button size="xs" variant="ghost" onClick={clear} className="-mr-2 h-6 px-1.5 text-muted-foreground">
+            <Button size="xs" variant="ghost" onClick={clear} className="-mr-2 h-6 px-1.5 text-muted-foreground max-sm:hidden">
               <XIcon /> Clear ({activeCount})
             </Button>
           ) : null}

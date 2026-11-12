@@ -13,6 +13,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useBranch } from "@/lib/branch-context";
+import { FilterGroup } from "@/components/layout/filter-group";
 import { searchProductsForSale, getSaleDetail, returnSaleItems, checkoutSale, type ProductRow, type ReceiptContext } from "./actions";
 import { perkiraanRefund } from "@/lib/operational/retur";
 import { buildSalesReceiptHtml, receiptStamp, type SalesReceiptInput } from "@/lib/sales/receipt";
@@ -364,7 +365,16 @@ export function PenjualanPOSClient({ initialRows, receiptContext }: { initialRow
                 <div className="lg:hidden">{riwayatPopover(mobileRiwayatOpen, setMobileRiwayatOpen)}</div>
               </div>
 
-              <div className="flex flex-wrap items-center gap-1.5 overflow-x-auto scrollbar-none">
+              <FilterGroup
+                breakpoint="lg"
+                count={(kategori !== "semua" ? 1 : 0) + (stockFilter !== "semua" ? 1 : 0) + (sortHarga !== "termurah" ? 1 : 0)}
+                summary={[
+                  kategori !== "semua" ? `Kategori: ${KATEGORI_ITEMS.find((x) => x.value === kategori)?.label ?? kategori}` : null,
+                  stockFilter !== "semua" ? `Stok: ${STOK_ITEMS.find((x) => x.value === stockFilter)?.label ?? stockFilter}` : null,
+                  sortHarga !== "termurah" ? `Urut: ${HARGA_ITEMS.find((x) => x.value === sortHarga)?.label ?? sortHarga}` : null,
+                ].filter(Boolean).join(" · ")}
+                onClear={() => { setKategori("semua"); setStockFilter("semua"); setSortHarga("termurah"); }}
+              >
                 {/* Mobile: kategori jadi dropdown seperti filter stok/harga.
                     Desktop tetap chip karena ruangnya cukup. */}
                 <Select value={kategori} onValueChange={(v) => setKategori((v as string) ?? "semua")}>
@@ -400,7 +410,7 @@ export function PenjualanPOSClient({ initialRows, receiptContext }: { initialRow
                     ))}
                   </SelectContent>
                 </Select>
-              </div>
+              </FilterGroup>
             </CardPanel>
             <CardPanel className="flex-1 overflow-y-auto p-2.5 pb-24 bg-muted/20 min-h-0 lg:pb-2.5">
               {productsError ? (

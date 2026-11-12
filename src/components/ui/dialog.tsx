@@ -42,14 +42,30 @@ function DialogOverlay({
   className,
   ...props
 }: DialogPrimitive.Backdrop.Props) {
+  // Portal mewarisi pohon React induknya, jadi klik backdrop tanpa ini ikut
+  // menggelembung ke onClick baris/kartu pemilik trigger: dialog tertutup
+  // sekaligus aksi di belakang terpicu. Base UI menangani tutup lewat
+  // listener capture di document, jadi cukup hentikan propagasinya.
+  function stop(event: React.SyntheticEvent) {
+    event.preventDefault()
+    event.stopPropagation()
+  }
   return (
     <DialogPrimitive.Backdrop
       data-slot="dialog-overlay"
+      {...props}
+      onClick={(event) => {
+        props.onClick?.(event)
+        stop(event)
+      }}
+      onPointerDown={(event) => {
+        props.onPointerDown?.(event)
+        event.stopPropagation()
+      }}
       className={cn(
         "fixed inset-0 isolate z-50 bg-black/10 duration-100 supports-backdrop-filter:backdrop-blur-xs data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0",
         className
       )}
-      {...props}
     />
   )
 }

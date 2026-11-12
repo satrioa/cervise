@@ -14,7 +14,7 @@ import { Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 import { EvilComposedChart } from "@/components/evilcharts/charts/recharts-composed-chart";
 import type { ChartConfig } from "@/components/evilcharts/ui/recharts-chart";
 import { PageHeader } from "@/components/layout/page-header";
-import { DateRangeFilter } from "@/components/date-range-filter";
+import { DateRangeFilter, dateRangeLabel } from "@/components/date-range-filter";
 import { getLaporanKeuangan } from "@/app/app/laporan/keuangan/actions";
 import { toLocalDateString } from "@/lib/operational/garansi-list";
 import type { FinanceTx } from "@/lib/operational/laporan-keuangan";
@@ -169,6 +169,11 @@ export default function LaporanKeuanganPage() {
     }));
   }, [rows, branches]);
 
+  const filterParts = [
+    from || to ? `Tanggal: ${dateRangeLabel({ from, to })}` : null,
+    cabang !== "all" ? `Cabang: ${cabangLabel}` : null,
+  ].filter(Boolean) as string[];
+
   return (
     <div className="min-h-svh bg-transparent text-foreground">
       <PageHeader
@@ -187,7 +192,7 @@ export default function LaporanKeuanganPage() {
               resultLabel={report ? `${report.transactionCount} transaksi` : undefined}
             />
             <Select value={cabang} onValueChange={(v) => setCabang((v as string) ?? "all")}>
-              <SelectTrigger size="sm" className="shrink-0">
+              <SelectTrigger size="sm" className="w-full shrink-0 sm:w-auto">
                 <SelectValue>
                   {cabang === "all" ? "Semua cabang" : branches.find((b) => b.id === cabang)?.name ?? "Semua cabang"}
                 </SelectValue>
@@ -199,6 +204,13 @@ export default function LaporanKeuanganPage() {
             </Select>
           </>
         }
+        filterCount={filterParts.length}
+        filterSummary={filterParts.join(" · ")}
+        onClearFilters={() => {
+          setFrom(undefined);
+          setTo(undefined);
+          setCabang("all");
+        }}
       />
 
       <main className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-8 space-y-8">

@@ -14,6 +14,13 @@ import {
   BentoMenuItem,
   useBentoStagger,
 } from "./bento-card";
+import {
+  Frame,
+  FrameHeader,
+  FramePanel,
+  FrameTitle,
+} from "@/components/ui/frame";
+import { Separator } from "@/components/ui/separator";
 import { TaskNoteCard } from "./task-note-card";
 import { NewServisDialog } from "@/components/servis/new-servis-dialog";
 import { toast } from "sonner";
@@ -55,7 +62,7 @@ export function TechnicianDashboard({
   fullName: string | null;
   initialData: TechnicianHomeData;
 }) {
-  const { gridProps } = useBentoStagger(BENTO_STAGGER);
+  const { gridProps, cardProps } = useBentoStagger(BENTO_STAGGER);
 
   const [newServisOpen, setNewServisOpen] = useState(false);
   /**
@@ -120,6 +127,7 @@ export function TechnicianDashboard({
               candy="accent"
               onClick={() => setNewServisOpen(true)}
               title="Servis baru"
+              cellClassName="max-sm:order-1"
             >
               <BentoMenuItem icon={WrenchIcon} label="Servis baru" />
             </BentoCard>
@@ -127,33 +135,28 @@ export function TechnicianDashboard({
             {/* 2. Kartu aksi. Biru, bukan pink brand: tanpa perbedaan warna
                 ini dua kartu aksi teknisi sama persis dan pink mendominasi
                 dashboard. */}
-            <BentoCard candy="blue" href="/app/inventori" title="Data Sparepart">
+            <BentoCard candy="blue" href="/app/inventori" title="Data Sparepart" cellClassName="max-sm:order-2">
               <BentoMenuItem icon={BoxIcon} label="Sparepart" />
             </BentoCard>
 
             {/* 3. Angka masuk hari ini. */}
-            <StatTile label="Servis Masuk Hari ini" value={kpi.masukHariIni} />
+            <StatTile label="Servis Masuk Hari ini" value={kpi.masukHariIni} className="max-sm:order-5" />
 
             {/* 4. Daftar servis terbaru, dua baris - halaman detail servis
                 adalah tempat pembayaran, jadi barisnya cuma membuka detail.
-                Di mobile kartu ini pindah ke urutan terakhir dan menjadi
-                kartu putih, mengikuti frame mobile Figma. */}
-            <BentoCard
-              rowSpan={2}
-              className="max-sm:order-7 max-sm:col-span-2 max-sm:max-h-[18rem] max-sm:bg-white/70 max-sm:hover:bg-white/70 max-sm:dark:bg-white/[0.06] max-sm:dark:hover:bg-white/[0.06]"
+                Di mobile kartu ini tampil setelah To-Do. */}
+            <motion.div
+              {...cardProps}
+              className="min-h-0 sm:row-span-2 max-sm:order-4 max-sm:col-span-2 max-sm:max-h-[18rem]"
             >
-              <CardTitle>Servis terbaru</CardTitle>
               <TerbaruList items={data.terbaru} />
-            </BentoCard>
+            </motion.div>
 
-            {/* 5. To-Do, dua kolom kali dua baris. Permukaan luar transparan;
-                TaskNoteCard menggambar satu kartu putih utuh di dalamnya.
-                Daftar dan mention-nya sudah dimuat server. */}
-            <BentoCard
-              span={2}
-              rowSpan={2}
-              surface="plain"
-              className="max-sm:order-5 max-sm:col-span-2"
+            {/* 5. To-Do, dua kolom kali dua baris. Daftar dan mention-nya sudah
+                dimuat server. */}
+            <motion.div
+              {...cardProps}
+              className="min-h-0 sm:col-span-2 sm:row-span-2 max-sm:order-3 max-sm:col-span-2"
             >
               <TaskNoteCard
                 variant="bento"
@@ -161,18 +164,18 @@ export function TechnicianDashboard({
                 initialTodos={initialData.todos}
                 initialMentions={initialData.mentions}
               />
-            </BentoCard>
+            </motion.div>
 
             {/* 6. Angka selesai hari ini. */}
             <StatTile
               label="Servis Selesai Hari ini"
               value={kpi.selesaiHariIni}
-              className="max-sm:order-4"
+              className="max-sm:order-6"
             />
 
             {/* 7. Target bulanan, melebar dua kolom. Progress bar datar -
                 bukan gauge busur seperti versi sebelumnya. */}
-            <BentoCard span={2} className="max-sm:order-6 max-sm:col-span-2">
+            <BentoCard span={2} className="max-sm:order-7 max-sm:col-span-2">
               <TargetTile kpi={kpi} />
             </BentoCard>
           </motion.div>
@@ -192,11 +195,6 @@ export function TechnicianDashboard({
 // Isi sel
 // ---------------------------------------------------------------------------
 
-function CardTitle({ children }: { children: React.ReactNode }) {
-  return <h2 className="text-[15px] font-medium tracking-tight">{children}</h2>;
-}
-
-/** Kartu angka: label di atas, angka besar di bawah. */
 function StatTile({
   label,
   value,
@@ -207,12 +205,7 @@ function StatTile({
   className?: string;
 }) {
   return (
-    <BentoCard
-      className={
-        "max-sm:bg-white/70 max-sm:hover:bg-white/70 max-sm:dark:bg-white/[0.06] max-sm:dark:hover:bg-white/[0.06] " +
-        (className ?? "")
-      }
-    >
+    <BentoCard className={className}>
       <p className="text-[15px] font-medium leading-snug">{label}</p>
       <p className="font-heading mt-auto text-5xl font-normal leading-none tracking-[-0.04em] tabular-nums sm:text-6xl">
         {value === undefined ? "—" : String(value)}
@@ -307,32 +300,40 @@ function TerbaruList({
 }: {
   items: RecentService[];
 }) {
-  if (items.length === 0) {
-    return <p className="mt-2 text-sm opacity-60">Belum ada servis.</p>;
-  }
-
   return (
-    // `overflow-y-auto` + `min-h-0`: daftar yang melebihi tinggi sel
-    // menggulir di dalam kartu. Tanpa itu, `h-dvh` di luar membuat baris
-    // meluber dan halaman ikut ter-scroll.
-    <ul className="-mx-1 mt-1 flex min-h-0 flex-1 flex-col overflow-y-auto scrollbar-none">
-      {items.map((item) => (
-        <li key={item.id} className="shrink-0">
-          <Link
-            href={`/app/servis/${item.id}`}
-            className="flex items-center gap-2 rounded-xl border border-black/5 px-3 py-2 transition-colors hover:bg-black/[0.03] dark:border-white/10 dark:hover:bg-white/[0.05]"
-          >
-            <span className="min-w-0 flex-1">
-              <span className="block truncate text-[13px] font-medium">
-                {item.serviceNumber ?? "Tanpa nomor"}
-              </span>
-              <span className="block truncate text-[11px] opacity-60">{item.device}</span>
-            </span>
-            <ArrowRightIcon className="size-3.5 shrink-0 opacity-50" />
-          </Link>
-        </li>
-      ))}
-    </ul>
+    <Frame className="flex h-full min-h-0 flex-col">
+      <FrameHeader>
+        <FrameTitle>Servis terbaru</FrameTitle>
+      </FrameHeader>
+      <FramePanel className="flex min-h-0 flex-1 flex-col overflow-hidden p-0">
+        {items.length === 0 ? (
+          <p className="p-5 text-sm opacity-60">Belum ada servis.</p>
+        ) : (
+          // `overflow-y-auto` + `min-h-0`: daftar yang melebihi tinggi sel
+          // menggulir di dalam kartu. Tanpa itu, `h-dvh` di luar membuat baris
+          // meluber dan halaman ikut ter-scroll.
+          <ul className="min-h-0 flex-1 overflow-y-auto scrollbar-none">
+            {items.map((item, index) => (
+              <li key={item.id}>
+                {index > 0 ? <Separator /> : null}
+                <Link
+                  href={`/app/servis/${item.id}`}
+                  className="flex items-center gap-2 px-5 py-2.5 transition-colors hover:bg-black/[0.03] dark:hover:bg-white/[0.05]"
+                >
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-[13px] font-medium">
+                      {item.serviceNumber ?? "Tanpa nomor"}
+                    </span>
+                    <span className="block truncate text-[11px] opacity-60">{item.device}</span>
+                  </span>
+                  <ArrowRightIcon className="size-3.5 shrink-0 opacity-50" />
+                </Link>
+              </li>
+            ))}
+          </ul>
+        )}
+      </FramePanel>
+    </Frame>
   );
 }
 

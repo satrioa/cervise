@@ -10,7 +10,7 @@ import { StatValueSkeleton, TableRowsSkeleton } from "@/components/ui/skeleton-s
 import { format } from "date-fns";
 import { id as localeId } from "date-fns/locale";
 import { PageHeader } from "@/components/layout/page-header";
-import { DateRangeFilter } from "@/components/date-range-filter";
+import { DateRangeFilter, dateRangeLabel } from "@/components/date-range-filter";
 import { getLaporanPenjualan } from "@/app/app/laporan/penjualan/actions";
 import { toLocalDateString } from "@/lib/operational/garansi-list";
 import type { LaporanPenjualan as SalesReport, SaleDetailRow } from "@/lib/operational/laporan-penjualan";
@@ -47,6 +47,7 @@ export default function LaporanPenjualanPage() {
   const [report, setReport] = useState<SalesReport | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const hasRange = Boolean(from || to);
 
   // Reset during render when the range changes so the effect only fetches.
   const queryKey = `${from ? toLocalDateString(from) : ""}:${to ? toLocalDateString(to) : ""}`;
@@ -92,10 +93,16 @@ export default function LaporanPenjualanPage() {
               setFrom(range.from);
               setTo(range.to);
             }}
-            className="h-8"
+            className="h-8 max-sm:col-span-2"
             resultLabel={report ? `${report.sales.length} penjualan` : undefined}
           />
         }
+        filterCount={hasRange ? 1 : 0}
+        filterSummary={hasRange ? `Tanggal: ${dateRangeLabel({ from, to })}` : undefined}
+        onClearFilters={() => {
+          setFrom(undefined);
+          setTo(undefined);
+        }}
       />
       <main className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-8 space-y-8">
 

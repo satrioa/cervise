@@ -25,6 +25,15 @@ import SignaturePad from "@/components/kokonutui/signature-pad";
 import { CandyButton } from "@/components/ui/candy-button";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import Gauge from "@/components/arc/gauge/gauge";
+import {
+  Frame,
+  FrameFooter,
+  FrameHeader,
+  FramePanel,
+  FrameTitle,
+} from "@/components/ui/frame";
+import { Separator } from "@/components/ui/separator";
 import {
   Dialog,
   DialogContent,
@@ -137,7 +146,7 @@ export function FrontlinerDashboard({
   /** Deep-link dari command palette: buka dialog kas saat halaman dimuat. */
   initialAction?: "catat-kas" | "tutup-kas" | null;
 }) {
-  const { gridProps } = useBentoStagger(BENTO_STAGGER);
+  const { gridProps, cardProps } = useBentoStagger(BENTO_STAGGER);
 
   /**
    * Satu objek, bukan empat state terpisah: data awal datang dari server, dan
@@ -282,7 +291,7 @@ export function FrontlinerDashboard({
                 candy="accent"
                 onClick={() => setNewServisOpen(true)}
                 title="Servis baru"
-                cellClassName="max-sm:order-3"
+                cellClassName="max-sm:order-1"
               >
                 <BentoMenuItem icon={WrenchIcon} label="Servis baru" />
               </BentoCard>
@@ -296,31 +305,32 @@ export function FrontlinerDashboard({
                 onClick={openAdjustment}
                 title="Catat Kas"
                 className={session ? undefined : "opacity-60"}
-                cellClassName="max-sm:order-4"
+                cellClassName="max-sm:order-2"
               >
                 <BentoMenuItem icon={WalletIcon} label="Catat Kas" />
               </BentoCard>
 
               {/* 3. Rekap kas hari ini, tiga baris. Di mobile menjadi kartu
                   selebar dua kolom. */}
-              <BentoCard rowSpan={3} className="max-sm:col-span-2" cellClassName="max-sm:order-7">
+              <motion.div
+                {...cardProps}
+                className="min-h-0 sm:row-span-3 max-sm:col-span-2 max-sm:order-8"
+              >
                 <RingkasanHariIni
                   report={report}
                   queue={queue}
                   staleDate={staleDate}
                   onCloseShop={() => setClosingOpen(true)}
                 />
-              </BentoCard>
+              </motion.div>
 
               {/* 3b. Daftar servis terbaru */}
-              <BentoCard
-                rowSpan={1}
-                className="max-sm:col-span-2 max-sm:bg-white/70 max-sm:hover:bg-white/70 max-sm:dark:bg-white/[0.06] max-sm:dark:hover:bg-white/[0.06]"
-                cellClassName="max-sm:order-9"
+              <motion.div
+                {...cardProps}
+                className="min-h-0 max-sm:col-span-2 max-sm:order-6"
               >
-                <h2 className="text-[15px] font-medium tracking-tight">Servis terbaru</h2>
                 <TerbaruList queue={queue} />
-              </BentoCard>
+              </motion.div>
 
               {/* 4. Device siap diambil */}
               <PengambilanDeviceCard queue={queue} onSaved={() => void reload()} />
@@ -330,36 +340,45 @@ export function FrontlinerDashboard({
                 candy="green"
                 href="/app/penjualan"
                 title="Penjualan"
-                cellClassName="max-sm:order-5"
+                cellClassName="max-sm:order-3"
               >
                 <BentoMenuItem icon={ShoppingCartIcon} label="Penjualan" />
               </BentoCard>
 
               {/* 6. Sisa antrean + tiga angka servis hari ini, satu kolom. Di
                   mobile selebar dua kolom. */}
-              <BentoCard className="max-sm:col-span-2" cellClassName="max-sm:order-8">
+              <motion.div
+                {...cardProps}
+                className="min-h-0 max-sm:col-span-2 max-sm:order-9"
+              >
                 <RingkasanServis kpi={kpi} />
-              </BentoCard>
+              </motion.div>
 
               {/* 7. Servis selesai yang belum dibayar, melebar dua kolom.
                   Tanpa `hug`: kartu mengisi sel bento dan daftarnya menggulir
                   di dalam, jadi tingginya selalu sama dengan kartu tetangga. */}
-              <BentoCard span={2} className="max-sm:col-span-2" cellClassName="max-sm:order-1">
+              <motion.div
+                {...cardProps}
+                className="min-h-0 sm:col-span-2 max-sm:col-span-2 max-sm:order-7"
+              >
                 <ServisSelesaiBelumDibayar queue={queue} />
-              </BentoCard>
+              </motion.div>
 
               {/* 8. To-Do, satu sel di desktop; di mobile selebar dua kolom.
                   Seluruh tugas tampil - di desktop daftarnya menggulir di
                   dalam sel, di mobile kartunya ikut tinggi isi. Daftar dan
                   mention-nya sudah dimuat server, jadi kartu tidak perlu
                   meminta ulang saat mount. */}
-              <BentoCard className="max-sm:col-span-2" cellClassName="max-sm:order-2">
+              <motion.div
+                {...cardProps}
+                className="min-h-0 max-sm:col-span-2 max-sm:order-5"
+              >
                 <TaskNoteCard
                   variant="compact"
                   initialTodos={initialData.todos}
                   initialMentions={initialData.mentions}
                 />
-              </BentoCard>
+              </motion.div>
             </motion.div>
 
             {/* Ruang gulir ekstra di mobile: To-Do adalah kartu terakhir dan
@@ -423,12 +442,16 @@ function RingkasanHariIni({
 
   if (!report) {
     return (
-      <>
-        <h2 className="shrink-0 text-[15px] font-medium tracking-tight">{title}</h2>
-        <p className="mt-2 text-sm opacity-60">
-          Belum ada sesi kas terbuka. Buka kas untuk melihat rekap.
-        </p>
-      </>
+      <Frame className="flex h-full min-h-0 flex-col">
+        <FrameHeader>
+          <FrameTitle className="truncate">{title}</FrameTitle>
+        </FrameHeader>
+        <FramePanel className="flex min-h-0 flex-1 items-center justify-center">
+          <p className="text-sm opacity-60">
+            Belum ada sesi kas terbuka. Buka kas untuk melihat rekap.
+          </p>
+        </FramePanel>
+      </Frame>
     );
   }
 
@@ -436,30 +459,26 @@ function RingkasanHariIni({
   const produkTerbayar = report.sales.filter((line) => line.settled);
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-      <div className="flex shrink-0 items-start justify-between gap-3">
-        <div className="flex min-w-0 items-center gap-2.5">
-          <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-black/[0.05] dark:bg-white/[0.08]">
-            <WalletIcon className="size-4 opacity-70" />
-          </span>
-          <div className="min-w-0">
-            <p className="text-[10px] font-medium uppercase tracking-[0.16em] opacity-50">Rekap kas</p>
-            <h2 className="truncate text-[15px] font-semibold leading-tight tracking-tight">{title}</h2>
+    <>
+      <Frame className="flex h-full min-h-0 flex-col overflow-hidden">
+        <FrameHeader>
+          <div className="flex items-start justify-between gap-3">
+            <FrameTitle className="min-w-0 truncate">{title}</FrameTitle>
+            <button
+              type="button"
+              onClick={() => setDetailOpen(true)}
+              className="flex shrink-0 items-center gap-0.5 rounded-full border border-black/10 bg-black/[0.05] px-2 py-1 text-[11px] font-medium opacity-70 transition hover:opacity-100 dark:border-white/15 dark:bg-white/[0.06]"
+            >
+              Detail
+              <ChevronRightIcon className="size-3" />
+            </button>
           </div>
-        </div>
-        <button
-          type="button"
-          onClick={() => setDetailOpen(true)}
-          className="flex shrink-0 items-center gap-0.5 rounded-full border border-black/10 bg-white/40 px-2 py-1 text-[11px] font-medium opacity-70 transition hover:opacity-100 dark:border-white/15 dark:bg-white/[0.06]"
-        >
-          Detail
-          <ChevronRightIcon className="size-3" />
-        </button>
-      </div>
+        </FrameHeader>
 
-      {/* Hanya daftar ini yang menggulir. Blok total di bawah sengaja berada
-          di luar `<ul>` supaya tetap terlihat saat daftar transaksi panjang. */}
-      <ul className="mt-3 flex min-h-0 flex-1 flex-col overflow-y-auto pr-1 text-[13px] scrollbar-thin">
+        <FramePanel className="flex min-h-0 flex-1 flex-col p-4">
+          {/* Hanya daftar ini yang menggulir. Blok total di bawah sengaja berada
+              di luar `<ul>` supaya tetap terlihat saat daftar transaksi panjang. */}
+          <ul className="flex min-h-0 flex-1 flex-col overflow-y-auto pr-1 text-[13px] scrollbar-thin">
         <Row label="Saldo Awal" value={rupiah(report.openingBalance)} />
 
         <GroupLabel
@@ -501,13 +520,11 @@ function RingkasanHariIni({
 
       {/*
        * Keempat angka ini satu blok, bukan empat baris terpisah.
-       * kartu induknya sudah abu-abu, jadi latarnya yang memisahkannya dari
-       * daftar di atas. Putih penuh (#fff) di atas #E7E7E7 terlalu kontras -
-       * blok ini jadi bidang paling terang di dashboard. `white/60` menjaga
-       * pemisahan tanpa menarik mata, dan dark mode memakai lapisan putih tipis
-       * di atas neutral-900 alih-alih neutral-800 yang juga terlalu terang.
+       * Kartu dan panel induknya sudah putih, jadi latar abu muda di sini yang
+       * memisahkannya dari daftar di atas. Dark mode tetap memakai lapisan
+       * putih tipis di atas neutral-900.
        */}
-      <div className="mt-2 shrink-0 rounded-xl bg-white/60 p-2.5 ring-1 ring-black/5 dark:bg-white/[0.06] dark:ring-white/10">
+      <div className="mt-2 shrink-0 rounded-xl bg-black/[0.04] p-2.5 ring-1 ring-black/5 dark:bg-white/[0.06] dark:ring-white/10">
         <TotalRow label="Omzet servis" value={rupiah(report.totals.services)} />
         <TotalRow label="Omzet Penjualan" value={rupiah(report.totals.sales)} />
         <TotalRow label="Transaksi Manual" value={rupiah(report.totals.manualNet)} />
@@ -517,6 +534,8 @@ function RingkasanHariIni({
           <span className="text-lg font-semibold leading-none tabular-nums">{rupiah(report.expectedCash)}</span>
         </div>
       </div>
+        </FramePanel>
+      </Frame>
 
       <ShiftDetailDialog
         open={detailOpen}
@@ -530,7 +549,7 @@ function RingkasanHariIni({
           onCloseShop();
         }}
       />
-    </div>
+    </>
   );
 }
 
@@ -634,31 +653,44 @@ function RingkasanServis({ kpi }: { kpi: FrontlinerKpi | null }) {
   ];
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
-      <h2 className="text-[15px] font-medium tracking-tight">Ringkasan Servis</h2>
-      <div className="mt-2 grid min-h-0 flex-1 grid-cols-[1.05fr_1fr] gap-2">
-        <div className="flex min-w-0 flex-col justify-center rounded-xl bg-brand/[0.08] px-3 py-2">
-          <span className="font-heading text-[2.25rem] font-normal leading-none tracking-[-0.03em] tabular-nums sm:text-[2.5rem]">
-            {kpi?.proses === undefined ? "—" : String(kpi.proses)}
-          </span>
-          <span className="mt-1.5 flex items-center gap-1 text-[11px] font-medium leading-none">
-            <span className="size-1.5 rounded-full bg-brand" />
-            Antrian
-          </span>
-          <span className="mt-1 text-[10px] leading-none opacity-50">sisa proses</span>
+    <Frame className="flex h-full min-h-0 flex-col">
+      <FrameHeader>
+        <FrameTitle>Ringkasan Servis</FrameTitle>
+      </FrameHeader>
+      <FramePanel className="flex min-h-0 flex-1 flex-col overflow-hidden p-4">
+        <div className="grid min-h-0 flex-1 grid-cols-[auto_minmax(0,1fr)] items-center gap-2">
+          {/* Gauge uiarc: lebarnya dikunci di sini, tipografinya diperkecil lewat
+              custom property yang dibaca CSS module-nya sendiri. `min-w-0!` dan
+              `hidden!` perlu `!` karena `.status`/`figcaption` di CSS module
+              tidak berlayer, sedangkan utility Tailwind ada di `@layer utilities`.
+              Caption "Antrian" di bawah gauge disembunyikan; statusnya tampil di
+              dalam gauge, tepat di bawah angka. */}
+          <div className="flex w-20 min-w-0 items-center [--text-3xl:1.125rem] [--text-xs:10px] [&_figcaption]:hidden! [&_figure]:gap-1 [&_figure_span]:min-w-0! sm:w-24">
+            <Gauge
+              value={kpi?.proses ?? 0}
+              min={0}
+              max={Math.max(10, kpi?.proses ?? 0)}
+              label="Antrian"
+              thresholds={[
+                { from: 0, tone: "success", label: "Antrian" },
+                { from: 5, tone: "warning", label: "Padat" },
+                { from: 10, tone: "danger", label: "Menumpuk" },
+              ]}
+            />
+          </div>
+          <div className="flex w-full min-w-0 flex-col justify-center divide-y divide-black/5 dark:divide-white/10">
+            {harian.map((item) => (
+              <div key={item.label} className="flex items-baseline justify-between gap-2 py-2 first:pt-0 last:pb-0">
+                <span className="truncate text-[11px] leading-none opacity-60">{item.label}</span>
+                <span className="font-heading shrink-0 text-base leading-none tabular-nums">
+                  {item.value === undefined ? "—" : String(item.value)}
+                </span>
+              </div>
+            ))}
+          </div>
         </div>
-        <div className="flex min-w-0 flex-col justify-center divide-y divide-black/5 dark:divide-white/10">
-          {harian.map((item) => (
-            <div key={item.label} className="flex items-baseline justify-between gap-2 py-2 first:pt-0 last:pb-0">
-              <span className="truncate text-[11px] leading-none opacity-60">{item.label}</span>
-              <span className="font-heading shrink-0 text-base leading-none tabular-nums">
-                {item.value === undefined ? "—" : String(item.value)}
-              </span>
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
+      </FramePanel>
+    </Frame>
   );
 }
 
@@ -678,88 +710,98 @@ function ServisSelesaiBelumDibayar({ queue }: { queue: FrontlinerQueueItem[] }) 
   const items = queue.filter((item) => item.status === "Selesai");
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
-      <div className="flex shrink-0 items-baseline justify-between gap-2">
-        <h2 className="min-w-0 truncate text-[15px] font-medium tracking-tight">
-          Servis Selesai Belum dibayar
-        </h2>
-        <span className="shrink-0 text-[11px] tabular-nums opacity-60">
-          {items.length} servis
-        </span>
-      </div>
-
-      {items.length === 0 ? (
-        <p className="mt-1 text-sm opacity-60">
-          Tidak ada servis selesai yang belum dibayar.
-        </p>
-      ) : (
-        <ul className="-mx-1 mt-1 flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto scrollbar-thin pr-1">
-          {items.map((item) => (
-            <li key={item.id} className="shrink-0">
-              <Link
-                href={`/app/servis/${item.id}`}
-                className="flex items-center gap-2 rounded-xl border border-black/5 px-2.5 py-2 transition-colors hover:bg-black/[0.03] dark:border-white/10 dark:hover:bg-white/[0.05]"
-              >
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-[13px] font-medium">
-                    {item.serviceNumber ?? "Tanpa nomor"}
+    <Frame className="flex h-full min-h-0 flex-col">
+      <FrameHeader>
+        <div className="flex items-baseline justify-between gap-2">
+          <FrameTitle className="min-w-0 truncate">Servis Selesai Belum dibayar</FrameTitle>
+          <span className="shrink-0 text-[11px] tabular-nums text-muted-foreground">
+            {items.length} servis
+          </span>
+        </div>
+      </FrameHeader>
+      <FramePanel className="flex min-h-0 flex-1 flex-col overflow-hidden p-0">
+        {items.length === 0 ? (
+          <p className="p-5 text-sm opacity-60">
+            Tidak ada servis selesai yang belum dibayar.
+          </p>
+        ) : (
+          <ul className="min-h-0 flex-1 overflow-y-auto scrollbar-thin">
+            {items.map((item, index) => (
+              <li key={item.id}>
+                {index > 0 ? <Separator /> : null}
+                <Link
+                  href={`/app/servis/${item.id}`}
+                  className="flex items-center gap-2 px-5 py-2.5 transition-colors hover:bg-black/[0.03] dark:hover:bg-white/[0.05]"
+                >
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-[13px] font-medium">
+                      {item.serviceNumber ?? "Tanpa nomor"}
+                    </span>
+                    <span className="block truncate text-[11px] opacity-60">{item.device}</span>
                   </span>
-                  <span className="block truncate text-[11px] opacity-60">{item.device}</span>
-                </span>
-                <span className="shrink-0 text-[12px] font-medium tabular-nums">
-                  {item.price > 0 ? rupiah(item.price) : "Belum diisi"}
-                </span>
-                <ArrowRightIcon className="size-3.5 shrink-0 opacity-50" />
-              </Link>
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
+                  <span className="shrink-0 text-[12px] font-medium tabular-nums">
+                    {item.price > 0 ? rupiah(item.price) : "Belum diisi"}
+                  </span>
+                  <ArrowRightIcon className="size-3.5 shrink-0 opacity-50" />
+                </Link>
+              </li>
+            ))}
+          </ul>
+        )}
+      </FramePanel>
+    </Frame>
   );
 }
 
 /** Daftar servis terbaru; barisnya membuka detail servis. */
 function TerbaruList({ queue }: { queue: FrontlinerQueueItem[] }) {
-  if (queue.length === 0) {
-    return <p className="mt-2 text-sm opacity-60">Belum ada servis.</p>;
-  }
-
   // Antrean bisa berisi ratusan servis. Kartu ini hanya memuat yang terbaru;
   // sisanya di halaman Servis.
   const shown = queue.slice(0, TERBARU_PREVIEW_ROWS);
   const hidden = queue.length - shown.length;
 
   return (
-    <>
-      <ul className="-mx-1 mt-1 flex min-h-0 flex-1 flex-col overflow-y-auto scrollbar-thin pr-1">
-        {shown.map((item) => (
-          <li key={item.id} className="shrink-0">
-            <Link
-              href={`/app/servis/${item.id}`}
-              className="flex items-center gap-2 rounded-xl border border-black/5 px-3 py-2 transition-colors hover:bg-black/[0.03] dark:border-white/10 dark:hover:bg-white/[0.05]"
-            >
-              <span className="min-w-0 flex-1">
-                <span className="block truncate text-[13px] font-medium">
-                  {item.serviceNumber ?? "Tanpa nomor"}
-                </span>
-                <span className="block truncate text-[11px] opacity-60">{item.device}</span>
-              </span>
-              <ArrowRightIcon className="size-3.5 shrink-0 opacity-50" />
-            </Link>
-          </li>
-        ))}
-      </ul>
+    <Frame className="flex h-full min-h-0 flex-col">
+      <FrameHeader>
+        <FrameTitle>Servis terbaru</FrameTitle>
+      </FrameHeader>
+      <FramePanel className="flex min-h-0 flex-1 flex-col overflow-hidden p-0">
+        {queue.length === 0 ? (
+          <p className="p-5 text-sm opacity-60">Belum ada servis.</p>
+        ) : (
+          <ul className="min-h-0 flex-1 overflow-y-auto scrollbar-thin">
+            {shown.map((item, index) => (
+              <li key={item.id}>
+                {index > 0 ? <Separator /> : null}
+                <Link
+                  href={`/app/servis/${item.id}`}
+                  className="flex items-center gap-2 px-5 py-2.5 transition-colors hover:bg-black/[0.03] dark:hover:bg-white/[0.05]"
+                >
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-[13px] font-medium">
+                      {item.serviceNumber ?? "Tanpa nomor"}
+                    </span>
+                    <span className="block truncate text-[11px] opacity-60">{item.device}</span>
+                  </span>
+                  <ArrowRightIcon className="size-3.5 shrink-0 opacity-50" />
+                </Link>
+              </li>
+            ))}
+          </ul>
+        )}
+      </FramePanel>
       {hidden > 0 ? (
-        <Link
-          href="/app/servis"
-          className="mt-1 flex shrink-0 items-center justify-between gap-2 rounded-lg px-2 py-1 text-xs opacity-60 transition-opacity hover:opacity-100"
-        >
-          <span>+{hidden} servis lainnya</span>
-          <ArrowRightIcon className="size-3" />
-        </Link>
+        <FrameFooter>
+          <Link
+            href="/app/servis"
+            className="flex items-center justify-between gap-2 text-xs text-muted-foreground transition-colors hover:text-foreground"
+          >
+            <span>+{hidden} servis lainnya</span>
+            <ArrowRightIcon className="size-3" />
+          </Link>
+        </FrameFooter>
       ) : null}
-    </>
+    </Frame>
   );
 }
 
@@ -774,7 +816,7 @@ function PengambilanDeviceCard({ queue, onSaved }: { queue: FrontlinerQueueItem[
 
   return (
     <>
-      <BentoCard candy="blue" onClick={() => setOpen(true)} title="Pengambilan Device" cellClassName="max-sm:order-6">
+      <BentoCard candy="blue" onClick={() => setOpen(true)} title="Pengambilan Device" cellClassName="max-sm:order-4">
         <span className="flex flex-1 flex-col items-start justify-between gap-3">
           <PackageCheckIcon className="size-7 drop-shadow-sm" />
           <span className="text-[15px] font-medium leading-tight">

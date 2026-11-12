@@ -12,6 +12,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { findAuthUserByEmail } from "@/lib/supabase/admin-users";
 import { generateTempPassword } from "@/lib/auth/password";
 import { buildOwnerAccountRows } from "@/lib/platform/owner-accounts";
+import { resolveSubscriptionAccessState, type SubscriptionLifecycleStatus } from "@/lib/billing/renewal";
 
 type PackageRow = {
   id: string;
@@ -66,11 +67,13 @@ type InvoiceRow = {
   decision_note: string | null;
   organization: { id: string; name: string } | null;
   package: { name: string } | null;
+  currentPackageName: string | null;
+  currentPackagePrice: number | null;
 };
 
 export async function getOwnerDashboard() {
   const { supabase } = await requirePlatformAdmin();
-  const [organizationsResult, subscriptionsResult, branchesResult, invoicesResult] =
+  const [organizationsResult, subscriptionsResult, branchesResult, invoicesResult, manualPaymentsResult] =
     await Promise.all([
       supabase
         .from("organizations")
@@ -87,12 +90,14 @@ export async function getOwnerDashboard() {
         .select("id, organization_id, status, amount, invoice_type, period_start, period_end")
         .order("created_at", { ascending: false })
         .limit(500),
+      supabase.from("manual_subscription_payments").select("amount"),
     ]);
 
   if (organizationsResult.error) throw organizationsResult.error;
   if (subscriptionsResult.error) throw subscriptionsResult.error;
   if (branchesResult.error) throw branchesResult.error;
   if (invoicesResult.error) throw invoicesResult.error;
+  if (manualPaymentsResult.error) throw manualPaymentsResult.error;
 
   const organizations = (organizationsResult.data ?? []) as OrganizationRow[];
   const subscriptions = ((subscriptionsResult.data ?? []) as unknown as SubscriptionRow[]).map(
@@ -126,12 +131,27 @@ export async function getOwnerDashboard() {
     const packagePrice = subscription?.package?.monthly_price ?? 0;
     const effectivePrice =
       subscription?.custom_monthly_price ?? packagePrice;
+    const subscriptionStatus = subscription?.status ?? organization.status;
+    const accessState = resolveSubscriptionAccessState({
+      status: subscriptionStatus as SubscriptionLifecycleStatus,
+      currentPeriodEnd: subscription?.current_period_end ?? null,
+      trialEndsAt: subscription?.trial_ends_at ?? null,
+      graceDays: subscription?.grace_days ?? 0,
+      now: new Date(),
+    });
 
     return {
       ...organization,
       package: subscription?.package ?? null,
-      subscriptionStatus: subscription?.status ?? organization.status,
+      subscriptionStatus,
+      accessState,
       currentPeriodEnd: subscription?.current_period_end ?? null,
+      graceEndsAt: subscription?.current_period_end
+        ? new Date(
+            new Date(subscription.current_period_end).getTime() +
+              (subscription.grace_days ?? 0) * 24 * 60 * 60 * 1000,
+          ).toISOString()
+        : null,
       trialEndsAt: subscription?.trial_ends_at ?? null,
       graceDays: subscription?.grace_days ?? 0,
       effectivePrice,
@@ -146,14 +166,16 @@ export async function getOwnerDashboard() {
     tenants,
     stats: {
       total: tenants.length,
-      trial: tenants.filter((tenant) => tenant.subscriptionStatus === "trial").length,
-      active: tenants.filter((tenant) => tenant.subscriptionStatus === "active").length,
-      grace: tenants.filter((tenant) => tenant.subscriptionStatus === "grace").length,
-      blocked: tenants.filter((tenant) => tenant.subscriptionStatus === "blocked").length,
+      trial: tenants.filter((tenant) => tenant.accessState === "trial").length,
+      active: tenants.filter((tenant) => tenant.accessState === "active").length,
+      grace: tenants.filter((tenant) => tenant.accessState === "grace").length,
+      blocked: tenants.filter((tenant) => tenant.accessState === "blocked").length,
       pendingInvoices: invoices.filter((invoice) => invoice.status === "pending").length,
-      collected: invoices
-        .filter((invoice) => invoice.status === "approved")
-        .reduce((total, invoice) => total + invoice.amount, 0),
+      collected:
+        invoices
+          .filter((invoice) => invoice.status === "approved")
+          .reduce((total, invoice) => total + invoice.amount, 0) +
+        (manualPaymentsResult.data ?? []).reduce((total, payment) => total + payment.amount, 0),
     },
   };
 }
@@ -206,23 +228,55 @@ export async function savePackage(input: {
 
 export async function getInvoices() {
   const { supabase } = await requirePlatformAdmin();
-  const { data, error } = await supabase
-    .from("invoices")
-    .select(
-      "id, organization_id, invoice_number, invoice_type, status, amount, period_start, period_end, due_date, whatsapp_sent_at, decision_note, organization:organizations!inner(id, name), package:packages!inner(name)",
-    )
-    .order("created_at", { ascending: false })
-    .limit(500);
-  if (error) throw error;
-  const rows = (data ?? []) as unknown as (Omit<InvoiceRow, "organization" | "package"> & {
+  const [invoicesResult, subscriptionsResult] = await Promise.all([
+    supabase
+      .from("invoices")
+      .select(
+        "id, organization_id, invoice_number, invoice_type, status, amount, period_start, period_end, due_date, whatsapp_sent_at, decision_note, organization:organizations!inner(id, name), package:packages!inner(name)",
+      )
+      .order("created_at", { ascending: false })
+      .limit(500),
+    supabase
+      .from("tenant_subscriptions")
+      .select("organization_id, custom_monthly_price, package:packages!inner(name, monthly_price)"),
+  ]);
+  if (invoicesResult.error) throw invoicesResult.error;
+  if (subscriptionsResult.error) throw subscriptionsResult.error;
+
+  const currentPackages = new Map(
+    ((subscriptionsResult.data ?? []) as unknown as {
+      organization_id: string;
+      custom_monthly_price: number | null;
+      package: { name: string; monthly_price: number } | { name: string; monthly_price: number }[] | null;
+    }[]).map((subscription) => {
+      const currentPackage = firstRelation(subscription.package);
+      return [
+        subscription.organization_id,
+        {
+          name: currentPackage?.name ?? null,
+          price: subscription.custom_monthly_price ?? currentPackage?.monthly_price ?? null,
+        },
+      ];
+    }),
+  );
+
+  const rows = (invoicesResult.data ?? []) as unknown as (Omit<
+    InvoiceRow,
+    "organization" | "package" | "currentPackageName" | "currentPackagePrice"
+  > & {
     organization: { id: string; name: string } | { id: string; name: string }[] | null;
     package: { name: string } | { name: string }[] | null;
   })[];
-  return rows.map((invoice) => ({
-    ...invoice,
-    organization: firstRelation(invoice.organization),
-    package: firstRelation(invoice.package),
-  })) as InvoiceRow[];
+  return rows.map((invoice) => {
+    const currentPackage = currentPackages.get(invoice.organization_id);
+    return {
+      ...invoice,
+      organization: firstRelation(invoice.organization),
+      package: firstRelation(invoice.package),
+      currentPackageName: currentPackage?.name ?? null,
+      currentPackagePrice: currentPackage?.price ?? null,
+    };
+  }) as InvoiceRow[];
 }
 
 export async function getTenantDetail(organizationId: string) {
@@ -271,14 +325,20 @@ export async function getTenantDetail(organizationId: string) {
     package: PackageRow | PackageRow[] | null;
   }) | null;
 
+  const subscription = rawSubscription
+    ? { ...rawSubscription, package: firstRelation(rawSubscription.package) }
+    : null;
+
   return {
     organization: organizationResult.data,
-    subscription: rawSubscription
-      ? { ...rawSubscription, package: firstRelation(rawSubscription.package) }
-      : null,
+    subscription,
     branches: branchesResult.data ?? [],
     employees: employeesResult.data ?? [],
-    invoices: invoicesResult.data ?? [],
+    invoices: (invoicesResult.data ?? []).map((invoice) => ({
+      ...invoice,
+      currentPackageName: subscription?.package?.name ?? null,
+      currentPackagePrice: subscription?.custom_monthly_price ?? subscription?.package?.monthly_price ?? null,
+    })),
   };
 }
 
@@ -387,6 +447,85 @@ export async function rejectInvoice(input: { invoiceId: string; reason: string }
   revalidatePath("/owner");
   revalidatePath("/owner/billing");
   revalidatePath("/owner/tenants");
+  return { ok: true };
+}
+
+export async function extendTenantSubscription(input: {
+  organizationId: string;
+  packageId: string;
+  customPrice: string | number | null;
+  months: string | number;
+  referenceNote: string;
+}) {
+  const { supabase } = await requirePlatformAdmin();
+  const customPrice =
+    input.customPrice === null || input.customPrice === ""
+      ? null
+      : Number(input.customPrice);
+  const months = Number(input.months);
+  const referenceNote = input.referenceNote.trim();
+
+  if (!input.packageId) throw new Error("Paket wajib dipilih");
+  if (!Number.isInteger(months) || months < 1 || months > 24) {
+    throw new Error("Durasi harus antara 1 dan 24 bulan");
+  }
+  if (customPrice !== null && (!Number.isInteger(customPrice) || customPrice < 0)) {
+    throw new Error("Custom price must be zero or greater");
+  }
+  if (referenceNote.length < 3) {
+    throw new Error("Catatan verifikasi WhatsApp wajib diisi");
+  }
+
+  const { error } = await supabase.rpc("platform_extend_subscription", {
+    target_organization_id: input.organizationId,
+    target_package_id: input.packageId,
+    custom_monthly_price: customPrice,
+    duration_months: months,
+    reference_note: referenceNote,
+  });
+  if (error) throw error;
+
+  revalidatePath("/owner");
+  revalidatePath("/owner/billing");
+  revalidatePath("/owner/tenants");
+  revalidatePath(`/owner/tenants/${input.organizationId}`);
+  revalidatePath("/app/pengaturan/subscription");
+  return { ok: true };
+}
+
+export async function adjustTenantSubscription(input: {
+  organizationId: string;
+  packageId: string;
+  customPrice: string | number | null;
+  graceDays: string | number;
+}) {
+  const { supabase } = await requirePlatformAdmin();
+  const customPrice =
+    input.customPrice === null || input.customPrice === ""
+      ? null
+      : Number(input.customPrice);
+  const graceDays = Number(input.graceDays);
+
+  if (!input.packageId) throw new Error("Paket wajib dipilih");
+  if (customPrice !== null && (!Number.isInteger(customPrice) || customPrice < 0)) {
+    throw new Error("Custom price must be zero or greater");
+  }
+  if (!Number.isInteger(graceDays) || graceDays < 0 || graceDays > 30) {
+    throw new Error("Grace days must be between 0 and 30");
+  }
+
+  const { error } = await supabase.rpc("platform_adjust_subscription", {
+    target_organization_id: input.organizationId,
+    target_package_id: input.packageId,
+    custom_monthly_price: customPrice,
+    target_grace_days: graceDays,
+  });
+  if (error) throw error;
+
+  revalidatePath("/owner");
+  revalidatePath("/owner/tenants");
+  revalidatePath(`/owner/tenants/${input.organizationId}`);
+  revalidatePath("/app/pengaturan/subscription");
   return { ok: true };
 }
 

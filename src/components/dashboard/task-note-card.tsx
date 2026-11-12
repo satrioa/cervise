@@ -10,6 +10,12 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
+  Frame,
+  FrameHeader,
+  FramePanel,
+  FrameTitle,
+} from "@/components/ui/frame";
+import {
   createTodo,
   deleteTodo,
   getMyTodos,
@@ -616,7 +622,7 @@ export function TaskNoteCard({
     "inline-flex items-center justify-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors",
     variant === "bento"
       ? "bg-black/[0.045] text-neutral-700 hover:bg-black/[0.07] dark:bg-white/10 dark:text-neutral-200 dark:hover:bg-white/15"
-      : "bg-white/75 text-neutral-700 hover:bg-white dark:bg-white/10 dark:text-neutral-200 dark:hover:bg-white/15",
+      : "bg-black/[0.05] text-neutral-700 hover:bg-black/[0.08] dark:bg-white/10 dark:text-neutral-200 dark:hover:bg-white/15",
     variant === "bento" && "max-sm:px-2 max-sm:text-[10px]",
     variant === "compact" && "px-2 py-0.5 text-[10px]",
   );
@@ -635,42 +641,50 @@ export function TaskNoteCard({
 
   if (variant === "bento") {
     return (
-      <div className="flex h-full min-h-0 flex-col rounded-[22px] bg-white/70 p-4 max-sm:min-h-[15rem] dark:bg-white/[0.06] sm:p-5">
-        <div className="flex items-start justify-between gap-4">
-          <div className="min-w-0">
-            <h2 className="text-[15px] font-medium tracking-tight">TodoList</h2>
-            <p className="mt-1 text-[11px] leading-snug text-muted-foreground">Tugas selesai</p>
+      <Frame className="flex h-full min-h-0 flex-col max-sm:min-h-[15rem]">
+        <FrameHeader>
+          <div className="flex items-start justify-between gap-4">
+            <div className="min-w-0">
+              <FrameTitle>TodoList</FrameTitle>
+              <p className="mt-1 text-[11px] leading-snug text-muted-foreground">Tugas selesai</p>
+            </div>
+            {counter}
           </div>
-          {counter}
-        </div>
+        </FrameHeader>
 
-        <div className="mt-3">{toolbar}</div>
+        <FramePanel className="flex min-h-0 flex-1 flex-col p-4 sm:p-5">
+          <div>{toolbar}</div>
 
-        <div className="mt-3 flex min-h-0 flex-1 flex-col border-t border-black/5 pt-2 dark:border-white/10">
-          {composer}
-          {listBody}
-        </div>
-      </div>
+          <div className="mt-3 flex min-h-0 flex-1 flex-col border-t border-black/5 pt-2 dark:border-white/10">
+            {composer}
+            {listBody}
+          </div>
+        </FramePanel>
+      </Frame>
     );
   }
 
   if (variant === "compact") {
     return (
-      <div className="flex h-full min-h-0 flex-col">
-        <div className="flex items-center justify-between gap-2">
-          <h2 className="text-[15px] font-medium tracking-tight">TodoList</h2>
-          {loading ? (
-            <Skeleton className="h-6 w-12 shrink-0 rounded-md" />
-          ) : (
-            <p className="font-heading text-2xl font-normal leading-none tracking-tight tabular-nums">
-              {doneLabel}
-            </p>
-          )}
-        </div>
-        <div className="mt-1.5">{toolbar}</div>
-        {composer}
-        {listBody}
-      </div>
+      <Frame className="flex h-full min-h-0 flex-col">
+        <FrameHeader>
+          <div className="flex items-center justify-between gap-2">
+            <FrameTitle>TodoList</FrameTitle>
+            {loading ? (
+              <Skeleton className="h-6 w-12 shrink-0 rounded-md" />
+            ) : (
+              <p className="font-heading text-2xl font-normal leading-none tracking-tight tabular-nums">
+                {doneLabel}
+              </p>
+            )}
+          </div>
+        </FrameHeader>
+        <FramePanel className="flex min-h-0 flex-1 flex-col p-4">
+          <div>{toolbar}</div>
+          {composer}
+          {listBody}
+        </FramePanel>
+      </Frame>
     );
   }
 

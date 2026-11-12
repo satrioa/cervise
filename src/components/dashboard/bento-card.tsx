@@ -30,17 +30,16 @@ export type { CandyCardColor };
 export { CANDY_CARD_COLOR };
 
 /**
- * Abu-abu netral untuk semua kartu data.
+ * Putih netral untuk semua kartu data.
  *
- * Warna dan radius mengikuti frame Figma: permukaan abu-abu hangat di atas
- * halaman yang sedikit lebih terang, sudut 22px, dan padding lega. Hover cuma
- * naik satu tingkat - kartu tidak diangkat dengan bayangan.
+ * Kanvas halaman (#EFEFEF) yang memisahkan kartu dari latar. Hover turun satu
+ * tingkat ke abu sangat muda - kartu tidak diangkat dengan bayangan.
  *
  * Kartu candy tidak memakai ini - permukaannya sudah berwarna, dan hover-nya
  * datang dari gradien candy.
  */
 const NEUTRAL =
-  "bg-[#E7E7E7] text-neutral-900 hover:bg-[#ECECEC] " +
+  "bg-white text-neutral-900 hover:bg-[#FAFAFA] " +
   "dark:bg-neutral-900 dark:text-neutral-100 dark:hover:bg-neutral-800";
 
 /**
@@ -71,16 +70,18 @@ const BENTO_EASE = [0.215, 0.61, 0.355, 1] as const;
  * Di mobile grid dua kolom mengikuti frame Figma dan halaman menggulir. Di
  * desktop grid mengisi sisa viewport:
  *
- * - baris 1 dan 2 tetap 10.5rem. Kartu aksi (Servis baru, Catat Kas,
- *   Penjualan, Sparepart) dan Ringkasan Servis tidak ikut melar saat layar
- *   tinggi - kalau ikut `1fr`, kartu tombol jadi bidang kosong yang besar.
+ * - baris 1 dan 2 tetap 12rem. Cukup tinggi untuk isi Ringkasan Servis
+ *   (gauge butuh ~86px, sisa ruang setelah header + padding ~100px); pada
+ *   10.5rem gauge dan angka bawahnya terpotong `overflow-hidden`.
+ *   Kartu aksi di baris yang sama ikut setinggi baris - bukan celah kosong,
+ *   karena permukaan candy terisi penuh.
  * - baris 3 menyerap sisa tinggi (`minmax(10.5rem, 1fr)`), jadi hanya kartu
  *   data (daftar servis, To-Do, Ringkasan Hari ini) yang memanjang.
  * - `minmax` menjaga baris 3 tidak kolaps di layar pendek; kalau isinya tetap
  *   tidak muat, `main` shell yang menggulir.
  */
 export const BENTO_GRID_CLASS =
-  "mt-6 grid grid-cols-2 gap-3 sm:min-h-0 sm:flex-1 sm:grid-cols-4 sm:gap-4 sm:grid-rows-[10.5rem_10.5rem_minmax(10.5rem,1fr)]";
+  "mt-6 grid grid-cols-2 gap-3 sm:min-h-0 sm:flex-1 sm:grid-cols-4 sm:gap-4 sm:grid-rows-[12rem_12rem_minmax(10.5rem,1fr)]";
 
 /**
  * Jarak naik kartu, dalam px.

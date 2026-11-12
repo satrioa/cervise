@@ -153,7 +153,7 @@ export function KaryawanFilters({
   return (
     <>
       <Select value={cabang} onValueChange={(v) => commit({ cabang: v ?? KARYAWAN_DEFAULTS.cabang })}>
-        <SelectTrigger className="w-40 shrink-0" size="sm">
+        <SelectTrigger className="w-full shrink-0 sm:w-40" size="sm">
           <SelectValue>{cabang === KARYAWAN_DEFAULTS.cabang ? "Semua cabang" : cabang}</SelectValue>
         </SelectTrigger>
         <SelectPopup>
@@ -163,7 +163,7 @@ export function KaryawanFilters({
       </Select>
 
       <Select value={role} onValueChange={(v) => commit({ role: v ?? KARYAWAN_DEFAULTS.role })}>
-        <SelectTrigger className="w-36 shrink-0" size="sm">
+        <SelectTrigger className="w-full shrink-0 sm:w-36" size="sm">
           <SelectValue>{ROLE_OPTIONS.find((o) => o.value === role)?.label ?? "Semua role"}</SelectValue>
         </SelectTrigger>
         <SelectPopup>
@@ -172,7 +172,7 @@ export function KaryawanFilters({
       </Select>
 
       <Select value={status} onValueChange={(v) => commit({ status: v ?? KARYAWAN_DEFAULTS.status })}>
-        <SelectTrigger className="w-32 shrink-0" size="sm">
+        <SelectTrigger className="w-full shrink-0 sm:w-32" size="sm">
           <SelectValue>{STATUS_OPTIONS.find((o) => o.value === status)?.label ?? "Semua status"}</SelectValue>
         </SelectTrigger>
         <SelectPopup>
@@ -181,7 +181,7 @@ export function KaryawanFilters({
       </Select>
 
       {activeCount > 0 ? (
-        <Button size="xs" variant="ghost" onClick={clear} className="h-8 shrink-0 px-1.5 text-muted-foreground">
+        <Button size="xs" variant="ghost" onClick={clear} className="h-8 shrink-0 px-1.5 text-muted-foreground max-sm:hidden">
           <XIcon /> Clear ({activeCount})
         </Button>
       ) : null}

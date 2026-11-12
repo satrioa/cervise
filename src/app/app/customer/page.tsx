@@ -60,6 +60,8 @@ export default async function CustomerPage({ searchParams }: { searchParams: Pro
   });
 
   const totalCount = base.length;
+  const statusActive = statusFilter !== CUSTOMER_DEFAULTS.status;
+  const customerClearHref = q ? `/app/customer?q=${encodeURIComponent(q)}` : "/app/customer";
 
   return (
     <div className="min-h-svh bg-transparent">
@@ -75,6 +77,9 @@ export default async function CustomerPage({ searchParams }: { searchParams: Pro
             sort={sortKey}
           />
         }
+        filterCount={statusActive ? 1 : 0}
+        filterSummary={statusActive ? `Status: ${statusFilter}` : undefined}
+        filterClearHref={customerClearHref}
         actions={
           <>
             <CustomerCreateButton initialOpen={newParam === "1"} />

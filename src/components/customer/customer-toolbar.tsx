@@ -150,7 +150,7 @@ export function CustomerFilters({
   return (
     <>
       <Select value={status} onValueChange={(v) => commit({ status: v ?? CUSTOMER_DEFAULTS.status })}>
-        <SelectTrigger className="w-44 shrink-0" size="sm">
+        <SelectTrigger className="w-full shrink-0 sm:w-44" size="sm">
           <SelectValue>{STATUS_OPTIONS.find((s) => s.value === status)?.label ?? "Semua status"}</SelectValue>
         </SelectTrigger>
         <SelectPopup>
@@ -163,7 +163,7 @@ export function CustomerFilters({
       </Select>
 
       <Select value={sort} onValueChange={(v) => commit({ sort: v ?? CUSTOMER_DEFAULTS.sort })}>
-        <SelectTrigger className="w-48 shrink-0" size="sm">
+        <SelectTrigger className="w-full shrink-0 sm:w-48" size="sm">
           <ArrowUpDownIcon className="text-muted-foreground" />
           <SelectValue>{SORT_OPTIONS.find((s) => s.value === sort)?.label ?? "Terakhir terbaru"}</SelectValue>
         </SelectTrigger>
@@ -177,7 +177,7 @@ export function CustomerFilters({
       </Select>
 
       {activeCount > 0 ? (
-        <Button size="xs" variant="ghost" onClick={clear} className="h-8 shrink-0 px-1.5 text-muted-foreground">
+        <Button size="xs" variant="ghost" onClick={clear} className="h-8 shrink-0 px-1.5 text-muted-foreground max-sm:hidden">
           <XIcon /> Clear ({activeCount})
         </Button>
       ) : null}

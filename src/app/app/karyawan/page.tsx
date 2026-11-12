@@ -43,8 +43,22 @@ export default async function KaryawanPage({ searchParams }: { searchParams: Pro
     return true;
   });
 
-  const exportRows: ExportKaryawanRow[] = filtered.map((k) => ({
-    name: k.fullName,
+  const roleLabels: Record<string, string> = {
+    master_admin: "Master Admin",
+    admin: "Admin",
+    frontliner: "Frontliner",
+    teknisi: "Teknisi",
+  };
+  const filterParts = [
+    cabangFilter !== KARYAWAN_DEFAULTS.cabang ? `Cabang: ${cabangFilter}` : null,
+    roleFilter !== KARYAWAN_DEFAULTS.role ? `Role: ${roleLabels[roleFilter] ?? roleFilter}` : null,
+    statusFilter !== KARYAWAN_DEFAULTS.status
+      ? `Status: ${statusFilter === "aktif" ? "Aktif" : "Nonaktif"}`
+      : null,
+  ].filter(Boolean) as string[];
+  const karyawanClearHref = q ? `/app/karyawan?q=${encodeURIComponent(q)}` : "/app/karyawan";
+
+  const exportRows: ExportKaryawanRow[] = filtered.map((k) => ({    name: k.fullName,
     email: k.email ?? "—",
     phone: k.phone ?? "—",
     cabang: k.branchName ?? "—",
@@ -69,6 +83,9 @@ export default async function KaryawanPage({ searchParams }: { searchParams: Pro
             cabangs={cabangs}
           />
         }
+        filterCount={filterParts.length}
+        filterSummary={filterParts.join(" · ")}
+        filterClearHref={karyawanClearHref}
         actions={
           <>
             <KaryawanHeaderActions branches={branches} initialCreateOpen={newParam === "1"} />

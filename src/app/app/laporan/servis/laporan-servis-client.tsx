@@ -11,7 +11,7 @@ import { format } from "date-fns";
 import { id as localeId } from "date-fns/locale";
 import { PageHeader } from "@/components/layout/page-header";
 import { TableRowsSkeleton } from "@/components/ui/skeleton-shapes";
-import { DateRangeFilter } from "@/components/date-range-filter";
+import { DateRangeFilter, dateRangeLabel } from "@/components/date-range-filter";
 import { getLaporanServis } from "@/app/app/laporan/servis/actions";
 import { toLocalDateString } from "@/lib/operational/garansi-list";
 import type { LaporanServis as LaporanServisReport, ServisDetailRow } from "@/lib/operational/laporan-servis";
@@ -105,6 +105,11 @@ export default function LaporanServisPage() {
 
   const harian = report?.harian ?? [];
   const bulanan = report?.bulanan ?? [];
+  const filterParts = [
+    from || to ? `Tanggal: ${dateRangeLabel({ from, to })}` : null,
+    cabang !== "all" ? `Cabang: ${cabangLabel}` : null,
+    teknisi !== "all" ? `Teknisi: ${teknisiLabel}` : null,
+  ].filter(Boolean) as string[];
 
   return (
     <div className="min-h-svh bg-transparent text-foreground">
@@ -124,14 +129,14 @@ export default function LaporanServisPage() {
               resultLabel={report ? `${report.services.length} servis` : undefined}
             />
             <Select value={cabang} onValueChange={(v) => setCabang((v as string) ?? "all")}>
-              <SelectTrigger size="sm" className="w-auto! shrink-0"><SelectValue placeholder="Semua cabang" /></SelectTrigger>
+              <SelectTrigger size="sm" className="w-full shrink-0 sm:w-auto"><SelectValue placeholder="Semua cabang" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Semua cabang</SelectItem>
                 {branches.map((b) => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
               </SelectContent>
             </Select>
             <Select value={teknisi} onValueChange={(v) => setTeknisi((v as string) ?? "all")}>
-              <SelectTrigger size="sm" className="w-auto! shrink-0"><SelectValue placeholder="Semua teknisi" /></SelectTrigger>
+              <SelectTrigger size="sm" className="w-full shrink-0 sm:w-auto"><SelectValue placeholder="Semua teknisi" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Semua teknisi</SelectItem>
                 {teknisis.map((t) => <SelectItem key={t.id} value={t.id}>{t.full_name ?? t.id.slice(0, 6)}</SelectItem>)}
@@ -139,6 +144,14 @@ export default function LaporanServisPage() {
             </Select>
           </>
         }
+        filterCount={filterParts.length}
+        filterSummary={filterParts.join(" · ")}
+        onClearFilters={() => {
+          setFrom(undefined);
+          setTo(undefined);
+          setCabang("all");
+          setTeknisi("all");
+        }}
       />
 
       <main className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-8 space-y-8">

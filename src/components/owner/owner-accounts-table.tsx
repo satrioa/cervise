@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { FilterGroup } from "@/components/layout/filter-group";
 
 type Filter = "all" | "tenant" | "unassigned" | "platform" | "inactive";
 
@@ -82,11 +83,16 @@ export function OwnerAccountsTable({ accounts }: { accounts: OwnerAccountRow[] }
         <SearchIcon className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
         <Input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Cari nama, email, tenant..." className="pl-9" aria-label="Cari akun" />
       </div>
-      <div className="flex gap-1 overflow-x-auto pb-1">
+      <FilterGroup
+        breakpoint="lg"
+        count={filter === "all" ? 0 : 1}
+        summary={filter === "all" ? undefined : `Filter: ${filters.find((item) => item.key === filter)?.label ?? filter}`}
+        onClear={() => setFilter("all")}
+      >
         {filters.map((item) => <Button key={item.key} type="button" size="sm" variant={filter === item.key ? "secondary" : "ghost"} onClick={() => setFilter(item.key)} className="shrink-0">
           {item.label}<span className="ml-1 text-[10px] text-muted-foreground">{counts[item.key]}</span>
         </Button>)}
-      </div>
+      </FilterGroup>
     </div>
     <div className="overflow-x-auto rounded-lg border">
       <Table>

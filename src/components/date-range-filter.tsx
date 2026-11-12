@@ -10,6 +10,21 @@ import { cn } from "@/lib/utils";
 
 export type DateRange = { from?: Date; to?: Date };
 
+/** Label ringkas untuk ringkasan filter aktif. */
+export function dateRangeLabel(value: DateRange, placeholder = "Semua tanggal") {
+  if (value.from && value.to) {
+    const sameMonth =
+      value.from.getMonth() === value.to.getMonth() &&
+      value.from.getFullYear() === value.to.getFullYear();
+    return sameMonth
+      ? `${format(value.from, "d", { locale: localeId })}\u2013${format(value.to, "d MMM yyyy", { locale: localeId })}`
+      : `${format(value.from, "d MMM", { locale: localeId })} \u2013 ${format(value.to, "d MMM yyyy", { locale: localeId })}`;
+  }
+  if (value.from) return format(value.from, "d MMM yyyy", { locale: localeId });
+  if (value.to) return format(value.to, "d MMM yyyy", { locale: localeId });
+  return placeholder;
+}
+
 /**
  * Filter rentang tanggal (Popover + Calendar mode="range"), satu kontrol
  * alih-alih dua tombol tanggal terpisah.
@@ -36,19 +51,7 @@ export function DateRangeFilter({
   resultLabel?: string;
   className?: string;
 }) {
-  const label = (() => {
-    if (value.from && value.to) {
-      const sameMonth =
-        value.from.getMonth() === value.to.getMonth() &&
-        value.from.getFullYear() === value.to.getFullYear();
-      return sameMonth
-        ? `${format(value.from, "d", { locale: localeId })}\u2013${format(value.to, "d MMM yyyy", { locale: localeId })}`
-        : `${format(value.from, "d MMM", { locale: localeId })} \u2013 ${format(value.to, "d MMM yyyy", { locale: localeId })}`;
-    }
-    if (value.from) return format(value.from, "d MMM yyyy", { locale: localeId });
-    if (value.to) return format(value.to, "d MMM yyyy", { locale: localeId });
-    return placeholder;
-  })();
+  const label = dateRangeLabel(value, placeholder);
 
   const hasRange = Boolean(value.from || value.to);
 
@@ -60,7 +63,7 @@ export function DateRangeFilter({
             variant="outline"
             size="sm"
             className={cn(
-              "w-auto shrink-0 justify-start gap-2 font-normal text-sm",
+              "w-auto max-sm:w-full shrink-0 justify-start gap-2 font-normal text-sm",
               !hasRange && "text-muted-foreground",
               className,
             )}

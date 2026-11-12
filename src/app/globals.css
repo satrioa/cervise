@@ -440,3 +440,19 @@
     .penjualan-confetti { display: none; }
   }
 }
+
+/*
+ * Token yang dibaca komponen uiarc (gauge). Repo ini memakai token shadcn,
+ * jadi nama variabel uiarc dipetakan ke token yang sudah ada.
+ */
+:root {
+  --text-muted: var(--muted-foreground);
+  --text-secondary: var(--muted-foreground);
+  --accent-strong: var(--foreground);
+  --danger: var(--destructive);
+  --duration-standard: 240ms;
+  --ease-standard: cubic-bezier(0.22, 1, 0.36, 1);
+  --tracking-display: -0.03em;
+  --font-display: var(--font-heading);
+  --font-body: var(--font-sans);
+}

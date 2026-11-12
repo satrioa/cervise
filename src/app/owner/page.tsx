@@ -68,10 +68,10 @@ export default async function OwnerDashboard() {
                 <TableRow key={tenant.id}>
                   <TableCell><div className="font-medium">{tenant.name}</div><div className="font-mono text-xs text-muted-foreground">{tenant.owner_email ?? tenant.slug}</div></TableCell>
                   <TableCell>{tenant.package?.name ?? "—"}</TableCell>
-                  <TableCell><Badge variant={statusVariant(tenant.subscriptionStatus)}>{tenant.subscriptionStatus}</Badge></TableCell>
+                  <TableCell><Badge variant={statusVariant(tenant.accessState)}>{tenant.accessState}</Badge>{tenant.subscriptionStatus !== tenant.accessState ? <span className="ml-1 text-[10px] text-muted-foreground">DB: {tenant.subscriptionStatus}</span> : null}</TableCell>
                   <TableCell className="tabular-nums">{formatRupiah(tenant.effectivePrice)}</TableCell>
                   <TableCell>{tenant.activeBranchCount} / {tenant.package?.branch_limit ?? "—"}</TableCell>
-                  <TableCell className="text-xs text-muted-foreground">{tenant.subscriptionStatus === "trial" ? `Trial ends ${formatDate(tenant.trialEndsAt)}` : `Renews ${formatDate(tenant.currentPeriodEnd)}`}</TableCell>
+                  <TableCell className="text-xs text-muted-foreground">{tenant.accessState === "trial" ? `Trial ends ${formatDate(tenant.trialEndsAt)}` : tenant.accessState === "grace" ? `Grace until ${formatDate(tenant.graceEndsAt)}` : tenant.accessState === "blocked" ? `Ended ${formatDate(tenant.currentPeriodEnd)}` : `Renews ${formatDate(tenant.currentPeriodEnd)}`}</TableCell>
                   <TableCell><Button size="sm" variant="ghost" asChild><Link href={`/owner/tenants/${tenant.id}`}><ArrowRightIcon className="size-4" /></Link></Button></TableCell>
                 </TableRow>
               ))}

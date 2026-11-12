@@ -351,7 +351,7 @@ export default function ServisPage() {
   }, [filteredKanbanBase, filter]);
 
   const hasActiveFilters = search.trim().length > 0 || !!dateRange.from || !!dateRange.to || paymentFilter !== "Semua" || teknisiFilter !== "Semua";
-  const clearFilters = () => { setSearch(""); setDateRange({}); setPaymentFilter("Semua"); setTeknisiFilter("Semua"); };
+  const activeFilterCount = (dateRange.from || dateRange.to ? 1 : 0) + (paymentFilter !== "Semua" ? 1 : 0) + (teknisiFilter !== "Semua" ? 1 : 0);
 
   const dateLabel = (() => {
     if (dateRange.from && dateRange.to) {
@@ -783,7 +783,7 @@ export default function ServisPage() {
         filters={
           <>
             <Popover>
-              <PopoverTrigger render={<CossButton variant="outline" size="sm" className={cn("w-auto shrink-0 justify-start gap-2 font-normal text-sm", !dateRange.from && !dateRange.to && "text-muted-foreground")} />}>
+              <PopoverTrigger render={<CossButton variant="outline" size="sm" className={cn("w-full shrink-0 justify-start gap-2 font-normal text-sm sm:w-auto", !dateRange.from && !dateRange.to && "text-muted-foreground")} />}>
                 <CalendarIcon className="size-4 opacity-70" /><span className="truncate">{dateLabel}</span>
                 {(dateRange.from || dateRange.to) && (<span role="button" tabIndex={0} onClick={(e) => { e.stopPropagation(); setDateRange({}); }} className="ml-1 rounded p-0.5 hover:bg-foreground/10 -mr-1" aria-label="Hapus rentang tanggal"><XIcon className="size-3.5" /></span>)}
               </PopoverTrigger>
@@ -799,7 +799,7 @@ export default function ServisPage() {
               </PopoverContent>
             </Popover>
             <Select value={teknisiFilter} onValueChange={(v) => setTeknisiFilter(v ?? "Semua")}>
-              <SelectTrigger size="sm" className="w-[160px] shrink-0 bg-background">
+              <SelectTrigger size="sm" className="w-full shrink-0 bg-background sm:w-[160px]">
                 <SelectValue placeholder="Teknisi" />
               </SelectTrigger>
               <SelectContent>
@@ -810,7 +810,7 @@ export default function ServisPage() {
               </SelectContent>
             </Select>
             <Select value={paymentFilter} onValueChange={(v) => setPaymentFilter(v ?? "Semua")}>
-              <SelectTrigger size="sm" className="w-[160px] shrink-0 bg-background">
+              <SelectTrigger size="sm" className="w-full shrink-0 bg-background sm:w-[160px]">
                 <SelectValue placeholder="Pembayaran" />
               </SelectTrigger>
               <SelectContent>
@@ -820,14 +820,22 @@ export default function ServisPage() {
                 <SelectItem value="Belum dibayar">Belum dibayar</SelectItem>
               </SelectContent>
             </Select>
+          </>
+        }
+        filterCount={activeFilterCount}
+        filterSummary={[
+          dateRange.from || dateRange.to ? `Tanggal: ${dateLabel}` : null,
+          teknisiFilter !== "Semua" ? `Teknisi: ${teknisiFilter}` : null,
+          paymentFilter !== "Semua" ? `Pembayaran: ${paymentFilter}` : null,
+        ].filter(Boolean).join(" · ")}
+        onClearFilters={() => { setDateRange({}); setTeknisiFilter("Semua"); setPaymentFilter("Semua"); }}
+        actions={
+          <>
             <Tabs value={view} onValueChange={(v) => setView(v as "table" | "kanban")} className="shrink-0">
               <TabsList><TabsTrigger value="table" aria-label="Table view" className="px-2.5"><TableIcon className="size-4" /></TabsTrigger><TabsTrigger value="kanban" aria-label="Kanban view" className="px-2.5"><LayoutGridIcon className="size-4" /></TabsTrigger></TabsList>
             </Tabs>
-            {hasActiveFilters && (<button type="button" onClick={clearFilters} className="inline-flex shrink-0 items-center gap-1 rounded-full border px-2.5 py-1 text-xs hover:bg-muted transition-colors"><XIcon className="size-3" /> Hapus filter</button>)}
+            <Button size="sm" className="h-8 shrink-0" onClick={() => setOpenServis(true)}>Tambah Servis</Button>
           </>
-        }
-        actions={
-          <Button size="sm" className="h-8 shrink-0" onClick={() => setOpenServis(true)}>Tambah Servis</Button>
         }
       />
 

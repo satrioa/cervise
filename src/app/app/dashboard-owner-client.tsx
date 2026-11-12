@@ -129,6 +129,9 @@ export default function DashboardOwnerClient() {
           </Button>
         }
         filters={<PeriodFilter period={period} setPeriod={setPeriod} branchLabel={data?.branchLabel ?? branch.label} />}
+        filterCount={period !== "30d" ? 1 : 0}
+        filterSummary={period !== "30d" ? `Periode: ${period}` : undefined}
+        onClearFilters={() => setPeriod("30d")}
       />
 
       <main className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-8">
@@ -204,7 +207,7 @@ function PeriodFilter({
   branchLabel: string;
 }) {
   return (
-    <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
+    <div className="flex w-full flex-wrap items-center gap-2 max-sm:col-span-2 sm:w-auto">
       <Tabs value={period} onValueChange={(value) => setPeriod(value as DashboardPeriod)}>
         <TabsList className="w-full sm:w-auto">
           {DASHBOARD_PERIODS.map((option) => (

@@ -35,7 +35,7 @@ export type RenewalMessageInput = {
 
 const DAY_IN_MS = 24 * 60 * 60 * 1000;
 
-function addOneCalendarMonth(value: Date) {
+export function addCalendarMonths(value: Date, months: number) {
   const year = value.getUTCFullYear();
   const month = value.getUTCMonth();
   const day = value.getUTCDate();
@@ -43,7 +43,7 @@ function addOneCalendarMonth(value: Date) {
   const minutes = value.getUTCMinutes();
   const seconds = value.getUTCSeconds();
   const milliseconds = value.getUTCMilliseconds();
-  const targetMonth = month + 1;
+  const targetMonth = month + months;
   const lastDay = new Date(Date.UTC(year, targetMonth + 1, 0)).getUTCDate();
 
   return new Date(
@@ -57,6 +57,10 @@ function addOneCalendarMonth(value: Date) {
       milliseconds,
     ),
   );
+}
+
+function addOneCalendarMonth(value: Date) {
+  return addCalendarMonths(value, 1);
 }
 
 function formatIndonesianDate(value: Date) {
@@ -105,6 +109,37 @@ export function getSubscriptionAccessState(
   }
 
   return "active";
+}
+
+/**
+ * Akses efektif dari data mentah subscription.
+ *
+ * `status` tersimpan tidak cukup: tenant `active` yang periodenya lewat tetap
+ * terblokir, dan trial dihitung dari `trial_ends_at`. Semua UI owner/tenant
+ * memakai fungsi ini supaya angka yang tampil sama dengan gate login.
+ */
+export function resolveSubscriptionAccessState(input: {
+  status: SubscriptionLifecycleStatus;
+  currentPeriodEnd: Date | string | null;
+  trialEndsAt: Date | string | null;
+  graceDays: number;
+  now?: Date;
+}): SubscriptionLifecycleStatus {
+  if (input.status === "trial") {
+    const trialEndsAt = input.trialEndsAt ? new Date(input.trialEndsAt) : null;
+    return trialEndsAt && trialEndsAt > (input.now ?? new Date())
+      ? "trial"
+      : "blocked";
+  }
+
+  if (!input.currentPeriodEnd) return "blocked";
+
+  return getSubscriptionAccessState({
+    status: input.status,
+    currentPeriodEnd: new Date(input.currentPeriodEnd),
+    graceDays: input.graceDays,
+    now: input.now ?? new Date(),
+  });
 }
 
 export function getEffectiveMonthlyPrice(

@@ -112,33 +112,39 @@ describe("grid bento delapan sel", () => {
   });
 
   it("teknisi: tujuh sel sesuai konsep Figma", () => {
-    const cells = (technician.match(/<BentoCard/g) ?? []).length;
+    // To-Do dan Servis terbaru memakai `motion.div` langsung + frame coss.
+    const cells =
+      (technician.match(/<BentoCard/g) ?? []).length +
+      (technician.match(/<motion\.div\s+\{\.\.\.cardProps\}/g) ?? []).length;
     // Kelas gridnya tinggal di satu tempat (`BENTO_GRID_CLASS`), jadi kedua
     // dashboard hanya mengimpor, bukan menyalin.
     expect(technician).toMatch(/BENTO_GRID_CLASS/);
     // Tidak semua sel ditulis eksplisit: StatTile dan friends ikut memakai
     // BentoCard, jadi hitungan di bawah hanya untuk sel yang langsung tertulis.
-    expect(cells).toBeGreaterThanOrEqual(5);
+    expect(cells).toBeGreaterThanOrEqual(6);
     // Kartu aksi memakai permukaan candy, bukan kartu abu-abu yang memuat
     // tombol di dalam.
     expect(technician).toMatch(/candy="accent"/);
     expect(technician).not.toMatch(/BentoAction/);
     expect(frontliner).not.toMatch(/BentoAction/);
     // To-Do 2x2, Servis terbaru 2 baris, Target saya 2 kolom.
-    expect(technician).toMatch(/span=\{2\}\s+rowSpan=\{2\}/);
-    expect(technician).toMatch(/rowSpan=\{2\}/);
+    expect(technician).toMatch(/sm:col-span-2 sm:row-span-2/);
+    expect(technician).toMatch(/sm:row-span-2/);
   });
 
   it("frontliner: sembilan sel, tiga sel aksi berwarna", () => {
-    const cells = (frontliner.match(/<BentoCard/g) ?? []).length;
+    // Tiga sel data memakai `motion.div` langsung + frame coss; sisanya BentoCard.
+    const cells =
+      (frontliner.match(/<BentoCard/g) ?? []).length +
+      (frontliner.match(/<motion\.div\s+\{\.\.\.cardProps\}/g) ?? []).length;
     expect(frontliner).toMatch(/BENTO_GRID_CLASS/);
-    expect(cells).toBeGreaterThanOrEqual(8);
+    expect(cells).toBeGreaterThanOrEqual(9);
     // Tiga sel aksi: Servis baru, Catat Kas, Penjualan.
     expect(frontliner).not.toMatch(/action="sand"|action="yellow"|action="green"/);
     // Ringkasan Servis satu kolom, tepat di sebelah kanan Penjualan.
     expect(frontliner).toMatch(/RingkasanServis/);
     // Ringkasan Hari ini membentang tiga baris.
-    expect(frontliner).toMatch(/rowSpan=\{3\}/);
+    expect(frontliner).toMatch(/sm:row-span-3/);
     // Sel ke-9: Pengambilan Device (candy biru). Karena sel ini ada,
     // Servis terbaru cukup satu baris supaya grid 4x3 tetap penuh.
     expect(frontliner).toMatch(/PengambilanDeviceCard/);
@@ -217,7 +223,8 @@ describe("grid bento delapan sel", () => {
     // Sisa antrean lintas hari, bukan angka harian seperti tiga di atasnya.
     expect(frontliner).toMatch(/Antrian/);
     expect(frontliner).toMatch(/kpi\?\.proses/);
-    expect(frontliner).not.toMatch(/Batal/);
+    // "Batal" bukan angka KPI; kata itu hanya ada di tombol dialog pengambilan.
+    expect(frontliner).not.toMatch(/"Batal"/);
   });
 
   it("satu warna netral untuk semua kartu data", () => {
@@ -233,11 +240,11 @@ describe("grid bento delapan sel", () => {
     );
   });
 
-  it("hover datar: netral E7E7E7 ke ECECEC, tanpa lift", () => {
-    // Keluhan sebelumnya: hover terlalu tebal dan besar. Sekarang kartu
-    // hanya berganti warna satu tingkat, tanpa shadow yang menumpuk.
-    expect(bentoCard).toMatch(/#E7E7E7/);
-    expect(bentoCard).toMatch(/hover:bg-\[#ECECEC\]/);
+  it("kartu netral putih di kanvas abu, hover tanpa lift", () => {
+    // Kartu putih (#fff) di atas kanvas #EFEFEF. Hover turun satu tingkat,
+    // tanpa shadow yang menumpuk.
+    expect(bentoCard).toMatch(/bg-white/);
+    expect(bentoCard).toMatch(/hover:bg-\[#FAFAFA\]/);
     expect(bentoCard).not.toMatch(/hover:shadow/);
     expect(bentoCard).not.toMatch(/0_10px_28px|10px_28px/);
   });
@@ -274,9 +281,9 @@ describe("grid bento delapan sel", () => {
     // Kedua kartu aksi teknisi harus berbeda, kalau tidak pink mendominasi.
     expect(frontliner).toMatch(/candy="accent"\s+onClick/);
     expect(frontliner).toMatch(/candy="amber"\s+onClick/);
-    expect(frontliner).toMatch(/candy="green" href="\/app\/penjualan"/);
+    expect(frontliner).toMatch(/candy="green"\s+href="\/app\/penjualan"/);
     expect(technician).toMatch(/candy="accent"\s+onClick/);
-    expect(technician).toMatch(/candy="blue" href="\/app\/inventori"/);
+    expect(technician).toMatch(/candy="blue"\s+href="\/app\/inventori"/);
   });
 
   it("tidak ada dua kartu aksi bersebelahan dengan warna sama", () => {
@@ -294,12 +301,13 @@ describe("grid bento delapan sel", () => {
     }
   });
 
-  it("bento mengisi viewport, tapi kartu aksi tetap 10.5rem", () => {
-    // Baris 1-2 tetap 10.5rem: kartu aksi (Servis baru, Catat Kas, Penjualan,
-    // Sparepart) dan Ringkasan Servis tidak ikut melar di monitor besar.
+  it("bento mengisi viewport, baris data 12rem", () => {
+    // Baris 1-2 = 12rem supaya isi Ringkasan Servis (gauge ~86px) tidak
+    // terpotong; pada 10.5rem sisanya hanya ~76px. Kartu aksi di baris yang
+    // sama ikut melar mengisi baris - tidak ada celah kosong.
     // Baris 3 menyerap sisa tinggi, jadi hanya kartu data yang memanjang.
     expect(bentoCard).toMatch(
-      /sm:grid-rows-\[10\.5rem_10\.5rem_minmax\(10\.5rem,1fr\)\]/,
+      /sm:grid-rows-\[12rem_12rem_minmax\(10\.5rem,1fr\)\]/,
     );
     expect(bentoCard).not.toMatch(/sm:auto-rows/);
     expect(bentoCard).not.toMatch(/max-h-\[calc\(100dvh/);
@@ -323,7 +331,8 @@ describe("grid bento delapan sel", () => {
     // "Servis Selesai Belum dibayar" mengisi selnya sendiri (tanpa `hug`),
     // jadi tingginya mengikuti tinggi bento dan daftarnya menggulir di dalam.
     expect(frontliner).not.toMatch(/span=\{2\} hug/);
-    expect(frontliner).toMatch(/<BentoCard span=\{2\} className="max-sm:col-span-2">/);
+    expect(frontliner).toMatch(/<ServisSelesaiBelumDibayar queue=\{queue\} \/>/);
+    expect(frontliner).toMatch(/sm:col-span-2 max-sm:col-span-2 max-sm:order-7/);
   });
 
   it("Servis Selesai Belum dibayar menggantikan Transaksi Terbaru", () => {

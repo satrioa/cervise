@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
+import { FilterGroup } from "./filter-group";
 import { ShellChrome } from "./shell-chrome";
 
 export type PageHeaderProps = {
@@ -7,6 +8,14 @@ export type PageHeaderProps = {
   description?: ReactNode;
   search?: ReactNode;
   filters?: ReactNode;
+  /** Jumlah filter aktif (selain pencarian); tampil sebagai badge di mobile. */
+  filterCount?: number;
+  /** Label filter aktif, mis. "Status: Aktif · Cabang: Pusat". */
+  filterSummary?: string;
+  /** Halaman server: tombol hapus filter berupa link. */
+  filterClearHref?: string;
+  /** Halaman client: tombol hapus filter memanggil state lokal. */
+  onClearFilters?: () => void;
   actions?: ReactNode;
   titleClassName?: string;
   containerClassName?: string;
@@ -20,6 +29,10 @@ export function PageHeader({
   description,
   search,
   filters,
+  filterCount = 0,
+  filterSummary,
+  filterClearHref,
+  onClearFilters,
   actions,
   titleClassName,
   containerClassName,
@@ -54,9 +67,9 @@ export function PageHeader({
       </div>
       {hasRow2 ? (
         <div className="border-t border-border/40">
-          {/* Mobile: search + aksi di baris pertama, filter di baris kedua.
-              Sebelumnya search `w-56` dan filter berebut satu baris `h-12`
-              sehingga filter terdorong/terpotong di layar sempit. */}
+          {/* Mobile: search + tombol filter + aksi di baris pertama. Panel
+              filter dibuka lewat ikon dan ditata grid 2 kolom supaya semua
+              kontrol terlihat tanpa scroll horizontal. */}
           <div
             className={cn(
               "mx-auto flex w-full max-w-6xl flex-wrap items-center gap-2 px-4 py-2 sm:h-12 sm:flex-nowrap sm:gap-3 sm:py-0 sm:px-6 lg:px-8",
@@ -70,12 +83,18 @@ export function PageHeader({
               </div>
             ) : null}
             {actions ? (
-              <div className="order-2 ml-auto flex shrink-0 items-center gap-2 sm:order-3">{actions}</div>
+              <div className="order-3 ml-auto flex shrink-0 items-center gap-2">{actions}</div>
             ) : null}
             {filters ? (
-              <div className="order-3 flex w-full min-w-0 items-center gap-2 overflow-x-auto scrollbar-none sm:order-2 sm:w-auto sm:flex-1 sm:justify-end">
+              <FilterGroup
+                count={filterCount}
+                summary={filterSummary}
+                clearHref={filterClearHref}
+                onClear={onClearFilters}
+                className="sm:flex-1 sm:justify-end"
+              >
                 {filters}
-              </div>
+              </FilterGroup>
             ) : null}
           </div>
         </div>

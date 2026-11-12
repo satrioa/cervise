@@ -31,7 +31,7 @@ export default function Loading() {
             <Skeleton className="h-9 w-28 rounded-full" />
           </div>
 
-          <div className="mt-6 grid grid-cols-2 gap-3 sm:min-h-0 sm:flex-1 sm:grid-cols-4 sm:gap-4 sm:grid-rows-[10.5rem_10.5rem_minmax(10.5rem,1fr)]">
+          <div className="mt-6 grid grid-cols-2 gap-3 sm:min-h-0 sm:flex-1 sm:grid-cols-4 sm:gap-4 sm:grid-rows-[12rem_12rem_minmax(10.5rem,1fr)]">
             {/* Dua kartu aksi: ikon lalu label. */}
             <Panel>
               <Skeleton className="size-9 rounded-xl" />

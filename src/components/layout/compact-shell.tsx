@@ -47,6 +47,13 @@ const MENU_MAX_DVH = 95;
 const MENU_MIN_DVH = 70;
 const MENU_RANGE_PX = 160;
 
+// Desktop: panel kiri mengambang, tinggi tetap - bentuk lama sebelum drawer
+// mobile masuk. Mobile: bottom sheet yang tingginya ikut scroll.
+const MENU_SHEET_DESKTOP =
+  "gap-0 overflow-hidden rounded-[28px] bg-[#F1F1F1] p-0 shadow-[0_30px_80px_-32px_rgba(0,0,0,0.55)] duration-300 ease-[linear(0,0.35,0.85,1.06,1.02,0.995,1)] dark:bg-neutral-950 data-[side=left]:inset-y-4 data-[side=left]:left-4 data-[side=left]:h-[calc(100%-2rem)] data-[side=left]:w-[calc(100%-2rem)] data-[side=left]:border-0 data-[side=left]:sm:max-w-[340px] data-[side=left]:data-starting-style:translate-x-[-110%]! data-[side=left]:data-ending-style:translate-x-[-110%]!";
+const MENU_SHEET_MOBILE =
+  "gap-0 overflow-hidden rounded-t-[28px] bg-[#F1F1F1] p-0 shadow-[0_-30px_80px_-32px_rgba(0,0,0,0.55)] duration-300 ease-[linear(0,0.35,0.85,1.06,1.02,0.995,1)] dark:bg-neutral-950";
+
 export function CompactShell({ children, actor }: { children: ReactNode; actor: CompactShellActor }) {
   return (
     <LocaleProvider>
@@ -76,6 +83,10 @@ function CompactShellInner({
   actor: CompactShellActor;
 }) {
   const [open, setOpen] = useState(false);
+  // Drawer menu memakai dua bentuk: bottom sheet di mobile, panel kiri di
+  // desktop. Popup sheet baru dirender saat dibuka, jadi nilai `matchMedia`
+  // ini sudah final ketika dipakai - tidak ada kedipan saat hidrasi.
+  const [desktop, setDesktop] = useState(false);
   // Drawer menu: tinggi mengikuti nilai scroll konten, bukan snap. Paling atas
   // 70dvh, membesar linear sampai 95dvh setelah 160px scroll.
   const [menuHeight, setMenuHeight] = useState(MENU_MIN_DVH);
@@ -97,6 +108,14 @@ function CompactShellInner({
       Math.min(MENU_MAX_DVH, MENU_MIN_DVH + (top / MENU_RANGE_PX) * (MENU_MAX_DVH - MENU_MIN_DVH)),
     );
   }
+
+  useEffect(() => {
+    const mql = window.matchMedia("(min-width: 1024px)");
+    setDesktop(mql.matches);
+    const onChange = (event: MediaQueryListEvent) => setDesktop(event.matches);
+    mql.addEventListener("change", onChange);
+    return () => mql.removeEventListener("change", onChange);
+  }, []);
 
   const tabs =
     role === "FRONTLINER"
@@ -179,17 +198,17 @@ function CompactShellInner({
               <LayoutGrid fill="currentColor" className="size-[18px]" />
             </SheetTrigger>
             <SheetContent
-              side="bottom"
+              side={desktop ? "left" : "bottom"}
               showCloseButton={false}
-              // Tinggi mengikuti scroll (lihat `handleMenuScroll`); `h-full`
-              // milik CompactMenuSheet butuh parent berketinggian.
-              style={{ height: `${menuHeight}dvh` }}
-              className="gap-0 overflow-hidden rounded-t-[28px] bg-[#F1F1F1] p-0 shadow-[0_-30px_80px_-32px_rgba(0,0,0,0.55)] duration-300 ease-[linear(0,0.35,0.85,1.06,1.02,0.995,1)] dark:bg-neutral-950"
+              // Tinggi mengikuti scroll hanya di mobile (lihat
+              // `handleMenuScroll`); di desktop panel kiri tingginya tetap.
+              style={desktop ? undefined : { height: `${menuHeight}dvh` }}
+              className={desktop ? MENU_SHEET_DESKTOP : MENU_SHEET_MOBILE}
             >
               <CompactMenuSheet
                 role={actor.role}
                 onNavigate={() => setOpen(false)}
-                onScroll={handleMenuScroll}
+                onScroll={desktop ? undefined : handleMenuScroll}
               />
             </SheetContent>
           </Sheet>

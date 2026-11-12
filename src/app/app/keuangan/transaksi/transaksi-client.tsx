@@ -160,7 +160,7 @@ export default function TransaksiPage({ initialQuery = "" }: { initialQuery?: st
         filters={
           <>
             <Select value={branchFilter} onValueChange={(v) => setBranchFilter((v as string) ?? "all")}>
-              <SelectTrigger className="w-36 shrink-0" size="sm">
+              <SelectTrigger className="w-full shrink-0 sm:w-36" size="sm">
                 <SelectValue />
               </SelectTrigger>
               <SelectPopup>
@@ -173,7 +173,7 @@ export default function TransaksiPage({ initialQuery = "" }: { initialQuery?: st
               </SelectPopup>
             </Select>
             <Select value={typeFilter} onValueChange={(v) => setTypeFilter((v as string) ?? "all")}>
-              <SelectTrigger className="w-32 shrink-0" size="sm">
+              <SelectTrigger className="w-full shrink-0 sm:w-32" size="sm">
                 <SelectValue />
               </SelectTrigger>
               <SelectPopup>
@@ -185,7 +185,7 @@ export default function TransaksiPage({ initialQuery = "" }: { initialQuery?: st
             <Popover>
               <PopoverTrigger
                 render={
-                  <Button variant="outline" size="sm" className={cn("w-auto shrink-0 justify-start gap-2 font-normal text-sm", !dateRange.from && !dateRange.to && "text-muted-foreground")} />
+                  <Button variant="outline" size="sm" className={cn("w-full shrink-0 justify-start gap-2 font-normal text-sm sm:w-auto", !dateRange.from && !dateRange.to && "text-muted-foreground")} />
                 }
               >
                 <CalendarIcon className="size-4 opacity-70" />
@@ -211,6 +211,19 @@ export default function TransaksiPage({ initialQuery = "" }: { initialQuery?: st
             )}
           </>
         }
+        filterCount={
+          (branchFilter !== "all" ? 1 : 0) + (typeFilter !== "all" ? 1 : 0) + (dateRange.from || dateRange.to ? 1 : 0)
+        }
+        filterSummary={[
+          branchFilter !== "all" ? `Cabang: ${branchMap.get(branchFilter) ?? branchFilter}` : null,
+          typeFilter !== "all" ? `Tipe: ${typeFilter === "pemasukan" ? "Masuk" : "Keluar"}` : null,
+          dateRange.from || dateRange.to ? `Tanggal: ${dateLabel}` : null,
+        ].filter(Boolean).join(" · ")}
+        onClearFilters={() => {
+          setBranchFilter("all");
+          setTypeFilter("all");
+          setDateRange({});
+        }}
       />
 
       <main className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-8">

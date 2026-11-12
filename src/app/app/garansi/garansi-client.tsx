@@ -16,6 +16,7 @@ import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
 import { TableRowsSkeleton } from "@/components/ui/skeleton-shapes";
 import { Label } from "@/components/ui/label";
 import { GaransiField } from "@/components/servis/garansi-field";
+import { dateRangeLabel } from "@/components/date-range-filter";
 import { useBranch } from "@/lib/branch-context";
 import { extendGaransi, getGaransiList } from "@/app/app/garansi/actions";
 import { PageHeader } from "@/components/layout/page-header";
@@ -131,6 +132,11 @@ export default function GaransiPage({
     return { aktif, segera, expired, total: filtered.length };
   }, [filtered]);
 
+  const filterParts = [
+    status !== "Semua" ? `Status: ${status}` : null,
+    dateRange.from || dateRange.to ? `Tanggal: ${dateRangeLabel(dateRange)}` : null,
+  ].filter(Boolean) as string[];
+
   const openPerpanjang = (row: GaransiRow) => {
     setSelected(row);
     setNewValue(row.garansiValue);
@@ -194,7 +200,7 @@ export default function GaransiPage({
         filters={
           <>
             <Select value={status} onValueChange={(v) => { if (v) setStatus(v); }}>
-              <SelectTrigger className="w-40 shrink-0" size="sm">
+              <SelectTrigger className="w-full shrink-0 sm:w-40" size="sm">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -234,6 +240,12 @@ export default function GaransiPage({
             </Popover>
           </>
         }
+        filterCount={filterParts.length}
+        filterSummary={filterParts.join(" · ")}
+        onClearFilters={() => {
+          setStatus("Semua");
+          setDateRange({});
+        }}
       />
 
       <main className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-6 lg:py-8">

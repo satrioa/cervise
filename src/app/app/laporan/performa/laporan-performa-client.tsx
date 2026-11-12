@@ -90,7 +90,7 @@ export default function PerformaPage() {
         filters={
           <>
             <Select value={cabangFilter} onValueChange={(v) => setCabangFilter((v as string) ?? "all")}>
-              <SelectTrigger className="shrink-0"><SelectValue placeholder="Semua cabang" /></SelectTrigger>
+              <SelectTrigger className="w-full shrink-0 sm:w-auto"><SelectValue placeholder="Semua cabang" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Semua cabang</SelectItem>
                 {cabangOptions.map((c) => (
@@ -99,7 +99,7 @@ export default function PerformaPage() {
               </SelectContent>
             </Select>
             <Select value={intensifFilter} onValueChange={(v) => setIntensifFilter((v as string) ?? "all")}>
-              <SelectTrigger className="shrink-0"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="w-full shrink-0 sm:w-auto"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Semua</SelectItem>
                 <SelectItem value="aktif">Insentif aktif</SelectItem>
@@ -109,13 +109,19 @@ export default function PerformaPage() {
             {(q || cabangFilter !== "all" || intensifFilter !== "all") && (
               <>
                 <span className="hidden shrink-0 font-mono text-xs text-muted-foreground sm:block">{filtered.length} hasil</span>
-                <Button variant="ghost" size="xs" className="h-8 shrink-0" onClick={() => { setQ(""); setCabangFilter("all"); setIntensifFilter("all"); }}>
+                <Button variant="ghost" size="xs" className="h-8 shrink-0 max-sm:hidden" onClick={() => { setQ(""); setCabangFilter("all"); setIntensifFilter("all"); }}>
                   Reset filter
                 </Button>
               </>
             )}
           </>
         }
+        filterCount={(cabangFilter !== "all" ? 1 : 0) + (intensifFilter !== "all" ? 1 : 0)}
+        filterSummary={[
+          cabangFilter !== "all" ? `Cabang: ${cabangFilter}` : null,
+          intensifFilter !== "all" ? `Insentif: ${intensifFilter === "aktif" ? "Aktif" : "Off"}` : null,
+        ].filter(Boolean).join(" · ")}
+        onClearFilters={() => { setCabangFilter("all"); setIntensifFilter("all"); }}
         actions={
           <PerformaExport
             rows={filtered.map((row) => ({

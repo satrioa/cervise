@@ -183,7 +183,7 @@ export default function ArusKasPage({ initialQuery = "" }: { initialQuery?: stri
         filters={
           <>
             <Select value={branchFilter} onValueChange={(v) => setBranchFilter((v as string) ?? "all")}>
-              <SelectTrigger size="sm" className="w-36 shrink-0">
+              <SelectTrigger size="sm" className="w-full shrink-0 sm:w-36">
                 <SelectValue />
               </SelectTrigger>
               <SelectPopup>
@@ -196,7 +196,7 @@ export default function ArusKasPage({ initialQuery = "" }: { initialQuery?: stri
               </SelectPopup>
             </Select>
             <Select value={typeFilter} onValueChange={(v) => setTypeFilter((v as string) ?? "all")}>
-              <SelectTrigger size="sm" className="w-32 shrink-0">
+              <SelectTrigger size="sm" className="w-full shrink-0 sm:w-32">
                 <SelectValue />
               </SelectTrigger>
               <SelectPopup>
@@ -208,7 +208,7 @@ export default function ArusKasPage({ initialQuery = "" }: { initialQuery?: stri
             <Popover>
               <PopoverTrigger
                 render={
-                  <Button variant="outline" size="sm" className={cn("w-auto shrink-0 justify-start gap-2 font-normal text-sm", !dateRange.from && !dateRange.to && "text-muted-foreground")} />
+                  <Button variant="outline" size="sm" className={cn("w-full shrink-0 justify-start gap-2 font-normal text-sm sm:w-auto", !dateRange.from && !dateRange.to && "text-muted-foreground")} />
                 }
               >
                 <CalendarIcon className="size-4 opacity-70" />
@@ -225,6 +225,19 @@ export default function ArusKasPage({ initialQuery = "" }: { initialQuery?: stri
             <span className="hidden shrink-0 text-[11px] text-muted-foreground sm:block">{filtered.length} transaksi · {groups.length} hari</span>
           </>
         }
+        filterCount={
+          (branchFilter !== "all" ? 1 : 0) + (typeFilter !== "all" ? 1 : 0) + (dateRange.from || dateRange.to ? 1 : 0)
+        }
+        filterSummary={[
+          branchFilter !== "all" ? `Cabang: ${branches.find((b) => b.id === branchFilter)?.name ?? branchFilter}` : null,
+          typeFilter !== "all" ? `Tipe: ${typeFilter === "pemasukan" ? "Masuk" : "Keluar"}` : null,
+          dateRange.from || dateRange.to ? `Tanggal: ${dateLabel}` : null,
+        ].filter(Boolean).join(" · ")}
+        onClearFilters={() => {
+          setBranchFilter("all");
+          setTypeFilter("all");
+          setDateRange({});
+        }}
       />
 
       <div className="px-4 sm:px-6 lg:px-8 py-8">

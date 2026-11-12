@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
+  addCalendarMonths,
   buildRenewalWhatsAppMessage,
   buildWhatsAppUrl,
   calculateApprovedSubscriptionPeriod,
   getEffectiveMonthlyPrice,
   getSubscriptionAccessState,
+  resolveSubscriptionAccessState,
   shouldCreateRenewalInvoice,
 } from "./renewal";
 
@@ -114,6 +116,93 @@ describe("getEffectiveMonthlyPrice", () => {
 
   it("falls back to the package price", () => {
     expect(getEffectiveMonthlyPrice(199_000, null)).toBe(199_000);
+  });
+});
+
+describe("addCalendarMonths", () => {
+  it("clamps month-end instead of rolling into the next month", () => {
+    expect(addCalendarMonths(iso("2026-01-31T00:00:00.000Z"), 1).toISOString()).toBe(
+      "2026-02-28T00:00:00.000Z",
+    );
+  });
+
+  it("adds multiple months from the same base", () => {
+    expect(addCalendarMonths(iso("2026-01-31T00:00:00.000Z"), 3).toISOString()).toBe(
+      "2026-04-30T00:00:00.000Z",
+    );
+  });
+});
+
+describe("resolveSubscriptionAccessState", () => {
+  const now = iso("2026-11-10T00:00:00.000Z");
+
+  it("keeps an active subscription active before the period ends", () => {
+    expect(
+      resolveSubscriptionAccessState({
+        status: "active",
+        currentPeriodEnd: iso("2026-12-09T00:00:00.000Z"),
+        trialEndsAt: null,
+        graceDays: 3,
+        now,
+      }),
+    ).toBe("active");
+  });
+
+  it("reports grace after the period end but before grace expires", () => {
+    expect(
+      resolveSubscriptionAccessState({
+        status: "active",
+        currentPeriodEnd: iso("2026-11-09T00:00:00.000Z"),
+        trialEndsAt: null,
+        graceDays: 3,
+        now,
+      }),
+    ).toBe("grace");
+  });
+
+  it("blocks an active subscription whose grace has expired", () => {
+    expect(
+      resolveSubscriptionAccessState({
+        status: "active",
+        currentPeriodEnd: iso("2026-11-01T00:00:00.000Z"),
+        trialEndsAt: null,
+        graceDays: 3,
+        now,
+      }),
+    ).toBe("blocked");
+  });
+
+  it("uses trial_ends_at for trial tenants", () => {
+    expect(
+      resolveSubscriptionAccessState({
+        status: "trial",
+        currentPeriodEnd: null,
+        trialEndsAt: iso("2026-11-20T00:00:00.000Z"),
+        graceDays: 0,
+        now,
+      }),
+    ).toBe("trial");
+    expect(
+      resolveSubscriptionAccessState({
+        status: "trial",
+        currentPeriodEnd: null,
+        trialEndsAt: iso("2026-11-01T00:00:00.000Z"),
+        graceDays: 0,
+        now,
+      }),
+    ).toBe("blocked");
+  });
+
+  it("keeps an explicit suspension regardless of dates", () => {
+    expect(
+      resolveSubscriptionAccessState({
+        status: "suspended",
+        currentPeriodEnd: iso("2027-01-01T00:00:00.000Z"),
+        trialEndsAt: null,
+        graceDays: 3,
+        now,
+      }),
+    ).toBe("suspended");
   });
 });
 
