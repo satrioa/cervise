@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ComponentType } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   ArrowRightIcon,
   ChevronRightIcon,
@@ -243,6 +244,14 @@ export function FrontlinerDashboard({
     if (preview.ok) setData((prev) => ({ ...prev, report: preview.data }));
   }, []);
 
+  const router = useRouter();
+  // Segarkan state klien + minta payload server baru agar status shift/sesi
+  // (handover, lanjut, tutup, buka) langsung tercermin tanpa refresh manual.
+  const refresh = useCallback(() => {
+    void reload();
+    router.refresh();
+  }, [reload, router]);
+
   /**
    * Mengambil alih shift yang diserahkan. Status handover disimpan di database,
    * jadi semua perangkat/cabang melihat tombol Lanjutkan Shift yang sama.
@@ -258,7 +267,7 @@ export function FrontlinerDashboard({
     }
     setResumeOpen(false);
     toast.success("Shift dilanjutkan.");
-    void reload();
+    refresh();
   };
 
   return (
@@ -448,7 +457,7 @@ export function FrontlinerDashboard({
         onOpenChange={setClosingOpen}
         session={session}
         initialReport={report}
-        onClosed={() => void reload()}
+        onClosed={refresh}
       />
       <Dialog open={resumeOpen} onOpenChange={setResumeOpen}>
         <DialogContent className="sm:max-w-md">

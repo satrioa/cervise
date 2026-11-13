@@ -1,5 +1,6 @@
 ﻿"use server";
 
+import { revalidatePath } from "next/cache";
 import { getActiveTenant } from "@/lib/supabase/actor";
 import { isManagerRole } from "@/lib/auth/authorization";
 import type { FrontlinerKpi } from "@/lib/operational/frontliner-dashboard";
@@ -121,6 +122,7 @@ export async function openCashSession(input: { openingBalance: number }): Promis
     }
 
     const [session] = await hydrateSessions(supabase, [data as CashSessionRecord]);
+    revalidatePath("/app");
     return { ok: true, data: session };
   } catch (cause) {
     return fail(cause instanceof Error ? cause.message : "Gagal membuka sesi kas");
@@ -203,6 +205,8 @@ export async function closeCashSession(input: {
     if (updateError) return fail(updateError.message);
     if (!closed) return fail("Shift sudah ditutup oleh orang lain. Muat ulang.");
 
+    revalidatePath("/app");
+    revalidatePath("/app/laporan/shift");
     return {
       ok: true,
       data: {
@@ -251,6 +255,7 @@ export async function handoverCashSession(input: { sessionId: string }): Promise
       if (error.code === "23505") return fail("Shift ini sudah menunggu dilanjutkan petugas lain.");
       return fail(error.message);
     }
+    revalidatePath("/app");
     return { ok: true, data: null };
   } catch (cause) {
     return fail(cause instanceof Error ? cause.message : "Gagal menyerahkan shift");
@@ -288,6 +293,7 @@ export async function resumeCashSession(input: { sessionId: string }): Promise<C
     // Update yang cocok 0 baris tetap "sukses" di PostgREST; dua orang yang
     // menekan Lanjutkan bersamaan tidak boleh sama-sama merasa berhasil.
     if (!resumed) return fail("Serah terima sudah dilanjutkan orang lain. Muat ulang.");
+    revalidatePath("/app");
     return { ok: true, data: null };
   } catch (cause) {
     return fail(cause instanceof Error ? cause.message : "Gagal melanjutkan shift");
