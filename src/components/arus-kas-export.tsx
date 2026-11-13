@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Button as CossButton } from "@/components/ui/coss-button";
 import { GenericExportDialog, type ExportField } from "@/components/generic-export-dialog";
 
 const ARUS_KAS_FIELDS: ExportField[] = [
@@ -16,9 +17,9 @@ export function ArusKasExport({ rows }: { rows: Record<string, any>[] }) {
   const [open, setOpen] = useState(false);
   return (
     <>
-      <Button size="sm" variant="outline" onClick={() => setOpen(true)}>
+      <CossButton size="sm" variant="outline" onClick={() => setOpen(true)}>
         Export
-      </Button>
+      </CossButton>
       <GenericExportDialog
         open={open}
         onOpenChange={setOpen}

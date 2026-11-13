@@ -4,6 +4,7 @@ import React, { useState, useMemo, useEffect } from "react";
 import { ArrowUpRightIcon, ArrowDownRightIcon, WalletIcon, EllipsisIcon, ChevronDownIcon, SearchIcon, CalendarIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Button as CossButton } from "@/components/ui/coss-button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
 import { Menu, MenuItem, MenuPopup, MenuTrigger } from "@/components/ui/menu";
@@ -208,7 +209,7 @@ export default function ArusKasPage({ initialQuery = "" }: { initialQuery?: stri
             <Popover>
               <PopoverTrigger
                 render={
-                  <Button variant="outline" size="sm" className={cn("w-full shrink-0 justify-start gap-2 font-normal text-sm sm:w-auto", !dateRange.from && !dateRange.to && "text-muted-foreground")} />
+                  <CossButton variant="outline" size="sm" className={cn("w-full shrink-0 justify-start gap-2 font-normal text-sm sm:w-auto", !dateRange.from && !dateRange.to && "text-muted-foreground")} />
                 }
               >
                 <CalendarIcon className="size-4 opacity-70" />

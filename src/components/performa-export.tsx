@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Button as CossButton } from "@/components/ui/coss-button";
 import { GenericExportDialog, type ExportField } from "@/components/generic-export-dialog";
 
 const FIELDS: ExportField[] = [
@@ -17,9 +18,9 @@ export function PerformaExport({ rows }: { rows: Record<string, string | number>
   const [open, setOpen] = useState(false);
   return (
     <>
-      <Button size="sm" variant="outline" onClick={() => setOpen(true)}>
+      <CossButton size="sm" variant="outline" onClick={() => setOpen(true)}>
         Export CSV
-      </Button>
+      </CossButton>
       <GenericExportDialog
         open={open}
         onOpenChange={setOpen}

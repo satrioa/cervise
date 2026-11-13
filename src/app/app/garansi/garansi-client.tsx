@@ -6,6 +6,7 @@ import { id as localeId } from "date-fns/locale";
 import { ShieldCheckIcon, SearchIcon, CalendarIcon, XIcon, FileTextIcon, PhoneIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Button as CossButton } from "@/components/ui/coss-button";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
@@ -221,7 +222,7 @@ export default function GaransiPage({
             <Popover>
               <PopoverTrigger
                 render={
-                  <Button variant="outline" size="filter" className={`w-auto shrink-0 justify-start gap-2 font-normal text-sm ${!dateRange.from && !dateRange.to && "text-muted-foreground"}`} />
+                  <CossButton variant="outline" size="sm" className={`w-auto shrink-0 justify-start gap-2 font-normal text-sm ${!dateRange.from && !dateRange.to && "text-muted-foreground"}`} />
                 }
               >
                 <CalendarIcon className="size-4 opacity-70" />

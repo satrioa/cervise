@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { ArrowDownToLineIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Button as CossButton } from "@/components/ui/coss-button";
 import {
   GenericExportDialog,
   type ExportField,
@@ -56,10 +57,10 @@ export function TransaksiExportButton({ rows }: { rows: Tx[] }) {
 
   return (
     <>
-      <Button size="sm" variant="outline" onClick={() => setOpen(true)}>
+      <CossButton size="sm" variant="outline" onClick={() => setOpen(true)}>
         <ArrowDownToLineIcon className="size-4" />
         Export
-      </Button>
+      </CossButton>
       <GenericExportDialog
         open={open}
         onOpenChange={setOpen}

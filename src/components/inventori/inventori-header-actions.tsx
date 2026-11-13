@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { DownloadIcon, PackageIcon, UploadIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Button as CossButton } from "@/components/ui/coss-button";
 import type { InventoryGroup } from "@/lib/operational/inventori";
 import { ProductVariantDialog } from "./product-variant-dialog";
 import { InventoriExportDialog } from "./inventori-export-dialog";
@@ -23,12 +24,12 @@ export function InventoriHeaderActions({
 
   return (
     <>
-      <Button variant="outline" onClick={() => setImportOpen(true)}>
+      <CossButton variant="outline" onClick={() => setImportOpen(true)}>
         <UploadIcon className="size-4" /> Import
-      </Button>
-      <Button variant="outline" onClick={() => setExportOpen(true)}>
+      </CossButton>
+      <CossButton variant="outline" onClick={() => setExportOpen(true)}>
         <DownloadIcon className="size-4" /> Export
-      </Button>
+      </CossButton>
       <Button onClick={() => setOpen(true)}>
         <PackageIcon className="size-4" /> Tambah Produk / Varian
       </Button>

@@ -4,6 +4,7 @@ import { format } from "date-fns";
 import { id as localeId } from "date-fns/locale";
 import { CalendarIcon, XIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Button as CossButton } from "@/components/ui/coss-button";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
@@ -59,7 +60,7 @@ export function DateRangeFilter({
     <Popover>
       <PopoverTrigger
         render={
-          <Button
+          <CossButton
             variant="outline"
             size="sm"
             className={cn(
@@ -104,9 +105,9 @@ export function DateRangeFilter({
           <span className="px-2 text-xs text-muted-foreground">
             {resultLabel ?? (hasRange ? "Rentang dipilih" : "Pilih rentang")}
           </span>
-          <Button variant="ghost" size="xs" onClick={() => onChange({})}>
+          <CossButton variant="ghost" size="xs" onClick={() => onChange({})}>
             Reset
-          </Button>
+          </CossButton>
         </div>
       </PopoverContent>
     </Popover>

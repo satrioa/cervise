@@ -5,6 +5,7 @@ import { formatCurrencyPlain, formatNumberPlain } from "@/lib/format";
 import { ArrowDownLeftIcon, ArrowUpRightIcon, SearchIcon, CalendarIcon, RefreshCcwIcon, XIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Button as CossButton } from "@/components/ui/coss-button";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
 import { Select, SelectItem, SelectPopup, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -185,7 +186,7 @@ export default function TransaksiPage({ initialQuery = "" }: { initialQuery?: st
             <Popover>
               <PopoverTrigger
                 render={
-                  <Button variant="outline" size="sm" className={cn("w-full shrink-0 justify-start gap-2 font-normal text-sm sm:w-auto", !dateRange.from && !dateRange.to && "text-muted-foreground")} />
+                  <CossButton variant="outline" size="sm" className={cn("w-full shrink-0 justify-start gap-2 font-normal text-sm sm:w-auto", !dateRange.from && !dateRange.to && "text-muted-foreground")} />
                 }
               >
                 <CalendarIcon className="size-4 opacity-70" />
