@@ -5,6 +5,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { ChartSkeleton } from "@/components/ui/skeleton-shapes";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Area, AreaChart, Line, LineChart, Tooltip } from "recharts";
+import { StackedBarBandCursor } from "@/components/stacked-bar-band-cursor";
 import { ChartAxis, ChartContainer, ChartGrid, ChartTooltip, chartColor } from "@/components/chart";
 import type {
   DashboardActivityTerrain,
@@ -169,32 +170,13 @@ function AnalyticsContent({
           <span className="text-muted-foreground">Batal: <span className="font-mono font-medium text-foreground">{formatNumberPlain(totalBatal)}</span></span>
         </div>
 
-        <ChartContainer className="mt-4 h-72 w-full min-w-0">
-          {loading ? (
-            <ChartSkeleton shape={period === "90d" ? "datar" : "naik"} />
-          ) : data.length === 0 ? (
-            <div className="flex h-full items-center justify-center text-sm text-muted-foreground">Belum ada data</div>
-          ) : (
-            <LineChart data={data} margin={{ top: 8, right: 16, left: 0, bottom: 0 }}>
-              <ChartGrid />
-              <ChartAxis dataKey="day" interval={period === "30d" ? 4 : period === "90d" ? 2 : 1} tick={{ fontSize: 10 }} />
-              <ChartAxis axis="y" width={36} tick={{ fontSize: 10 }} />
-              <ChartTooltip />
-              {SERIES.map((s) => (
-                <Line
-                  key={s.key}
-                  type="monotone"
-                  dataKey={s.key}
-                  name={s.name}
-                  stroke={s.color}
-                  strokeWidth={2}
-                  dot={false}
-                  activeDot={{ r: 4, strokeWidth: 0 }}
-                />
-              ))}
-            </LineChart>
-          )}
-        </ChartContainer>
+        {loading ? (
+          <ChartSkeleton shape={period === "90d" ? "datar" : "naik"} />
+        ) : data.length === 0 ? (
+          <div className="flex h-72 items-center justify-center text-sm text-muted-foreground">Belum ada data</div>
+        ) : (
+          <StackedBarBandCursor buckets={buckets} />
+        )}
       </section>
 
       <div className="mt-6 grid grid-cols-1 gap-3 lg:grid-cols-2">

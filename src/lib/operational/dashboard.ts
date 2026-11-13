@@ -418,42 +418,45 @@ export function buildBranchRevenueTrend(input: {
   now: Date;
   topN?: number;
 }): DashboardBranchTrend {
-  const { finance, branches, period, now, topN = 5 } = input;
+  const { finance, branches, period, now } = input;
   const windows = buildBuckets(period, now);
   const start = periodStart(period, now);
   const namesById = new Map(branches.map((b) => [b.id, b.name]));
-  const totals = new Map<string, number>();
-  const perBucket = windows.map(() => new Map<string, number>());
+  const ids = branches.map((b) => b.id);
+  const totals = new Map(ids.map((id) => [id, 0]));
+  const perBucket = windows.map(() => new Map(ids.map((id) => [id, 0])));
 
   for (const entry of finance) {
     if (entry.type !== "pemasukan") continue;
     if (!financeDateInRange(entry.kas_date, start, now)) continue;
+    const id = entry.branch_id;
+    if (!totals.has(id)) {
+      totals.set(id, 0);
+      for (const bucket of perBucket) bucket.set(id, 0);
+      if (!namesById.has(id)) namesById.set(id, "—");
+      ids.push(id);
+    }
     const amount = Number(entry.amount ?? 0);
     const ts = entry.created_at ? new Date(entry.created_at).getTime() : Number.NaN;
     const stamp = !Number.isNaN(ts) ? ts : new Date(`${entry.kas_date}T00:00:00`).getTime();
     if (Number.isNaN(stamp)) continue;
     const index = bucketIndexFor(windows, stamp);
     if (index < 0) continue;
-    const id = entry.branch_id;
     totals.set(id, (totals.get(id) ?? 0) + amount);
     perBucket[index].set(id, (perBucket[index].get(id) ?? 0) + amount);
   }
 
-  const ranked = Array.from(totals.entries()).sort((a, b) => b[1] - a[1]);
-  const top = ranked.slice(0, Math.max(0, topN)).map(([id]) => id);
-  const rest = ranked.slice(Math.max(0, topN)).map(([id]) => id);
-  const series: DashboardBranchTrendSeries[] = top.map((id) => ({
+  const ranked = [...totals.entries()].sort(
+    (a, b) => b[1] - a[1] || (namesById.get(a[0]) ?? "").localeCompare(namesById.get(b[0]) ?? ""),
+  );
+  const series: DashboardBranchTrendSeries[] = ranked.map(([id]) => ({
     id,
     name: namesById.get(id) ?? "—",
   }));
-  if (rest.length > 0) series.push({ id: "__other__", name: "Lainnya" });
 
   const bucketRows = windows.map((window, i) => {
     const values: Record<string, number> = {};
-    for (const id of top) values[id] = perBucket[i].get(id) ?? 0;
-    if (rest.length > 0) {
-      values.__other__ = rest.reduce((sum, id) => sum + (perBucket[i].get(id) ?? 0), 0);
-    }
+    for (const [id] of ranked) values[id] = perBucket[i].get(id) ?? 0;
     return { key: window.key, values };
   });
 
