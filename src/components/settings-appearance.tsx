@@ -274,83 +274,23 @@ export function SettingsAppearanceShowcasePage({ initial, tenant }: { initial: L
  * yang dilihat pelanggan; sekarang keduanya membaca token yang sama.
  */
 function LacakPreview({ appearance, tenant }: { appearance: LacakAppearance; tenant: PublicTenant }) {
-  // Pratinjau memakai data mockup agar admin melihat tampilan lengkap tanpa
-  // bergantung pada data toko yang mungkin kosong.
-  const mockTenant: PublicTenant = {
-    ...tenant,
-    name: tenant.name || "Nama Toko",
-    branchName: "Cabang Utama",
-    branchAddress: tenant.branchAddress || "Jl. Contoh No. 1, Kota",
-    branchPhone: tenant.branchPhone || "081234567890",
-    testimonials:
-      tenant.testimonials.length > 0
-        ? tenant.testimonials
-        : [
-            { id: "mock-1", nama: "Budi Santoso", isi: "Servis cepat, selesai dalam 1 jam!", rating: 5 },
-            { id: "mock-2", nama: "Siti Aminah", isi: "Harga terjangkau dan bergaransi.", rating: 4 },
-          ],
-  };
+  void tenant;
   const prefersDark =
     typeof window !== "undefined" && window.matchMedia("(prefers-color-scheme: dark)").matches;
   const scheme = resolveLacakScheme(appearance.mode, prefersDark);
 
+  // Pratinjau memakai MobileMockup sebagai preview halaman Lacak itu sendiri,
+  // dengan data dummy. Bukan komposisi halaman asli dengan mock di dalamnya.
   return (
-    <div
-      className={`lacak-theme ${scheme} max-h-[620px] overflow-y-auto bg-background`}
-      data-palette={appearance.palette}
-      data-density={appearance.density}
-      data-font={appearance.font}
-    >
-      <div className="relative h-[168px] shrink-0 overflow-hidden">
-        <div className="absolute inset-0">
-          {mockTenant.bannerUrl ? (
-            <Image src={mockTenant.bannerUrl} alt="" fill sizes="360px" unoptimized className="object-cover" />
-          ) : (
-            <div className="size-full bg-[linear-gradient(135deg,var(--primary),color-mix(in_oklch,var(--primary)_55%,var(--background)))]" />
-          )}
-        </div>
-        <div className="absolute inset-0 bg-background/45" aria-hidden />
-        <div className="absolute inset-0 flex items-center gap-2 px-3 pt-3">
-          <span className="flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-background text-[10px] font-bold">
-            {mockTenant.logoUrl ? (
-              <Image src={mockTenant.logoUrl} alt={mockTenant.name} fill sizes="32px" unoptimized className="object-contain p-1" />
-            ) : (
-              initialsOf(mockTenant.name)
-            )}
-          </span>
-          <span className="min-w-0 flex-1 truncate text-center font-heading text-xs font-bold">{mockTenant.name}</span>
-          <span className="size-8 shrink-0" aria-hidden />
-        </div>
-        {mockTenant.tagline ? (
-          <p className="absolute inset-x-0 bottom-3 px-4 text-center text-[13px] font-bold leading-tight">{mockTenant.tagline}</p>
-        ) : null}
-      </div>
-
-      <div className="relative -mt-5 rounded-t-2xl border-t bg-background px-3 pb-2">
-        <MobileMockup
-          headerTitle="Toko Lacak"
-          headerSubtitle="online"
-          messages={[
-            { id: 1, sender: "Admin Toko", avatarInitial: "A", text: "Halo! Anda mau lacak servis apa hari ini?", isCurrentUser: false, timestamp: "10:11 AM" },
-            { id: 2, sender: "Anda", avatarInitial: "K", text: "Saya mau lacak servis F5FB0DFCB6.", isCurrentUser: true, timestamp: "10:12 AM" },
-            { id: 3, sender: "Admin Toko", avatarInitial: "A", text: "Statusnya: Dalam proses pengerjaan. Teknisi sedang dikerjakan.", isCurrentUser: false, timestamp: "10:13 AM" },
-          ]}
-        />
-      </div>
-
-      <PublicFooter
-        name={mockTenant.name}
-        instagramUrl={mockTenant.instagramUrl}
-        tiktokUrl={mockTenant.tiktokUrl}
-        websiteUrl={mockTenant.websiteUrl}
-        facebookUrl={mockTenant.facebookUrl}
-        xUrl={mockTenant.xUrl}
-        youtubeUrl={mockTenant.youtubeUrl}
-        whatsappUrl={mockTenant.whatsappUrl}
-        mapsUrl={mockTenant.mapsUrl}
-        footerNote={mockTenant.footerNote}
-        address={mockTenant.branchAddress}
-        phone={mockTenant.branchPhone}
+    <div className="mx-auto flex max-h-[620px] w-full max-w-[320px] items-center justify-center overflow-hidden rounded-xl border border-border/60 bg-muted/30 p-4">
+      <MobileMockup
+        headerTitle="Toko Lacak"
+        headerSubtitle="online"
+        messages={[
+          { id: 1, sender: "Admin Toko", avatarInitial: "A", text: "Halo! Anda mau lacak servis apa hari ini?", isCurrentUser: false, timestamp: "10:11 AM" },
+          { id: 2, sender: "Anda", avatarInitial: "K", text: "Saya mau lacak servis F5FB0DFCB6.", isCurrentUser: true, timestamp: "10:12 AM" },
+          { id: 3, sender: "Admin Toko", avatarInitial: "A", text: "Statusnya: Dalam proses pengerjaan. Teknisi sedang dikerjakan.", isCurrentUser: false, timestamp: "10:13 AM" },
+        ]}
       />
     </div>
   );
