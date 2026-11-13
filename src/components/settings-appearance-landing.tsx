@@ -210,7 +210,7 @@ export function LandingSection({
       <section>
         <SectionHead title="Logo" hint="Logo toko di header halaman Lacak. Kosongkan untuk memakai inisial nama toko." />
         <div className="mt-4 flex flex-wrap items-center gap-4">
-          <div className="relative h-20 w-20 overflow-hidden rounded-full border border-border/60 bg-muted/40">
+          <div className="relative h-14 w-14 overflow-hidden rounded-full border border-border/60 bg-muted/40">
             {tenant.logoUrl ? (
               <Image src={tenant.logoUrl} alt="Logo toko" fill sizes="80px" unoptimized className="object-contain p-2" />
             ) : (
