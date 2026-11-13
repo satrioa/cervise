@@ -987,9 +987,35 @@ export default function ServisPage() {
           )}
           </>
         ) : (
-          <Kanban
-            value={displayedKanban}
-            onValueChange={(next) => {
+          <div className="mt-4 space-y-3">
+            <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0 sm:pb-0 [&::-webkit-scrollbar]:hidden" aria-label="Lompat ke tahap">
+              {STAGES.map((stage) => {
+                const count = (displayedKanban[stage.key] || []).length;
+                const Icon = stage.icon;
+                return (
+                  <button
+                    key={stage.key}
+                    type="button"
+                    onClick={() =>
+                      document
+                        .getElementById(`kanban-col-${stage.key}`)
+                        ?.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" })
+                    }
+                    className="inline-flex shrink-0 items-center gap-1.5 rounded-full border bg-background/70 px-2.5 py-1.5 text-xs font-medium text-foreground/80 shadow-xs transition-colors hover:bg-accent hover:text-foreground"
+                  >
+                    <span className={cn("size-2 shrink-0 rounded-full", DOT_COLOR[stage.key])} aria-hidden />
+                    <Icon className="size-3.5 text-muted-foreground" aria-hidden />
+                    <span className="whitespace-nowrap">{stage.label}</span>
+                    <span className="rounded-full bg-muted px-1.5 py-0.5 font-mono text-[10px] leading-none text-muted-foreground">
+                      {count}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+            <Kanban
+              value={displayedKanban}
+              onValueChange={(next) => {
               // intercept drag to Dikerjakan / Batal
               const prev = displayedKanban;
               let moved: { item: ServisItem; from: Stage; to: Stage } | null = null;
@@ -1084,13 +1110,17 @@ export default function ServisPage() {
               requestAnimationFrame(openForm);
             }}
             getItemValue={(item) => item.id}
-            className="mt-4"
           >
-            <KanbanBoard className="flex gap-2">
+            <KanbanBoard className="flex snap-x snap-mandatory gap-3 overflow-x-auto pb-2 [scrollbar-width:none] sm:snap-none sm:gap-2 sm:overflow-visible sm:pb-0 [&::-webkit-scrollbar]:hidden">
               {STAGES.map((stage) => (
-                <KanbanColumn key={stage.key} value={stage.key} className="rounded-xl border bg-muted/20 p-2 flex-1 min-w-0">
+                <KanbanColumn
+                  key={stage.key}
+                  id={`kanban-col-${stage.key}`}
+                  value={stage.key}
+                  className="min-w-[84vw] max-w-[22rem] shrink-0 snap-center rounded-xl border bg-muted/20 p-2 sm:min-w-0 sm:max-w-none sm:flex-1"
+                >
                   <div className="flex items-center gap-2 px-1 py-2"><span className={`size-2 shrink-0 rounded-full ${DOT_COLOR[stage.key]}`} aria-hidden /><stage.icon className="size-3.5 text-muted-foreground" /><span className="font-mono text-[11px] uppercase tracking-wider">{stage.label}</span><Badge variant="secondary" className="ml-auto text-[10px]">{displayedKanban[stage.key]?.length ?? 0}</Badge></div>
-                  <KanbanColumnContent value={stage.key} className="min-h-[320px]">
+                  <KanbanColumnContent value={stage.key} className="min-h-[50vh] sm:min-h-[320px]">
                     {(displayedKanban[stage.key] || []).map((item) => {
                       const isSearchMatch = search.trim() ? `${item.serviceNumber ?? ""} ${item.id} ${item.customer}`.toLowerCase().includes(search.trim().toLowerCase()) : true;
                       const disabled = !isSearchMatch;
@@ -1099,7 +1129,19 @@ export default function ServisPage() {
                           <KanbanItem value={item.id} disabled={disabled}>
                             <KanbanItemHandle>
                               <Card className={cn("shadow-xs", disabled ? "opacity-40 grayscale" : "cursor-grab active:cursor-grabbing")}>
-                                <CardContent className="p-3 space-y-1.5"><div className="font-mono text-xs font-medium">{servisLabel(item)}</div><div className="text-sm font-medium leading-tight line-clamp-1">{item.device}</div><div className="text-xs text-muted-foreground line-clamp-1">{item.complaint}</div><div className="text-xs text-muted-foreground">{item.customer}</div><div className="flex items-center justify-between gap-2 pt-0.5"><span className="text-[11px] text-muted-foreground">{format(new Date(item.date), "d MMM yyyy", { locale: localeId })}</span><div className="flex items-center gap-1 shrink-0"><PaymentBadge status={getPaymentStatus(item)} /><Badge variant="outline" className="text-[10px] shrink-0">{item.teknisi}</Badge></div></div></CardContent>
+                                <CardContent className="space-y-1.5 p-3">
+                                  <div className="font-mono text-xs font-medium">{servisLabel(item)}</div>
+                                  <div className="text-sm font-medium leading-tight line-clamp-1">{item.device}</div>
+                                  <div className="hidden text-xs text-muted-foreground line-clamp-1 sm:block">{item.complaint}</div>
+                                  <div className="text-xs text-muted-foreground line-clamp-1">{item.customer}</div>
+                                  <div className="flex items-center justify-between gap-2 pt-0.5">
+                                    <span className="text-[11px] text-muted-foreground">{format(new Date(item.date), "d MMM yyyy", { locale: localeId })}</span>
+                                    <div className="flex shrink-0 items-center gap-1">
+                                      <PaymentBadge status={getPaymentStatus(item)} />
+                                      <Badge variant="outline" className="shrink-0 text-[10px]">{item.teknisi}</Badge>
+                                    </div>
+                                  </div>
+                                </CardContent>
                               </Card>
                             </KanbanItemHandle>
                           </KanbanItem>
@@ -1111,7 +1153,8 @@ export default function ServisPage() {
               ))}
             </KanbanBoard>
             <KanbanOverlay>{({ value }) => { const item = servisData.find((d) => d.id === value); if (!item) return null; return (<Card className="w-[200px] shadow-lg rotate-2"><CardContent className="p-3"><div className="font-mono text-xs">{servisLabel(item)}</div><div className="text-sm font-medium">{item.device}</div><div className="text-xs text-muted-foreground">{item.complaint}</div></CardContent></Card>); }}</KanbanOverlay>
-          </Kanban>
+            </Kanban>
+          </div>
         ))}
       </main>
 
