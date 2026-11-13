@@ -1,4 +1,5 @@
-import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { Bar } from "@/components/charts/bar";
+import { BarChart } from "@/components/charts/bar-chart";
 
 import type { DashboardBucket } from "@/lib/operational/dashboard";
 
@@ -22,18 +23,16 @@ export function StackedBarBandCursor({ buckets }: { buckets: DashboardBucket[] }
 
   return (
     <div className="h-[280px] w-full">
-      <ResponsiveContainer width="100%" height="100%">
-        <BarChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-          <CartesianGrid strokeDasharray="3 3" vertical={false} />
-          <XAxis dataKey="day" tick={{ fontSize: 10 }} interval="preserveStartEnd" />
-          <YAxis tick={{ fontSize: 10 }} width={36} />
-          <Tooltip />
-          <Legend />
-          {SERIES.map((s) => (
-            <Bar key={s.key} dataKey={s.key} name={s.name} stackId="stack" fill={s.color} />
-          ))}
-        </BarChart>
-      </ResponsiveContainer>
+      <BarChart
+        data={data}
+        xDataKey="day"
+        stacked
+        aspectRatio="2 / 1"
+      >
+        {SERIES.map((s) => (
+          <Bar key={s.key} dataKey={s.key} fill={s.color} />
+        ))}
+      </BarChart>
     </div>
   );
 }
