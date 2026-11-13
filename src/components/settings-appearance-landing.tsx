@@ -3,7 +3,8 @@
 import { useRef, useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { StarIcon, Trash2Icon } from "lucide-react";
+import { PlusIcon, StarIcon, Trash2Icon } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -47,6 +48,17 @@ export function LandingSection({
   const [whatsappUrl, setWhatsappUrl] = useState(tenant.whatsappUrl ?? "");
   const [mapsUrl, setMapsUrl] = useState(tenant.mapsUrl ?? "");
   const [footerNote, setFooterNote] = useState(tenant.footerNote ?? "");
+  const [shownSocials, setShownSocials] = useState<Set<string>>(() => {
+    const s = new Set<string>(["instagram"]);
+    if (tenant.tiktokUrl) s.add("tiktok");
+    if (tenant.whatsappUrl) s.add("whatsapp");
+    if (tenant.websiteUrl) s.add("website");
+    if (tenant.facebookUrl) s.add("facebook");
+    if (tenant.xUrl) s.add("x");
+    if (tenant.youtubeUrl) s.add("youtube");
+    if (tenant.mapsUrl) s.add("maps");
+    return s;
+  });
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadingLogo, setUploadingLogo] = useState(false);
@@ -278,39 +290,91 @@ export function LandingSection({
             <Label className="font-mono text-[10px] uppercase tracking-[0.2em]">Tagline</Label>
             <Input value={tagline} maxLength={120} onChange={(e) => setTagline(e.target.value)} placeholder="Servis Gadget Ter-murah Se-Indonesia" />
           </div>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-1.5">
-              <Label className="font-mono text-[10px] uppercase tracking-[0.2em]">Instagram</Label>
-              <Input value={instagramUrl} onChange={(e) => setInstagramUrl(e.target.value)} placeholder="https://instagram.com/toko" />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="font-mono text-[10px] uppercase tracking-[0.2em]">TikTok</Label>
-              <Input value={tiktokUrl} onChange={(e) => setTiktokUrl(e.target.value)} placeholder="https://tiktok.com/@toko" />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="font-mono text-[10px] uppercase tracking-[0.2em]">WhatsApp</Label>
-              <Input value={whatsappUrl} onChange={(e) => setWhatsappUrl(e.target.value)} placeholder="https://wa.me/62812..." />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="font-mono text-[10px] uppercase tracking-[0.2em]">Website</Label>
-              <Input value={websiteUrl} onChange={(e) => setWebsiteUrl(e.target.value)} placeholder="https://toko.com" />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="font-mono text-[10px] uppercase tracking-[0.2em]">Facebook</Label>
-              <Input value={facebookUrl} onChange={(e) => setFacebookUrl(e.target.value)} placeholder="https://facebook.com/toko" />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="font-mono text-[10px] uppercase tracking-[0.2em]">X / Twitter</Label>
-              <Input value={xUrl} onChange={(e) => setXUrl(e.target.value)} placeholder="https://x.com/toko" />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="font-mono text-[10px] uppercase tracking-[0.2em]">YouTube</Label>
-              <Input value={youtubeUrl} onChange={(e) => setYoutubeUrl(e.target.value)} placeholder="https://youtube.com/@toko" />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="font-mono text-[10px] uppercase tracking-[0.2em]">Google Maps</Label>
-              <Input value={mapsUrl} onChange={(e) => setMapsUrl(e.target.value)} placeholder="https://maps.google.com/..." />
-            </div>
+          <div className="max-w-2xl space-y-4">
+            {shownSocials.has("instagram") ? (
+              <div className="space-y-1.5">
+                <Label className="font-mono text-[10px] uppercase tracking-[0.2em]">Instagram</Label>
+                <Input value={instagramUrl} onChange={(e) => setInstagramUrl(e.target.value)} placeholder="https://instagram.com/toko" />
+              </div>
+            ) : null}
+            {shownSocials.has("tiktok") ? (
+              <div className="space-y-1.5">
+                <Label className="font-mono text-[10px] uppercase tracking-[0.2em]">TikTok</Label>
+                <Input value={tiktokUrl} onChange={(e) => setTiktokUrl(e.target.value)} placeholder="https://tiktok.com/@toko" />
+              </div>
+            ) : null}
+            {shownSocials.has("whatsapp") ? (
+              <div className="space-y-1.5">
+                <Label className="font-mono text-[10px] uppercase tracking-[0.2em]">WhatsApp</Label>
+                <Input value={whatsappUrl} onChange={(e) => setWhatsappUrl(e.target.value)} placeholder="https://wa.me/62812..." />
+              </div>
+            ) : null}
+            {shownSocials.has("website") ? (
+              <div className="space-y-1.5">
+                <Label className="font-mono text-[10px] uppercase tracking-[0.2em]">Website</Label>
+                <Input value={websiteUrl} onChange={(e) => setWebsiteUrl(e.target.value)} placeholder="https://toko.com" />
+              </div>
+            ) : null}
+            {shownSocials.has("facebook") ? (
+              <div className="space-y-1.5">
+                <Label className="font-mono text-[10px] uppercase tracking-[0.2em]">Facebook</Label>
+                <Input value={facebookUrl} onChange={(e) => setFacebookUrl(e.target.value)} placeholder="https://facebook.com/toko" />
+              </div>
+            ) : null}
+            {shownSocials.has("x") ? (
+              <div className="space-y-1.5">
+                <Label className="font-mono text-[10px] uppercase tracking-[0.2em]">X / Twitter</Label>
+                <Input value={xUrl} onChange={(e) => setXUrl(e.target.value)} placeholder="https://x.com/toko" />
+              </div>
+            ) : null}
+            {shownSocials.has("youtube") ? (
+              <div className="space-y-1.5">
+                <Label className="font-mono text-[10px] uppercase tracking-[0.2em]">YouTube</Label>
+                <Input value={youtubeUrl} onChange={(e) => setYoutubeUrl(e.target.value)} placeholder="https://youtube.com/@toko" />
+              </div>
+            ) : null}
+            {shownSocials.has("maps") ? (
+              <div className="space-y-1.5">
+                <Label className="font-mono text-[10px] uppercase tracking-[0.2em]">Google Maps</Label>
+                <Input value={mapsUrl} onChange={(e) => setMapsUrl(e.target.value)} placeholder="https://maps.google.com/..." />
+              </div>
+            ) : null}
+
+            {shownSocials.size < 8 ? (
+              <Popover>
+                <PopoverTrigger render={<Button size="sm" type="button" variant="outline" className="w-fit"><PlusIcon className="size-3.5" /> Tambah sosial</Button>} />
+                <PopoverContent align="start" className="w-48">
+                  <div className="flex flex-col gap-1">
+                    {[
+                      { key: "tiktok", label: "TikTok" },
+                      { key: "whatsapp", label: "WhatsApp" },
+                      { key: "website", label: "Website" },
+                      { key: "facebook", label: "Facebook" },
+                      { key: "x", label: "X / Twitter" },
+                      { key: "youtube", label: "YouTube" },
+                      { key: "maps", label: "Google Maps" },
+                    ]
+                      .filter((item) => !shownSocials.has(item.key))
+                      .map((item) => (
+                        <button
+                          key={item.key}
+                          type="button"
+                          onClick={() =>
+                            setShownSocials((prev) => {
+                              const next = new Set(prev);
+                              next.add(item.key);
+                              return next;
+                            })
+                          }
+                          className="rounded-md px-2 py-1.5 text-left text-sm hover:bg-muted"
+                        >
+                          {item.label}
+                        </button>
+                      ))}
+                  </div>
+                </PopoverContent>
+              </Popover>
+            ) : null}
           </div>
           <div className="space-y-1.5">
             <Label className="font-mono text-[10px] uppercase tracking-[0.2em]">Catatan footer</Label>

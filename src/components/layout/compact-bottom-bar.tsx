@@ -48,7 +48,7 @@ export function CompactBottomBar({
   const roleLabel = normalized ? ROLE_LABEL[normalized] : "Anggota";
 
   return (
-    <div className="pointer-events-none fixed inset-x-0 top-0 z-40 px-3 pt-[max(0.5rem,env(safe-area-inset-top))] sm:px-6 lg:top-auto lg:bottom-0 lg:px-8 lg:pt-0 lg:pb-4">
+    <div className="pointer-events-none fixed inset-x-0 top-0 z-40 px-3 pt-[max(0.5rem,env(safe-area-inset-top))] sm:px-6 lg:top-auto lg:bottom-0 lg:px-8 lg:pt-0 lg:pb-4" data-compact-bar="">
       <div className="grid w-full grid-cols-[1fr_auto_1fr] items-center gap-2">
         <div className="pointer-events-auto flex min-w-0 items-center gap-2 justify-self-start rounded-full bg-white p-1.5 pr-2 shadow-[0_16px_38px_-24px_rgba(0,0,0,0.55)] ring-1 ring-black/5 dark:bg-neutral-900 dark:ring-white/10 sm:pr-3">
           <TenantLogo

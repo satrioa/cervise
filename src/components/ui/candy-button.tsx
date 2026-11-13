@@ -98,14 +98,14 @@ export function CandyButton({
 
   if (href) {
     return (
-      <Link href={href} className={classes}>
+      <Link href={href} className={classes} data-candy-button="">
         {children}
       </Link>
     );
   }
 
   return (
-    <button className={classes} {...props}>
+    <button className={classes} data-candy-button="" {...props}>
       {children}
     </button>
   );

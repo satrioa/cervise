@@ -620,3 +620,106 @@ html[data-ui-world="scifi"] [data-bento-card]::before {
   background: linear-gradient(90deg, transparent, oklch(0.85 0.18 190 / 0.6), transparent);
   pointer-events: none;
 }
+
+/* Retro: button skin (global) */
+html[data-ui-world="scifi"] button,
+html[data-ui-world="scifi"] [role="button"] {
+  border-radius: 0.25rem;
+  font-family: var(--font-mono);
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  border: 1px solid oklch(0.32 0.06 190);
+  background: oklch(0.2 0.025 260);
+  color: oklch(0.92 0.05 190);
+  box-shadow: 0 0 0 1px oklch(0.18 0.04 190 / 0.4), inset 0 0 8px oklch(0.2 0.03 260 / 0.3);
+  transition: background-color 120ms steps(2), border-color 120ms steps(2), box-shadow 120ms steps(2), transform 120ms steps(2);
+}
+
+html[data-ui-world="scifi"] button:hover,
+html[data-ui-world="scifi"] [role="button"]:hover {
+  background: oklch(0.26 0.04 260);
+  border-color: oklch(0.55 0.12 190);
+  box-shadow: 0 0 0 1px oklch(0.85 0.18 190 / 0.5), 0 0 10px oklch(0.85 0.18 190 / 0.35), inset 0 0 12px oklch(0.2 0.03 260 / 0.4);
+  transform: translateY(-1px);
+}
+
+html[data-ui-world="scifi"] button:active,
+html[data-ui-world="scifi"] [role="button"]:active {
+  transform: translateY(0);
+  box-shadow: 0 0 0 1px oklch(0.85 0.18 190 / 0.7), inset 0 0 6px oklch(0.18 0.04 190 / 0.5);
+}
+
+html[data-ui-world="scifi"] button:focus-visible,
+html[data-ui-world="scifi"] [role="button"]:focus-visible {
+  outline: 2px solid oklch(0.85 0.18 190);
+  outline-offset: 2px;
+}
+
+/* Retro: candy button / menu bar skin */
+html[data-ui-world="scifi"] [data-candy-button],
+html[data-ui-world="scifi"] [data-compact-bar],
+html[data-ui-world="scifi"] [data-compact-dock] {
+  border-radius: 0.25rem;
+  border: 1px solid oklch(0.32 0.06 190);
+  background: oklch(0.2 0.025 260);
+  color: oklch(0.92 0.05 190);
+  font-family: var(--font-mono);
+  box-shadow: 0 0 0 1px oklch(0.18 0.04 190 / 0.4), inset 0 0 10px oklch(0.2 0.03 260 / 0.3);
+}
+
+html[data-ui-world="scifi"] [data-compact-bar] a,
+html[data-ui-world="scifi"] [data-compact-bar] button,
+html[data-ui-world="scifi"] [data-compact-dock] a,
+html[data-ui-world="scifi"] [data-compact-dock] button {
+  color: oklch(0.9 0.05 190);
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+}
+
+html[data-ui-world="scifi"] [data-compact-bar] a:hover,
+html[data-ui-world="scifi"] [data-compact-bar] button:hover,
+html[data-ui-world="scifi"] [data-compact-dock] a:hover,
+html[data-ui-world="scifi"] [data-compact-dock] button:hover {
+  color: oklch(0.85 0.18 190);
+  text-shadow: 0 0 6px oklch(0.85 0.18 190 / 0.6);
+}
+
+/* Retro: venetian blind LCD overlay (strong) */
+html[data-ui-world="scifi"] body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9999;
+  mix-blend-mode: overlay;
+  background:
+    repeating-linear-gradient(
+      0deg,
+      rgba(0, 0, 0, 0.35) 0px,
+      rgba(0, 0, 0, 0.35) 1px,
+      transparent 1px,
+      transparent 3px
+    ),
+    repeating-linear-gradient(
+      90deg,
+      rgba(0, 0, 0, 0.08) 0px,
+      rgba(0, 0, 0, 0.08) 1px,
+      transparent 1px,
+      transparent 4px
+    );
+  animation: scifi-venetian-scroll 6s linear infinite;
+  opacity: 0.9;
+}
+
+@keyframes scifi-venetian-scroll {
+  0% { background-position: 0 0, 0 0; }
+  100% { background-position: 0 24px, 0 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html[data-ui-world="scifi"] body::before {
+    animation: none;
+  }
+}
