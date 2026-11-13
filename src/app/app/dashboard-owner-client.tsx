@@ -127,12 +127,7 @@ export default function DashboardOwnerClient() {
       <PageHeader
         title="Overview"
         titleClassName="font-heading text-2xl"
-        actions={
-          <Button size="sm" type="button" className="h-8 shrink-0" onClick={() => setOpenServis(true)}>
-            <PlusIcon />
-            Servis Baru
-          </Button>
-        }
+        actions={undefined}
         filters={<PeriodFilter period={period} setPeriod={setPeriod} branchLabel={data?.branchLabel ?? branch.label} />}
         filterCount={period !== "30d" ? 1 : 0}
         filterSummary={period !== "30d" ? `Periode: ${period}` : undefined}

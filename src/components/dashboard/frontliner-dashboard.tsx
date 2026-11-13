@@ -344,6 +344,15 @@ export function FrontlinerDashboard({
                   dialog, bukan pindah ke `/app/servis/baru`: formulirnya tidak
                   butuh halaman sendiri dan kasir tidak kehilangan dashboard. */}
 
+              <BentoCard
+                candy="accent"
+                onClick={() => setNewServisOpen(true)}
+                title="Servis baru"
+                cellClassName="max-sm:order-1"
+              >
+                <BentoMenuItem icon={WrenchIcon} label="Servis baru" />
+              </BentoCard>
+
               {/* 2. Kartu aksi. Satu-satunya sel aksi yang bukan tautan -
                   "Catat Kas" membuka dialog. Tanpa sesi terbuka, kas manual
                   tidak akan masuk rekap mana pun, jadi kartunya diredupkan dan
