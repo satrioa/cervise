@@ -1,11 +1,13 @@
 import { MoreHorizontalIcon, StoreIcon, WrenchIcon, UsersIcon } from "lucide-react";
 import { formatCurrencyPlain, formatNumberPlain } from "@/lib/format";
+import ActivityTerrain from "@/components/kokonutui/activity-terrain";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { ChartSkeleton } from "@/components/ui/skeleton-shapes";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Line, LineChart } from "recharts";
 import { ChartAxis, ChartContainer, ChartGrid, ChartTooltip, chartColor } from "@/components/chart";
 import type {
+  DashboardActivityTerrain,
   DashboardBranch,
   DashboardBucket,
   DashboardPeriod,
@@ -43,6 +45,7 @@ export type CerviseAnalyticsSectionProps = {
   technicians: DashboardTechnician[];
   problems: DashboardProblem[];
   branches: DashboardBranch[];
+  activityTerrain?: DashboardActivityTerrain;
   loading?: boolean;
 };
 
@@ -52,6 +55,7 @@ export function CerviseAnalyticsSection({
   technicians,
   problems,
   branches,
+  activityTerrain,
   loading = false,
 }: CerviseAnalyticsSectionProps) {
   const title =
@@ -82,6 +86,7 @@ export function CerviseAnalyticsSection({
             technicians={technicians}
             problems={problems}
             branches={branches}
+            activityTerrain={activityTerrain}
             loading={loading}
           />
         </div>
@@ -96,6 +101,7 @@ function AnalyticsContent({
   technicians,
   problems,
   branches,
+  activityTerrain,
   loading,
 }: CerviseAnalyticsSectionProps) {
   const data = buckets.map((bucket) => ({
@@ -107,6 +113,7 @@ function AnalyticsContent({
   const totalMasuk = data.reduce((total, row) => total + row.masuk, 0);
   const totalDiambil = data.reduce((total, row) => total + row.diambil, 0);
   const totalBatal = data.reduce((total, row) => total + row.batal, 0);
+  const terrain = activityTerrain ?? { data: [], endDate: new Date().toISOString().slice(0, 10) };
 
   return (
     <>
@@ -252,60 +259,71 @@ function AnalyticsContent({
         </BreakdownCard>
       </div>
 
-      <BreakdownCard title="Performa cabang" className="mt-3">
-        {loading ? (
-          <ul
-            aria-hidden
-            className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-5"
-          >
-            {Array.from({ length: 5 }, (_, row) => (
-              <li
-                key={row}
-                className="flex items-center gap-2.5 rounded-md border border-border/40 bg-background/40 px-3 py-2.5"
-              >
-                <Skeleton className="size-8 shrink-0 rounded-full" />
-                <div className="min-w-0 flex-1">
-                  <Skeleton
-                    className="h-3"
-                    style={{ width: `${50 + ((row * 7) % 30)}%` }}
-                  />
-                  <div className="mt-1 flex items-center gap-1.5">
-                    <Skeleton className="h-1 flex-1 rounded-full" />
-                    <Skeleton className="h-2.5 w-10 shrink-0" />
-                  </div>
-                </div>
-              </li>
-            ))}
-          </ul>
-        ) : branches.length === 0 ? (
-          <Empty>Belum ada pemasukan pada periode ini</Empty>
-        ) : (
-          <ul className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-5">
-            {(() => {
-              const max = Math.max(...branches.map((branch) => branch.pendapatan), 1);
-              return branches.slice(0, 5).map((branch) => (
+      <div className="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start">
+        <BreakdownCard title="Performa cabang">
+          {loading ? (
+            <ul
+              aria-hidden
+              className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3"
+            >
+              {Array.from({ length: 5 }, (_, row) => (
                 <li
-                  key={branch.id}
-                  className="flex items-center gap-2.5 rounded-md border border-border/40 bg-background/40 px-3 py-2.5 text-sm"
+                  key={row}
+                  className="flex items-center gap-2.5 rounded-md border border-border/40 bg-background/40 px-3 py-2.5"
                 >
-                  <Avatar className={`size-8 shrink-0 ${toneFor(branch.name)}`}>
-                    <AvatarFallback className="bg-transparent text-[10px] font-medium">{initialsOf(branch.name)}</AvatarFallback>
-                  </Avatar>
+                  <Skeleton className="size-8 shrink-0 rounded-full" />
                   <div className="min-w-0 flex-1">
-                    <div className="truncate text-xs font-medium">{branch.name}</div>
+                    <Skeleton
+                      className="h-3"
+                      style={{ width: `${50 + ((row * 7) % 30)}%` }}
+                    />
                     <div className="mt-1 flex items-center gap-1.5">
-                      <div className="h-1 flex-1 overflow-hidden rounded-full bg-foreground/10">
-                        <div className="h-full bg-foreground/70" style={{ width: `${Math.round((branch.pendapatan / max) * 100)}%` }} />
-                      </div>
-                      <span className="font-mono text-[10px] font-medium tabular-nums">{formatCurrencyPlain(branch.pendapatan)}</span>
+                      <Skeleton className="h-1 flex-1 rounded-full" />
+                      <Skeleton className="h-2.5 w-10 shrink-0" />
                     </div>
                   </div>
                 </li>
-              ));
-            })()}
-          </ul>
-        )}
-      </BreakdownCard>
+              ))}
+            </ul>
+          ) : branches.length === 0 ? (
+            <Empty>Belum ada pemasukan pada periode ini</Empty>
+          ) : (
+            <ul className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              {(() => {
+                const max = Math.max(...branches.map((branch) => branch.pendapatan), 1);
+                return branches.slice(0, 5).map((branch) => (
+                  <li
+                    key={branch.id}
+                    className="flex items-center gap-2.5 rounded-md border border-border/40 bg-background/40 px-3 py-2.5 text-sm"
+                  >
+                    <Avatar className={`size-8 shrink-0 ${toneFor(branch.name)}`}>
+                      <AvatarFallback className="bg-transparent text-[10px] font-medium">{initialsOf(branch.name)}</AvatarFallback>
+                    </Avatar>
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate text-xs font-medium">{branch.name}</div>
+                      <div className="mt-1 flex items-center gap-1.5">
+                        <div className="h-1 flex-1 overflow-hidden rounded-full bg-foreground/10">
+                          <div className="h-full bg-foreground/70" style={{ width: `${Math.round((branch.pendapatan / max) * 100)}%` }} />
+                        </div>
+                        <span className="font-mono text-[10px] font-medium tabular-nums">{formatCurrencyPlain(branch.pendapatan)}</span>
+                      </div>
+                    </div>
+                  </li>
+                ));
+              })()}
+            </ul>
+          )}
+        </BreakdownCard>
+        <div className="flex flex-col gap-2">
+          <ActivityTerrain
+            data={loading ? [] : terrain.data}
+            endDate={terrain.endDate}
+            title="Aktivitas toko"
+            className="w-full max-w-none lg:w-[22rem]"
+          />
+          <p className="px-1 text-[11px] text-muted-foreground">Servis masuk + penjualan produk (HP &amp; aksesoris)</p>
+        </div>
+      </div>
     </>
   );
 }

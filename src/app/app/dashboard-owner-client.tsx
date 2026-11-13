@@ -17,6 +17,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { Area, AreaChart } from "recharts";
+import { LineSparkline } from "@/components/charts/sparkline";
 import { Button } from "@/components/ui/button";
 import { ChartSkeleton, ListRowsSkeleton } from "@/components/ui/skeleton-shapes";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -92,6 +93,7 @@ export default function DashboardOwnerClient() {
           delta: `${formatNumberPlain(summary.pendingKonfirmasi)} menunggu`,
           trend: "neutral" as const,
           sub: PERIOD_LABEL[period],
+          sparkline: summary.buckets.map((b) => b.masuk),
         },
         {
           label: `Omzet ${PERIOD_LABEL[period]}`,
@@ -99,6 +101,7 @@ export default function DashboardOwnerClient() {
           delta: `Keluar ${formatCurrencyPlain(summary.pengeluaran)}`,
           trend: summary.omzet >= summary.pengeluaran ? ("up" as const) : ("down" as const),
           sub: data?.branchLabel ?? branch.label,
+          sparkline: summary.buckets.map((b) => b.masuk),
         },
         {
           label: "Garansi aktif",
@@ -106,6 +109,7 @@ export default function DashboardOwnerClient() {
           delta: "berlaku",
           trend: "neutral" as const,
           sub: "belum expired",
+          sparkline: summary.buckets.map((b) => b.masuk),
         },
         {
           label: "Menunggu konfirmasi",
@@ -113,6 +117,7 @@ export default function DashboardOwnerClient() {
           delta: summary.pendingKonfirmasi > 0 ? "perlu follow up" : "aman",
           trend: summary.pendingKonfirmasi > 0 ? ("down" as const) : ("up" as const),
           sub: data?.branchLabel ?? branch.label,
+          sparkline: summary.buckets.map((b) => b.masuk),
         },
       ]
     : [];
@@ -177,6 +182,7 @@ export default function DashboardOwnerClient() {
         technicians={data?.technicians ?? []}
         problems={data?.problems ?? []}
         branches={data?.branches ?? []}
+        activityTerrain={data?.activityTerrain}
         loading={loading && !data}
       />
 
@@ -231,12 +237,14 @@ function StatCard({
   delta,
   trend,
   sub,
+  sparkline,
 }: {
   label: string;
   value: string;
   delta: string;
   trend: "up" | "down" | "neutral";
   sub: string;
+  sparkline?: number[];
 }) {
   const Up = trend === "up";
   return (
@@ -263,6 +271,11 @@ function StatCard({
         )}
         <span className="text-muted-foreground">{sub}</span>
       </div>
+      {sparkline && sparkline.length > 1 ? (
+        <div className="mt-2 h-8">
+          <LineSparkline data={sparkline.map((v, i) => ({ v, i }))} dataKey="v" height={32} />
+        </div>
+      ) : null}
     </div>
   );
 }

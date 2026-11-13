@@ -1,4 +1,4 @@
-import { resolveGaransiUntil } from "./garansi-list";
+import { resolveGaransiUntil, toLocalDateString } from "./garansi-list";
 
 export const DASHBOARD_PERIODS = ["hari ini", "7d", "30d", "90d"] as const;
 export type DashboardPeriod = (typeof DASHBOARD_PERIODS)[number];
@@ -28,6 +28,12 @@ export type DashboardFinance = {
   metode?: string | null;
   servis_id?: string | null;
   created_by?: string | null;
+};
+
+/** Transaksi penjualan produk (cervise_sales) untuk metrik aktivitas/ramai toko. */
+export type DashboardSale = {
+  id?: string;
+  created_at: string;
 };
 
 export type DashboardServiceLog = {
@@ -91,6 +97,13 @@ export type DashboardActivity = {
   createdAt: string;
 };
 
+export type DashboardActivityTerrain = {
+  /** Nilai aktivitas per hari (oldest first): servis masuk + penjualan produk. */
+  data: number[];
+  /** Hari terakhir (YYYY-MM-DD). */
+  endDate: string;
+};
+
 export type DashboardSummary = {
   totalServis: number;
   pendingKonfirmasi: number;
@@ -99,6 +112,8 @@ export type DashboardSummary = {
   garansiAktif: number;
   buckets: DashboardBucket[];
   bucketTotal: number;
+  /** Aktivitas harian untuk terrain "kapan toko ramai". */
+  activityTerrain: DashboardActivityTerrain;
 };
 
 const MS_PER_HOUR = 3_600_000;
@@ -180,13 +195,59 @@ function financeDateInRange(kasDate: string, start: number, now: Date): boolean 
   return parsed.getTime() >= start && parsed.getTime() <= now.getTime();
 }
 
+function activityDaysFor(period: DashboardPeriod): number {
+  if (period === "hari ini") return 14;
+  if (period === "7d") return 7;
+  if (period === "30d") return 30;
+  return 90;
+}
+
+function dayKeyFromIso(iso: string): string | null {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return null;
+  return toLocalDateString(date);
+}
+
+export function buildActivityTerrain(input: {
+  services: DashboardService[];
+  sales: DashboardSale[];
+  period: DashboardPeriod;
+  now: Date;
+}): DashboardActivityTerrain {
+  const { services, sales, period, now } = input;
+  const days = activityDaysFor(period);
+  const end = startOfDay(now);
+  const keys = Array.from({ length: days }, (_, i) => toLocalDateString(addDays(end, -(days - 1 - i))));
+  const counts = new Map(keys.map((k) => [k, 0]));
+  const rangeStart = addDays(end, -(days - 1)).getTime();
+  const rangeEnd = end.getTime() + 86_400_000;
+
+  for (const service of services) {
+    const k = dayKeyFromIso(service.created_at);
+    if (!k || !counts.has(k)) continue;
+    const t = new Date(service.created_at).getTime();
+    if (t < rangeStart || t >= rangeEnd) continue;
+    counts.set(k, (counts.get(k) ?? 0) + 1);
+  }
+  for (const sale of sales) {
+    const k = dayKeyFromIso(sale.created_at);
+    if (!k || !counts.has(k)) continue;
+    const t = new Date(sale.created_at).getTime();
+    if (t < rangeStart || t >= rangeEnd) continue;
+    counts.set(k, (counts.get(k) ?? 0) + 1);
+  }
+
+  return { data: keys.map((k) => counts.get(k) ?? 0), endDate: keys[keys.length - 1] };
+}
+
 export function summarizeDashboard(input: {
   services: DashboardService[];
   finance: DashboardFinance[];
+  sales?: DashboardSale[];
   period: DashboardPeriod;
   now: Date;
 }): DashboardSummary {
-  const { services, finance, period, now } = input;
+  const { services, finance, sales = [], period, now } = input;
   const windows = buildBuckets(period, now);
   const buckets: DashboardBucket[] = windows.map((window) => ({
     key: window.key,
@@ -238,6 +299,7 @@ export function summarizeDashboard(input: {
     garansiAktif,
     buckets,
     bucketTotal: buckets.reduce((total, bucket) => total + bucket.masuk, 0),
+    activityTerrain: buildActivityTerrain({ services, sales, period, now }),
   };
 }
 

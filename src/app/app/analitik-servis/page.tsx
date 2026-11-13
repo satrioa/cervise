@@ -96,6 +96,7 @@ export default function AnalitikServisPage() {
         technicians={data?.technicians ?? []}
         problems={data?.problems ?? []}
         branches={data?.branches ?? []}
+        activityTerrain={data?.activityTerrain ?? (null as any)}
         loading={loading && !data}
       />
     </div>
