@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
 import {
@@ -11,6 +10,7 @@ import {
   Wrench,
   type LucideIcon,
 } from "lucide-react";
+import { MainNavLink } from "@/components/layout/main-nav-transition";
 import { normalizeAppRole } from "@/lib/nav/manifest";
 import { cn } from "@/lib/utils";
 
@@ -55,7 +55,7 @@ export function CompactDockNav({
             const Icon = item.icon;
             const active = isActive(pathname, item.href);
             return (
-              <Link
+              <MainNavLink
                 key={item.href}
                 href={item.href}
                 aria-current={active ? "page" : undefined}
@@ -68,7 +68,7 @@ export function CompactDockNav({
               >
                 <Icon className="size-[18px]" />
                 <span className="max-w-full truncate">{item.label}</span>
-              </Link>
+              </MainNavLink>
             );
           })}
 

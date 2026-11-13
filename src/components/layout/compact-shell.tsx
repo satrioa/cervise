@@ -1,8 +1,12 @@
 "use client";
 
 import { useEffect, useState, type ReactNode, type UIEvent } from "react";
-import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
+import {
+  MainNavLink,
+  MainNavTransitionOutlet,
+  MainNavTransitionProvider,
+} from "@/components/layout/main-nav-transition";
 import { LayoutGrid } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { CommandPaletteProvider, CommandSearchTrigger } from "@/components/layout/command-palette-provider";
@@ -151,39 +155,40 @@ function CompactShellInner({
   }, [needsCashSession]);
 
   return (
-    <div
-      data-shell="compact"
-      // `group/shell` dipakai halaman yang butuh mengisi sisa tinggi `main`
-      // (lihat Penjualan POS). Dinamai supaya tidak bentrok dengan `group`
-      // milik kartu/baris di dalam halaman.
-      className="group/shell flex h-svh w-full flex-col overflow-hidden bg-canvas text-neutral-900 dark:text-neutral-100"
-    >
-      <PageTransition />
-      <header className="hidden shrink-0 px-4 pt-3 sm:px-6 sm:pt-4 lg:block lg:px-8">
-        <div className="flex w-full items-center gap-2">
-          <nav
-            aria-label="Navigasi utama"
-            className="flex min-w-0 items-center gap-1 overflow-x-auto rounded-full bg-black/[0.055] p-1 scrollbar-none dark:bg-white/10"
-          >
-            {tabs.map((tab) => {
-              const active = isActive(pathname, tab.href);
-              return (
-                <Link
-                  key={tab.href}
-                  href={tab.href}
-                  aria-current={active ? "page" : undefined}
-                  className={cn(
-                    "shrink-0 rounded-full px-3 py-1.5 text-xs font-medium transition-colors sm:px-4 sm:text-sm",
-                    active
-                      ? "bg-white text-neutral-900 shadow-sm dark:bg-neutral-800 dark:text-white"
-                      : "text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white",
-                  )}
-                >
-                  {tab.label}
-                </Link>
-              );
-            })}
-          </nav>
+    <MainNavTransitionProvider role={actor.role}>
+      <div
+        data-shell="compact"
+        // `group/shell` dipakai halaman yang butuh mengisi sisa tinggi `main`
+        // (lihat Penjualan POS). Dinamai supaya tidak bentrok dengan `group`
+        // milik kartu/baris di dalam halaman.
+        className="group/shell flex h-svh w-full flex-col overflow-hidden bg-canvas text-neutral-900 dark:text-neutral-100"
+      >
+        <PageTransition />
+        <header className="hidden shrink-0 px-4 pt-3 sm:px-6 sm:pt-4 lg:block lg:px-8">
+          <div className="flex w-full items-center gap-2">
+            <nav
+              aria-label="Navigasi utama"
+              className="flex min-w-0 items-center gap-1 overflow-x-auto rounded-full bg-black/[0.055] p-1 scrollbar-none dark:bg-white/10"
+            >
+              {tabs.map((tab) => {
+                const active = isActive(pathname, tab.href);
+                return (
+                  <MainNavLink
+                    key={tab.href}
+                    href={tab.href}
+                    aria-current={active ? "page" : undefined}
+                    className={cn(
+                      "shrink-0 rounded-full px-3 py-1.5 text-xs font-medium transition-colors sm:px-4 sm:text-sm",
+                      active
+                        ? "bg-white text-neutral-900 shadow-sm dark:bg-neutral-800 dark:text-white"
+                        : "text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white",
+                    )}
+                  >
+                    {tab.label}
+                  </MainNavLink>
+                );
+              })}
+            </nav>
 
           <Sheet open={open} onOpenChange={setMenuOpen}>
             <SheetTrigger
@@ -229,12 +234,13 @@ function CompactShellInner({
 
       <main
         key={pathname}
-        data-main-content
         className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden pt-[calc(5.5rem_+_env(safe-area-inset-top))] pb-[calc(5rem_+_env(safe-area-inset-bottom))] lg:pt-0 lg:pb-32"
       >
         {/* `h-full` menjaga rantai tinggi halaman (POS mengisi sisa `main`).
             Reveal hanya membungkus isi halaman, bukan chrome shell. */}
-        <AsciiPage className="h-full">{children}</AsciiPage>
+        <MainNavTransitionOutlet>
+          <AsciiPage className="h-full">{children}</AsciiPage>
+        </MainNavTransitionOutlet>
       </main>
 
       <CompactDockNav
@@ -263,7 +269,8 @@ function CompactShellInner({
           }}
         />
       ) : null}
-    </div>
+      </div>
+    </MainNavTransitionProvider>
   );
 }
 
