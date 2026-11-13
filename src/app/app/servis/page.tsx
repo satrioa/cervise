@@ -988,7 +988,7 @@ export default function ServisPage() {
           </>
         ) : (
           <div className="mt-4 space-y-3">
-            <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0 sm:pb-0 [&::-webkit-scrollbar]:hidden" aria-label="Lompat ke tahap">
+            <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] sm:hidden [&::-webkit-scrollbar]:hidden" aria-label="Lompat ke tahap">
               {STAGES.map((stage) => {
                 const count = (displayedKanban[stage.key] || []).length;
                 const Icon = stage.icon;
@@ -1117,7 +1117,7 @@ export default function ServisPage() {
                   key={stage.key}
                   id={`kanban-col-${stage.key}`}
                   value={stage.key}
-                  className="min-w-[84vw] max-w-[22rem] shrink-0 snap-center rounded-xl border bg-muted/20 p-2 sm:min-w-0 sm:max-w-none sm:flex-1"
+                  className="min-w-[84vw] max-w-[22rem] shrink-0 snap-center rounded-xl border bg-background/70 p-2 sm:min-w-0 sm:max-w-none sm:flex-1"
                 >
                   <div className="flex items-center gap-2 px-1 py-2"><span className={`size-2 shrink-0 rounded-full ${DOT_COLOR[stage.key]}`} aria-hidden /><stage.icon className="size-3.5 text-muted-foreground" /><span className="font-mono text-[11px] uppercase tracking-wider">{stage.label}</span><Badge variant="secondary" className="ml-auto text-[10px]">{displayedKanban[stage.key]?.length ?? 0}</Badge></div>
                   <KanbanColumnContent value={stage.key} className="min-h-[50vh] sm:min-h-[320px]">

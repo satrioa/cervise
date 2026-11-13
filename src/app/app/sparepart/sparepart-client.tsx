@@ -12,6 +12,8 @@ import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/in
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
+import { Select, SelectItem, SelectPopup, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { PageHeader } from "@/components/layout/page-header";
 import { useBranch, type Branch } from "@/lib/branch-context";
 import { formatCurrencyPlain } from "@/lib/format";
@@ -35,6 +37,8 @@ export default function SparepartPage({ canManage }: { canManage: boolean }) {
   const [rows, setRows] = useState<SparepartRow[]>([]);
   const [categories, setCategories] = useState<string[]>(["Sparepart"]);
   const [q, setQ] = useState("");
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<SparepartRow | null>(null);
@@ -130,6 +134,11 @@ export default function SparepartPage({ canManage }: { canManage: boolean }) {
     }
   };
 
+  const totalPages = Math.max(1, Math.ceil(rows.length / pageSize));
+  const safePage = Math.min(Math.max(1, page), totalPages);
+  const pageItems = rows.slice((safePage - 1) * pageSize, safePage * pageSize);
+  useEffect(() => { setPage(1); }, [q, branch.id]);
+
   return (
     <div className="min-h-svh bg-transparent">
       <PageHeader
@@ -214,7 +223,7 @@ export default function SparepartPage({ canManage }: { canManage: boolean }) {
                       </TableCell>
                     </TableRow>
                   ) : (
-                    rows.map((row) => (
+                    pageItems.map((row) => (
                       <TableRow key={row.id} className={row.is_active ? "" : "opacity-50"}>
                         <TableCell>
                           <div className="font-medium">{row.name}</div>
@@ -254,6 +263,39 @@ export default function SparepartPage({ canManage }: { canManage: boolean }) {
                 </TableBody>
               </Table>
             </div>
+            {rows.length > 0 ? (
+              <div className="mt-3 flex flex-col items-center gap-3 sm:flex-row sm:justify-between">
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <span>Per halaman</span>
+                  <Select value={String(pageSize)} onValueChange={(v) => { setPageSize(Number(v)); setPage(1); }}>
+                    <SelectTrigger size="sm" className="w-16">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectPopup>
+                      <SelectItem value="10">10</SelectItem>
+                      <SelectItem value="20">20</SelectItem>
+                      <SelectItem value="50">50</SelectItem>
+                    </SelectPopup>
+                  </Select>
+                  <span>· Menampilkan {(safePage - 1) * pageSize + 1}–{Math.min(safePage * pageSize, rows.length)} dari {rows.length}</span>
+                </div>
+                <Pagination>
+                  <PaginationContent>
+                    <PaginationItem>
+                      <PaginationPrevious href="#" onClick={(e) => { e.preventDefault(); if (safePage > 1) setPage(safePage - 1); }} aria-disabled={safePage === 1} className={safePage === 1 ? "pointer-events-none opacity-50" : ""} />
+                    </PaginationItem>
+                    {Array.from({ length: totalPages }, (_, i) => i + 1).slice(Math.max(0, safePage - 3), Math.max(0, safePage - 3) + 5).map((p) => (
+                      <PaginationItem key={p}>
+                        <PaginationLink href="#" isActive={p === safePage} onClick={(e) => { e.preventDefault(); setPage(p); }}>{p}</PaginationLink>
+                      </PaginationItem>
+                    ))}
+                    <PaginationItem>
+                      <PaginationNext href="#" onClick={(e) => { e.preventDefault(); if (safePage < totalPages) setPage(safePage + 1); }} aria-disabled={safePage === totalPages} className={safePage === totalPages ? "pointer-events-none opacity-50" : ""} />
+                    </PaginationItem>
+                  </PaginationContent>
+                </Pagination>
+              </div>
+            ) : null}
           </CardContent>
         </Card>
       </div>

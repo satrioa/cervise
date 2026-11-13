@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
+import { Select, SelectItem, SelectPopup, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
 import { createClient } from "@/lib/supabase/client";
 import { useBranch } from "@/lib/branch-context";
@@ -21,6 +23,8 @@ export default function KategoriSparepartPage() {
   const { branch } = useBranch();
   const [rows, setRows] = useState<Kategori[]>([]);
   const [q, setQ] = useState("");
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Kategori | null>(null);
   const [name, setName] = useState("");
@@ -47,6 +51,12 @@ export default function KategoriSparepartPage() {
   }, [branch.id]);
 
   const filtered = rows.filter((r) => r.name.toLowerCase().includes(q.toLowerCase()));
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const safePage = Math.min(Math.max(1, page), totalPages);
+  const pageItems = filtered.slice((safePage - 1) * pageSize, safePage * pageSize);
+  const start = filtered.length === 0 ? 0 : (safePage - 1) * pageSize + 1;
+  const end = Math.min(safePage * pageSize, filtered.length);
+  useEffect(() => { setPage(1); }, [q]);
 
   const openCreate = () => {
     setEditing(null);
@@ -139,7 +149,7 @@ export default function KategoriSparepartPage() {
         <CardHeader className="flex flex-row items-center justify-between gap-4">
           <div>
             <CardTitle className="text-base flex items-center gap-2"><TagIcon className="size-4" /> Daftar Kategori</CardTitle>
-            <CardDescription>{filtered.length} kategori · {branch.label}</CardDescription>
+            <CardDescription>{filtered.length} kategori · {branch.label} · Menampilkan {start}–{end} dari {filtered.length}</CardDescription>
           </div>
         </CardHeader>
         <CardContent>
@@ -161,7 +171,7 @@ export default function KategoriSparepartPage() {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filtered.map((r) => (
+                  pageItems.map((r) => (
                     <TableRow key={r.id}>
                       <TableCell className="font-medium">{r.name}</TableCell>
                       <TableCell className="text-sm text-muted-foreground">{r.description ?? "—"}</TableCell>
@@ -182,6 +192,36 @@ export default function KategoriSparepartPage() {
               </TableBody>
             </Table>
           </div>
+        <div className="mt-3 flex flex-col items-center gap-3 sm:flex-row sm:justify-between">
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <span>Per halaman</span>
+            <Select value={String(pageSize)} onValueChange={(v) => { setPageSize(Number(v)); setPage(1); }}>
+              <SelectTrigger size="sm" className="w-16">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectPopup>
+                <SelectItem value="10">10</SelectItem>
+                <SelectItem value="20">20</SelectItem>
+                <SelectItem value="50">50</SelectItem>
+              </SelectPopup>
+            </Select>
+          </div>
+          <Pagination>
+            <PaginationContent>
+              <PaginationItem>
+                <PaginationPrevious href="#" onClick={(e) => { e.preventDefault(); if (safePage > 1) setPage(safePage - 1); }} aria-disabled={safePage === 1} className={safePage === 1 ? "pointer-events-none opacity-50" : ""} />
+              </PaginationItem>
+              {Array.from({ length: totalPages }, (_, i) => i + 1).slice(Math.max(0, safePage - 3), Math.max(0, safePage - 3) + 5).map((p) => (
+                <PaginationItem key={p}>
+                  <PaginationLink href="#" isActive={p === safePage} onClick={(e) => { e.preventDefault(); setPage(p); }}>{p}</PaginationLink>
+                </PaginationItem>
+              ))}
+              <PaginationItem>
+                <PaginationNext href="#" onClick={(e) => { e.preventDefault(); if (safePage < totalPages) setPage(safePage + 1); }} aria-disabled={safePage === totalPages} className={safePage === totalPages ? "pointer-events-none opacity-50" : ""} />
+              </PaginationItem>
+            </PaginationContent>
+          </Pagination>
+        </div>
         </CardContent>
       </Card>
 

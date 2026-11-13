@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -47,6 +48,8 @@ export default function GaransiPage({
   const { branch } = useBranch();
   const [q, setQ] = useState(initialQuery);
   const [status, setStatus] = useState<string>(initialStatus);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   const [dateRange, setDateRange] = useState<{ from?: Date; to?: Date }>({});
   const [rows, setRows] = useState<GaransiRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -118,6 +121,10 @@ export default function GaransiPage({
       return true;
     });
   }, [rows, q, status, dateRange, branch.id, branch.label]);
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const safePage = Math.min(Math.max(1, page), totalPages);
+  const pageItems = filtered.slice((safePage - 1) * pageSize, safePage * pageSize);
+  useEffect(() => { setPage(1); }, [q, status, dateRange, branch.id]);
 
   const stats = useMemo(() => {
     let aktif = 0,
@@ -282,7 +289,7 @@ export default function GaransiPage({
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filtered.map((r) => {
+                  pageItems.map((r) => {
                     const meta = garansiMeta(r);
                     const tone =
                       meta.state === "expired"
@@ -354,6 +361,39 @@ export default function GaransiPage({
               </TableBody>
             </Table>
           </div>
+          {filtered.length > 0 ? (
+            <div className="flex flex-col items-center gap-3 border-t px-4 py-3 sm:flex-row sm:justify-between">
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <span>Per halaman</span>
+                <Select value={String(pageSize)} onValueChange={(v) => { setPageSize(Number(v)); setPage(1); }}>
+                  <SelectTrigger size="sm" className="w-16">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="10">10</SelectItem>
+                    <SelectItem value="20">20</SelectItem>
+                    <SelectItem value="50">50</SelectItem>
+                  </SelectContent>
+                </Select>
+                <span>· Menampilkan {(safePage - 1) * pageSize + 1}–{Math.min(safePage * pageSize, filtered.length)} dari {filtered.length}</span>
+              </div>
+              <Pagination>
+                <PaginationContent>
+                  <PaginationItem>
+                    <PaginationPrevious href="#" onClick={(e) => { e.preventDefault(); if (safePage > 1) setPage(safePage - 1); }} aria-disabled={safePage === 1} className={safePage === 1 ? "pointer-events-none opacity-50" : ""} />
+                  </PaginationItem>
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).slice(Math.max(0, safePage - 3), Math.max(0, safePage - 3) + 5).map((p) => (
+                    <PaginationItem key={p}>
+                      <PaginationLink href="#" isActive={p === safePage} onClick={(e) => { e.preventDefault(); setPage(p); }}>{p}</PaginationLink>
+                    </PaginationItem>
+                  ))}
+                  <PaginationItem>
+                    <PaginationNext href="#" onClick={(e) => { e.preventDefault(); if (safePage < totalPages) setPage(safePage + 1); }} aria-disabled={safePage === totalPages} className={safePage === totalPages ? "pointer-events-none opacity-50" : ""} />
+                  </PaginationItem>
+                </PaginationContent>
+              </Pagination>
+            </div>
+          ) : null}
         </div>
       </main>
 

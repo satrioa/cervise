@@ -20,8 +20,13 @@ function statusVariant(status: string) {
   return "outline" as const;
 }
 
-export default async function OwnerDashboard() {
-  const { tenants, stats } = await getOwnerDashboard();
+export default async function OwnerDashboard({ searchParams }: { searchParams?: Promise<{ page?: string; pageSize?: string }> }) {
+  const sp = (await searchParams) ?? {};
+  const { tenants: allTenants, stats } = await getOwnerDashboard();
+  const pageSize = [10, 20, 50].includes(Number(sp.pageSize)) ? Number(sp.pageSize) : 10;
+  const totalPages = Math.max(1, Math.ceil(allTenants.length / pageSize));
+  const safePage = Math.min(Math.max(1, Number(sp.page) || 1), totalPages);
+  const tenants = allTenants.slice((safePage - 1) * pageSize, safePage * pageSize);
 
   return (
     <div className="mx-auto max-w-7xl space-y-6">
@@ -77,6 +82,25 @@ export default async function OwnerDashboard() {
               ))}
             </TableBody>
           </Table>
+            {allTenants.length > 0 ? (
+              <div className="mt-4 flex flex-col items-center gap-3 border-t pt-4 sm:flex-row sm:justify-between">
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <span>Per halaman</span>
+                  {[10, 20, 50].map((n) => {
+                    const p = new URLSearchParams();
+                    p.set("pageSize", String(n));
+                    p.set("page", "1");
+                    return <a key={n} href={`/owner?${p.toString()}`} className={"rounded px-2 py-0.5 " + (pageSize === n ? "bg-primary text-primary-foreground" : "hover:bg-muted")}>{n}</a>;
+                  })}
+                  <span>· Menampilkan {(safePage - 1) * pageSize + 1}–{Math.min(safePage * pageSize, allTenants.length)} dari {allTenants.length}</span>
+                </div>
+                <nav className="flex items-center gap-1 text-sm">
+                  {safePage > 1 ? <a className="rounded px-2 py-1 hover:bg-muted" href={`/owner?pageSize=${pageSize}&page=${safePage - 1}`}>Sebelumnya</a> : <span className="rounded px-2 py-1 text-muted-foreground/50">Sebelumnya</span>}
+                  <span className="px-2 text-muted-foreground">Hal. {safePage} / {totalPages}</span>
+                  {safePage < totalPages ? <a className="rounded px-2 py-1 hover:bg-muted" href={`/owner?pageSize=${pageSize}&page=${safePage + 1}`}>Berikutnya</a> : <span className="rounded px-2 py-1 text-muted-foreground/50">Berikutnya</span>}
+                </nav>
+              </div>
+            ) : null}
         </CardContent>
       </Card>
 

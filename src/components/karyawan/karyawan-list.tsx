@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Menu, MenuItem, MenuPopup, MenuSeparator, MenuTrigger } from "@/components/ui/menu";
 import { Select, SelectItem, SelectPopup, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { KaryawanFormDialog, TempPasswordDialog } from "./karyawan-form-dialog";
 import { deleteKaryawan, resetKaryawanPassword, setKaryawanActive, updateKaryawan } from "@/app/app/karyawan/actions";
@@ -39,6 +40,8 @@ export function KaryawanList({ rows, branches }: { rows: KaryawanRow[]; branches
   const [del, setDel] = useState<KaryawanRow | null>(null);
   const [toggle, setToggle] = useState<KaryawanRow | null>(null);
   const [busy, setBusy] = useState(false);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
   const refresh = () => router.refresh();
 
@@ -87,6 +90,12 @@ export function KaryawanList({ rows, branches }: { rows: KaryawanRow[]; branches
     finally { setBusy(false); }
   };
 
+  const totalPages = Math.max(1, Math.ceil(rows.length / pageSize));
+  const safePage = Math.min(Math.max(1, page), totalPages);
+  const pageItems = rows.slice((safePage - 1) * pageSize, safePage * pageSize);
+  // reset page if rows shrink below current page
+  if (safePage !== page) setPage(safePage);
+
   if (rows.length === 0) {
     return (
       <div className="rounded-xl border bg-card shadow-xs/5">
@@ -113,7 +122,7 @@ export function KaryawanList({ rows, branches }: { rows: KaryawanRow[]; branches
             </TableRow>
           </TableHeader>
           <TableBody>
-            {rows.map((m) => {
+            {pageItems.map((m) => {
               const tone = toneFor(m.role);
               const initials = initialsFor(m.fullName);
               const cabangName = m.branchName ?? "—";
@@ -177,6 +186,39 @@ export function KaryawanList({ rows, branches }: { rows: KaryawanRow[]; branches
             })}
           </TableBody>
         </Table>
+        {rows.length > 0 ? (
+          <div className="flex flex-col items-center gap-3 border-t px-4 py-3 sm:flex-row sm:justify-between">
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <span>Per halaman</span>
+              <Select value={String(pageSize)} onValueChange={(v) => { setPageSize(Number(v)); setPage(1); }}>
+                <SelectTrigger size="sm" className="w-16">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectPopup>
+                  <SelectItem value="10">10</SelectItem>
+                  <SelectItem value="20">20</SelectItem>
+                  <SelectItem value="50">50</SelectItem>
+                </SelectPopup>
+              </Select>
+              <span>· Menampilkan {(safePage - 1) * pageSize + 1}–{Math.min(safePage * pageSize, rows.length)} dari {rows.length}</span>
+            </div>
+            <Pagination>
+              <PaginationContent>
+                <PaginationItem>
+                  <PaginationPrevious href="#" onClick={(e) => { e.preventDefault(); if (safePage > 1) setPage(safePage - 1); }} aria-disabled={safePage === 1} className={safePage === 1 ? "pointer-events-none opacity-50" : ""} />
+                </PaginationItem>
+                {Array.from({ length: totalPages }, (_, i) => i + 1).slice(Math.max(0, safePage - 3), Math.max(0, safePage - 3) + 5).map((p) => (
+                  <PaginationItem key={p}>
+                    <PaginationLink href="#" isActive={p === safePage} onClick={(e) => { e.preventDefault(); setPage(p); }}>{p}</PaginationLink>
+                  </PaginationItem>
+                ))}
+                <PaginationItem>
+                  <PaginationNext href="#" onClick={(e) => { e.preventDefault(); if (safePage < totalPages) setPage(safePage + 1); }} aria-disabled={safePage === totalPages} className={safePage === totalPages ? "pointer-events-none opacity-50" : ""} />
+                </PaginationItem>
+              </PaginationContent>
+            </Pagination>
+          </div>
+        ) : null}
       </div>
 
       <KaryawanFormDialog open={editOpen} onOpenChange={setEditOpen} editing={edit ? { profileId: edit.profileId, employeeId: edit.employeeId, fullName: edit.fullName, email: edit.email, phone: edit.phone, role: edit.role, branchId: edit.branchId } : null} onDone={refresh} />

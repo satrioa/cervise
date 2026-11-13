@@ -1,9 +1,12 @@
 "use client";
 
+import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { formatCurrencyPlain, formatNumberPlain } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
+import { Select, SelectItem, SelectPopup, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Menu, MenuItem, MenuPopup, MenuTrigger } from "@/components/ui/menu";
 import { EllipsisIcon } from "lucide-react";
 import { format } from "date-fns";
@@ -37,6 +40,12 @@ export function PenjualanTable({ rows, onDetail, onPrint, onRetur }: { rows: Row
     return "bg-muted-foreground/40";
   };
 
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const totalPages = Math.max(1, Math.ceil(rows.length / pageSize));
+  const safePage = Math.min(Math.max(1, page), totalPages);
+  const pageItems = rows.slice((safePage - 1) * pageSize, safePage * pageSize);
+
   return (
     <div className="rounded-xl border bg-card shadow-xs/5 overflow-hidden">
       <Table>
@@ -55,7 +64,7 @@ export function PenjualanTable({ rows, onDetail, onPrint, onRetur }: { rows: Row
         <TableBody>
           {rows.length === 0 ? (
             <TableRow><TableCell colSpan={8} className="py-10 text-center text-sm text-muted-foreground">Belum ada penjualan — klik Transaksi Baru</TableCell></TableRow>
-          ) : rows.map((r) => (
+          ) : pageItems.map((r) => (
             <TableRow key={r.id}>
               <TableCell className="ps-4 font-mono text-xs tabular-nums">{r.sale_number}</TableCell>
               <TableCell className="font-mono text-xs tabular-nums">{format(new Date(r.kas_date), "d MMM yyyy", { locale: localeId })}</TableCell>
@@ -89,6 +98,39 @@ export function PenjualanTable({ rows, onDetail, onPrint, onRetur }: { rows: Row
           ))}
         </TableBody>
       </Table>
+      {rows.length > 0 ? (
+        <div className="flex flex-col items-center gap-3 border-t px-4 py-3 sm:flex-row sm:justify-between">
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <span>Per halaman</span>
+            <Select value={String(pageSize)} onValueChange={(v) => { setPageSize(Number(v)); setPage(1); }}>
+              <SelectTrigger size="sm" className="w-16">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectPopup>
+                <SelectItem value="10">10</SelectItem>
+                <SelectItem value="20">20</SelectItem>
+                <SelectItem value="50">50</SelectItem>
+              </SelectPopup>
+            </Select>
+            <span>· Menampilkan {(safePage - 1) * pageSize + 1}–{Math.min(safePage * pageSize, rows.length)} dari {rows.length}</span>
+          </div>
+          <Pagination>
+            <PaginationContent>
+              <PaginationItem>
+                <PaginationPrevious href="#" onClick={(e) => { e.preventDefault(); if (safePage > 1) setPage(safePage - 1); }} aria-disabled={safePage === 1} className={safePage === 1 ? "pointer-events-none opacity-50" : ""} />
+              </PaginationItem>
+              {Array.from({ length: totalPages }, (_, i) => i + 1).slice(Math.max(0, safePage - 3), Math.max(0, safePage - 3) + 5).map((p) => (
+                <PaginationItem key={p}>
+                  <PaginationLink href="#" isActive={p === safePage} onClick={(e) => { e.preventDefault(); setPage(p); }}>{p}</PaginationLink>
+                </PaginationItem>
+              ))}
+              <PaginationItem>
+                <PaginationNext href="#" onClick={(e) => { e.preventDefault(); if (safePage < totalPages) setPage(safePage + 1); }} aria-disabled={safePage === totalPages} className={safePage === totalPages ? "pointer-events-none opacity-50" : ""} />
+              </PaginationItem>
+            </PaginationContent>
+          </Pagination>
+        </div>
+      ) : null}
     </div>
   );
 }

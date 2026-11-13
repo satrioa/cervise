@@ -6,6 +6,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
+import { Select, SelectItem, SelectPopup, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
 import { InventoriToolbar } from "@/components/inventori/inventori-toolbar";
 import { EditProductDialog } from "@/components/inventori/edit-product-dialog";
@@ -381,6 +383,8 @@ export function InventoriClient({
   edit?: string;
 }) {
   const [view, setView] = useState<View>("kartu");
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   const [editTarget, setEditTarget] = useState<InventoryProduct | null>(null);
   const [labelPreview, setLabelPreview] = useState<SkuLabelInput[] | null>(null);
   const router = useRouter();
@@ -410,6 +414,10 @@ export function InventoriClient({
   // Disaring di client: `getInventori` sudah mengambil seluruh katalog sekali
   // jalan, jadi menyaring ulang hanya menambah latency tanpa menambah data.
   const filteredGroups = useMemo(() => filterInventoryGroups(groups, { q, tipe, stok }), [groups, q, tipe, stok]);
+  const totalPages = Math.max(1, Math.ceil(filteredGroups.length / pageSize));
+  const safePage = Math.min(Math.max(1, page), totalPages);
+  const paginatedGroups = filteredGroups.slice((safePage - 1) * pageSize, safePage * pageSize);
+  useEffect(() => { setPage(1); }, [q, tipe, stok]);
   // Ringkasan dihitung ulang dari hasil filter supaya angka pada baris
   // ringkasan dan isi tabel tidak pernah berbeda.
   const filteredSummary = useMemo(() => summarizeInventory(filteredGroups), [filteredGroups]);
@@ -462,10 +470,44 @@ export function InventoriClient({
           </Button>
         </div>
       ) : view === "kartu" ? (
-        <CardView groups={filteredGroups} onEdit={setEditTarget} onPrint={(p) => openLabelPreview([p])} />
+        <CardView groups={paginatedGroups} onEdit={setEditTarget} onPrint={(p) => openLabelPreview([p])} />
       ) : (
-        <TableView groups={filteredGroups} onEdit={setEditTarget} onPrint={openLabelPreview} />
+        <TableView groups={paginatedGroups} onEdit={setEditTarget} onPrint={openLabelPreview} />
       )}
+
+      {filteredGroups.length > 0 ? (
+        <div className="flex flex-col items-center gap-3 sm:flex-row sm:justify-between">
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <span>Per halaman</span>
+            <Select value={String(pageSize)} onValueChange={(v) => { setPageSize(Number(v)); setPage(1); }}>
+              <SelectTrigger size="sm" className="w-16">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectPopup>
+                <SelectItem value="10">10</SelectItem>
+                <SelectItem value="20">20</SelectItem>
+                <SelectItem value="50">50</SelectItem>
+              </SelectPopup>
+            </Select>
+            <span>· Menampilkan {(safePage - 1) * pageSize + 1}–{Math.min(safePage * pageSize, filteredGroups.length)} dari {filteredGroups.length}</span>
+          </div>
+          <Pagination>
+            <PaginationContent>
+              <PaginationItem>
+                <PaginationPrevious href="#" onClick={(e) => { e.preventDefault(); if (safePage > 1) setPage(safePage - 1); }} aria-disabled={safePage === 1} className={safePage === 1 ? "pointer-events-none opacity-50" : ""} />
+              </PaginationItem>
+              {Array.from({ length: totalPages }, (_, i) => i + 1).slice(Math.max(0, safePage - 3), Math.max(0, safePage - 3) + 5).map((p) => (
+                <PaginationItem key={p}>
+                  <PaginationLink href="#" isActive={p === safePage} onClick={(e) => { e.preventDefault(); setPage(p); }}>{p}</PaginationLink>
+                </PaginationItem>
+              ))}
+              <PaginationItem>
+                <PaginationNext href="#" onClick={(e) => { e.preventDefault(); if (safePage < totalPages) setPage(safePage + 1); }} aria-disabled={safePage === totalPages} className={safePage === totalPages ? "pointer-events-none opacity-50" : ""} />
+              </PaginationItem>
+            </PaginationContent>
+          </Pagination>
+        </div>
+      ) : null}
 
       <EditProductDialog
         product={editTarget}

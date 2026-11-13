@@ -13,6 +13,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
 import { getAuditLog } from "@/app/app/audit-log/actions";
 import { Skeleton } from "@/components/ui/skeleton";
 import { TableRowsSkeleton } from "@/components/ui/skeleton-shapes";
@@ -62,6 +63,8 @@ export function CerviseAuditLogTable({ cabangFilter }: { cabangFilter?: string }
   const [dateRange, setDateRange] = useState<{ from?: Date; to?: Date }>({});
   const [actions, setActions] = useState<string[]>([]);
   const [actorId, setActorId] = useState<string>("Semua");
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
   useEffect(() => {
     let cancelled = false;
@@ -120,6 +123,10 @@ export function CerviseAuditLogTable({ cabangFilter }: { cabangFilter?: string }
       }),
     [scoped, search, actions, actorId, timeWindow],
   );
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const safePage = Math.min(Math.max(1, page), totalPages);
+  const pageItems = filtered.slice((safePage - 1) * pageSize, safePage * pageSize);
+  useEffect(() => { setPage(1); }, [search, actions, actorId, timeWindow, cabangFilter]);
 
   // Keep the time range shareable, same as the other tables in this app.
   useEffect(() => {
@@ -292,7 +299,7 @@ export function CerviseAuditLogTable({ cabangFilter }: { cabangFilter?: string }
                 </TableCell>
               </TableRow>
             ) : (
-              filtered.map((row) => (
+              pageItems.map((row) => (
                 <TableRow key={row.id} className="hover:bg-muted/40">
                   <TableCell className="ps-4 font-mono text-xs whitespace-nowrap text-muted-foreground">
                     {format(new Date(row.createdAt), "d MMM yyyy HH:mm:ss", { locale: localeId })}
@@ -325,6 +332,39 @@ export function CerviseAuditLogTable({ cabangFilter }: { cabangFilter?: string }
           </TableBody>
         </Table>
       </div>
+      {filtered.length > 0 ? (
+        <div className="mt-3 flex flex-col items-center gap-3 sm:flex-row sm:justify-between">
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <span>Per halaman</span>
+            <Select value={String(pageSize)} onValueChange={(v) => { setPageSize(Number(v)); setPage(1); }}>
+              <SelectTrigger size="sm" className="w-16">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="10">10</SelectItem>
+                <SelectItem value="20">20</SelectItem>
+                <SelectItem value="50">50</SelectItem>
+              </SelectContent>
+            </Select>
+            <span>· Menampilkan {(safePage - 1) * pageSize + 1}–{Math.min(safePage * pageSize, filtered.length)} dari {filtered.length}</span>
+          </div>
+          <Pagination>
+            <PaginationContent>
+              <PaginationItem>
+                <PaginationPrevious href="#" onClick={(e) => { e.preventDefault(); if (safePage > 1) setPage(safePage - 1); }} aria-disabled={safePage === 1} className={safePage === 1 ? "pointer-events-none opacity-50" : ""} />
+              </PaginationItem>
+              {Array.from({ length: totalPages }, (_, i) => i + 1).slice(Math.max(0, safePage - 3), Math.max(0, safePage - 3) + 5).map((p) => (
+                <PaginationItem key={p}>
+                  <PaginationLink href="#" isActive={p === safePage} onClick={(e) => { e.preventDefault(); setPage(p); }}>{p}</PaginationLink>
+                </PaginationItem>
+              ))}
+              <PaginationItem>
+                <PaginationNext href="#" onClick={(e) => { e.preventDefault(); if (safePage < totalPages) setPage(safePage + 1); }} aria-disabled={safePage === totalPages} className={safePage === totalPages ? "pointer-events-none opacity-50" : ""} />
+              </PaginationItem>
+            </PaginationContent>
+          </Pagination>
+        </div>
+      ) : null}
     </>
   );
 }

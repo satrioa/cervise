@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { MailIcon, SearchIcon, UserRoundIcon } from "lucide-react";
 import type { OwnerAccountRow } from "@/lib/platform/owner-accounts";
 import { EmployeeActiveToggle } from "@/components/owner/employee-active-toggle";
@@ -8,6 +8,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
+import { Select, SelectItem, SelectPopup, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { FilterGroup } from "@/components/layout/filter-group";
 
 type Filter = "all" | "tenant" | "unassigned" | "platform" | "inactive";
@@ -52,6 +54,8 @@ function stateLabel(state: OwnerAccountRow["state"]) {
 export function OwnerAccountsTable({ accounts }: { accounts: OwnerAccountRow[] }) {
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
   const filteredAccounts = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
@@ -68,6 +72,11 @@ export function OwnerAccountsTable({ accounts }: { accounts: OwnerAccountRow[] }
       return matchesQuery && matchesFilter;
     });
   }, [accounts, filter, query]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredAccounts.length / pageSize));
+  const safePage = Math.min(Math.max(1, page), totalPages);
+  const pageItems = filteredAccounts.slice((safePage - 1) * pageSize, safePage * pageSize);
+  useEffect(() => { setPage(1); }, [query, filter]);
 
   const counts = useMemo(() => ({
     all: accounts.length,
@@ -109,7 +118,7 @@ export function OwnerAccountsTable({ accounts }: { accounts: OwnerAccountRow[] }
           </TableRow>
         </TableHeader>
         <TableBody>
-          {filteredAccounts.map((account) => <TableRow key={account.id}>
+          {pageItems.map((account) => <TableRow key={account.id}>
             <TableCell>
               <div className="flex items-center gap-3">
                 <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-foreground/[0.06]"><UserRoundIcon className="size-4 text-muted-foreground" /></div>
@@ -142,6 +151,39 @@ export function OwnerAccountsTable({ accounts }: { accounts: OwnerAccountRow[] }
         </TableBody>
       </Table>
     </div>
+    {filteredAccounts.length > 0 ? (
+      <div className="flex flex-col items-center gap-3 sm:flex-row sm:justify-between">
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <span>Per halaman</span>
+          <Select value={String(pageSize)} onValueChange={(v) => { setPageSize(Number(v)); setPage(1); }}>
+            <SelectTrigger size="sm" className="w-16">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectPopup>
+              <SelectItem value="10">10</SelectItem>
+              <SelectItem value="20">20</SelectItem>
+              <SelectItem value="50">50</SelectItem>
+            </SelectPopup>
+          </Select>
+          <span>· Menampilkan {(safePage - 1) * pageSize + 1}–{Math.min(safePage * pageSize, filteredAccounts.length)} dari {filteredAccounts.length}</span>
+        </div>
+        <Pagination>
+          <PaginationContent>
+            <PaginationItem>
+              <PaginationPrevious href="#" onClick={(e) => { e.preventDefault(); if (safePage > 1) setPage(safePage - 1); }} aria-disabled={safePage === 1} className={safePage === 1 ? "pointer-events-none opacity-50" : ""} />
+            </PaginationItem>
+            {Array.from({ length: totalPages }, (_, i) => i + 1).slice(Math.max(0, safePage - 3), Math.max(0, safePage - 3) + 5).map((p) => (
+              <PaginationItem key={p}>
+                <PaginationLink href="#" isActive={p === safePage} onClick={(e) => { e.preventDefault(); setPage(p); }}>{p}</PaginationLink>
+              </PaginationItem>
+            ))}
+            <PaginationItem>
+              <PaginationNext href="#" onClick={(e) => { e.preventDefault(); if (safePage < totalPages) setPage(safePage + 1); }} aria-disabled={safePage === totalPages} className={safePage === totalPages ? "pointer-events-none opacity-50" : ""} />
+            </PaginationItem>
+          </PaginationContent>
+        </Pagination>
+      </div>
+    ) : null}
     <div className="text-xs text-muted-foreground">Menampilkan {filteredAccounts.length} dari {accounts.length} akun terdaftar Cervise.</div>
   </div>;
 }

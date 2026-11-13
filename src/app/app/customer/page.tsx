@@ -16,8 +16,8 @@ function statusTone(s: string) {
   return "bg-muted-foreground/40";
 }
 
-export default async function CustomerPage({ searchParams }: { searchParams: Promise<{ q?: string; status?: string; sort?: string; new?: string }> }) {
-  const { q, status, sort, new: newParam } = await searchParams;
+export default async function CustomerPage({ searchParams }: { searchParams: Promise<{ q?: string; status?: string; sort?: string; new?: string; page?: string; pageSize?: string }> }) {
+  const { q, status, sort, new: newParam, page: pageParam, pageSize: pageSizeParam } = await searchParams;
   const query = (q ?? "").trim().toLowerCase();
   const statusFilter = (status ?? "").trim() || CUSTOMER_DEFAULTS.status;
   const sortKey = (sort ?? "").trim() || CUSTOMER_DEFAULTS.sort;
@@ -58,6 +58,12 @@ export default async function CustomerPage({ searchParams }: { searchParams: Pro
         return new Date(b.lastDateRaw ?? b.createdAtRaw).getTime() - new Date(a.lastDateRaw ?? a.createdAtRaw).getTime();
     }
   });
+
+  const pageSize = [10, 20, 50].includes(Number(pageSizeParam)) ? Number(pageSizeParam) : 25;
+  const totalPages = Math.max(1, Math.ceil(sorted.length / pageSize));
+  const requestedPage = Math.max(1, Number(pageParam) || 1);
+  const safePage = Math.min(requestedPage, totalPages);
+  const pageItems = sorted.slice((safePage - 1) * pageSize, safePage * pageSize);
 
   const totalCount = base.length;
   const statusActive = statusFilter !== CUSTOMER_DEFAULTS.status;
@@ -123,7 +129,7 @@ export default async function CustomerPage({ searchParams }: { searchParams: Pro
                   </TableCell>
                 </TableRow>
               ) : (
-                sorted.map((c) => (
+                pageItems.map((c) => (
                   <TableRow key={c.id}>
                     <TableCell className="ps-4">
                       <div className="min-w-0">
@@ -161,6 +167,38 @@ export default async function CustomerPage({ searchParams }: { searchParams: Pro
             </TableBody>
           </Table>
         </div>
+        {sorted.length > 0 ? (
+          <div className="mt-4 flex flex-col items-center gap-3 sm:flex-row sm:justify-between">
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <span>Per halaman</span>
+              {[10, 20, 50].map((n) => {
+                const params = new URLSearchParams();
+                if (q) params.set("q", q);
+                if (status && status !== CUSTOMER_DEFAULTS.status) params.set("status", status);
+                if (sort && sort !== CUSTOMER_DEFAULTS.sort) params.set("sort", sort);
+                params.set("pageSize", String(n));
+                params.set("page", "1");
+                return (
+                  <a key={n} href={`/app/customer?${params.toString()}`} className={"rounded px-2 py-0.5 " + (pageSize === n ? "bg-primary text-primary-foreground" : "hover:bg-muted")}>{n}</a>
+                );
+              })}
+              <span>· Menampilkan {(safePage - 1) * pageSize + 1}–{Math.min(safePage * pageSize, sorted.length)} dari {sorted.length}</span>
+            </div>
+            <nav className="flex items-center gap-1 text-sm">
+              {safePage > 1 ? (
+                <a className="rounded px-2 py-1 hover:bg-muted" href={(() => { const p = new URLSearchParams(); if (q) p.set("q", q); if (status && status !== CUSTOMER_DEFAULTS.status) p.set("status", status); if (sort && sort !== CUSTOMER_DEFAULTS.sort) p.set("sort", sort); p.set("pageSize", String(pageSize)); p.set("page", String(safePage - 1)); return `/app/customer?${p.toString()}`; })()}>Sebelumnya</a>
+              ) : (
+                <span className="rounded px-2 py-1 text-muted-foreground/50">Sebelumnya</span>
+              )}
+              <span className="px-2 text-muted-foreground">Hal. {safePage} / {totalPages}</span>
+              {safePage < totalPages ? (
+                <a className="rounded px-2 py-1 hover:bg-muted" href={(() => { const p = new URLSearchParams(); if (q) p.set("q", q); if (status && status !== CUSTOMER_DEFAULTS.status) p.set("status", status); if (sort && sort !== CUSTOMER_DEFAULTS.sort) p.set("sort", sort); p.set("pageSize", String(pageSize)); p.set("page", String(safePage + 1)); return `/app/customer?${p.toString()}`; })()}>Berikutnya</a>
+              ) : (
+                <span className="rounded px-2 py-1 text-muted-foreground/50">Berikutnya</span>
+              )}
+            </nav>
+          </div>
+        ) : null}
         </div>
       </div>
     </div>
