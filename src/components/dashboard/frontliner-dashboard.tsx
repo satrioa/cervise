@@ -313,11 +313,13 @@ export function FrontlinerDashboard({
           </div>
 
           {pendingHandover ? (
-            <div className="mt-3 flex shrink-0 flex-wrap items-baseline gap-x-2 gap-y-1 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-[12px]">
-              <span className="font-medium">Shift diserahkan oleh {pendingHandover.byName}.</span>
-              <span className="opacity-70">
-                Tekan Lanjutkan Shift untuk mengambil alih laci yang sama.
-              </span>
+            <div className="mt-3 flex shrink-0 justify-center">
+              <div className="flex w-fit max-w-full flex-wrap items-center justify-center gap-x-1.5 gap-y-0.5 rounded-full border border-white/60 bg-white/45 px-4 py-1.5 text-[12px] text-neutral-900 shadow-[0_8px_32px_rgba(0,0,0,0.06)] backdrop-blur-xl backdrop-saturate-150 dark:border-white/20 dark:bg-white/10 dark:text-white">
+                <span className="font-medium">Shift diserahkan oleh {pendingHandover.byName}.</span>
+                <span className="opacity-70">
+                  Tekan Lanjutkan Shift untuk mengambil alih laci yang sama.
+                </span>
+              </div>
             </div>
           ) : null}
 
