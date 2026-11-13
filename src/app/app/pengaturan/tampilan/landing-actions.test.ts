@@ -72,13 +72,20 @@ describe("saveLacakBranding", () => {
       tagline: "Servis Gadget Ter-murah",
       instagram_url: "https://instagram.com/jcellular.id",
       tiktok_url: "https://tiktok.com/@jcellular",
+      website_url: null,
+      facebook_url: null,
+      x_url: null,
+      youtube_url: null,
+      whatsapp_url: null,
+      maps_url: null,
+      footer_note: null,
     });
   });
 
   it("menyimpan null saat tautan sosial dikosongkan", async () => {
     await saveLacakBranding({ tagline: "Halo", instagramUrl: "  ", tiktokUrl: "" });
 
-    expect(update).toHaveBeenCalledWith({ tagline: "Halo", instagram_url: null, tiktok_url: null });
+    expect(update).toHaveBeenCalledWith({ tagline: "Halo", instagram_url: null, tiktok_url: null, website_url: null, facebook_url: null, x_url: null, youtube_url: null, whatsapp_url: null, maps_url: null, footer_note: null });
   });
 
   it("menolak tautan sosial dengan skema berbahaya", async () => {

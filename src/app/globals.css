@@ -5,6 +5,7 @@
 @import "./originkit-section-theme.css";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
+@import "../styles/ovio.css";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -565,4 +566,57 @@
   --chart-marker-badge-foreground: oklch(0.15 0 0);
   --chart-segment-background: oklch(0.41 0.0127 248.14 / 0.25);
   --chart-segment-line: oklch(1 0 0 / 0.25);
+}
+
+/* Style world: Scifi (terminal/HUD) */
+html[data-ui-world="scifi"] {
+  --radius: 0.25rem;
+  --background: oklch(0.16 0.02 260);
+  --foreground: oklch(0.92 0.05 190);
+  --card: oklch(0.2 0.025 260);
+  --card-foreground: oklch(0.92 0.05 190);
+  --primary: oklch(0.85 0.18 190);
+  --primary-foreground: oklch(0.12 0.02 260);
+  --secondary: oklch(0.24 0.03 260);
+  --secondary-foreground: oklch(0.9 0.04 190);
+  --muted: oklch(0.24 0.03 260);
+  --muted-foreground: oklch(0.7 0.05 190);
+  --accent: oklch(0.28 0.04 260);
+  --accent-foreground: oklch(0.92 0.05 190);
+  --border: oklch(0.32 0.06 190);
+  --input: oklch(0.24 0.03 260);
+  --ring: oklch(0.85 0.18 190);
+  --canvas: oklch(0.12 0.02 260);
+  --bento-card-bg: oklch(0.2 0.025 260);
+  --bento-card-border: oklch(0.32 0.06 190);
+  --font-sans: "JetBrains Mono", "Fira Code", ui-monospace, monospace;
+  --font-mono: "JetBrains Mono", "Fira Code", ui-monospace, monospace;
+}
+
+html[data-ui-world="scifi"] body {
+  font-family: var(--font-mono);
+  letter-spacing: 0.01em;
+}
+
+html[data-ui-world="scifi"] .rounded-xl,
+html[data-ui-world="scifi"] .rounded-lg,
+html[data-ui-world="scifi"] .rounded-md {
+  border-radius: 0.25rem;
+}
+
+html[data-ui-world="scifi"] [data-bento-card] {
+  border: 1px solid oklch(0.32 0.06 190);
+  box-shadow: 0 0 0 1px oklch(0.18 0.04 190 / 0.4), inset 0 0 12px oklch(0.2 0.03 260 / 0.3);
+  background: oklch(0.2 0.025 260);
+}
+
+html[data-ui-world="scifi"] [data-bento-card]::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, oklch(0.85 0.18 190 / 0.6), transparent);
+  pointer-events: none;
 }

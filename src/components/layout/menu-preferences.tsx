@@ -5,6 +5,7 @@ import { useTheme } from "next-themes";
 import { ChevronDown, Monitor, Moon, Sun, type LucideIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { LANGUAGES, useLocale } from "@/lib/localization-context";
+import { STYLE_WORLDS, useStyleWorld } from "@/lib/style-world-context";
 import { playCue } from "@/lib/sound";
 import { cn } from "@/lib/utils";
 
@@ -31,6 +32,7 @@ export function MenuPreferences() {
   const t = useTranslations("nav.menu");
   const { theme, setTheme } = useTheme();
   const { locale, updateLocale } = useLocale();
+  const { world, setWorld } = useStyleWorld();
 
   // Tema baru diketahui di client. `useSyncExternalStore` mengembalikan false
   // di server dan true setelah mount, jadi pill aktif tidak berkedip ke
@@ -69,6 +71,39 @@ export function MenuPreferences() {
             </button>
           );
         })}
+      </div>
+
+      <div className="flex flex-col gap-1.5">
+        <span className="text-[11px] font-medium text-neutral-500 dark:text-neutral-400">Style</span>
+        <div className="flex rounded-full bg-black/[0.06] p-0.5 dark:bg-white/10">
+          {STYLE_WORLDS.map((option) => {
+            const active = world === option.value;
+            const disabled = !!option.comingSoon;
+            return (
+              <button
+                key={option.value}
+                type="button"
+                disabled={disabled}
+                onClick={() => {
+                  if (disabled) return;
+                  setWorld(option.value);
+                  playCue("tap");
+                }}
+                aria-pressed={active}
+                title={disabled ? "Segera hadir" : undefined}
+                className={cn(
+                  "flex flex-1 items-center justify-center rounded-full px-2 py-1.5 text-[11px] font-medium transition-colors",
+                  active
+                    ? "bg-white text-neutral-900 shadow-sm dark:bg-neutral-700 dark:text-white"
+                    : "text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white",
+                  disabled && "opacity-40 cursor-not-allowed",
+                )}
+              >
+                {option.label}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       <div className="relative">

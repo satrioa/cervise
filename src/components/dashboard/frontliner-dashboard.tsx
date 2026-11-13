@@ -69,6 +69,7 @@ import { rupiah, type ShiftReport } from "@/lib/operational/laporan-shift";
 import { servisOutstanding } from "@/lib/operational/servis-price";
 import { kalenderWIB } from "@/lib/operational/periode-bulan";
 import { cn } from "@/lib/utils";
+import { useStyleWorld } from "@/lib/style-world-context";
 import { playPageTransition } from "@/components/layout/page-transition";
 
 /**
@@ -151,6 +152,7 @@ export function FrontlinerDashboard({
   /** Deep-link dari command palette: buka dialog kas saat halaman dimuat. */
   initialAction?: "catat-kas" | "tutup-kas" | null;
 }) {
+  const { world } = useStyleWorld();
   const { gridProps, cardProps } = useBentoStagger(BENTO_STAGGER);
 
   /**
@@ -274,7 +276,7 @@ export function FrontlinerDashboard({
     // Latar halaman memakai kanvas shell. `h-full` menyambung rantai tinggi
     // dari `main` shell: grid bento mengisi sisa viewport dan berhenti tepat
     // di atas bottom-nav (main sudah punya padding bawah), bukan menggulir halaman.
-    <div className="flex h-full min-h-0 flex-col bg-canvas text-foreground">
+    <div className="flex h-full min-h-0 flex-col bg-canvas text-foreground" data-ui-world={world}>
       <div className="flex min-h-0 flex-1 flex-col px-4 py-6 sm:px-6 sm:py-8 lg:px-8 lg:py-10">
         <div className="mx-auto flex min-h-0 w-full max-w-[1264px] flex-1 flex-col">
           <div className="flex shrink-0 flex-wrap items-start justify-between gap-3">

@@ -15,6 +15,7 @@ export type DashboardService = {
   garansi_value: number | null;
   garansi_unit: string | null;
   garansi_until: string | null;
+  price: number | null;
 };
 
 export type DashboardFinance = {
@@ -116,6 +117,23 @@ export type DashboardActivityTerrain = {
   endDate: string;
 };
 
+export type DashboardTechnicianRaceEntry = {
+  id: string;
+  name: string;
+  initials: string;
+  /** Jumlah servis per bucket (selaras urutan buckets). */
+  perBucketCount: number[];
+  /** Total nilai servis (price) per bucket. */
+  perBucketValue: number[];
+  totalCount: number;
+  totalValue: number;
+};
+
+export type DashboardTechnicianRace = {
+  buckets: { key: string }[];
+  technicians: DashboardTechnicianRaceEntry[];
+};
+
 export type DashboardSummary = {
   totalServis: number;
   pendingKonfirmasi: number;
@@ -128,6 +146,8 @@ export type DashboardSummary = {
   activityTerrain: DashboardActivityTerrain;
   /** Tren pendapatan per cabang per bucket (untuk chart Performa cabang). */
   branchTrend: DashboardBranchTrend;
+  /** Data race teknisi (kumulatif per bucket, best 5 per metrik di UI). */
+  technicianRace: DashboardTechnicianRace;
 };
 
 const MS_PER_HOUR = 3_600_000;
@@ -258,10 +278,11 @@ export function summarizeDashboard(input: {
   services: DashboardService[];
   finance: DashboardFinance[];
   sales?: DashboardSale[];
+  profiles?: DashboardProfile[];
   period: DashboardPeriod;
   now: Date;
 }): DashboardSummary {
-  const { services, finance, sales = [], period, now } = input;
+  const { services, finance, sales = [], profiles = [], period, now } = input;
   const windows = buildBuckets(period, now);
   const buckets: DashboardBucket[] = windows.map((window) => ({
     key: window.key,
@@ -325,6 +346,7 @@ export function summarizeDashboard(input: {
     bucketTotal: buckets.reduce((total, bucket) => total + bucket.masuk, 0),
     activityTerrain: buildActivityTerrain({ services, sales, period, now }),
     branchTrend: { series: [], buckets: [] },
+    technicianRace: buildTechnicianRace({ services, profiles, period, now }),
   };
 }
 
@@ -367,6 +389,50 @@ export function buildTechnicians(input: {
 
   const total = ranked.reduce((sum, row) => sum + row.count, 0);
   return ranked.map((row) => ({ ...row, share: total > 0 ? Math.round((row.count / total) * 100) : 0 }));
+}
+
+export function buildTechnicianRace(input: {
+  services: DashboardService[];
+  profiles: DashboardProfile[];
+  period: DashboardPeriod;
+  now: Date;
+}): DashboardTechnicianRace {
+  const { services, profiles, period, now } = input;
+  const windows = buildBuckets(period, now);
+  const start = periodStart(period, now);
+  const profilesById = new Map(profiles.map((p) => [p.id, p]));
+  const byTech = new Map<string, { count: number[]; value: number[] }>();
+
+  for (const service of services) {
+    if (!service.teknisi_id) continue;
+    const created = new Date(service.created_at).getTime();
+    if (Number.isNaN(created) || created < start || created > now.getTime()) continue;
+    let entry = byTech.get(service.teknisi_id);
+    if (!entry) {
+      entry = { count: Array(windows.length).fill(0), value: Array(windows.length).fill(0) };
+      byTech.set(service.teknisi_id, entry);
+    }
+    const index = bucketIndexFor(windows, created);
+    if (index < 0) continue;
+    entry.count[index] += 1;
+    entry.value[index] += Number(service.price ?? 0);
+  }
+
+  const technicians: DashboardTechnicianRaceEntry[] = Array.from(byTech.entries()).map(([id, data]) => {
+    const profile = profilesById.get(id);
+    const name = profile?.full_name?.trim() || "Tanpa nama";
+    return {
+      id,
+      name,
+      initials: initialsOf(name),
+      perBucketCount: data.count,
+      perBucketValue: data.value,
+      totalCount: data.count.reduce((a, b) => a + b, 0),
+      totalValue: data.value.reduce((a, b) => a + b, 0),
+    };
+  });
+
+  return { buckets: windows.map((w) => ({ key: w.key })), technicians };
 }
 
 export function buildProblems(input: {

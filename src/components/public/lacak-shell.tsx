@@ -88,6 +88,13 @@ export function LacakPage({
         name={tenant.name}
         instagramUrl={tenant.instagramUrl}
         tiktokUrl={tenant.tiktokUrl}
+        websiteUrl={tenant.websiteUrl}
+        facebookUrl={tenant.facebookUrl}
+        xUrl={tenant.xUrl}
+        youtubeUrl={tenant.youtubeUrl}
+        whatsappUrl={tenant.whatsappUrl}
+        mapsUrl={tenant.mapsUrl}
+        footerNote={tenant.footerNote}
         address={tenant.branchAddress}
         phone={tenant.branchPhone}
       />

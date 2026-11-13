@@ -29,6 +29,13 @@ export type LandingRow = {
   tagline: string | null;
   instagram_url: string | null;
   tiktok_url: string | null;
+  website_url?: string | null;
+  facebook_url?: string | null;
+  x_url?: string | null;
+  youtube_url?: string | null;
+  whatsapp_url?: string | null;
+  maps_url?: string | null;
+  footer_note?: string | null;
   lacak_appearance: unknown;
   branches: LandingBranch[] | null;
   lacak_testimonials: LandingTestimonialRow[] | null;
@@ -44,6 +51,13 @@ export type PublicTenant = {
   tagline: string | null;
   instagramUrl: string | null;
   tiktokUrl: string | null;
+  websiteUrl: string | null;
+  facebookUrl: string | null;
+  xUrl: string | null;
+  youtubeUrl: string | null;
+  whatsappUrl: string | null;
+  mapsUrl: string | null;
+  footerNote: string | null;
   branchAddress: string | null;
   branchPhone: string | null;
   testimonials: Testimonial[];
@@ -99,6 +113,13 @@ export function toPublicTenant(row: LandingRow, storageBase: string): PublicTena
     tagline: textOrNull(row.tagline),
     instagramUrl: safeExternalUrl(row.instagram_url),
     tiktokUrl: safeExternalUrl(row.tiktok_url),
+    websiteUrl: safeExternalUrl(row.website_url),
+    facebookUrl: safeExternalUrl(row.facebook_url),
+    xUrl: safeExternalUrl(row.x_url),
+    youtubeUrl: safeExternalUrl(row.youtube_url),
+    whatsappUrl: safeExternalUrl(row.whatsapp_url),
+    mapsUrl: safeExternalUrl(row.maps_url),
+    footerNote: textOrNull(row.footer_note),
     // `branches.city` berisi alamat jalan, bukan nama kota: form admin menulis
     // field berlabel "alamat" ke kolom ini (src/app/app/cabang/actions.ts).
     branchAddress: textOrNull(cabang?.city),

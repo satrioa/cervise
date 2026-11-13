@@ -16,7 +16,7 @@ export default async function TampilanPage() {
   const { data } = await createAdminClient()
     .from("organizations")
     .select(
-      "name, slug, logo_url, banner_url, tagline, instagram_url, tiktok_url, lacak_appearance, branches(id, name, city, phone, is_active, created_at), lacak_testimonials(id, nama, isi, rating, urutan, is_active, created_at)",
+      "name, slug, logo_url, banner_url, tagline, instagram_url, tiktok_url, website_url, facebook_url, x_url, youtube_url, whatsapp_url, maps_url, footer_note, lacak_appearance, branches(id, name, city, phone, is_active, created_at), lacak_testimonials(id, nama, isi, rating, urutan, is_active, created_at)",
     )
     .eq("id", actor.orgId ?? "")
     .maybeSingle();
@@ -30,6 +30,13 @@ export default async function TampilanPage() {
       tagline: null,
       instagram_url: null,
       tiktok_url: null,
+      website_url: null,
+      facebook_url: null,
+      x_url: null,
+      youtube_url: null,
+      whatsapp_url: null,
+      maps_url: null,
+      footer_note: null,
       lacak_appearance: undefined,
       branches: null,
       lacak_testimonials: null,

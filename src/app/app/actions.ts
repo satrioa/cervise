@@ -68,7 +68,7 @@ export async function getDashboardData(period: DashboardPeriod): Promise<Dashboa
   const servicesQuery = applyBranchScope(
     supabase
       .from("cervise_services")
-      .select("id, device, status, created_at, updated_at, customer_id, teknisi_id, kerusakan, garansi_value, garansi_unit, garansi_until"),
+      .select("id, device, status, created_at, updated_at, customer_id, teknisi_id, kerusakan, garansi_value, garansi_unit, garansi_until, price"),
     actor,
   );
   const financeQuery = applyBranchScope(
@@ -160,7 +160,7 @@ export async function getDashboardData(period: DashboardPeriod): Promise<Dashboa
     : { data: [], error: null };
   if (profilesResult.error) throw new Error(profilesResult.error.message);
 
-  const summary = summarizeDashboard({ services, finance, sales, period, now });
+  const summary = summarizeDashboard({ services, finance, sales, profiles: (profilesResult.data ?? []) as DashboardProfile[], period, now });
   summary.branchTrend = buildBranchRevenueTrend({ finance, branches: branchRows, period, now });
   return {
     period,

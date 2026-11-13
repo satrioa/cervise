@@ -46,3 +46,40 @@ export function formatNumberPlain(value: number): string {
   }
   return Number(value).toLocaleString("id-ID");
 }
+
+// --- Ovio shared formatters (used by @/components/ovio/*) ---
+const OVIO_NUMBER = new Intl.NumberFormat("en-US");
+const OVIO_DATE = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
+const OVIO_SHORT_DATE = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
+const OVIO_MONTH = new Intl.DateTimeFormat("en-US", { month: "short", year: "numeric", timeZone: "UTC" });
+
+const toOvioTime = (date: string | number) => (typeof date === "string" ? Date.parse(date) : date);
+
+export const formatNumber = (n: number, options?: Intl.NumberFormatOptions) =>
+  options ? new Intl.NumberFormat("en-US", options).format(n) : OVIO_NUMBER.format(n);
+
+export const isoDate = (date: string | number) => new Date(toOvioTime(date)).toISOString().slice(0, 10);
+
+export function formatDate(date: string | number): string {
+  const time = toOvioTime(date);
+  return Number.isNaN(time) ? String(date) : OVIO_DATE.format(time);
+}
+
+export function formatShortDate(date: string | number): string {
+  const time = toOvioTime(date);
+  return Number.isNaN(time) ? String(date) : OVIO_SHORT_DATE.format(time);
+}
+
+export const formatMonth = (year: number, month: number) =>
+  OVIO_MONTH.format(Date.UTC(year, month - 1, 1));
+
+export const plural = (n: number, noun: string, many = `${noun}s`) => (n === 1 ? noun : many);
+
+export const formatCount = (n: number, noun: string, many?: string) =>
+  `${formatNumber(n)} ${plural(n, noun, many)}`;
+
+export const COMPACT = { notation: "compact", maximumFractionDigits: 1 } as const;
+export const PAD3 = { minimumIntegerDigits: 3, useGrouping: false } as const;
+
+export const dots = (label: string, width = 10) =>
+  label + ".".repeat(Math.max(1, width - label.length));

@@ -19,6 +19,8 @@ import { PageTransition } from "@/components/layout/page-transition";
 import { BranchProvider } from "@/lib/branch-context";
 import { TenantProvider } from "@/lib/tenant-context";
 import { LocaleProvider } from "@/lib/localization-context";
+import { StyleWorldProvider, useStyleWorld } from "@/lib/style-world-context";
+import { OvioProvider } from "@/components/shared/world-provider";
 import { normalizeAppRole } from "@/lib/nav/manifest";
 import { OpeningBalanceDialog } from "@/components/cash/opening-balance-dialog";
 import { checkOpenCashSession, type CashSessionRow } from "@/app/app/actions/cash";
@@ -57,9 +59,17 @@ const MENU_SHEET_DESKTOP =
 const MENU_SHEET_MOBILE =
   "gap-0 overflow-hidden rounded-t-[28px] bg-[#F1F1F1] p-0 shadow-[0_-30px_80px_-32px_rgba(0,0,0,0.55)] duration-300 ease-[linear(0,0.35,0.85,1.06,1.02,0.995,1)] dark:bg-neutral-950";
 
+function OvioBridge({ children }: { children: ReactNode }) {
+  const { world } = useStyleWorld();
+  const ovioWorld = world === "scifi" ? "retro" : world === "minimal" ? "minimal" : world === "toy" ? "toy" : "craft";
+  return <OvioProvider world={ovioWorld as any}>{children}</OvioProvider>;
+}
+
 export function CompactShell({ children, actor }: { children: ReactNode; actor: CompactShellActor }) {
   return (
     <LocaleProvider>
+      <StyleWorldProvider>
+      <OvioBridge>
       <TenantProvider fixedOrganizationId={actor.orgId}>
         <BranchProvider fixedBranchId={actor.branchId ?? "unassigned"}>
           <CommandPaletteProvider role={actor.role}>
@@ -74,6 +84,8 @@ export function CompactShell({ children, actor }: { children: ReactNode; actor: 
           </CommandPaletteProvider>
         </BranchProvider>
       </TenantProvider>
+      </OvioBridge>
+      </StyleWorldProvider>
     </LocaleProvider>
   );
 }

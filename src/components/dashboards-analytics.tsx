@@ -1,5 +1,8 @@
 import { MoreHorizontalIcon, StoreIcon, WrenchIcon, UsersIcon } from "lucide-react";
+import React from "react";
+import { cn } from "@/lib/utils";
 import { formatCurrencyPlain, formatNumberPlain } from "@/lib/format";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import ActivityTerrain from "@/components/kokonutui/activity-terrain";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { ChartSkeleton } from "@/components/ui/skeleton-shapes";
@@ -15,6 +18,7 @@ import type {
   DashboardPeriod,
   DashboardProblem,
   DashboardTechnician,
+  DashboardTechnicianRace,
 } from "@/lib/operational/dashboard";
 
 const SERIES = [
@@ -69,6 +73,7 @@ export type CerviseAnalyticsSectionProps = {
   branches: DashboardBranch[];
   activityTerrain?: DashboardActivityTerrain;
   branchTrend?: DashboardBranchTrend;
+  technicianRace?: DashboardTechnicianRace;
   loading?: boolean;
 };
 
@@ -80,6 +85,7 @@ export function CerviseAnalyticsSection({
   branches,
   activityTerrain,
   branchTrend,
+  technicianRace,
   loading = false,
 }: CerviseAnalyticsSectionProps) {
   const title =
@@ -112,6 +118,7 @@ export function CerviseAnalyticsSection({
             branches={branches}
             activityTerrain={activityTerrain}
             branchTrend={branchTrend}
+            technicianRace={technicianRace}
             loading={loading}
           />
         </div>
@@ -128,6 +135,7 @@ function AnalyticsContent({
   branches,
   activityTerrain,
   branchTrend,
+  technicianRace,
   loading,
 }: CerviseAnalyticsSectionProps) {
   const data = buckets.map((bucket) => ({
@@ -180,54 +188,11 @@ function AnalyticsContent({
       </section>
 
       <div className="mt-6 grid grid-cols-1 gap-3 lg:grid-cols-2">
-        <BreakdownCard title="Top teknisi">
-          {loading ? (
-            <ul aria-hidden className="mt-4 flex flex-col gap-3">
-              {Array.from({ length: 5 }, (_, row) => (
-                <li key={row} className="text-sm">
-                  <div className="flex items-center gap-2">
-                    <Skeleton className="size-6 shrink-0 rounded-full" />
-                    <div className="min-w-0 flex-1">
-                      <Skeleton
-                        className="h-3"
-                        style={{ width: `${45 + ((row * 11) % 35)}%` }}
-                      />
-                    </div>
-                    <Skeleton className="h-3 w-14 shrink-0" />
-                  </div>
-                  <Skeleton className="mt-1.5 h-1 w-full rounded-full" />
-                </li>
-              ))}
-            </ul>
-          ) : technicians.length === 0 ? (
-            <Empty>Belum ada servis dengan teknisiassigned</Empty>
-          ) : (
-            <ul className="mt-4 flex flex-col gap-3">
-              {technicians.slice(0, 5).map((technician) => (
-                <li key={technician.id ?? technician.name} className="text-sm">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <Avatar className={"size-6 shrink-0 " + toneFor(technician.name)}>
-                      <AvatarFallback className="bg-transparent text-[10px] font-medium">{technician.initials}</AvatarFallback>
-                    </Avatar>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-baseline gap-1.5 min-w-0">
-                        <span className="truncate font-medium">{technician.name}</span>
-                      </div>
-                    </div>
-                    <span className="font-mono text-xs shrink-0">
-                      <span className="text-foreground">{formatNumberPlain(technician.count)}</span>
-                      <span className="ml-1.5 text-muted-foreground/70">{technician.share}%</span>
-                    </span>
-                  </div>
-                  <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-foreground/[0.06]">
-                    <div className="h-full bg-foreground/70" style={{ width: `${technician.share}%` }} />
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-          <p className="mt-3 text-[11px] text-muted-foreground">Jumlah servis yang ditangani teknisi pada periode ini.</p>
-        </BreakdownCard>
+        <TechnicianRaceCard
+          period={period}
+          race={technicianRace}
+          loading={loading}
+        />
 
         <BreakdownCard title="Top masalah servis">
           {loading ? (
@@ -344,6 +309,178 @@ function AnalyticsContent({
   );
 }
 
+type TechMetric = "count" | "value";
+
+function TechnicianRaceCard({
+  period,
+  race,
+  loading,
+}: {
+  period: DashboardPeriod;
+  race?: DashboardTechnicianRace;
+  loading?: boolean;
+}) {
+  const [metric, setMetric] = React.useState<TechMetric>("count");
+  const [frame, setFrame] = React.useState(0);
+  const [playing, setPlaying] = React.useState(false);
+  const timerRef = React.useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const buckets = race?.buckets ?? [];
+  const allTechs = race?.technicians ?? [];
+
+  // Top 5 by selected metric (total across period)
+  const top5 = React.useMemo(() => {
+    const sorted = [...allTechs].sort((a, b) =>
+      metric === "count" ? b.totalCount - a.totalCount : b.totalValue - a.totalValue,
+    );
+    return sorted.slice(0, 5);
+  }, [allTechs, metric]);
+
+  const frameCount = buckets.length || 1;
+
+  // Reset frame when period/data changes
+  React.useEffect(() => {
+    setFrame(0);
+    setPlaying(false);
+  }, [period, buckets.length]);
+
+  // Autoplay
+  React.useEffect(() => {
+    if (!playing) {
+      if (timerRef.current) clearInterval(timerRef.current);
+      timerRef.current = null;
+      return;
+    }
+    timerRef.current = setInterval(() => {
+      setFrame((prev) => {
+        if (prev >= frameCount - 1) {
+          setPlaying(false);
+          return prev;
+        }
+        return prev + 1;
+      });
+    }, 600);
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+      timerRef.current = null;
+    };
+  }, [playing, frameCount]);
+
+  const metricTabs = (
+    <Tabs value={metric} onValueChange={(v) => setMetric(v as TechMetric)}>
+      <TabsList className="h-auto w-auto">
+        <TabsTrigger value="count" className="px-2.5 py-1 text-xs">Total servis</TabsTrigger>
+        <TabsTrigger value="value" className="px-2.5 py-1 text-xs">Total nilai servis</TabsTrigger>
+      </TabsList>
+    </Tabs>
+  );
+
+  if (loading) {
+    return (
+      <BreakdownCard title="Performa teknisi" action={metricTabs}>
+        <div className="mt-4 flex flex-col gap-2">
+          {Array.from({ length: 5 }, (_, i) => (
+            <Skeleton key={i} className="h-6 w-full rounded" />
+          ))}
+          <Skeleton className="mt-2 h-4 w-full rounded" />
+        </div>
+      </BreakdownCard>
+    );
+  }
+
+  if (top5.length === 0) {
+    return (
+      <BreakdownCard title="Performa teknisi" action={metricTabs}>
+        <Empty>Belum ada servis dengan teknisi</Empty>
+      </BreakdownCard>
+    );
+  }
+
+  // Cumulative values up to current frame
+  const cumulative = top5.map((t) => {
+    const arr = metric === "count" ? t.perBucketCount : t.perBucketValue;
+    let sum = 0;
+    for (let i = 0; i <= Math.min(frame, arr.length - 1); i++) sum += arr[i] ?? 0;
+    return { tech: t, value: sum };
+  });
+  const maxVal = Math.max(...cumulative.map((c) => c.value), 1);
+
+  return (
+    <BreakdownCard title="Performa teknisi" action={metricTabs}>
+      {/* Race bars */}
+      <div className="mt-4 flex flex-col gap-2">
+        {cumulative
+          .sort((a, b) => b.value - a.value)
+          .map(({ tech, value }, i) => {
+            const pct = maxVal > 0 ? (value / maxVal) * 100 : 0;
+            const color = chartColor(i);
+            const label =
+              metric === "count"
+                ? formatNumberPlain(value)
+                : formatRpShort(value);
+            return (
+              <div key={tech.id} className="flex items-center gap-2 text-sm">
+                <Avatar className={"size-6 shrink-0 " + toneFor(tech.name)}>
+                  <AvatarFallback className="bg-transparent text-[10px] font-medium">{tech.initials}</AvatarFallback>
+                </Avatar>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-baseline justify-between gap-1">
+                    <span className="truncate text-xs font-medium">{tech.name}</span>
+                    <span className="font-mono text-xs tabular-nums">{label}</span>
+                  </div>
+                  <div className="mt-1 h-2 overflow-hidden rounded-full bg-foreground/[0.06]">
+                    <div
+                      className="h-full rounded-full transition-all duration-300 ease-out"
+                      style={{ width: `${pct}%`, backgroundColor: color }}
+                    />
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+      </div>
+
+      {/* Timeline / scrubber */}
+      <div className="mt-4">
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setPlaying((p) => !p)}
+            className="flex size-7 shrink-0 items-center justify-center rounded-md border border-border/40 hover:bg-accent"
+            aria-label={playing ? "Pause" : "Play"}
+          >
+            {playing ? (
+              <svg viewBox="0 0 24 24" fill="currentColor" className="size-3.5"><rect x="6" y="4" width="4" height="16" /><rect x="14" y="4" width="4" height="16" /></svg>
+            ) : (
+              <svg viewBox="0 0 24 24" fill="currentColor" className="size-3.5"><polygon points="6,4 20,12 6,20" /></svg>
+            )}
+          </button>
+          <input
+            type="range"
+            min={0}
+            max={Math.max(0, frameCount - 1)}
+            value={frame}
+            onChange={(e) => {
+              setPlaying(false);
+              setFrame(Number(e.target.value));
+            }}
+            className="flex-1 accent-foreground"
+          />
+        </div>
+        <div className="mt-1 flex justify-between text-[10px] text-muted-foreground">
+          <span>{buckets[0]?.key ?? ""}</span>
+          <span className="font-mono">{buckets[frame]?.key ?? ""}</span>
+          <span>{buckets[buckets.length - 1]?.key ?? ""}</span>
+        </div>
+      </div>
+
+      <p className="mt-2 text-[11px] text-muted-foreground">
+        {metric === "count" ? "Jumlah servis kumulatif" : "Total nilai servis kumulatif (Rp)"} · best 5 teknisi
+      </p>
+    </BreakdownCard>
+  );
+}
+
 function Empty({ children }: { children: React.ReactNode }) {
   return <p className="py-8 text-center text-sm text-muted-foreground">{children}</p>;
 }
@@ -352,10 +489,12 @@ function BreakdownCard({
   title,
   children,
   className,
+  action,
 }: {
   title: string;
   children: React.ReactNode;
   className?: string;
+  action?: React.ReactNode;
 }) {
   return (
     <section className={`rounded-xl border border-border/60 bg-background/40 p-5 ${className ?? ""}`}>
@@ -366,9 +505,13 @@ function BreakdownCard({
           {title === "Top teknisi" && <UsersIcon className="size-3" />}
           {title}
         </div>
-        <button type="button" className="text-muted-foreground/60 transition-colors hover:text-foreground">
-          <MoreHorizontalIcon className="size-4" />
-        </button>
+        {action ? (
+          action
+        ) : (
+          <button type="button" className="text-muted-foreground/60 transition-colors hover:text-foreground">
+            <MoreHorizontalIcon className="size-4" />
+          </button>
+        )}
       </div>
       {children}
     </section>

@@ -86,10 +86,19 @@ function teksAtauNull(value: unknown, batas: number, nama: string): string | nul
  * berakhir di `href` halaman publik, jadi `javascript:` harus ditolak di sini
  * juga, bukan hanya saat ditampilkan.
  */
+const FOOTER_NOTE_MAX = 200;
+
 export async function saveLacakBranding(input: {
   tagline: string;
   instagramUrl: string;
   tiktokUrl: string;
+  websiteUrl?: string;
+  facebookUrl?: string;
+  xUrl?: string;
+  youtubeUrl?: string;
+  whatsappUrl?: string;
+  mapsUrl?: string;
+  footerNote?: string;
 }) {
   const actor = await requireTampilanAdmin();
 
@@ -98,10 +107,42 @@ export async function saveLacakBranding(input: {
   if (input.instagramUrl?.trim() && !instagram) throw new Error("Tautan Instagram tidak valid");
   const tiktok = safeExternalUrl(input.tiktokUrl);
   if (input.tiktokUrl?.trim() && !tiktok) throw new Error("Tautan TikTok tidak valid");
+  const websiteUrl = input.websiteUrl ?? "";
+  const facebookUrl = input.facebookUrl ?? "";
+  const xUrl = input.xUrl ?? "";
+  const youtubeUrl = input.youtubeUrl ?? "";
+  const whatsappUrl = input.whatsappUrl ?? "";
+  const mapsUrl = input.mapsUrl ?? "";
+  const footerNoteInput = input.footerNote ?? "";
+
+  const website = safeExternalUrl(websiteUrl);
+  if (websiteUrl.trim() && !website) throw new Error("Tautan website tidak valid");
+  const facebook = safeExternalUrl(facebookUrl);
+  if (facebookUrl.trim() && !facebook) throw new Error("Tautan Facebook tidak valid");
+  const x = safeExternalUrl(xUrl);
+  if (xUrl.trim() && !x) throw new Error("Tautan X/Twitter tidak valid");
+  const youtube = safeExternalUrl(youtubeUrl);
+  if (youtubeUrl.trim() && !youtube) throw new Error("Tautan YouTube tidak valid");
+  const whatsapp = safeExternalUrl(whatsappUrl);
+  if (whatsappUrl.trim() && !whatsapp) throw new Error("Tautan WhatsApp tidak valid");
+  const maps = safeExternalUrl(mapsUrl);
+  if (mapsUrl.trim() && !maps) throw new Error("Tautan Google Maps tidak valid");
+  const footerNote = teksAtauNull(footerNoteInput, FOOTER_NOTE_MAX, "Catatan footer");
 
   const { error } = await createAdminClient()
     .from("organizations")
-    .update({ tagline, instagram_url: instagram, tiktok_url: tiktok })
+    .update({
+      tagline,
+      instagram_url: instagram,
+      tiktok_url: tiktok,
+      website_url: website,
+      facebook_url: facebook,
+      x_url: x,
+      youtube_url: youtube,
+      whatsapp_url: whatsapp,
+      maps_url: maps,
+      footer_note: footerNote,
+    })
     .eq("id", actor.orgId);
 
   if (error) throw new Error(error.message);
@@ -234,4 +275,61 @@ async function hapusObjek(path: string | null | undefined): Promise<void> {
   if (error) {
     console.error("Gagal menghapus berkas banner lama:", error.message);
   }
+}
+
+export async function uploadLacakLogo(formData: FormData) {
+  const actor = await requireTampilanAdmin();
+
+  const entry = formData.get("file");
+  if (!(entry instanceof File)) throw new Error("File tidak ditemukan");
+  if (entry.size === 0) throw new Error("File kosong");
+
+  const validation = validatePhotoFile(entry);
+  if (!validation.ok) throw new Error(validation.error);
+
+  const admin = createAdminClient();
+  const { data: current, error: readError } = await admin
+    .from("organizations")
+    .select("logo_url")
+    .eq("id", actor.orgId)
+    .maybeSingle();
+  if (readError) throw new Error(readError.message);
+
+  const previous = current?.logo_url ?? null;
+  const path = tenantLogoPath(actor.orgId!, validation.extension);
+
+  const { error: uploadError } = await admin.storage
+    .from(PHOTO_BUCKET)
+    .upload(path, entry, { contentType: entry.type, upsert: false });
+  if (uploadError) throw new Error(`Gagal mengunggah logo: ${uploadError.message}`);
+
+  const { error: writeError } = await admin
+    .from("organizations")
+    .update({ logo_url: path })
+    .eq("id", actor.orgId);
+  if (writeError) {
+    await hapusObjek(path);
+    throw new Error(`Gagal menyimpan logo: ${writeError.message}`);
+  }
+
+  await hapusObjek(previous);
+  revalidatePath("/app/pengaturan/tampilan");
+  return { ok: true, url: publicPhotoUrl(process.env.NEXT_PUBLIC_SUPABASE_URL ?? "", path) };
+}
+
+export async function removeLacakLogo() {
+  const actor = await requireTampilanAdmin();
+  const admin = createAdminClient();
+
+  const { data, error } = await admin
+    .from("organizations")
+    .update({ logo_url: null })
+    .eq("id", actor.orgId)
+    .select("logo_url")
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+
+  await hapusObjek(data?.logo_url ?? null);
+  revalidatePath("/app/pengaturan/tampilan");
+  return { ok: true };
 }

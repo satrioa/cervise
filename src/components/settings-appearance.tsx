@@ -296,8 +296,12 @@ function LacakPreview({ appearance, tenant }: { appearance: LacakAppearance; ten
         </div>
         <div className="absolute inset-0 bg-background/45" aria-hidden />
         <div className="absolute inset-0 flex items-center gap-2 px-3 pt-3">
-          <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-background text-[10px] font-bold">
-            {initialsOf(tenant.name)}
+          <span className="flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-background text-[10px] font-bold">
+            {tenant.logoUrl ? (
+              <Image src={tenant.logoUrl} alt={tenant.name} fill sizes="32px" unoptimized className="object-contain p-1" />
+            ) : (
+              initialsOf(tenant.name)
+            )}
           </span>
           <span className="min-w-0 flex-1 truncate text-center font-heading text-xs font-bold">{tenant.name}</span>
           <span className="size-8 shrink-0" aria-hidden />
@@ -316,6 +320,13 @@ function LacakPreview({ appearance, tenant }: { appearance: LacakAppearance; ten
         name={tenant.name}
         instagramUrl={tenant.instagramUrl}
         tiktokUrl={tenant.tiktokUrl}
+        websiteUrl={tenant.websiteUrl}
+        facebookUrl={tenant.facebookUrl}
+        xUrl={tenant.xUrl}
+        youtubeUrl={tenant.youtubeUrl}
+        whatsappUrl={tenant.whatsappUrl}
+        mapsUrl={tenant.mapsUrl}
+        footerNote={tenant.footerNote}
         address={tenant.branchAddress}
         phone={tenant.branchPhone}
       />

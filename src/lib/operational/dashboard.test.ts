@@ -33,6 +33,7 @@ function service(overrides: Partial<DashboardService> = {}): DashboardService {
     garansi_value: null,
     garansi_unit: null,
     garansi_until: null,
+    price: null,
     ...overrides,
   };
 }

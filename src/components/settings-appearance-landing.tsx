@@ -12,9 +12,11 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   deleteTestimonial,
   removeLacakBanner,
+  removeLacakLogo,
   saveLacakBranding,
   saveTestimonial,
   uploadLacakBanner,
+  uploadLacakLogo,
 } from "@/app/app/pengaturan/tampilan/actions";
 import { playPageTransition } from "@/components/layout/page-transition";
 import type { PublicTenant } from "@/lib/public/landing";
@@ -33,12 +35,21 @@ export function LandingSection({
 }) {
   const router = useRouter();
   const fileRef = useRef<HTMLInputElement>(null);
+  const logoFileRef = useRef<HTMLInputElement>(null);
 
   const [tagline, setTagline] = useState(tenant.tagline ?? "");
   const [instagramUrl, setInstagramUrl] = useState(tenant.instagramUrl ?? "");
   const [tiktokUrl, setTiktokUrl] = useState(tenant.tiktokUrl ?? "");
+  const [websiteUrl, setWebsiteUrl] = useState(tenant.websiteUrl ?? "");
+  const [facebookUrl, setFacebookUrl] = useState(tenant.facebookUrl ?? "");
+  const [xUrl, setXUrl] = useState(tenant.xUrl ?? "");
+  const [youtubeUrl, setYoutubeUrl] = useState(tenant.youtubeUrl ?? "");
+  const [whatsappUrl, setWhatsappUrl] = useState(tenant.whatsappUrl ?? "");
+  const [mapsUrl, setMapsUrl] = useState(tenant.mapsUrl ?? "");
+  const [footerNote, setFooterNote] = useState(tenant.footerNote ?? "");
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
   const [busy, setBusy] = useState(false);
 
   const [nama, setNama] = useState("");
@@ -50,11 +61,29 @@ export function LandingSection({
   const handleSimpan = async () => {
     setSaving(true);
     try {
-      await saveLacakBranding({ tagline, instagramUrl, tiktokUrl });
+      await saveLacakBranding({
+        tagline,
+        instagramUrl,
+        tiktokUrl,
+        websiteUrl,
+        facebookUrl,
+        xUrl,
+        youtubeUrl,
+        whatsappUrl,
+        mapsUrl,
+        footerNote,
+      });
       ganti({
         tagline: tagline.trim() || null,
         instagramUrl: instagramUrl.trim() || null,
         tiktokUrl: tiktokUrl.trim() || null,
+        websiteUrl: websiteUrl.trim() || null,
+        facebookUrl: facebookUrl.trim() || null,
+        xUrl: xUrl.trim() || null,
+        youtubeUrl: youtubeUrl.trim() || null,
+        whatsappUrl: whatsappUrl.trim() || null,
+        mapsUrl: mapsUrl.trim() || null,
+        footerNote: footerNote.trim() || null,
       });
       playPageTransition();
       router.refresh();
@@ -99,6 +128,39 @@ export function LandingSection({
     }
   };
 
+  const handleUploadLogo = async (file: File) => {
+    setUploadingLogo(true);
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      const hasil = await uploadLacakLogo(form);
+      ganti({ logoUrl: hasil.url ?? null });
+      playPageTransition();
+      router.refresh();
+      toast.success("Logo diperbarui");
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : "Gagal mengunggah logo");
+    } finally {
+      setUploadingLogo(false);
+      if (fileRef.current) fileRef.current.value = "";
+    }
+  };
+
+  const handleHapusLogo = async () => {
+    setUploadingLogo(true);
+    try {
+      await removeLacakLogo();
+      ganti({ logoUrl: null });
+      playPageTransition();
+      router.refresh();
+      toast.success("Logo dihapus");
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : "Gagal menghapus logo");
+    } finally {
+      setUploadingLogo(false);
+    }
+  };
+
   const handleTambah = async () => {
     setBusy(true);
     try {
@@ -134,6 +196,44 @@ export function LandingSection({
   return (
     <div className="mt-12 space-y-10 border-t pt-10">
       <section>
+        <SectionHead title="Logo" hint="Logo toko di header halaman Lacak. Kosongkan untuk memakai inisial nama toko." />
+        <div className="mt-4 flex flex-wrap items-center gap-4">
+          <div className="relative h-20 w-20 overflow-hidden rounded-full border border-border/60 bg-muted/40">
+            {tenant.logoUrl ? (
+              <Image src={tenant.logoUrl} alt="Logo toko" fill sizes="80px" unoptimized className="object-contain p-2" />
+            ) : (
+              <div className="flex size-full items-center justify-center text-xs text-muted-foreground">
+                Belum ada logo
+              </div>
+            )}
+          </div>
+          <div className="flex flex-col gap-2">
+            <input
+              ref={logoFileRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) void handleUploadLogo(file);
+              }}
+            />
+            <Button size="sm" type="button" disabled={uploadingLogo} onClick={() => logoFileRef.current?.click()}>
+              {uploadingLogo ? "Mengunggah..." : tenant.logoUrl ? "Ganti logo" : "Unggah logo"}
+            </Button>
+            {tenant.logoUrl ? (
+              <Button size="sm" type="button" variant="outline" disabled={uploadingLogo} onClick={handleHapusLogo}>
+                Hapus logo
+              </Button>
+            ) : null}
+            <p className="max-w-xs text-[11px] text-muted-foreground">
+              JPG, PNG, atau WEBP, maksimal 2.0 MB. Logo kotak/square lebih cocok.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section className="mt-10">
         <SectionHead title="Banner" hint="Gambar di bagian atas halaman Lacak. Kosongkan untuk memakai warna toko." />
         <div className="mt-4 flex flex-wrap items-center gap-4">
           <div className="relative h-28 w-full max-w-xs overflow-hidden rounded-xl border border-border/60 bg-muted/40">
@@ -187,6 +287,34 @@ export function LandingSection({
               <Label className="font-mono text-[10px] uppercase tracking-[0.2em]">TikTok</Label>
               <Input value={tiktokUrl} onChange={(e) => setTiktokUrl(e.target.value)} placeholder="https://tiktok.com/@toko" />
             </div>
+            <div className="space-y-1.5">
+              <Label className="font-mono text-[10px] uppercase tracking-[0.2em]">WhatsApp</Label>
+              <Input value={whatsappUrl} onChange={(e) => setWhatsappUrl(e.target.value)} placeholder="https://wa.me/62812..." />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="font-mono text-[10px] uppercase tracking-[0.2em]">Website</Label>
+              <Input value={websiteUrl} onChange={(e) => setWebsiteUrl(e.target.value)} placeholder="https://toko.com" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="font-mono text-[10px] uppercase tracking-[0.2em]">Facebook</Label>
+              <Input value={facebookUrl} onChange={(e) => setFacebookUrl(e.target.value)} placeholder="https://facebook.com/toko" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="font-mono text-[10px] uppercase tracking-[0.2em]">X / Twitter</Label>
+              <Input value={xUrl} onChange={(e) => setXUrl(e.target.value)} placeholder="https://x.com/toko" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="font-mono text-[10px] uppercase tracking-[0.2em]">YouTube</Label>
+              <Input value={youtubeUrl} onChange={(e) => setYoutubeUrl(e.target.value)} placeholder="https://youtube.com/@toko" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="font-mono text-[10px] uppercase tracking-[0.2em]">Google Maps</Label>
+              <Input value={mapsUrl} onChange={(e) => setMapsUrl(e.target.value)} placeholder="https://maps.google.com/..." />
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <Label className="font-mono text-[10px] uppercase tracking-[0.2em]">Catatan footer</Label>
+            <Input value={footerNote} maxLength={200} onChange={(e) => setFooterNote(e.target.value)} placeholder="Jam operasional: Senin-Sabtu 09:00-18:00" />
           </div>
           <p className="text-[11px] text-muted-foreground">
             Tautan hanya bisa diisi dengan http:// atau https://. Alamat dan nomor telepon diambil dari
