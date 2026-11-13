@@ -19,7 +19,7 @@ import {
   type LacakAppearance,
 } from "@/lib/operational/lacak-appearance";
 import { LandingSection } from "@/components/settings-appearance-landing";
-import MobileMockup from "@/components/ui/MobileMockup";
+import { IPhone17ProMax } from "@/components/ui/apple-iphone-17-pro";
 import type { PublicTenant } from "@/lib/public/landing";
 
 const PALETTE_LABEL: Record<(typeof LACAK_PALETTES)[number], string> = {
@@ -279,19 +279,23 @@ function LacakPreview({ appearance, tenant }: { appearance: LacakAppearance; ten
     typeof window !== "undefined" && window.matchMedia("(prefers-color-scheme: dark)").matches;
   const scheme = resolveLacakScheme(appearance.mode, prefersDark);
 
-  // Pratinjau memakai MobileMockup sebagai preview halaman Lacak itu sendiri,
-  // dengan data dummy. Bukan komposisi halaman asli dengan mock di dalamnya.
+  // Pratinjau memakai iPhone 17 Pro Max sebagai frame preview halaman Lacak,
+  // dengan data dummy di dalam screen-nya. Bukan komposisi halaman asli.
   return (
-    <div className="mx-auto flex max-h-[620px] w-full max-w-[320px] items-center justify-center overflow-hidden rounded-xl border border-border/60 bg-muted/30 p-4">
-      <MobileMockup
-        headerTitle="Toko Lacak"
-        headerSubtitle="online"
-        messages={[
-          { id: 1, sender: "Admin Toko", avatarInitial: "A", text: "Halo! Anda mau lacak servis apa hari ini?", isCurrentUser: false, timestamp: "10:11 AM" },
-          { id: 2, sender: "Anda", avatarInitial: "K", text: "Saya mau lacak servis F5FB0DFCB6.", isCurrentUser: true, timestamp: "10:12 AM" },
-          { id: 3, sender: "Admin Toko", avatarInitial: "A", text: "Statusnya: Dalam proses pengerjaan. Teknisi sedang dikerjakan.", isCurrentUser: false, timestamp: "10:13 AM" },
-        ]}
-      />
+    <div className="mx-auto flex w-full max-w-[340px] items-center justify-center overflow-hidden rounded-xl border border-border/60 bg-muted/30 p-4">
+      <IPhone17ProMax frameColor="graphite" showStatusBar time="9:41">
+        <div className="flex h-full w-full flex-col bg-background p-4 pt-16">
+          <div className="flex items-center justify-between">
+            <h3 className="font-heading text-sm font-bold">Lacak Servis</h3>
+            <span className="rounded-full bg-primary/15 px-2.5 py-0.5 text-[10px] font-semibold text-primary">Aktif</span>
+          </div>
+          <div className="mt-3 flex-1 rounded-2xl border border-border/60 bg-card p-3">
+            <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Kode Lacak</p>
+            <p className="mt-1 font-mono text-sm font-bold">F5FB0DFCB6</p>
+            <p className="mt-2 text-xs font-medium">Status: Dalam proses pengerjaan. Teknisi sedang dikerjakan.</p>
+          </div>
+        </div>
+      </IPhone17ProMax>
     </div>
   );
 }
