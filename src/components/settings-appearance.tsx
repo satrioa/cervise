@@ -280,8 +280,13 @@ function LacakPreview({ appearance, tenant }: { appearance: LacakAppearance; ten
   const scheme = resolveLacakScheme(appearance.mode, prefersDark);
 
   // Pratinjau memakai iPhone 17 Pro Max sebagai frame preview halaman Lacak,
-  // dengan data dummy di dalam screen-nya. Tema mengikuti pengaturan realtime
-  // dari `draft` (mode/palette/density/font), bukan hardcoded.
+  // dengan tampilan memakai header/logo/banner + data dummy status. Tema mengikuti
+  // pengaturan realtime dari `draft` (mode/palette/density/font), bukan hardcoded.
+  const tenantNama = tenant.name || "Nama Toko";
+  const tenantLogo = tenant.logoUrl;
+  const tenantBanner = tenant.bannerUrl;
+  const tenantTagline = tenant.tagline;
+
   return (
     <div
       className={`lacak-theme ${scheme} max-h-[620px] w-full overflow-hidden rounded-xl border border-border/60 bg-background`}
@@ -291,15 +296,34 @@ function LacakPreview({ appearance, tenant }: { appearance: LacakAppearance; ten
     >
       <div className="mx-auto flex w-full max-w-[340px] items-center justify-center overflow-hidden rounded-xl border border-border/60 bg-muted/30 p-4">
         <IPhone17ProMax frameColor="graphite" showStatusBar time="9:41" onScreenTap={() => {}} onDynamicIslandTap={() => {}}>
-          <div className="flex h-full w-full flex-col bg-background p-4 pt-16">
-            <div className="flex items-center justify-between">
-              <h3 className="font-heading text-sm font-bold">Lacak Servis</h3>
-              <span className="rounded-full bg-primary/15 px-2.5 py-0.5 text-[10px] font-semibold text-primary">Aktif</span>
+          <div className="flex h-full w-full flex-col bg-background">
+            <div className="relative h-[76px] shrink-0 overflow-hidden">
+              {tenantBanner ? (
+                <Image src={tenantBanner} alt="" fill sizes="320px" unoptimized className="object-cover" />
+              ) : (
+                <div className="size-full bg-[linear-gradient(135deg,var(--primary),color-mix(in_oklch,var(--primary)_55%,var(--background)))]" />
+              )}
             </div>
-            <div className="mt-3 flex-1 rounded-2xl border border-border/60 bg-card p-3">
-              <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Kode Lacak</p>
-              <p className="mt-1 font-mono text-sm font-bold">F5FB0DFCB6</p>
-              <p className="mt-2 text-xs font-medium">Status: Dalam proses pengerjaan. Teknisi sedang dikerjakan.</p>
+            <div className="relative -mt-4 flex flex-1 flex-col rounded-t-2xl border-t bg-background px-3 pb-3">
+              <div className="flex items-center gap-2 pt-2">
+                <span className="flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-background text-[10px] font-bold">
+                  {tenantLogo ? (
+                    <Image src={tenantLogo} alt={tenantNama} fill sizes="32px" unoptimized className="object-contain p-1" />
+                  ) : (
+                    initialsOf(tenantNama)
+                  )}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate font-heading text-xs font-bold">{tenantNama}</p>
+                  {tenantTagline ? <p className="truncate text-[10px] font-medium text-muted-foreground">{tenantTagline}</p> : null}
+                </div>
+                <span className="rounded-full bg-primary/15 px-2.5 py-0.5 text-[10px] font-semibold text-primary">Aktif</span>
+              </div>
+              <div className="mt-3 flex-1 rounded-2xl border border-border/60 bg-card p-3">
+                <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Kode Lacak</p>
+                <p className="mt-1 font-mono text-sm font-bold">F5FB0DFCB6</p>
+                <p className="mt-2 text-xs font-medium">Status: Dalam proses pengerjaan. Teknisi sedang dikerjakan.</p>
+              </div>
             </div>
           </div>
         </IPhone17ProMax>
