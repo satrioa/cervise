@@ -123,7 +123,7 @@ export default function DashboardOwnerClient() {
     : [];
 
   return (
-    <div className="bg-background text-foreground">
+    <div className="bg-background text-foreground dark:bg-[oklch(0.2_0_0)]">
       <PageHeader
         title="Overview"
         titleClassName="font-heading text-2xl"
