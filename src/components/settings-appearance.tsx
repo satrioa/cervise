@@ -6,9 +6,7 @@ import { CheckIcon, MonitorIcon, MoonIcon, SunIcon } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/layout/page-header";
-import { LacakForm } from "@/components/public/lacak-form";
 import { PublicFooter } from "@/components/public/public-footer";
-import { TestimonialsCarousel } from "@/components/public/testimonials-carousel";
 import { initialsOf } from "@/lib/photos";
 import { saveLacakAppearance } from "@/app/app/pengaturan/tampilan/actions";
 import { playPageTransition } from "@/components/layout/page-transition";
@@ -21,6 +19,7 @@ import {
   type LacakAppearance,
 } from "@/lib/operational/lacak-appearance";
 import { LandingSection } from "@/components/settings-appearance-landing";
+import MobileMockup from "@/components/ui/MobileMockup";
 import type { PublicTenant } from "@/lib/public/landing";
 
 const PALETTE_LABEL: Record<(typeof LACAK_PALETTES)[number], string> = {
@@ -328,8 +327,15 @@ function LacakPreview({ appearance, tenant }: { appearance: LacakAppearance; ten
       </div>
 
       <div className="relative -mt-5 rounded-t-2xl border-t bg-background px-3 pb-2">
-        <LacakForm tenant={mockTenant} preview />
-        <TestimonialsCarousel items={mockTenant.testimonials} />
+        <MobileMockup
+          headerTitle="Toko Lacak"
+          headerSubtitle="online"
+          messages={[
+            { id: 1, sender: "Admin Toko", avatarInitial: "A", text: "Halo! Anda mau lacak servis apa hari ini?", isCurrentUser: false, timestamp: "10:11 AM" },
+            { id: 2, sender: "Anda", avatarInitial: "K", text: "Saya mau lacak servis F5FB0DFCB6.", isCurrentUser: true, timestamp: "10:12 AM" },
+            { id: 3, sender: "Admin Toko", avatarInitial: "A", text: "Statusnya: Dalam proses pengerjaan. Teknisi sedang dikerjakan.", isCurrentUser: false, timestamp: "10:13 AM" },
+          ]}
+        />
       </div>
 
       <PublicFooter
