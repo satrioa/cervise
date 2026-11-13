@@ -5,6 +5,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { ChartSkeleton } from "@/components/ui/skeleton-shapes";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Line, LineChart } from "recharts";
+import { AreaChart as BklitAreaChart, Area as BklitArea } from "@/components/charts/area-chart";
 import { ChartAxis, ChartContainer, ChartGrid, ChartTooltip, chartColor } from "@/components/chart";
 import type {
   DashboardActivityTerrain,
