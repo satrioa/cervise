@@ -8,7 +8,10 @@ export function Frame({
   return (
     <div
       className={cn(
-        "relative flex flex-col rounded-2xl bg-muted/72 p-1",
+        // Light: kanvas `#EFEFEF`, jadi `bg-muted/72` (#F3F3F3) nyaris menyatu.
+        // Putih 70% menaikkannya ke ~#FAFAFA tanpa jadi putih penuh. Dark tetap
+        // `muted/72` karena `--background` di sana sama dengan kanvas.
+        "relative flex flex-col rounded-2xl bg-background/70 p-1 dark:bg-muted/72",
         "*:[[data-slot=frame-panel]+[data-slot=frame-panel]]:mt-1",
         className,
       )}

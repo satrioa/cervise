@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect, useCallback } from "react";
+import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { formatCurrencyPlain, formatNumberPlain } from "@/lib/format";
 import { SearchIcon, CalendarIcon, XIcon, TableIcon, LayoutGridIcon, ArrowDownIcon, ArrowUpDownIcon, ArrowUpIcon } from "lucide-react";
 import { format } from "date-fns";
@@ -258,6 +258,9 @@ export default function ServisPage() {
     [activeTenant?.name, activeTenant?.slug, branch.id, branch.label, branch.phone],
   );
   const [kanbanValue, setKanbanValue] = useState<Record<string, ServisItem[]>>({});
+  // Drop terakhir yang menunggu form (Dikerjakan/Batal/Sudah Diambil). Form baru
+  // dibuka di onDragEnd, bukan saat kartu melintas di kolom.
+  const pendingDropRef = useRef<{ item: ServisItem; from: Stage; to: Stage } | null>(null);
 
   const loadServis = useCallback(() => {
     setServisLoading(true);
@@ -1006,36 +1009,14 @@ export default function ServisPage() {
                   }
                 }
               }
-              if (moved && moved.to === "Dikerjakan") {
-                setSparepartTarget(moved.item);
-                setSparepartOpen(true);
-                return;
-              }
-              if (moved && moved.to === "Batal" && (moved.from === "Dikerjakan" || moved.from === "Selesai")) {
-                getServisSpareparts(moved.item.id)
-                  .then(async (rows) => {
-                    if (rows.length > 0) {
-                      setCancelTarget(moved.item);
-                      setPendingBatal(moved.item);
-                      setCancelOpen(true);
-                      return;
-                    }
-                    await updateServisStatus(moved.item.id, "Batal");
-                    applyLocalStatus(moved.item, "Batal");
-                    playPageTransition();
-                    setKanbanValue(next);
-                  })
-                  .catch((error: unknown) => {
-                    toast.error(error instanceof Error ? error.message : "Gagal membatalkan servis");
-                  });
-                return;
-              }
-              if (moved && moved.to === "Sudah Diambil") {
-                // Pickup via drag -> wajib signature dulu, kartu kembali ke
-                // kolom asal sampai tanda tangan dikonfirmasi.
-                openPickup([moved.item]);
-                return;
-              }
+              // Move yang butuh form (sparepart / batal / tanda tangan) ditahan
+              // dulu: form dibuka di onDragEnd saat kartu benar-benar dilepas,
+              // bukan saat kartu cuma melintas di atas kolom.
+              pendingDropRef.current =
+                moved && (moved.to === "Dikerjakan" || moved.to === "Batal" || moved.to === "Sudah Diambil")
+                  ? moved
+                  : null;
+              if (pendingDropRef.current) return;
               // normal move
               if (moved) {
                 updateServisStatus(moved.item.id, moved.to)
@@ -1049,6 +1030,58 @@ export default function ServisPage() {
                 return;
               }
               setKanbanValue(next);
+            }}
+            onDragStart={() => {
+              pendingDropRef.current = null;
+            }}
+            onDragEnd={(event) => {
+              const pending = pendingDropRef.current;
+              pendingDropRef.current = null;
+              if (!pending || !event.over) return;
+              // Tunda buka form satu frame: event mouseup/click dari drop bisa
+              // dianggap "outside press" oleh dialog yang baru ter-mount.
+              const openForm = () => {
+                if (pending.to === "Dikerjakan") {
+                  setSparepartTarget(pending.item);
+                  setSparepartOpen(true);
+                  return;
+                }
+                if (pending.to === "Sudah Diambil") {
+                  // Pickup via drag -> wajib signature dulu, kartu kembali ke
+                  // kolom asal sampai tanda tangan dikonfirmasi.
+                  openPickup([pending.item]);
+                  return;
+                }
+                // Batal dari Dikerjakan/Selesai: tanya stok sparepart dulu.
+                if (pending.from !== "Dikerjakan" && pending.from !== "Selesai") {
+                  updateServisStatus(pending.item.id, "Batal")
+                    .then(() => {
+                      applyLocalStatus(pending.item, "Batal");
+                      playPageTransition();
+                    })
+                    .catch((error: unknown) => {
+                      toast.error(error instanceof Error ? error.message : "Gagal membatalkan servis");
+                    });
+                  return;
+                }
+                getServisSpareparts(pending.item.id)
+                  .then((rows) => {
+                    if (rows.length > 0) {
+                      setCancelTarget(pending.item);
+                      setPendingBatal(pending.item);
+                      setCancelOpen(true);
+                      return;
+                    }
+                    return updateServisStatus(pending.item.id, "Batal").then(() => {
+                      applyLocalStatus(pending.item, "Batal");
+                      playPageTransition();
+                    });
+                  })
+                  .catch((error: unknown) => {
+                    toast.error(error instanceof Error ? error.message : "Gagal membatalkan servis");
+                  });
+              };
+              requestAnimationFrame(openForm);
             }}
             getItemValue={(item) => item.id}
             className="mt-4"
