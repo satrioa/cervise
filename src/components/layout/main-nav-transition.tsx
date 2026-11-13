@@ -15,6 +15,7 @@ import Link, { type LinkProps } from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { motion, useReducedMotion } from "motion/react";
 import { normalizeAppRole } from "@/lib/nav/manifest";
+import { AsciiPage } from "@/components/layout/ascii-page";
 
 type Direction = "forward" | "back";
 
@@ -97,12 +98,15 @@ export function MainNavTransitionProvider({
     const from = prevIndexRef.current;
     const to = activeIndex;
     prevIndexRef.current = activeIndex;
-    if (from === -1 || to === -1 || from === to) {
-      if (direction !== null) setDirection(null);
-      return;
-    }
+    if (from === -1 || to === -1 || from === to) return;
     setDirection(to > from ? "forward" : "back");
-  }, [activeIndex, direction]);
+  }, [activeIndex]);
+
+  // Arah dipakai sekali oleh outlet (yang di-key pathname). Bersihkan setelah
+  // pathname baru ter-commit agar tidak bocor ke render berikutnya.
+  useEffect(() => {
+    if (direction !== null) setDirection(null);
+  }, [pathname, direction]);
 
   const value = useMemo(
     () => ({ hrefs, activeIndex, isMain, navigate, direction }),
@@ -152,19 +156,33 @@ export function MainNavLink(
 /**
  * Konten yang dianimasikan slide saat navigasi antar tab utama. `key` pathname
  * memaksa remount sehingga animasi masuk berjalan konsisten, termasuk
- * back/forward browser.
+ * back/forward browser. Saat slide aktif, efek reveal blueprint AsciiPage
+ * dilewati agar tidak menimbulkan blip/ganda animasi.
  */
-export function MainNavTransitionOutlet({ children }: { children: ReactNode }) {
+export function MainNavTransitionOutlet({
+  children,
+  pageClassName,
+}: {
+  children: ReactNode;
+  pageClassName?: string;
+}) {
   const pathname = usePathname();
   const nav = useContext(MainNavContext);
   const reduce = useReducedMotion();
-  const dir = nav?.direction ?? null;
+  // Tangkap arah sekali per mount (keyed pathname) agar reset di provider
+  // tidak mengganti motion.div menjadi div biasa di tengah animasi.
+  const [dir] = useState<Direction | null>(nav?.direction ?? null);
   const offset = dir === "forward" ? "22%" : dir === "back" ? "-22%" : 0;
+  const page = (
+    <AsciiPage className={pageClassName} reveal={!dir || !!reduce}>
+      {children}
+    </AsciiPage>
+  );
 
   if (!dir || reduce) {
     return (
-      <div key={pathname} data-main-nav-content className="h-full min-h-0">
-        {children}
+      <div key={pathname} data-main-nav-content className="h-full min-h-0 bg-canvas">
+        {page}
       </div>
     );
   }
@@ -173,12 +191,12 @@ export function MainNavTransitionOutlet({ children }: { children: ReactNode }) {
     <motion.div
       key={pathname}
       data-main-nav-content
-      className="h-full min-h-0"
-      initial={{ x: offset, opacity: 0.97 }}
-      animate={{ x: 0, opacity: 1 }}
+      className="h-full min-h-0 bg-canvas"
+      initial={{ x: offset }}
+      animate={{ x: 0 }}
       transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
     >
-      {children}
+      {page}
     </motion.div>
   );
 }

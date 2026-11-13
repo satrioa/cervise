@@ -16,7 +16,6 @@ import { CompactMenuSheet } from "@/components/layout/compact-menu-sheet";
 import { CompactBottomBar } from "@/components/layout/compact-bottom-bar";
 import { CompactDockNav } from "@/components/layout/compact-dock-nav";
 import { PageTransition } from "@/components/layout/page-transition";
-import { AsciiPage } from "@/components/layout/ascii-page";
 import { BranchProvider } from "@/lib/branch-context";
 import { TenantProvider } from "@/lib/tenant-context";
 import { LocaleProvider } from "@/lib/localization-context";
@@ -238,8 +237,8 @@ function CompactShellInner({
       >
         {/* `h-full` menjaga rantai tinggi halaman (POS mengisi sisa `main`).
             Reveal hanya membungkus isi halaman, bukan chrome shell. */}
-        <MainNavTransitionOutlet>
-          <AsciiPage className="h-full">{children}</AsciiPage>
+        <MainNavTransitionOutlet pageClassName="h-full">
+          {children}
         </MainNavTransitionOutlet>
       </main>
 
