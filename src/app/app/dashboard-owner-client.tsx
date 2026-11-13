@@ -17,7 +17,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { Area, AreaChart } from "recharts";
-import { LineSparkline } from "@/components/charts/sparkline";
+import { BarSparkline } from "@/components/charts/sparkline";
 import { Button } from "@/components/ui/button";
 import { ChartSkeleton, ListRowsSkeleton } from "@/components/ui/skeleton-shapes";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -273,7 +273,7 @@ function StatCard({
       </div>
       {sparkline && sparkline.length > 1 ? (
         <div className="mt-2 h-8">
-          <LineSparkline data={sparkline.map((v, i) => ({ v, i }))} dataKey="v" height={32} />
+          <BarSparkline data={sparkline.map((v, i) => ({ v, i }))} dataKey="v" height={32} />
         </div>
       ) : null}
     </div>
