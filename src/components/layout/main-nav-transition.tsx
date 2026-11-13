@@ -106,7 +106,7 @@ export function MainNavTransitionProvider({
   // pathname baru ter-commit agar tidak bocor ke render berikutnya.
   useEffect(() => {
     if (direction !== null) setDirection(null);
-  }, [pathname, direction]);
+  }, [pathname]);
 
   const value = useMemo(
     () => ({ hrefs, activeIndex, isMain, navigate, direction }),
@@ -169,9 +169,12 @@ export function MainNavTransitionOutlet({
   const pathname = usePathname();
   const nav = useContext(MainNavContext);
   const reduce = useReducedMotion();
-  // Tangkap arah sekali per mount (keyed pathname) agar reset di provider
-  // tidak mengganti motion.div menjadi div biasa di tengah animasi.
-  const [dir] = useState<Direction | null>(nav?.direction ?? null);
+  // Tangkap arah per mount (keyed pathname). Untuk popstate, arah baru
+  // diketahui setelah commit (effect), jadi ambil dari context bila muncul.
+  const [dir, setDir] = useState<Direction | null>(nav?.direction ?? null);
+  useEffect(() => {
+    if (!dir && nav?.direction) setDir(nav.direction);
+  }, [dir, nav?.direction]);
   const offset = dir === "forward" ? "22%" : dir === "back" ? "-22%" : 0;
   const page = (
     <AsciiPage className={pageClassName} reveal={!dir || !!reduce}>
