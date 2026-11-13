@@ -822,8 +822,8 @@ export default function ActivityTerrain({
     <div
       className={cn(
         "w-full max-w-2xl select-none rounded-3xl border border-zinc-200 bg-white text-zinc-900 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-100",
-        "[--terrain-0:#f4f4f5] [--terrain-1:#d4d4d8] [--terrain-2:#a1a1aa] [--terrain-3:#52525b] [--terrain-4:#18181b] [--terrain-accent:#10b981] [--terrain-text:#a1a1aa]",
-        "dark:[--terrain-0:#27272a] dark:[--terrain-1:#3f3f46] dark:[--terrain-2:#71717a] dark:[--terrain-3:#a1a1aa] dark:[--terrain-4:#f4f4f5] dark:[--terrain-accent:#34d399] dark:[--terrain-text:#71717a]",
+        "[--terrain-0:#f4f4f5] [--terrain-1:#d4d4d8] [--terrain-2:#a1a1aa] [--terrain-3:#52525b] [--terrain-4:#18181b] [--terrain-accent:#8b5cf6] [--terrain-text:#a1a1aa]",
+        "dark:[--terrain-0:#27272a] dark:[--terrain-1:#3f3f46] dark:[--terrain-2:#71717a] dark:[--terrain-3:#a1a1aa] dark:[--terrain-4:#f4f4f5] dark:[--terrain-accent:#a78bfa] dark:[--terrain-text:#71717a]",
         className
       )}
     >
