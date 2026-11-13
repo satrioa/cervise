@@ -289,30 +289,15 @@ function AnalyticsContent({
           ) : branches.length === 0 ? (
             <Empty>Belum ada pemasukan pada periode ini</Empty>
           ) : (
-            <ul className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
-              {(() => {
-                const max = Math.max(...branches.map((branch) => branch.pendapatan), 1);
-                return branches.slice(0, 5).map((branch) => (
-                  <li
-                    key={branch.id}
-                    className="flex items-center gap-2.5 rounded-md border border-border/40 bg-background/40 px-3 py-2.5 text-sm"
-                  >
-                    <Avatar className={`size-8 shrink-0 ${toneFor(branch.name)}`}>
-                      <AvatarFallback className="bg-transparent text-[10px] font-medium">{initialsOf(branch.name)}</AvatarFallback>
-                    </Avatar>
-                    <div className="min-w-0 flex-1">
-                      <div className="truncate text-xs font-medium">{branch.name}</div>
-                      <div className="mt-1 flex items-center gap-1.5">
-                        <div className="h-1 flex-1 overflow-hidden rounded-full bg-foreground/10">
-                          <div className="h-full bg-foreground/70" style={{ width: `${Math.round((branch.pendapatan / max) * 100)}%` }} />
-                        </div>
-                        <span className="font-mono text-[10px] font-medium tabular-nums">{formatCurrencyPlain(branch.pendapatan)}</span>
-                      </div>
-                    </div>
-                  </li>
-                ));
-              })()}
-            </ul>
+            <div className="mt-4">
+               <BklitAreaChart
+                 data={branches.map((branch) => ({ name: branch.name, pendapatan: branch.pendapatan }))}
+                 xDataKey="name"
+                 aspectRatio="2 / 1"
+               >
+                 <BklitArea dataKey="pendapatan" />
+               </BklitAreaChart>
+             </div>
           )}
         </BreakdownCard>
         <div className="flex flex-col gap-2">
