@@ -4,8 +4,7 @@ import ActivityTerrain from "@/components/kokonutui/activity-terrain";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { ChartSkeleton } from "@/components/ui/skeleton-shapes";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Line, LineChart } from "recharts";
-import { AreaChart as BklitAreaChart, Area as BklitArea } from "@/components/charts/area-chart";
+import { Line, LineChart, Area, AreaChart } from "recharts";
 import { ChartAxis, ChartContainer, ChartGrid, ChartTooltip, chartColor } from "@/components/chart";
 import type {
   DashboardActivityTerrain,
@@ -260,7 +259,7 @@ function AnalyticsContent({
         </BreakdownCard>
       </div>
 
-      <div className="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start">
+      <div className="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-2 lg:items-start">
         <BreakdownCard title="Performa cabang">
           {loading ? (
             <ul
@@ -289,14 +288,21 @@ function AnalyticsContent({
           ) : branches.length === 0 ? (
             <Empty>Belum ada pemasukan pada periode ini</Empty>
           ) : (
-            <div className="mt-4">
-               <BklitAreaChart
-                 data={branches.map((branch) => ({ name: branch.name, pendapatan: branch.pendapatan }))}
-                 xDataKey="name"
-                 aspectRatio="2 / 1"
-               >
-                 <BklitArea dataKey="pendapatan" />
-               </BklitAreaChart>
+            <div className="mt-4 h-48">
+               <ChartContainer className="h-48 w-full min-w-0">
+                 <AreaChart data={branches.map((branch) => ({ name: branch.name, pendapatan: branch.pendapatan }))} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+                   <defs>
+                     <linearGradient id="branch-perf-grad" x1="0" y1="0" x2="0" y2="1">
+                       <stop offset="5%" stopColor={chartColor(0)} stopOpacity={0.35} />
+                       <stop offset="95%" stopColor={chartColor(0)} stopOpacity={0} />
+                     </linearGradient>
+                   </defs>
+                   <ChartAxis dataKey="name" tick={{ fontSize: 10 }} />
+                   <ChartAxis axis="y" width={40} tick={{ fontSize: 10 }} />
+                   <ChartTooltip />
+                   <Area type="monotone" dataKey="pendapatan" stroke={chartColor(0)} strokeWidth={2} fill="url(#branch-perf-grad)" />
+                 </AreaChart>
+               </ChartContainer>
              </div>
           )}
         </BreakdownCard>
@@ -305,7 +311,7 @@ function AnalyticsContent({
             data={loading ? [] : terrain.data}
             endDate={terrain.endDate}
             title="Aktivitas toko"
-            className="w-full max-w-none lg:w-[22rem]"
+            className="w-full max-w-none"
           />
           <p className="px-1 text-[11px] text-muted-foreground">Servis masuk + penjualan produk (HP &amp; aksesoris)</p>
         </div>
