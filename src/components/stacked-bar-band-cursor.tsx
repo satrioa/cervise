@@ -1,16 +1,35 @@
-import { Bar } from "@/components/charts/bar";
-import { BarChart } from "@/components/charts/bar-chart";
+"use client";
+
+import { Bar, BarChart, CartesianGrid, XAxis } from "recharts";
+
+import {
+  ChartContainer,
+  ChartLegend,
+  ChartLegendContent,
+  ChartTooltip,
+  ChartTooltipContent,
+  type ChartConfig,
+} from "@/components/ui/chart";
 
 import type { DashboardBucket } from "@/lib/operational/dashboard";
 
-const SERIES = [
-  { key: "masuk" as const, name: "Masuk", color: "var(--chart-1)" },
-  { key: "diambil" as const, name: "Diambil", color: "var(--chart-2)" },
-  { key: "batal" as const, name: "Batal", color: "var(--chart-3)" },
-] as const;
+const chartConfig = {
+  masuk: {
+    label: "Masuk",
+    color: "var(--chart-1)",
+  },
+  diambil: {
+    label: "Diambil",
+    color: "var(--chart-2)",
+  },
+  batal: {
+    label: "Batal",
+    color: "var(--chart-3)",
+  },
+} satisfies ChartConfig;
 
 export function StackedBarBandCursor({ buckets }: { buckets: DashboardBucket[] }) {
-  const data = buckets.map((b) => ({
+  const chartData = buckets.map((b) => ({
     day: b.key,
     masuk: b.masuk ?? 0,
     diambil: b.diambil ?? 0,
@@ -22,19 +41,38 @@ export function StackedBarBandCursor({ buckets }: { buckets: DashboardBucket[] }
   }
 
   return (
-    <div className="w-full">
-      <BarChart
-        data={data}
-        xDataKey="day"
-        stacked
-        aspectRatio="16 / 9"
-        margin={{ top: 8, right: 8, left: 0, bottom: 0 }}
-      >
-        {SERIES.map((s) => (
-          <Bar key={s.key} dataKey={s.key} fill={s.color} lineCap="round" />
-        ))}
+    <ChartContainer config={chartConfig} className="h-[280px] w-full">
+      <BarChart accessibilityLayer data={chartData}>
+        <CartesianGrid vertical={false} />
+        <XAxis
+          dataKey="day"
+          tickLine={false}
+          tickMargin={10}
+          axisLine={false}
+          tickFormatter={(value) => String(value).slice(0, 6)}
+        />
+        <ChartTooltip content={<ChartTooltipContent hideLabel />} />
+        <ChartLegend content={<ChartLegendContent />} />
+        <Bar
+          dataKey="masuk"
+          stackId="a"
+          fill="var(--color-masuk)"
+          radius={[0, 0, 0, 0]}
+        />
+        <Bar
+          dataKey="diambil"
+          stackId="a"
+          fill="var(--color-diambil)"
+          radius={[0, 0, 0, 0]}
+        />
+        <Bar
+          dataKey="batal"
+          stackId="a"
+          fill="var(--color-batal)"
+          radius={[4, 4, 0, 0]}
+        />
       </BarChart>
-    </div>
+    </ChartContainer>
   );
 }
 
