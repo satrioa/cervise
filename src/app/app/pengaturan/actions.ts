@@ -91,6 +91,56 @@ export async function getBrand(branchId: string) {
   };
 }
 
+/**
+ * Setelan tutup shift otomatis milik tenant. `time` dari Postgres berbentuk
+ * "03:00:00"; yang dipakai form cukup "03:00".
+ */
+export async function getShiftSettings() {
+  const actor = await getActiveTenant();
+  if (!canAccess(actor.role, "dashboard")) throw new Error("Role tidak diizinkan");
+  if (!actor.orgId) throw new Error("Organisasi tidak ditemukan");
+
+  const { data, error } = await actor.supabase
+    .from("organizations")
+    .select("auto_close_enabled, auto_close_time")
+    .eq("id", actor.orgId)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+
+  return {
+    enabled: (data?.auto_close_enabled as boolean | null) ?? true,
+    time: ((data?.auto_close_time as string | null) ?? "03:00:00").slice(0, 5),
+  };
+}
+
+export async function updateShiftSettings(input: { enabled: boolean; time: string }) {
+  const actor = await getActiveTenant();
+  if (!canAccess(actor.role, "pengaturan_general")) {
+    throw new Error("Role tidak diizinkan mengubah pengaturan shift");
+  }
+  if (!actor.orgId) throw new Error("Organisasi tidak ditemukan");
+
+  const time = input.time.trim();
+  if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(time)) {
+    throw new Error("Jam tutup buku harus format HH:MM");
+  }
+
+  // Sama seperti updateBrand: organizations dikunci untuk authenticated, jadi
+  // penulisan wajib lewat service role setelah guard role di atas.
+  const { data, error } = await createAdminClient()
+    .from("organizations")
+    .update({ auto_close_enabled: input.enabled, auto_close_time: `${time}:00` })
+    .eq("id", actor.orgId)
+    .select("id")
+    .maybeSingle();
+
+  if (error) throw new Error(error.message);
+  if (!data) throw new Error("Organisasi tidak ditemukan");
+
+  revalidatePath("/app/pengaturan");
+  return { ok: true };
+}
+
 export async function getMasterAdmins(branchId: string) {
   const actor = await getActiveTenant();
   if (!canAccess(actor.role, "pengaturan_general")) {

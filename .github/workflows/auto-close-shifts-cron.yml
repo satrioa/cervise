@@ -1,0 +1,29 @@
+name: Tutup shift otomatis
+
+# Vercel Hobby tidak mendukung cron per jam, jadi jadwalnya lewat GitHub
+# Actions. Endpoint sendiri yang memutuskan cutoff tenant mana yang sudah
+# lewat; workflow ini hanya memanggilnya tiap jam.
+on:
+  schedule:
+    - cron: "0 * * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: auto-close-shifts
+  cancel-in-progress: false
+
+jobs:
+  close:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - name: Panggil endpoint tutup shift otomatis
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          set -euo pipefail
+          curl -fsS \
+            --retry 2 --retry-delay 5 --max-time 200 \
+            -H "Authorization: Bearer ${CRON_SECRET}" \
+            "https://cervise.vercel.app/api/cron/auto-close-shifts" \
+            | tee /dev/stderr | tail -c 400

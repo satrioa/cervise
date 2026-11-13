@@ -8,7 +8,8 @@ import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { getBrand, getMasterAdmins, updateBrand } from "@/app/app/pengaturan/actions";
+import { Switch } from "@/components/ui/switch";
+import { getBrand, getMasterAdmins, getShiftSettings, updateBrand, updateShiftSettings } from "@/app/app/pengaturan/actions";
 import { createMasterAdmin } from "@/app/app/pengaturan/master-admin-actions";
 import { playPageTransition } from "@/components/layout/page-transition";
 import { uploadTenantLogo, removeTenantLogo } from "@/app/app/pengaturan/photo-actions";
@@ -16,7 +17,7 @@ import { PhotoUpload } from "@/components/photo-upload";
 import { TempPasswordDialog } from "@/components/temp-password-dialog";
 import { useBranch } from "@/lib/branch-context";
 import { toast } from "sonner";
-import { BuildingIcon, UsersIcon, MailIcon, ShieldIcon } from "lucide-react";
+import { BuildingIcon, ClockIcon, UsersIcon, MailIcon, ShieldIcon } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
 
 export default function GeneralPage() {
@@ -30,18 +31,27 @@ export default function GeneralPage() {
   const [maPhone, setMaPhone] = useState("");
   const [creating, setCreating] = useState(false);
   const [createdAccount, setCreatedAccount] = useState<{ email: string; tempPassword: string } | null>(null);
+  const [shiftEnabled, setShiftEnabled] = useState(true);
+  const [shiftTime, setShiftTime] = useState("03:00");
+  const [savingShift, setSavingShift] = useState(false);
 
   useEffect(() => {
     let active = true;
     (async () => {
       try {
-        const [brand, admins] = await Promise.all([getBrand(branch.id), getMasterAdmins(branch.id)]);
+        const [brand, admins, shift] = await Promise.all([
+          getBrand(branch.id),
+          getMasterAdmins(branch.id),
+          getShiftSettings(),
+        ]);
         if (!active) return;
         // Brand berasal dari organizations.name, bukan branches.name ("Cabang
         // Pusat") dan bukan label selector ("Semua cabang").
         if (brand?.name) setBrandName(brand.name);
         setLogoUrl(brand?.logoUrl ?? null);
         setUsers((admins ?? []) as any[]);
+        setShiftEnabled(shift.enabled);
+        setShiftTime(shift.time);
       } catch {
         if (active) setUsers([]);
       }
@@ -61,6 +71,19 @@ export default function GeneralPage() {
       toast.error(e.message ?? "Gagal simpan");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleSaveShift = async () => {
+    setSavingShift(true);
+    try {
+      await updateShiftSettings({ enabled: shiftEnabled, time: shiftTime });
+      playPageTransition();
+      toast.success("Setelan tutup shift disimpan");
+    } catch (e: any) {
+      toast.error(e.message ?? "Gagal simpan");
+    } finally {
+      setSavingShift(false);
     }
   };
 
@@ -119,6 +142,46 @@ export default function GeneralPage() {
           </div>
           <div className="flex justify-end">
             <Button onClick={handleSaveBrand} disabled={loading}>{loading ? "Menyimpan..." : "Simpan Brand"}</Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2"><ClockIcon className="size-4" /> Tutup Shift Otomatis</CardTitle>
+          <CardDescription>Shift yang lupa ditutup diakhiri sistem pada jam tutup buku.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <Label htmlFor="auto-close-enabled">Aktifkan tutup otomatis</Label>
+              <p className="text-xs text-muted-foreground">Berlaku untuk semua cabang tenant ini.</p>
+            </div>
+            <Switch
+              id="auto-close-enabled"
+              checked={shiftEnabled}
+              onCheckedChange={(checked) => setShiftEnabled(Boolean(checked))}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="auto-close-time">Jam tutup buku (WIB)</Label>
+            <Input
+              id="auto-close-time"
+              type="time"
+              value={shiftTime}
+              onChange={(e) => setShiftTime(e.target.value)}
+              disabled={!shiftEnabled}
+              className="w-40"
+            />
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Shift yang dibuka sebelum jam ini dan belum ditutup akan ditutup sistem dengan catatan
+            “Ditutup otomatis oleh sistem”. Saldo akhir memakai uang yang seharusnya ada di laci.
+          </p>
+          <div className="flex justify-end">
+            <Button onClick={handleSaveShift} disabled={savingShift}>
+              {savingShift ? "Menyimpan..." : "Simpan Setelan Shift"}
+            </Button>
           </div>
         </CardContent>
       </Card>

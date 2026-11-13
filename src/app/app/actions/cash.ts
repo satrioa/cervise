@@ -218,6 +218,82 @@ export async function closeCashSession(input: {
   }
 }
 
+/**
+ * Menyerahkan shift ke petugas berikutnya tanpa menutupnya.
+ *
+ * Sesi tetap terbuka dan laci tetap berisi uang yang sama; yang dicatat hanya
+ * bahwa shift sedang menunggu dilanjutkan. Index unik parsial menolak serah
+ * terima kedua selama yang pertama belum dilanjutkan.
+ */
+export async function handoverCashSession(input: { sessionId: string }): Promise<CashResult<null>> {
+  if (!input.sessionId) return fail("ID sesi tidak valid");
+
+  try {
+    const { supabase, branchId, userId } = await cashContext();
+    const { data: row, error: readError } = await supabase
+      .from("cervise_cash_sessions")
+      .select("id, branch_id, closed_at")
+      .eq("id", input.sessionId)
+      .maybeSingle();
+
+    if (readError) return fail(readError.message);
+    if (!row) return fail("Sesi kas tidak ditemukan");
+    if (row.closed_at) return fail("Shift ini sudah ditutup sebelumnya");
+    if (row.branch_id !== branchId) return fail("Sesi kas ini milik cabang lain");
+
+    const { error } = await supabase.from("cervise_cash_session_handovers").insert({
+      session_id: input.sessionId,
+      branch_id: branchId,
+      handed_over_by: userId,
+    });
+
+    if (error) {
+      if (error.code === "23505") return fail("Shift ini sudah menunggu dilanjutkan petugas lain.");
+      return fail(error.message);
+    }
+    return { ok: true, data: null };
+  } catch (cause) {
+    return fail(cause instanceof Error ? cause.message : "Gagal menyerahkan shift");
+  }
+}
+
+/** Mengambil alih shift yang sedang menunggu serah terima. */
+export async function resumeCashSession(input: { sessionId: string }): Promise<CashResult<null>> {
+  if (!input.sessionId) return fail("ID sesi tidak valid");
+
+  try {
+    const { supabase, branchId, userId } = await cashContext();
+    const { data: pending, error: readError } = await supabase
+      .from("cervise_cash_session_handovers")
+      .select("id, branch_id")
+      .eq("session_id", input.sessionId)
+      .is("resumed_at", null)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (readError) return fail(readError.message);
+    if (!pending) return fail("Tidak ada serah terima yang menunggu.");
+    if (pending.branch_id !== branchId) return fail("Sesi kas ini milik cabang lain");
+
+    const { data: resumed, error } = await supabase
+      .from("cervise_cash_session_handovers")
+      .update({ resumed_by: userId, resumed_at: new Date().toISOString() })
+      .eq("id", pending.id)
+      .is("resumed_at", null)
+      .select("id")
+      .maybeSingle();
+
+    if (error) return fail(error.message);
+    // Update yang cocok 0 baris tetap "sukses" di PostgREST; dua orang yang
+    // menekan Lanjutkan bersamaan tidak boleh sama-sama merasa berhasil.
+    if (!resumed) return fail("Serah terima sudah dilanjutkan orang lain. Muat ulang.");
+    return { ok: true, data: null };
+  } catch (cause) {
+    return fail(cause instanceof Error ? cause.message : "Gagal melanjutkan shift");
+  }
+}
+
 /** Preview live untuk dialog Tutup Toko. Tidak menyimpan apa pun. */
 export async function getShiftPreview(sessionId: string): Promise<CashResult<ShiftReport>> {
   if (!sessionId) return fail("ID sesi tidak valid");

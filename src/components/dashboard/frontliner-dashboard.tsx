@@ -8,6 +8,7 @@ import {
   ChevronRightIcon,
   LockIcon,
   PackageCheckIcon,
+  PlayIcon,
   ScanBarcodeIcon,
   ShoppingCartIcon,
   WalletIcon,
@@ -23,6 +24,7 @@ import {
 } from "./bento-card";
 import SignaturePad from "@/components/kokonutui/signature-pad";
 import { CandyButton } from "@/components/ui/candy-button";
+import { Button as CossButton } from "@/components/ui/coss-button";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import Gauge from "@/components/arc/gauge/gauge";
@@ -38,6 +40,7 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -53,6 +56,7 @@ import {
   getFrontlinerKpi,
   getFrontlinerQueue,
   getShiftPreview,
+  resumeCashSession,
   searchPickupServices,
   type CashSessionRow,
   type FrontlinerKpi,
@@ -156,6 +160,8 @@ export function FrontlinerDashboard({
   const [data, setData] = useState<FrontlinerState>(() => frontlinerState(initialData));
   const [adjustOpen, setAdjustOpen] = useState(false);
   const [closingOpen, setClosingOpen] = useState(false);
+  const [resumeOpen, setResumeOpen] = useState(false);
+  const [resuming, setResuming] = useState(false);
   const [newServisOpen, setNewServisOpen] = useState(false);
 
   // `router.refresh()` mengirim payload server baru tanpa me-mount ulang
@@ -175,6 +181,7 @@ export function FrontlinerDashboard({
   // berbunyi "Hari ini", dan pengguna perlu tahu kenapa.
   const shiftDate = report?.date ?? null;
   const staleDate = shiftDate && shiftDate !== kalenderWIB() ? shiftDate : null;
+  const pendingHandover = session?.pendingHandover ?? null;
 
   /**
    * Catat Kas butuh sesi terbuka: tanpa sesi, baris kas manual tidak masuk
@@ -236,6 +243,24 @@ export function FrontlinerDashboard({
     if (preview.ok) setData((prev) => ({ ...prev, report: preview.data }));
   }, []);
 
+  /**
+   * Mengambil alih shift yang diserahkan. Status handover disimpan di database,
+   * jadi semua perangkat/cabang melihat tombol Lanjutkan Shift yang sama.
+   */
+  const submitResume = async () => {
+    if (!session) return;
+    setResuming(true);
+    const result = await resumeCashSession({ sessionId: session.id });
+    setResuming(false);
+    if (!result.ok) {
+      toast.error(result.error);
+      return;
+    }
+    setResumeOpen(false);
+    toast.success("Shift dilanjutkan.");
+    void reload();
+  };
+
   return (
     // Latar halaman memakai kanvas shell. `h-full` menyambung rantai tinggi
     // dari `main` shell: grid bento mengisi sisa viewport dan berhenti tepat
@@ -256,16 +281,36 @@ export function FrontlinerDashboard({
                 {greeting()}, {fullName ?? "Frontliner"}.
               </h1>
             </div>
-            <CandyButton
-              tone="accent-amber"
-              onClick={() => setClosingOpen(true)}
-              disabled={!session}
-              className="rounded-full px-4 py-2 text-xs"
-            >
-              <LockIcon className="size-4" />
-              Tutup Toko
-            </CandyButton>
+            {pendingHandover ? (
+              <CossButton
+                size="sm"
+                onClick={() => setResumeOpen(true)}
+                className="gap-1.5"
+              >
+                <PlayIcon className="size-4" />
+                Lanjutkan Shift
+              </CossButton>
+            ) : (
+              <CossButton
+                size="sm"
+                onClick={() => setClosingOpen(true)}
+                disabled={!session}
+                className="gap-1.5"
+              >
+                <LockIcon className="size-4" />
+                Tutup Toko
+              </CossButton>
+            )}
           </div>
+
+          {pendingHandover ? (
+            <div className="mt-3 flex shrink-0 flex-wrap items-baseline gap-x-2 gap-y-1 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-[12px]">
+              <span className="font-medium">Shift diserahkan oleh {pendingHandover.byName}.</span>
+              <span className="opacity-70">
+                Tekan Lanjutkan Shift untuk mengambil alih laci yang sama.
+              </span>
+            </div>
+          ) : null}
 
           {staleDate ? (
             <div className="mt-3 flex shrink-0 flex-wrap items-baseline gap-x-2 gap-y-1 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-[12px]">
@@ -405,6 +450,25 @@ export function FrontlinerDashboard({
         initialReport={report}
         onClosed={() => void reload()}
       />
+      <Dialog open={resumeOpen} onOpenChange={setResumeOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Lanjutkan Shift</DialogTitle>
+            <DialogDescription>
+              Shift ini diserahkan oleh {pendingHandover?.byName ?? "petugas sebelumnya"}. Lanjutkan
+              untuk mengambil alih laci yang sama.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setResumeOpen(false)} disabled={resuming}>
+              Batal
+            </Button>
+            <Button onClick={submitResume} disabled={resuming}>
+              {resuming ? "Melanjutkan..." : "Lanjutkan Shift"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -499,11 +499,40 @@ export async function loadCashSession(
       ? lastClosed.closing_balance ?? null
       : null;
 
+  // Index unik `where closed_at is null` menjamin paling banyak satu, tapi
+  // `find` tetap dipakai supaya tidak bergantung pada itu.
+  const current =
+    hydrated.find((row) => kalenderWIB(new Date(row.openAt)) === today) ?? hydrated[0] ?? null;
+
+  // Serah terima tertunda dibaca hanya untuk sesi aktif. Kegagalan query ini
+  // tidak boleh mengosongkan shift: state handover bersifat tambahan.
+  let pendingHandover: ShiftSession["pendingHandover"] = null;
+  if (current) {
+    const { data: handover } = await supabase
+      .from("cervise_cash_session_handovers")
+      .select("id, created_at, handed_over_by")
+      .eq("session_id", current.id)
+      .is("resumed_at", null)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (handover) {
+      const { data: by } = await supabase
+        .from("profiles")
+        .select("full_name")
+        .eq("id", handover.handed_over_by)
+        .maybeSingle();
+      pendingHandover = {
+        id: handover.id,
+        at: handover.created_at,
+        byName: (by?.full_name as string | null) ?? "Petugas sebelumnya",
+      };
+    }
+  }
+
   return {
-    // Index unik `where closed_at is null` menjamin paling banyak satu, tapi
-    // `find` tetap dipakai supaya tidak bergantung pada itu.
-    current:
-      hydrated.find((row) => kalenderWIB(new Date(row.openAt)) === today) ?? hydrated[0] ?? null,
+    current: current ? { ...current, pendingHandover } : null,
     stale: hydrated.find((row) => kalenderWIB(new Date(row.openAt)) !== today) ?? null,
     lastClosingBalance,
   };

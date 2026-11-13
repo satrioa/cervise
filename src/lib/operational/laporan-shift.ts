@@ -17,6 +17,13 @@ export const SHIFT_SNAPSHOT_VERSION = 1;
 /** Status servis yang dianggap sudah dikerjakan. Sama dengan `DONE` di laporan-servis.ts. */
 const DONE_STATUS = new Set(["Selesai", "Sudah Diambil"]);
 
+/** Serah terima yang masih menunggu dilanjutkan petugas berikutnya. */
+export type ShiftHandover = {
+  id: string;
+  at: string;
+  byName: string;
+};
+
 export type ShiftSession = {
   id: string;
   branchId: string;
@@ -32,6 +39,8 @@ export type ShiftSession = {
   closedByName?: string | null;
   /** Urutan shift pada tanggal buka (WIB). Dihitung, tidak disimpan di kolom. */
   shiftNumber?: number;
+  /** Serah terima tertunda; null kalau tidak ada. */
+  pendingHandover?: ShiftHandover | null;
 };
 
 export type ShiftServiceRow = {

@@ -17,23 +17,24 @@ import {
 } from "@/components/ui/dialog";
 import { formatCurrencyPlain } from "@/lib/format";
 import type { ShiftReport } from "@/lib/operational/laporan-shift";
-import { closeCashSession, getShiftPreview, type CashSessionRow } from "@/app/app/actions/cash";
+import { closeCashSession, getShiftPreview, handoverCashSession, type CashSessionRow } from "@/app/app/actions/cash";
 import { playPageTransition } from "@/components/layout/page-transition";
 import { ShiftReportView, VarianceRow } from "./shift-report";
 import { printShiftReport } from "./shift-thermal-print";
 
-type Step = "preview" | "closing" | "confirm";
+type Step = "preview" | "handover" | "closing" | "confirm";
 
 /**
- * Tutup Toko, tiga tahap.
+ * Tutup Toko, empat tahap.
  *
  * 1. Preview Laporan Shift — sekaligus titik serah terima: Batal menutup
- *    dialog, Ganti Shift membiarkan sesi terbuka untuk orang berikutnya,
- *    Akhiri Shift lanjut ke input saldo akhir.
- * 2. Saldo akhir fisik.
- * 3. Konfirmasi selisih + alasan (wajib kalau kurang).
+ *    dialog, Ganti Shift mencatat serah terima tanpa menutup sesi, Akhiri
+ *    Shift lanjut ke input saldo akhir.
+ * 2. Konfirmasi Ganti Shift (kalau memilih serah terima).
+ * 3. Saldo akhir fisik.
+ * 4. Konfirmasi selisih + alasan (wajib kalau kurang).
  *
- * Tahap 3 computing ulang preview-nya: sejak tahap 1 masih ada transaksi yang
+ * Tahap 4 menghitung ulang preview-nya: sejak tahap 1 masih ada transaksi yang
  * bisa masuk, jadi angka yang disimpan harus yang dibaca paling akhir.
  *
  * Setelah shift tertutup, struk thermal ringkasannya otomatis dicetak. Cetak
@@ -170,6 +171,22 @@ export function ClosingDialog({
     onClosed?.();
   };
 
+  const submitHandover = async () => {
+    setSaving(true);
+    setError(null);
+    const result = await handoverCashSession({ sessionId: session.id });
+    if (!result.ok) {
+      setError(result.error);
+      setSaving(false);
+      return;
+    }
+    setSaving(false);
+    playPageTransition();
+    onOpenChange(false);
+    toast.success("Shift diserahkan. Petugas berikutnya tinggal melanjutkan.");
+    onClosed?.();
+  };
+
   return (
     <Dialog open={open} onOpenChange={(next) => !saving && onOpenChange(next)}>
       <DialogContent
@@ -179,6 +196,7 @@ export function ClosingDialog({
         <DialogHeader>
           <DialogTitle>
             {step === "preview" && "Tutup Toko — Preview Laporan"}
+            {step === "handover" && "Ganti Shift — Konfirmasi"}
             {step === "closing" && "Tutup Toko — Saldo Akhir"}
             {step === "confirm" && "Tutup Toko — Konfirmasi"}
           </DialogTitle>
@@ -191,6 +209,7 @@ export function ClosingDialog({
                 {refreshing ? <span className="ml-1 opacity-60">Memperbarui…</span> : null}
               </>
             )}
+            {step === "handover" && "Serah terima dicatat supaya petugas berikutnya bisa melanjutkan."}
             {step === "closing" && `Harus ada di laci: ${formatCurrencyPlain(expected)}`}
             {step === "confirm" && "Cek selisihnya sebelum menyimpan."}
           </DialogDescription>
@@ -204,6 +223,14 @@ export function ClosingDialog({
           <p className="py-8 text-center text-sm text-muted-foreground">Laporan tidak tersedia.</p>
         ) : step === "preview" ? (
           <ShiftReportView report={report} />
+        ) : step === "handover" ? (
+          <div className="rounded-lg border border-border/60 bg-muted/20 p-3 text-sm">
+            <p className="font-medium">Shift tetap terbuka untuk petugas berikutnya.</p>
+            <p className="mt-1 text-muted-foreground">
+              Laci berisi {formatCurrencyPlain(report.expectedCash)} dan tidak ada laporan yang
+              ditutup. Petugas berikutnya akan melihat tombol Lanjutkan Shift.
+            </p>
+          </div>
         ) : step === "closing" ? (
           <div className="grid gap-2">
             <Label htmlFor="closing">Saldo akhir fisik di laci (Rp)</Label>
@@ -293,14 +320,22 @@ export function ClosingDialog({
               <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={saving}>
                 Batal
               </Button>
-              {/* Ganti Shift hanya menutup dialog: sesi tetap terbuka dan orang
-                  berikutnya bisa langsung melanjutkan tanpa catatan serah
-                  terima. Tidak ada banner karena tidak ada yang berubah. */}
-              <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
+              {/* Ganti Shift mencatat serah terima di database. Sesi tetap
+                  terbuka dan petugas berikutnya melihat "Lanjutkan Shift". */}
+              <Button variant="outline" onClick={() => setStep("handover")} disabled={saving}>
                 Ganti Shift
               </Button>
               <Button onClick={() => setStep("closing")} disabled={loading || !report}>
                 Akhiri Shift
+              </Button>
+            </>
+          ) : step === "handover" ? (
+            <>
+              <Button variant="outline" onClick={() => setStep("preview")} disabled={saving}>
+                Kembali
+              </Button>
+              <Button onClick={submitHandover} disabled={saving}>
+                {saving ? "Menyimpan..." : "Ya, Ganti Shift"}
               </Button>
             </>
           ) : step === "closing" ? (

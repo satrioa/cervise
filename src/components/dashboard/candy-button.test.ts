@@ -46,10 +46,11 @@ const candyButton = readCode("src/components/ui/candy-button.tsx");
  * "Servis baru" di grid bento tetap boleh memakai gaya candy.
  */
 describe("CandyButton untuk aksi tunggal", () => {
-  it(`hanya untuk "Tutup Toko", bukan kartu bento`, () => {
-    // Kartu bento memakai permukaan candy SmoothUI langsung. CandyButton
-    // tetap khusus tombol aksi tunggal di header.
-    expect(frontliner).toMatch(/<CandyButton[\s\S]*?Tutup Toko/);
+  it(`tombol header "Tutup Toko" memakai coss, bukan candy`, () => {
+    // Kartu bento memakai permukaan candy SmoothUI langsung. Tombol header
+    // sekarang mengikuti bentuk coss (border, rounded-lg, shadow tipis).
+    expect(frontliner).toMatch(/<CossButton[\s\S]*?Tutup Toko/);
+    expect(frontliner).toMatch(/from "@\/components\/ui\/coss-button"/);
     expect(technician).not.toMatch(/CandyButton/);
     // Tidak ada tombol SmoothUI utuh di dalam kartu aksi - itu yang bikin
     // kartu jadi dua permukaan yang saling bersaing.
@@ -63,7 +64,7 @@ describe("CandyButton untuk aksi tunggal", () => {
   });
 
   it("dipakai untuk aksi nyata di dashboard frontliner", () => {
-    expect(frontliner).toMatch(/<CandyButton[\s\S]*?Tutup Toko[\s\S]*?<\/CandyButton>/);
+    expect(frontliner).toMatch(/<CossButton[\s\S]*?Tutup Toko[\s\S]*?<\/CossButton>/);
   });
 
   it("nada cukup untuk empat kolom dan tidak ada yang kembar", () => {
@@ -391,7 +392,8 @@ describe("grid bento delapan sel", () => {
 
   it("tidak ada lagi highlight candy di bento 'Servis baru'", () => {
     // Semua sel bento sekarang rata: tidak ada gradasi, tidak ada glow.
-    // Gaya candy hanya boleh lewat CandyButton (mis. "Tutup Toko").
+    // Gaya candy hanya boleh lewat CandyButton (mis. tombol Scan). Header
+    // Tutup Toko memakai coss.
     expect(bentoCard).not.toMatch(/CANDY_BENTO_CLASS/);
     expect(bentoCard).not.toMatch(/radial-gradient/);
     expect(bentoCard).not.toMatch(/candy\?: boolean/);
@@ -401,9 +403,14 @@ describe("grid bento delapan sel", () => {
     }
   });
 
-  it("CandyButton tetap ada untuk aksi tunggal", () => {
-    expect(frontliner).toMatch(/<CandyButton[\s\S]*?Tutup Toko[\s\S]*?<\/CandyButton>/);
+  it("CandyButton tetap ada untuk aksi tunggal non-header", () => {
+    expect(frontliner).toMatch(/<CandyButton[\s\S]*?Scan[\s\S]*?<\/CandyButton>/);
     expect(CANDY_BUTTON_TONES.length).toBeGreaterThanOrEqual(4);
+  });
+
+  it("frontliner: serah terima mengubah tombol header jadi Lanjutkan Shift", () => {
+    expect(frontliner).toMatch(/pendingHandover/);
+    expect(frontliner).toMatch(/Lanjutkan Shift/);
   });
 
   it("label menu beranda sudah 'Home', key-nya tetap", () => {

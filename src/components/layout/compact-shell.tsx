@@ -2,7 +2,7 @@
 
 import { useEffect, useState, type ReactNode, type UIEvent } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { LayoutGrid } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { CommandPaletteProvider, CommandSearchTrigger } from "@/components/layout/command-palette-provider";
@@ -91,6 +91,7 @@ function CompactShellInner({
   // 70dvh, membesar linear sampai 95dvh setelah 160px scroll.
   const [menuHeight, setMenuHeight] = useState(MENU_MIN_DVH);
   const pathname = usePathname();
+  const router = useRouter();
   const t = useTranslations("nav");
   const role = normalizeAppRole(actor.role);
 
@@ -251,7 +252,16 @@ function CompactShellInner({
       {/* Saldo awal wajib. Dialog ini yang menentukan boleh tidaknya
           dashboard dipakai: `cashChecked` menahan render sampai sesi dicek. */}
       {needsCashSession && cashChecked && !session ? (
-        <OpeningBalanceDialog staffName={actor.fullName ?? undefined} onOpened={setSession} />
+        <OpeningBalanceDialog
+          staffName={actor.fullName ?? undefined}
+          onOpened={(next) => {
+            setSession(next);
+            // Server merender /app sebelum sesi ada. Setelah Buka Shift,
+            // muat ulang payload server supaya dashboard langsung melihat
+            // toko terbuka tanpa refresh manual.
+            router.refresh();
+          }}
+        />
       ) : null}
     </div>
   );
