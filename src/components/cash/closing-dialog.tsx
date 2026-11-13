@@ -184,7 +184,9 @@ export function ClosingDialog({
     playPageTransition();
     onOpenChange(false);
     toast.success("Shift diserahkan. Petugas berikutnya tinggal melanjutkan.");
-    onClosed?.();
+    // Beri waktu transisi berjalan, lalu muat ulang penuh agar status
+    // Lanjutkan Shift langsung sinkron di semua bagian halaman.
+    setTimeout(() => window.location.reload(), 500);
   };
 
   return (
