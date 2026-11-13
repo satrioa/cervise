@@ -22,15 +22,16 @@ export function StackedBarBandCursor({ buckets }: { buckets: DashboardBucket[] }
   }
 
   return (
-    <div className="h-[280px] w-full">
+    <div className="w-full">
       <BarChart
         data={data}
         xDataKey="day"
         stacked
-        aspectRatio="2 / 1"
+        aspectRatio="16 / 9"
+        margin={{ top: 8, right: 8, left: 0, bottom: 0 }}
       >
         {SERIES.map((s) => (
-          <Bar key={s.key} dataKey={s.key} fill={s.color} />
+          <Bar key={s.key} dataKey={s.key} fill={s.color} lineCap="round" />
         ))}
       </BarChart>
     </div>
