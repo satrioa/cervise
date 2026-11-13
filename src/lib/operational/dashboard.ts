@@ -66,6 +66,8 @@ export type DashboardBucket = {
   masuk: number;
   diambil: number;
   batal: number;
+  /** Pendapatan (pemasukan) pada bucket waktu ini. */
+  pendapatan: number;
 };
 
 export type DashboardTechnician = {
@@ -254,6 +256,7 @@ export function summarizeDashboard(input: {
     masuk: 0,
     diambil: 0,
     batal: 0,
+    pendapatan: 0,
   }));
 
   let totalServis = 0;
@@ -280,8 +283,17 @@ export function summarizeDashboard(input: {
   for (const entry of finance) {
     if (!financeDateInRange(entry.kas_date, start, now)) continue;
     const amount = Number(entry.amount ?? 0);
-    if (entry.type === "pemasukan") omzet += amount;
-    else if (entry.type === "pengeluaran") pengeluaran += amount;
+    if (entry.type === "pemasukan") {
+      omzet += amount;
+      const ts = entry.created_at ? new Date(entry.created_at).getTime() : Number.NaN;
+      const stamp = !Number.isNaN(ts) ? ts : new Date(`${entry.kas_date}T00:00:00`).getTime();
+      if (!Number.isNaN(stamp)) {
+        const index = bucketIndexFor(windows, stamp);
+        if (index >= 0) buckets[index].pendapatan += amount;
+      }
+    } else if (entry.type === "pengeluaran") {
+      pengeluaran += amount;
+    }
   }
 
   const pendingKonfirmasi = services.filter((service) => service.status === "Menunggu Konfirmasi").length;

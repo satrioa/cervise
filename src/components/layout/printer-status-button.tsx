@@ -2,7 +2,7 @@
 
 import { useState, useSyncExternalStore } from "react";
 import { PrinterIcon } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Button as CossButton } from "@/components/ui/coss-button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { PrinterSettings } from "@/components/pengaturan/printer-card";
 import {
@@ -30,10 +30,10 @@ export function PrinterStatusButton({ className }: { className?: string }) {
 
   if (!mounted) {
     return (
-      <Button variant="outline" size="sm" disabled className={cn("h-8 gap-1.5 px-2.5 text-xs", className)}>
+      <CossButton variant="outline" size="sm" disabled className={cn("h-8 gap-1.5 px-2.5 text-xs", className)}>
         <PrinterIcon className="size-3.5" />
         Printer
-      </Button>
+      </CossButton>
     );
   }
 
@@ -53,7 +53,7 @@ export function PrinterStatusButton({ className }: { className?: string }) {
     >
       <PopoverTrigger
         render={
-          <Button
+          <CossButton
             variant="outline"
             size="sm"
             className={cn("h-8 gap-1.5 px-2.5 text-xs", className)}

@@ -4,7 +4,7 @@ import ActivityTerrain from "@/components/kokonutui/activity-terrain";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { ChartSkeleton } from "@/components/ui/skeleton-shapes";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Line, LineChart, Area, AreaChart } from "recharts";
+import { Area, AreaChart, Line, LineChart, Tooltip, XAxis, YAxis } from "recharts";
 import { ChartAxis, ChartContainer, ChartGrid, ChartTooltip, chartColor } from "@/components/chart";
 import type {
   DashboardActivityTerrain,
@@ -37,6 +37,26 @@ function toneFor(seed: string) {
 
 function initialsOf(name: string) {
   return name.split(" ").filter(Boolean).slice(0, 2).map((part) => part[0]?.toUpperCase()).join("") || "?";
+}
+
+/** Format Rp singkat & dibulatkan untuk sumbu chart, mis. Rp1jt, Rp1,5jt. */
+function formatRpShort(value: number): string {
+  const abs = Math.abs(value);
+  const sign = value < 0 ? "-" : "";
+  if (abs >= 1_000_000_000) {
+    const v = Math.round((abs / 1_000_000_000) * 10) / 10;
+    return `${sign}Rp${v % 1 === 0 ? v.toFixed(0) : v.toString().replace(".", ",")}M`;
+  }
+  if (abs >= 1_000_000) {
+    const v = Math.round((abs / 1_000_000) * 10) / 10;
+    return `${sign}Rp${v % 1 === 0 ? v.toFixed(0) : v.toString().replace(".", ",")}jt`;
+  }
+  if (abs >= 1_000) {
+    const v = Math.round((abs / 1_000) * 10) / 10;
+    return `${sign}Rp${v % 1 === 0 ? v.toFixed(0) : v.toString().replace(".", ",")}rb`;
+  }
+  if (abs === 0) return "Rp0";
+  return `${sign}Rp${Math.round(abs)}`;
 }
 
 export type CerviseAnalyticsSectionProps = {
@@ -262,48 +282,35 @@ function AnalyticsContent({
       <div className="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-2 lg:items-start">
         <BreakdownCard title="Performa cabang">
           {loading ? (
-            <ul
-              aria-hidden
-              className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3"
-            >
-              {Array.from({ length: 5 }, (_, row) => (
-                <li
-                  key={row}
-                  className="flex items-center gap-2.5 rounded-md border border-border/40 bg-background/40 px-3 py-2.5"
-                >
-                  <Skeleton className="size-8 shrink-0 rounded-full" />
-                  <div className="min-w-0 flex-1">
-                    <Skeleton
-                      className="h-3"
-                      style={{ width: `${50 + ((row * 7) % 30)}%` }}
-                    />
-                    <div className="mt-1 flex items-center gap-1.5">
-                      <Skeleton className="h-1 flex-1 rounded-full" />
-                      <Skeleton className="h-2.5 w-10 shrink-0" />
-                    </div>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          ) : branches.length === 0 ? (
+            <ChartSkeleton shape={period === "90d" ? "datar" : "naik"} className="mt-4 h-56" />
+          ) : buckets.length === 0 ? (
             <Empty>Belum ada pemasukan pada periode ini</Empty>
           ) : (
-            <div className="mt-4 h-48">
-               <ChartContainer className="h-48 w-full min-w-0">
-                 <AreaChart data={branches.map((branch) => ({ name: branch.name, pendapatan: branch.pendapatan }))} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-                   <defs>
-                     <linearGradient id="branch-perf-grad" x1="0" y1="0" x2="0" y2="1">
-                       <stop offset="5%" stopColor={chartColor(0)} stopOpacity={0.35} />
-                       <stop offset="95%" stopColor={chartColor(0)} stopOpacity={0} />
-                     </linearGradient>
-                   </defs>
-                   <ChartAxis dataKey="name" tick={{ fontSize: 10 }} />
-                   <ChartAxis axis="y" width={40} tick={{ fontSize: 10 }} />
-                   <ChartTooltip />
-                   <Area type="monotone" dataKey="pendapatan" stroke={chartColor(0)} strokeWidth={2} fill="url(#branch-perf-grad)" />
-                 </AreaChart>
-               </ChartContainer>
-             </div>
+            <ChartContainer className="mt-4 h-56 w-full min-w-0">
+              <AreaChart
+                data={buckets.map((bucket) => ({ day: bucket.key, pendapatan: bucket.pendapatan }))}
+                margin={{ top: 8, right: 8, left: 0, bottom: 0 }}
+              >
+                <defs>
+                  <linearGradient id="branch-perf-grad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor={chartColor(0)} stopOpacity={0.35} />
+                    <stop offset="95%" stopColor={chartColor(0)} stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <ChartGrid />
+                <ChartAxis dataKey="day" interval={period === "30d" ? 4 : period === "90d" ? 2 : 1} tick={{ fontSize: 10 }} />
+                <ChartAxis axis="y" width={52} tick={{ fontSize: 10 }} tickFormatter={formatRpShort} />
+                <ChartTooltip formatter={(value) => formatRpShort(Number(value ?? 0))} />
+                <Area
+                  type="monotone"
+                  dataKey="pendapatan"
+                  name="Pendapatan"
+                  stroke={chartColor(0)}
+                  strokeWidth={2}
+                  fill="url(#branch-perf-grad)"
+                />
+              </AreaChart>
+            </ChartContainer>
           )}
         </BreakdownCard>
         <div className="flex flex-col gap-2">

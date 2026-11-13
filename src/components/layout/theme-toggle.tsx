@@ -3,7 +3,7 @@
 import { useSyncExternalStore } from "react";
 import { useTheme } from "next-themes";
 import { MoonIcon, SunIcon } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Button as CossButton } from "@/components/ui/coss-button";
 import BlurFadeThemeTransition, {
   useBlurFadeThemeTransition,
 } from "@/components/ui/BlurFadeThemeTransition";
@@ -46,9 +46,9 @@ function ThemeToggleInner({ className }: { className?: string }) {
   const Icon = isDark ? SunIcon : MoonIcon;
 
   return (
-    <Button
+    <CossButton
       variant="outline"
-      size="sm"
+      size="icon"
       onClick={() => triggerTransition()}
       disabled={isAnimating}
       aria-label={isDark ? "Ubah ke tema terang" : "Ubah ke tema gelap"}
@@ -56,6 +56,6 @@ function ThemeToggleInner({ className }: { className?: string }) {
       className={cn("size-8 shrink-0 p-0", className)}
     >
       <Icon className="size-4" />
-    </Button>
+    </CossButton>
   );
 }
