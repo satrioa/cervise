@@ -7,6 +7,7 @@ import { PackageIcon, PencilIcon, PlusIcon, SearchIcon, ShoppingCartIcon, TagIco
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Button as CossButton } from "@/components/ui/coss-button";
 import { Input } from "@/components/ui/input";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { Label } from "@/components/ui/label";
@@ -174,9 +175,9 @@ export default function SparepartPage({ canManage }: { canManage: boolean }) {
             >
               <TruckIcon className="size-3.5" /> Transfer Stok
             </Button>
-            <Button variant="outline" size="sm" className="h-8" render={<Link href="/app/kategori-sparepart" />}>
+            <CossButton variant="outline" size="sm" className="h-8" render={<Link href="/app/kategori-sparepart" />}>
               <TagIcon className="size-3.5" /> Kategori
-            </Button>
+            </CossButton>
             <Button size="sm" className="h-8" onClick={openCreate} disabled={!canManage}>
               <PlusIcon className="size-3.5" /> Tambah Sparepart
             </Button>

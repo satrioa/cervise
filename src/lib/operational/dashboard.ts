@@ -91,6 +91,16 @@ export type DashboardBranch = {
   pendapatan: number;
 };
 
+export type DashboardBranchTrendSeries = {
+  id: string;
+  name: string;
+};
+
+export type DashboardBranchTrend = {
+  series: DashboardBranchTrendSeries[];
+  buckets: Array<{ key: string; values: Record<string, number> }>;
+};
+
 export type DashboardActivity = {
   id: string;
   device: string;
@@ -116,6 +126,8 @@ export type DashboardSummary = {
   bucketTotal: number;
   /** Aktivitas harian untuk terrain "kapan toko ramai". */
   activityTerrain: DashboardActivityTerrain;
+  /** Tren pendapatan per cabang per bucket (untuk chart Performa cabang). */
+  branchTrend: DashboardBranchTrend;
 };
 
 const MS_PER_HOUR = 3_600_000;
@@ -312,6 +324,7 @@ export function summarizeDashboard(input: {
     buckets,
     bucketTotal: buckets.reduce((total, bucket) => total + bucket.masuk, 0),
     activityTerrain: buildActivityTerrain({ services, sales, period, now }),
+    branchTrend: { series: [], buckets: [] },
   };
 }
 
@@ -396,6 +409,55 @@ export function buildBranches(input: {
   return Array.from(totals.entries())
     .map(([id, pendapatan]) => ({ id, name: namesById.get(id) ?? "—", pendapatan }))
     .sort((a, b) => b.pendapatan - a.pendapatan);
+}
+
+export function buildBranchRevenueTrend(input: {
+  finance: DashboardFinance[];
+  branches: { id: string; name: string }[];
+  period: DashboardPeriod;
+  now: Date;
+  topN?: number;
+}): DashboardBranchTrend {
+  const { finance, branches, period, now, topN = 5 } = input;
+  const windows = buildBuckets(period, now);
+  const start = periodStart(period, now);
+  const namesById = new Map(branches.map((b) => [b.id, b.name]));
+  const totals = new Map<string, number>();
+  const perBucket = windows.map(() => new Map<string, number>());
+
+  for (const entry of finance) {
+    if (entry.type !== "pemasukan") continue;
+    if (!financeDateInRange(entry.kas_date, start, now)) continue;
+    const amount = Number(entry.amount ?? 0);
+    const ts = entry.created_at ? new Date(entry.created_at).getTime() : Number.NaN;
+    const stamp = !Number.isNaN(ts) ? ts : new Date(`${entry.kas_date}T00:00:00`).getTime();
+    if (Number.isNaN(stamp)) continue;
+    const index = bucketIndexFor(windows, stamp);
+    if (index < 0) continue;
+    const id = entry.branch_id;
+    totals.set(id, (totals.get(id) ?? 0) + amount);
+    perBucket[index].set(id, (perBucket[index].get(id) ?? 0) + amount);
+  }
+
+  const ranked = Array.from(totals.entries()).sort((a, b) => b[1] - a[1]);
+  const top = ranked.slice(0, Math.max(0, topN)).map(([id]) => id);
+  const rest = ranked.slice(Math.max(0, topN)).map(([id]) => id);
+  const series: DashboardBranchTrendSeries[] = top.map((id) => ({
+    id,
+    name: namesById.get(id) ?? "—",
+  }));
+  if (rest.length > 0) series.push({ id: "__other__", name: "Lainnya" });
+
+  const bucketRows = windows.map((window, i) => {
+    const values: Record<string, number> = {};
+    for (const id of top) values[id] = perBucket[i].get(id) ?? 0;
+    if (rest.length > 0) {
+      values.__other__ = rest.reduce((sum, id) => sum + (perBucket[i].get(id) ?? 0), 0);
+    }
+    return { key: window.key, values };
+  });
+
+  return { series, buckets: bucketRows };
 }
 
 export function buildRecentActivity(input: {

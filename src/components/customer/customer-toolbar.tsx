@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { ArrowUpDownIcon, SearchIcon, XIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Button as CossButton } from "@/components/ui/coss-button";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { cn } from "@/lib/utils";
 import { Select, SelectItem, SelectPopup, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -189,9 +190,9 @@ export function CustomerExportButton({ exportRows }: { exportRows: Record<string
   const [exportOpen, setExportOpen] = useState(false);
   return (
     <>
-      <Button size="sm" variant="outline" className="h-8 shrink-0" onClick={() => setExportOpen(true)}>
+      <CossButton size="sm" variant="outline" className="h-8 shrink-0" onClick={() => setExportOpen(true)}>
         Export
-      </Button>
+      </CossButton>
       <GenericExportDialog
         open={exportOpen}
         onOpenChange={setExportOpen}

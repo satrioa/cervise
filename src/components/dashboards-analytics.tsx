@@ -4,11 +4,12 @@ import ActivityTerrain from "@/components/kokonutui/activity-terrain";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { ChartSkeleton } from "@/components/ui/skeleton-shapes";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Area, AreaChart, Line, LineChart, Tooltip, XAxis, YAxis } from "recharts";
+import { Area, AreaChart, Line, LineChart } from "recharts";
 import { ChartAxis, ChartContainer, ChartGrid, ChartTooltip, chartColor } from "@/components/chart";
 import type {
   DashboardActivityTerrain,
   DashboardBranch,
+  DashboardBranchTrend,
   DashboardBucket,
   DashboardPeriod,
   DashboardProblem,
@@ -66,6 +67,7 @@ export type CerviseAnalyticsSectionProps = {
   problems: DashboardProblem[];
   branches: DashboardBranch[];
   activityTerrain?: DashboardActivityTerrain;
+  branchTrend?: DashboardBranchTrend;
   loading?: boolean;
 };
 
@@ -76,6 +78,7 @@ export function CerviseAnalyticsSection({
   problems,
   branches,
   activityTerrain,
+  branchTrend,
   loading = false,
 }: CerviseAnalyticsSectionProps) {
   const title =
@@ -107,6 +110,7 @@ export function CerviseAnalyticsSection({
             problems={problems}
             branches={branches}
             activityTerrain={activityTerrain}
+            branchTrend={branchTrend}
             loading={loading}
           />
         </div>
@@ -122,6 +126,7 @@ function AnalyticsContent({
   problems,
   branches,
   activityTerrain,
+  branchTrend,
   loading,
 }: CerviseAnalyticsSectionProps) {
   const data = buckets.map((bucket) => ({
@@ -283,34 +288,49 @@ function AnalyticsContent({
         <BreakdownCard title="Performa cabang">
           {loading ? (
             <ChartSkeleton shape={period === "90d" ? "datar" : "naik"} className="mt-4 h-56" />
-          ) : buckets.length === 0 ? (
+          ) : !branchTrend || branchTrend.series.length === 0 ? (
             <Empty>Belum ada pemasukan pada periode ini</Empty>
           ) : (
-            <ChartContainer className="mt-4 h-56 w-full min-w-0">
-              <AreaChart
-                data={buckets.map((bucket) => ({ day: bucket.key, pendapatan: bucket.pendapatan }))}
-                margin={{ top: 8, right: 8, left: 0, bottom: 0 }}
-              >
-                <defs>
-                  <linearGradient id="branch-perf-grad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor={chartColor(0)} stopOpacity={0.35} />
-                    <stop offset="95%" stopColor={chartColor(0)} stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <ChartGrid />
-                <ChartAxis dataKey="day" interval={period === "30d" ? 4 : period === "90d" ? 2 : 1} tick={{ fontSize: 10 }} />
-                <ChartAxis axis="y" width={52} tick={{ fontSize: 10 }} tickFormatter={formatRpShort} />
-                <ChartTooltip formatter={(value) => formatRpShort(Number(value ?? 0))} />
-                <Area
-                  type="monotone"
-                  dataKey="pendapatan"
-                  name="Pendapatan"
-                  stroke={chartColor(0)}
-                  strokeWidth={2}
-                  fill="url(#branch-perf-grad)"
-                />
-              </AreaChart>
-            </ChartContainer>
+            <>
+              <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
+                {branchTrend.series.map((s, i) => (
+                  <span key={s.id} className="flex items-center gap-1.5">
+                    <span className="size-2 rounded-full" style={{ backgroundColor: chartColor(i) }} />
+                    <span className="truncate max-w-[10rem]">{s.name}</span>
+                  </span>
+                ))}
+              </div>
+              <ChartContainer className="mt-2 h-56 w-full min-w-0">
+                <AreaChart
+                  data={branchTrend.buckets.map((b) => ({ day: b.key, ...b.values }))}
+                  margin={{ top: 8, right: 8, left: 0, bottom: 0 }}
+                >
+                  <defs>
+                    {branchTrend.series.map((s, i) => (
+                      <linearGradient key={s.id} id={`branch-grad-${i}`} x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor={chartColor(i)} stopOpacity={0.3} />
+                        <stop offset="95%" stopColor={chartColor(i)} stopOpacity={0} />
+                      </linearGradient>
+                    ))}
+                  </defs>
+                  <ChartGrid />
+                  <ChartAxis dataKey="day" interval={period === "30d" ? 4 : period === "90d" ? 2 : 1} tick={{ fontSize: 10 }} />
+                  <ChartAxis axis="y" width={52} tick={{ fontSize: 10 }} tickFormatter={formatRpShort} />
+                  <ChartTooltip formatter={(value) => formatRpShort(Number(value ?? 0))} />
+                  {branchTrend.series.map((s, i) => (
+                    <Area
+                      key={s.id}
+                      type="monotone"
+                      dataKey={s.id}
+                      name={s.name}
+                      stroke={chartColor(i)}
+                      strokeWidth={2}
+                      fill={`url(#branch-grad-${i})`}
+                    />
+                  ))}
+                </AreaChart>
+              </ChartContainer>
+            </>
           )}
         </BreakdownCard>
         <div className="flex flex-col gap-2">

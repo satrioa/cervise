@@ -3,6 +3,7 @@
 import { getActiveTenant } from "@/lib/supabase/actor";
 import {
   buildBranches,
+  buildBranchRevenueTrend,
   buildDashboardFeed,
   buildProblems,
   buildTechnicians,
@@ -160,6 +161,7 @@ export async function getDashboardData(period: DashboardPeriod): Promise<Dashboa
   if (profilesResult.error) throw new Error(profilesResult.error.message);
 
   const summary = summarizeDashboard({ services, finance, sales, period, now });
+  summary.branchTrend = buildBranchRevenueTrend({ finance, branches: branchRows, period, now });
   return {
     period,
     branchLabel: allScope ? "Semua cabang" : branchRows[0]?.name ?? "—",

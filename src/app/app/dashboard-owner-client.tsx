@@ -183,6 +183,7 @@ export default function DashboardOwnerClient() {
         problems={data?.problems ?? []}
         branches={data?.branches ?? []}
         activityTerrain={data?.activityTerrain}
+        branchTrend={data?.summary?.branchTrend}
         loading={loading && !data}
       />
 
