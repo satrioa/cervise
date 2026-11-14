@@ -42,8 +42,12 @@ export function resolvePostLoginDestination(input: {
   if (!hasManagerMembership) return "/account/assignment-required";
 
   // Master admin dengan lebih dari satu tenant: tampilkan pemilih tenant
-  // (Steam-style) sampai mereka memilih. Tanpa ini, akun multi-tenant masuk
-  // diam-diam ke tenant pertama aktif dan tidak pernah bisa lompat ke tenant
-  // lain lewat login berikutnya.
+  // sampai mereka memilih. Begitu tenant tersimpan valid dipilih (cookie),
+  // izinkan masuk ke /app agar tidak terjebak loop picker ↔ /app.
+  const saved =
+    input.savedOrganizationId &&
+    input.memberships.some((membership) => membership.organizationId === input.savedOrganizationId);
+  if (saved) return "/app";
+
   return "/dashboard/tenant";
 }

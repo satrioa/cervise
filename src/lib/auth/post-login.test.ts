@@ -29,13 +29,21 @@ describe("resolvePostLoginDestination", () => {
     })).toBe("/dashboard/tenant");
   });
 
-  it("menampilkan pemilih tenant untuk master admin multi-tenant meski ada tenant tersimpan", () => {
-    // Steam-style: akun multi-tenant selalu lewat pemilih tenant setelah
-    // login, walau ada tenant aktif yang tersimpan. Picker menyusun ulang
-    // urutan dan menyorot tenant tersimpan lewat badge.
+  it("mengizinkan master admin multi-tenant masuk ke app jika tenant tersimpan valid", () => {
     expect(resolvePostLoginDestination({
       isPlatformAdmin: false,
       savedOrganizationId: "org-2",
+      memberships: [
+        { organizationId: "org-1", role: "MASTER_ADMIN" },
+        { organizationId: "org-2", role: "MASTER_ADMIN" },
+      ],
+    })).toBe("/app");
+  });
+
+  it("mengirim master admin multi-tenant ke pemilih tenant jika tenant tersimpan tidak valid", () => {
+    expect(resolvePostLoginDestination({
+      isPlatformAdmin: false,
+      savedOrganizationId: "org-missing",
       memberships: [
         { organizationId: "org-1", role: "MASTER_ADMIN" },
         { organizationId: "org-2", role: "MASTER_ADMIN" },

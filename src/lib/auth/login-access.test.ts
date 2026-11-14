@@ -82,10 +82,9 @@ describe("resolveLoginAccess", () => {
     ).toEqual({ kind: "redirect", destination: "/app" });
   });
 
-  it("mengirim master admin multi-tenant ke pemilih tenant meski ada tenant tersimpan", () => {
-    // User diarahkan ke pemilih tenant (Steam-style) untuk multi-tenant, apa
-    // pun status tenant tersimpannya. Yang memilih tetap ditentukan di picker
-    // lewat cookie/localStorage.
+  it("mengizinkan master admin multi-tenant masuk ke app jika tenant tersimpan valid", () => {
+    // Tenant yang sudah dipilih (tersimpan dan masih termasuk membership aktif)
+    // boleh masuk ke /app; picker tetap dipakai saat belum ada pilihan valid.
     expect(
       resolveLoginAccess({
         access: access({
@@ -95,6 +94,20 @@ describe("resolveLoginAccess", () => {
           ],
         }),
         savedOrganizationId: "org-2",
+      }),
+    ).toEqual({ kind: "redirect", destination: "/app" });
+  });
+
+  it("mengirim master admin multi-tenant ke pemilih tenant jika tenant tersimpan tidak valid", () => {
+    expect(
+      resolveLoginAccess({
+        access: access({
+          activeMemberships: [
+            { organizationId: "org-1", role: "MASTER_ADMIN" },
+            { organizationId: "org-2", role: "MASTER_ADMIN" },
+          ],
+        }),
+        savedOrganizationId: "org-expired",
       }),
     ).toEqual({ kind: "redirect", destination: "/dashboard/tenant" });
   });
