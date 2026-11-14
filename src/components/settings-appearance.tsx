@@ -254,7 +254,7 @@ export function SettingsAppearanceShowcasePage({ initial, tenant }: { initial: L
                 Default
               </button>
             </div>
-            <div className="mt-2 overflow-hidden rounded-xl border border-border/60">
+            <div className="mt-2">
               <LacakPreview appearance={draft} tenant={tenantData} />
             </div>
           </aside>
@@ -267,10 +267,10 @@ export function SettingsAppearanceShowcasePage({ initial, tenant }: { initial: L
 }
 
 /**
- * Pratinjau memakai `LacakPage` yang sama dengan halaman publik di dalam frame
- * iPhone, jadi banner, header, kartu status, testimoni, dan footer tidak bisa
- * menyimpang dari yang dilihat pelanggan. Tema memakai `draft` (belum disimpan)
- * supaya perubahan langsung terlihat.
+ * Pratinjau merender `LacakPage` yang sama dengan halaman publik di dalam frame
+ * iPhone, sehingga tidak ada bingkai tambahan yang menyimpang dari tampilan
+ * sebenarnya. Tema memakai `draft` (belum disimpan) supaya perubahan langsung
+ * terlihat.
  */
 function LacakPreview({ appearance, tenant }: { appearance: LacakAppearance; tenant: PublicTenant }) {
   // `system` tidak bisa dibaca di server; pratinjau berjalan di klien.
@@ -295,18 +295,16 @@ function LacakPreview({ appearance, tenant }: { appearance: LacakAppearance; ten
   };
 
   return (
-    <div className="mx-auto flex w-full max-w-[340px] items-center justify-center overflow-hidden rounded-xl border border-border/60 bg-muted/30 p-4">
-      <IPhone17ProMax frameColor="graphite" showStatusBar time="9:41" onScreenTap={() => {}} onDynamicIslandTap={() => {}}>
-        <div className="h-full w-full overflow-y-auto bg-background [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          <LacakPage
-            tenant={tenant}
-            appearance={{ ...appearance, mode }}
-            initialResult={dummyResult}
-            initialError={null}
-          />
-        </div>
-      </IPhone17ProMax>
-    </div>
+    <IPhone17ProMax frameColor="graphite" showStatusBar time="9:41" onScreenTap={() => {}} onDynamicIslandTap={() => {}}>
+      <div className="h-full w-full overflow-y-auto bg-background [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <LacakPage
+          tenant={tenant}
+          appearance={{ ...appearance, mode }}
+          initialResult={dummyResult}
+          initialError={null}
+        />
+      </div>
+    </IPhone17ProMax>
   );
 }
 
