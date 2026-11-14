@@ -12,45 +12,60 @@ const TENANT_REVEAL_KEY = "cervise:tenant-reveal";
  * `playPageTransition()`.
  *
  * Mount pertama sengaja dilewati supaya refresh browser tidak menutup layar
- * dengan animasi. Kecuali saat memilih tenant: klik memicu transisi masuk,
- * lalu render tujuan memicu transisi keluar (reveal).
+ * dengan animasi. Kecuali pilih tenant: klik memicu transisi IN (tahan),
+ * render tujuan memicu transisi OUT (reveal).
  */
 export function PageTransition() {
   const { resolvedTheme } = useTheme();
   const [trigger, setTrigger] = useState(0);
+  const [hold, setHold] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [reveal, setReveal] = useState(false);
 
   useEffect(() => {
+    const shouldReveal = sessionStorage.getItem(TENANT_REVEAL_KEY) === "1";
+    if (shouldReveal) sessionStorage.removeItem(TENANT_REVEAL_KEY);
     const id = setTimeout(() => {
       setMounted(true);
-      if (sessionStorage.getItem(TENANT_REVEAL_KEY) === "1") {
-        sessionStorage.removeItem(TENANT_REVEAL_KEY);
-        window.dispatchEvent(new Event("cervise:transition"));
-      }
+      if (shouldReveal) setReveal(true);
     }, 0);
     return () => clearTimeout(id);
   }, []);
 
   useEffect(() => {
-    const play = () => setTrigger((value) => value + 1);
+    const play = () => {
+      setHold(false);
+      setTrigger((value) => value + 1);
+    };
+    const playHold = () => {
+      setHold(true);
+      setTrigger((value) => value + 1);
+    };
     window.addEventListener("cervise:transition", play);
-    return () => window.removeEventListener("cervise:transition", play);
+    window.addEventListener("cervise:transition-hold", playHold);
+    return () => {
+      window.removeEventListener("cervise:transition", play);
+      window.removeEventListener("cervise:transition-hold", playHold);
+    };
   }, []);
 
   if (!mounted) return null;
   const color = resolvedTheme === "dark" ? "#f5f5f5" : "#000000";
-  return <CascadePageTransition trigger={trigger} colors={[color]} />;
+  if (reveal) {
+    return <CascadePageTransition trigger={0} initialCovered colors={[color]} />;
+  }
+  return <CascadePageTransition trigger={trigger} holdAtCovered={hold} colors={[color]} />;
 }
 
-/** Putar transisi setelah data berubah (mutasi, `router.refresh()`). */
+/** Putar transisi penuh (IN lalu OUT) setelah data berubah. */
 export function playPageTransition() {
   if (typeof window === "undefined") return;
   window.dispatchEvent(new Event("cervise:transition"));
 }
 
-/** Tandai transisi masuk saat pilih tenant; reveal diputar saat tujuan selesai render. */
+/** Transisi IN dan tahan; OUT diputar saat halaman tujuan selesai render. */
 export function beginTenantTransition() {
   if (typeof window === "undefined") return;
   sessionStorage.setItem(TENANT_REVEAL_KEY, "1");
-  playPageTransition();
+  window.dispatchEvent(new Event("cervise:transition-hold"));
 }

@@ -70,6 +70,8 @@ export type Actor = {
   branchScope?: BranchScope | null;
   /** Cabang dalam organisasi yang boleh dibaca. Satu elemen untuk staf. */
   accessibleBranchIds?: string[];
+  /** Daftar cabang untuk UI (master admin), agar layout tidak query ulang. */
+  branchOptions?: import("@/lib/supabase/branch-scope").BranchOption[];
   /**
    * Apakah user ini pemilik tenant yang tercatat di
    * organizations.owner_profile_id.
@@ -210,47 +212,39 @@ async function resolveTenant(options: { allowExpiredSubscription: boolean }): Pr
   const role = resolveActorRole(actorRow);
   const masterAdmin = isMasterAdminRole(role);
 
-  // Role buatan pengguna: dibatasi oleh role dasar (employees.role). Kalau
-  // role_key tidak ditemukan, atau dasar role-nya tidak cocok, jatuh ke role
-  // bawaan — tanpa kehilangan akses yang memang dimiliki role dasar.
+  // Role buatan pengguna & daftar cabang (master) dibaca paralel dengan profil,
+  // organisasi, validasi cabang kepegawaian, dan langganan untuk memangkas round-trip.
   let roleKey = (actorRow.role_key as string | null) ?? role;
   let permissions: PermissionKey[] | undefined;
   let roleLabel: string | undefined;
   let isCustomRole = false;
-  if (actorRow.role_key) {
-    try {
-      const { data: customRole } = await supabase
+
+  const customRolePromise = actorRow.role_key
+    ? supabase
         .from("cervise_roles")
         .select("name, base_role, permissions")
         .eq("organization_id", actorRow.organization_id)
         .eq("key", actorRow.role_key)
-        .maybeSingle();
-      if (
-        customRole &&
-        String(customRole.base_role) === role
-      ) {
-        permissions = sanitizePermissions(
-          role,
-          customRole.permissions as string[] | null,
-        );
-        roleLabel = (customRole.name as string) ?? undefined;
-        isCustomRole = true;
-      } else {
-        roleKey = role;
-      }
-    } catch {
-      roleKey = role;
-    }
-  }
+        .maybeSingle()
+        .then(({ data }) => data, () => null)
+    : Promise.resolve(null);
+
+  const branchListPromise = masterAdmin
+    ? supabase
+        .from("branches")
+        .select("id, name, city, phone")
+        .eq("organization_id", targetOrgId)
+        .eq("is_active", true)
+        .order("name")
+    : Promise.resolve({ data: null, error: null } as { data: null; error: null });
 
   // Profil, organisasi, validasi cabang, dan langganan tidak saling
-  // bergantung, jadi dibaca bersamaan. Dulu berurutan: satu kunjungan Home
-  // menunggu empat round-trip berturut-turut sebelum satu query pun jalan.
-  //
-  // Pemeriksaannya tetap berurutan di bawah supaya kode error yang dilaporkan
-  // tidak berubah: profil dulu, lalu organisasi, cabang, terakhir langganan.
-  const [profileResult, organizationResult, branchValidation, subscriptionResult] =
+  // bergantung, jadi dibaca bersamaan. Pemeriksaannya tetap berurutan di bawah
+  // supaya kode error yang dilaporkan tidak berubah: profil dulu, lalu organisasi,
+  // cabang, terakhir langganan.
+  const [customRole, profileResult, organizationResult, branchValidation, subscriptionResult, branchListResult] =
     await Promise.all([
+      customRolePromise,
       supabase
         .from("profiles")
         .select("is_active, full_name, email, avatar_url, must_change_password")
@@ -278,7 +272,21 @@ async function resolveTenant(options: { allowExpiredSubscription: boolean }): Pr
         .select("status, current_period_end, trial_ends_at, grace_days")
         .eq("organization_id", targetOrgId)
         .maybeSingle(),
+      branchListPromise,
     ]);
+
+  if (actorRow.role_key) {
+    if (customRole && String((customRole as { base_role: string }).base_role) === role) {
+      permissions = sanitizePermissions(
+        role,
+        (customRole as { permissions?: string[] | null }).permissions ?? null,
+      );
+      roleLabel = ((customRole as { name?: string }).name as string) ?? undefined;
+      isCustomRole = true;
+    } else {
+      roleKey = role;
+    }
+  }
 
   const profile = profileResult.data;
   if (profileResult.error) throw new TenantAccessError("lookup_failed", profileResult.error.message);
@@ -318,16 +326,20 @@ async function resolveTenant(options: { allowExpiredSubscription: boolean }): Pr
 
   let branchScope: BranchScope | null = null;
   let accessibleBranchIds: string[] = [];
+  let branchOptions: import("@/lib/supabase/branch-scope").BranchOption[] = [];
 
   if (masterAdmin) {
-    const { data: branchRows, error: branchRowsError } = await supabase
-      .from("branches")
-      .select("id")
-      .eq("organization_id", targetOrgId)
-      .eq("is_active", true)
-      .order("name");
-    if (branchRowsError) throw new TenantAccessError("lookup_failed", "Gagal memuat daftar cabang");
-    accessibleBranchIds = ((branchRows ?? []) as { id: string }[]).map((row) => row.id);
+    if (branchListResult.error) throw new TenantAccessError("lookup_failed", "Gagal memuat daftar cabang");
+    const rows = (branchListResult.data ?? []) as {
+      id: string; name: string; city: string | null; phone: string | null;
+    }[];
+    accessibleBranchIds = rows.map((row) => row.id);
+    branchOptions = rows.map((row) => ({
+      id: row.id,
+      label: row.name,
+      meta: row.city || "Project",
+      phone: row.phone ?? null,
+    }));
 
     const requestedBranch =
       requestedScopeRaw && requestedScopeRaw !== BRANCH_SCOPE_ALL ? requestedScopeRaw : null;
@@ -433,6 +445,7 @@ async function resolveTenant(options: { allowExpiredSubscription: boolean }): Pr
     roleLabel,
     roleKey,
     isCustomRole,
+    branchOptions: branchOptions.length ? branchOptions : undefined,
   };
 }
 

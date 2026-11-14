@@ -10,7 +10,7 @@ import { Switch } from "@/components/ui/switch";
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
 import { XIcon, PackageIcon, ScanBarcodeIcon } from "lucide-react";
 import { toast } from "sonner";
-import { createProduct, searchProductsForSale } from "@/app/app/penjualan/actions";
+import { createProductAction, searchProductsForSale } from "@/app/app/penjualan/actions";
 import { uploadProductPhoto } from "@/app/app/inventori/photo-actions";
 import { ProductPhotoPicker } from "@/components/inventori/product-photo";
 import { useBranch } from "@/lib/branch-context";
@@ -98,7 +98,7 @@ export function ProductVariantDialog({ open, onOpenChange, onSuccess }: Props) {
     }
     setSaving(true);
     try {
-      const created = await createProduct({
+      const res = await createProductAction({
         name: name.trim(),
         category,
         stock_qty: variantType === "BARU" ? Number(stockQty || 0) : undefined,
@@ -113,13 +113,17 @@ export function ProductVariantDialog({ open, onOpenChange, onSuccess }: Props) {
         garansi_days: variantType === "BEKAS" && garansiOn ? Number(garansiDays) : null,
         imei: variantType === "BEKAS" ? imei.trim() : null,
       } as any);
+      if (!res.ok) {
+        toast.error(res.error);
+        return;
+      }
       if (photoFile) {
         // Produk sudah tersimpan; kegagalan foto tidak boleh membuat kasir
         // mengira produknya gagal dan mengirim ulang.
         try {
           const formData = new FormData();
           formData.append("file", photoFile);
-          await uploadProductPhoto(created.id, formData);
+          await uploadProductPhoto(res.id, formData);
         } catch (photoError) {
           toast.warning(
             `Produk tersimpan, tetapi foto gagal diunggah: ${
@@ -133,7 +137,7 @@ export function ProductVariantDialog({ open, onOpenChange, onSuccess }: Props) {
       onOpenChange(false);
       onSuccess?.();
     } catch (e: any) {
-      toast.error(e.message ?? "Gagal simpan");
+      toast.error(e instanceof Error ? e.message : "Gagal simpan");
     } finally { setSaving(false); }
   };
 

@@ -23,6 +23,10 @@ export interface CascadePageTransitionProps {
   strokeWidth?: number;
   leadingStrokeColors?: string[];
   trailingStrokeColors?: string[];
+  /** Tahan di state covered (setelah masuk) sampai dilepas. */
+  holdAtCovered?: boolean;
+  /** Mulai langsung dari state covered (untuk reveal/out di halaman tujuan). */
+  initialCovered?: boolean;
 }
 
 const defaultPalette = [
@@ -56,8 +60,10 @@ export default function CascadePageTransition({
   strokeWidth = 10,
   leadingStrokeColors = defaultPalette,
   trailingStrokeColors = defaultPalette,
+  holdAtCovered = false,
+  initialCovered = false,
 }: CascadePageTransitionProps) {
-  const [transitionState, setTransitionState] = useState("idle");
+  const [transitionState, setTransitionState] = useState(initialCovered ? "covered" : "idle");
   const onViewSwapRef = useRef(onViewSwap);
 
   useEffect(() => {
@@ -77,29 +83,63 @@ export default function CascadePageTransition({
         setTransitionState("covered");
       }, totalAnimationTime);
 
-      const exitTimeout = setTimeout(() => {
-        setTransitionState("exiting");
-      }, totalAnimationTime + 200);
+      const exitTimeout = holdAtCovered
+        ? undefined
+        : setTimeout(() => {
+            setTransitionState("exiting");
+          }, totalAnimationTime + 200);
 
-      const idleTimeout = setTimeout(
-        () => {
-          setTransitionState("idle");
-        },
-        totalAnimationTime * 2 + 200,
-      );
+      const idleTimeout = holdAtCovered
+        ? undefined
+        : setTimeout(
+            () => {
+              setTransitionState("idle");
+            },
+            totalAnimationTime * 2 + 200,
+          );
 
       return () => {
         clearTimeout(coverTimeout);
-        clearTimeout(exitTimeout);
-        clearTimeout(idleTimeout);
+        if (exitTimeout) clearTimeout(exitTimeout);
+        if (idleTimeout) clearTimeout(idleTimeout);
       };
     }
-  }, [trigger, columns, duration, staggerDelay]);
+  }, [trigger, columns, duration, staggerDelay, holdAtCovered]);
+
+  useEffect(() => {
+    if (!initialCovered) return;
+    if (holdAtCovered) return;
+    const maxMultiplier = Math.floor((columns - 1) / 2);
+    const maxStagger = maxMultiplier * staggerDelay;
+    const totalAnimationTime = (duration + maxStagger) * 1000;
+    const t1 = setTimeout(() => setTransitionState("exiting"), 0);
+    const t2 = setTimeout(() => setTransitionState("idle"), totalAnimationTime);
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+    };
+  }, [initialCovered, holdAtCovered, columns, duration, staggerDelay]);
+
+  useEffect(() => {
+    if (!holdAtCovered && transitionState === "covered" && trigger > 0 && !initialCovered) {
+      // release from held cover (same page): schedule exit now
+      const maxMultiplier = Math.floor((columns - 1) / 2);
+      const maxStagger = maxMultiplier * staggerDelay;
+      const totalAnimationTime = (duration + maxStagger) * 1000;
+      const t1 = setTimeout(() => setTransitionState("exiting"), 0);
+      const t2 = setTimeout(() => setTransitionState("idle"), totalAnimationTime);
+      return () => {
+        clearTimeout(t1);
+        clearTimeout(t2);
+      };
+    }
+  }, [holdAtCovered, transitionState, trigger, initialCovered, columns, duration, staggerDelay]);
 
   if (transitionState === "idle") return null;
 
   const isVertical = direction === "top" || direction === "bottom";
   const isOutToIn = mode === "out-to-in";
+  const startCovered = initialCovered && trigger === 0;
 
   const getTransform = (state: "enter" | "exit") => {
     if (isVertical) {
@@ -177,7 +217,7 @@ export default function CascadePageTransition({
         const isCoveredOrEntering =
           transitionState === "entering" || transitionState === "covered";
 
-        const initialPos = getTransform("enter");
+        const initialPos = startCovered ? { x: "0%", y: "0%" } : getTransform("enter");
         const targetPos = isCoveredOrEntering
           ? { x: "0%", y: "0%" }
           : getTransform("exit");

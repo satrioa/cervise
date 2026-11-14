@@ -208,6 +208,22 @@ export async function createProduct(input: {
   return { id, sku };
 }
 
+export type CreateProductResult =
+  | { ok: true; id: string; sku: string }
+  | { ok: false; error: string };
+
+/** Versi aman untuk client: mengembalikan error sebagai nilai agar pesan asli tetap terbaca di produksi. */
+export async function createProductAction(
+  input: Parameters<typeof createProduct>[0],
+): Promise<CreateProductResult> {
+  try {
+    const result = await createProduct(input);
+    return { ok: true, ...result };
+  } catch (cause) {
+    return { ok: false, error: cause instanceof Error ? cause.message : "Gagal menyimpan produk" };
+  }
+}
+
 export async function getSalesOrders(filters?: { q?: string; metode?: string; status?: string; from?: string; to?: string }) {
   const { supabase, actor } = await getSalesReadContext();
   requireSalesAccess(actor.role);

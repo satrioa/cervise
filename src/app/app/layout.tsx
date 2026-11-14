@@ -61,9 +61,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     },
   );
 
-  const branchOptions = isMasterAdminRole(actor.role)
-    ? await getBranchOptionsForActor(actor)
-    : [];
+  const branchOptions =
+    actor.branchOptions ??
+    (isMasterAdminRole(actor.role) ? await getBranchOptionsForActor(actor) : []);
   const branchScope =
     actor.branchScope?.mode === "all"
       ? BRANCH_SCOPE_ALL
