@@ -1,6 +1,9 @@
 import { readLacakAppearance, type LacakAppearance } from "@/lib/operational/lacak-appearance";
 import { publicPhotoUrl } from "@/lib/photos";
-import { readTestimonials, safeExternalUrl, type Testimonial } from "./testimonial";
+import { safeExternalUrl } from "./testimonial";
+
+/** Slider halaman Lacak: tiga slot sudah cukup dan menjaga beban gambar. */
+export const MAX_BANNERS = 3;
 
 export type LandingBranch = {
   id: string;
@@ -11,21 +14,12 @@ export type LandingBranch = {
   created_at?: string | null;
 };
 
-export type LandingTestimonialRow = {
-  id: string;
-  nama: string;
-  isi: string;
-  rating: number | null;
-  urutan: number;
-  is_active: boolean;
-  created_at: string;
-};
-
 export type LandingRow = {
   name: string;
   slug: string;
   logo_url: string | null;
-  banner_url: string | null;
+  banner_urls?: string[] | null;
+  banner_url?: string | null;
   tagline: string | null;
   instagram_url: string | null;
   tiktok_url: string | null;
@@ -38,7 +32,6 @@ export type LandingRow = {
   footer_note?: string | null;
   lacak_appearance: unknown;
   branches: LandingBranch[] | null;
-  lacak_testimonials: LandingTestimonialRow[] | null;
 };
 
 export type PublicTenant = {
@@ -47,7 +40,7 @@ export type PublicTenant = {
   logoUrl: string | null;
   branchName: string | null;
   appearance: LacakAppearance;
-  bannerUrl: string | null;
+  bannerUrls: string[];
   tagline: string | null;
   instagramUrl: string | null;
   tiktokUrl: string | null;
@@ -60,7 +53,6 @@ export type PublicTenant = {
   footerNote: string | null;
   branchAddress: string | null;
   branchPhone: string | null;
-  testimonials: Testimonial[];
 };
 
 function textOrNull(value: unknown): string | null {
@@ -109,7 +101,10 @@ export function toPublicTenant(row: LandingRow, storageBase: string): PublicTena
     logoUrl: urlFoto(row.logo_url),
     branchName: textOrNull(cabang?.name),
     appearance: readLacakAppearance(row.lacak_appearance),
-    bannerUrl: urlFoto(row.banner_url),
+    bannerUrls: (Array.isArray(row.banner_urls) ? row.banner_urls : [])
+      .map((path) => (typeof path === "string" ? urlFoto(path) : null))
+      .filter((url): url is string => url !== null)
+      .slice(0, MAX_BANNERS),
     tagline: textOrNull(row.tagline),
     instagramUrl: safeExternalUrl(row.instagram_url),
     tiktokUrl: safeExternalUrl(row.tiktok_url),
@@ -124,6 +119,5 @@ export function toPublicTenant(row: LandingRow, storageBase: string): PublicTena
     // field berlabel "alamat" ke kolom ini (src/app/app/cabang/actions.ts).
     branchAddress: textOrNull(cabang?.city),
     branchPhone: textOrNull(cabang?.phone),
-    testimonials: readTestimonials(row.lacak_testimonials),
   };
 }

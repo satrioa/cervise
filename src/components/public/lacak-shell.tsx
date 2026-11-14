@@ -2,7 +2,7 @@ import { PublicBackdrop } from "@/components/public/public-backdrop";
 import { LacakForm } from "@/components/public/lacak-form";
 import { PublicFooter } from "@/components/public/public-footer";
 import { PublicHeader } from "@/components/public/public-header";
-import { TestimonialsCarousel } from "@/components/public/testimonials-carousel";
+import { PublicTopNav } from "@/components/public/public-top-nav";
 import type { PublicTenant } from "@/lib/public/landing";
 import type { PublicServisResult } from "@/lib/public/lookup";
 import { lacakThemeProps, resolveLacakScheme } from "@/lib/operational/lacak-appearance";
@@ -71,22 +71,17 @@ export function LacakPage({
 }) {
   return (
     <LacakShell tenant={tenant} appearance={appearance}>
-      <PublicHeader
-        name={tenant.name}
-        logoUrl={tenant.logoUrl}
-        bannerUrl={tenant.bannerUrl}
-        tagline={tenant.tagline}
-        phone={tenant.branchPhone}
-      />
+      <PublicTopNav name={tenant.name} logoUrl={tenant.logoUrl} phone={tenant.branchPhone} />
 
-      <div className="relative -mt-6 flex-1 rounded-t-3xl border-t bg-background px-4 pb-10 shadow-sm">
+      <PublicHeader bannerUrls={tenant.bannerUrls} tagline={tenant.tagline} />
+
+      <div className="relative flex-1 rounded-t-3xl border-t bg-background px-4 pb-10 shadow-sm">
         <LacakForm
           tenant={tenant}
           initialCode={initialCode}
           initialResult={initialResult}
           initialError={initialError}
         />
-        <TestimonialsCarousel items={tenant.testimonials} />
       </div>
 
       <PublicFooter

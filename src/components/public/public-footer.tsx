@@ -1,13 +1,24 @@
-import { CameraIcon, GlobeIcon, MapPinIcon, MessageCircleIcon, Music2Icon, PlayIcon } from "lucide-react";
+import {
+  FacebookLogo,
+  Globe,
+  InstagramLogo,
+  MapPin,
+  TiktokLogo,
+  WhatsappLogo,
+  XLogo,
+  YoutubeLogo,
+} from "@phosphor-icons/react/dist/ssr";
 
-// Lucide tidak menyediakan ikon brand (Instagram/TikTok sengaja tidak ada di
-// paket ikon), jadi memakai ikon yang paling mendekati perannya.
-function labelDariUrl(url: string): string {
-  const tanpaSkema = url.replace(/^https?:\/\//i, "").replace(/^www\./i, "").replace(/\/+$/, "");
-  const potongan = tanpaSkema.slice(-14);
-  return potongan.length > 0 && tanpaSkema.length > 14 ? `…${potongan}` : tanpaSkema;
-}
+type SocialItem = { href: string; label: string; Icon: typeof InstagramLogo };
 
+/**
+ * Footer halaman Lacak.
+ *
+ * Sosial tampil sebagai ikon bulat saja (tanpa teks) supaya tidak memakan
+ * ruang di layar HP; nama platform tetap ada di `aria-label`/`title` untuk
+ * pembaca layar, dan alamatnya datang dari data yang sudah divalidasi
+ * `safeExternalUrl` di `toPublicTenant`.
+ */
 export function PublicFooter({
   name,
   instagramUrl,
@@ -35,65 +46,38 @@ export function PublicFooter({
   address: string | null;
   phone: string | null;
 }) {
-  const adaSocial = Boolean(
-    instagramUrl || tiktokUrl || websiteUrl || facebookUrl || xUrl || youtubeUrl || whatsappUrl || mapsUrl,
-  );
+  const socials: SocialItem[] = [];
+  if (instagramUrl) socials.push({ href: instagramUrl, label: "Instagram", Icon: InstagramLogo });
+  if (tiktokUrl) socials.push({ href: tiktokUrl, label: "TikTok", Icon: TiktokLogo });
+  if (whatsappUrl) socials.push({ href: whatsappUrl, label: "WhatsApp", Icon: WhatsappLogo });
+  if (websiteUrl) socials.push({ href: websiteUrl, label: "Website", Icon: Globe });
+  if (facebookUrl) socials.push({ href: facebookUrl, label: "Facebook", Icon: FacebookLogo });
+  if (xUrl) socials.push({ href: xUrl, label: "X", Icon: XLogo });
+  if (youtubeUrl) socials.push({ href: youtubeUrl, label: "YouTube", Icon: YoutubeLogo });
+  if (mapsUrl) socials.push({ href: mapsUrl, label: "Lokasi", Icon: MapPin });
+
+  const adaSocial = socials.length > 0;
   const adaKontak = Boolean(address || phone || footerNote);
   if (!adaSocial && !adaKontak) return null;
 
   return (
     <footer className="mt-auto bg-neutral-950 text-neutral-100">
-      <div className="mx-auto flex w-full max-w-3xl flex-col items-center gap-3 px-6 py-8 text-center">
+      <div className="mx-auto flex w-full max-w-3xl flex-col items-center gap-4 px-6 py-8 text-center">
         {adaSocial ? (
-          <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2">
-            {instagramUrl ? (
-              <a href={instagramUrl} target="_blank" rel="noopener noreferrer" aria-label={`Instagram ${name}`} className="flex items-center gap-2 text-sm transition-opacity hover:opacity-75">
-                <CameraIcon className="size-4 shrink-0" aria-hidden />
-                <span>{labelDariUrl(instagramUrl)}</span>
+          <div className="flex flex-wrap items-center justify-center gap-2">
+            {socials.map(({ href, label, Icon }) => (
+              <a
+                key={label}
+                href={href}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label={`${label} ${name}`}
+                title={label}
+                className="flex size-10 items-center justify-center rounded-full border border-white/15 bg-white/5 transition-colors hover:bg-white/15"
+              >
+                <Icon className="size-5" weight="fill" aria-hidden />
               </a>
-            ) : null}
-            {tiktokUrl ? (
-              <a href={tiktokUrl} target="_blank" rel="noopener noreferrer" aria-label={`TikTok ${name}`} className="flex items-center gap-2 text-sm transition-opacity hover:opacity-75">
-                <Music2Icon className="size-4 shrink-0" aria-hidden />
-                <span>{labelDariUrl(tiktokUrl)}</span>
-              </a>
-            ) : null}
-            {whatsappUrl ? (
-              <a href={whatsappUrl} target="_blank" rel="noopener noreferrer" aria-label={`WhatsApp ${name}`} className="flex items-center gap-2 text-sm transition-opacity hover:opacity-75">
-                <MessageCircleIcon className="size-4 shrink-0" aria-hidden />
-                <span>{labelDariUrl(whatsappUrl)}</span>
-              </a>
-            ) : null}
-            {websiteUrl ? (
-              <a href={websiteUrl} target="_blank" rel="noopener noreferrer" aria-label={`Website ${name}`} className="flex items-center gap-2 text-sm transition-opacity hover:opacity-75">
-                <GlobeIcon className="size-4 shrink-0" aria-hidden />
-                <span>{labelDariUrl(websiteUrl)}</span>
-              </a>
-            ) : null}
-            {facebookUrl ? (
-              <a href={facebookUrl} target="_blank" rel="noopener noreferrer" aria-label={`Facebook ${name}`} className="flex items-center gap-2 text-sm transition-opacity hover:opacity-75">
-                <GlobeIcon className="size-4 shrink-0" aria-hidden />
-                <span>{labelDariUrl(facebookUrl)}</span>
-              </a>
-            ) : null}
-            {xUrl ? (
-              <a href={xUrl} target="_blank" rel="noopener noreferrer" aria-label={`X ${name}`} className="flex items-center gap-2 text-sm transition-opacity hover:opacity-75">
-                <GlobeIcon className="size-4 shrink-0" aria-hidden />
-                <span>{labelDariUrl(xUrl)}</span>
-              </a>
-            ) : null}
-            {youtubeUrl ? (
-              <a href={youtubeUrl} target="_blank" rel="noopener noreferrer" aria-label={`YouTube ${name}`} className="flex items-center gap-2 text-sm transition-opacity hover:opacity-75">
-                <PlayIcon className="size-4 shrink-0" aria-hidden />
-                <span>{labelDariUrl(youtubeUrl)}</span>
-              </a>
-            ) : null}
-            {mapsUrl ? (
-              <a href={mapsUrl} target="_blank" rel="noopener noreferrer" aria-label={`Lokasi ${name}`} className="flex items-center gap-2 text-sm transition-opacity hover:opacity-75">
-                <MapPinIcon className="size-4 shrink-0" aria-hidden />
-                <span>{labelDariUrl(mapsUrl)}</span>
-              </a>
-            ) : null}
+            ))}
           </div>
         ) : null}
 

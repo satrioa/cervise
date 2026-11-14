@@ -1,24 +1,22 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { update, insert, deleteEq, deleteTable, selectEq, from, getActiveTenant, createAdminClient, revalidatePath } =
+const { update, upload, remove, selectEq, from, storageFrom, getActiveTenant, createAdminClient, revalidatePath } =
   vi.hoisted(() => {
     const update = vi.fn();
-    const insert = vi.fn();
-    const deleteEq = vi.fn();
+    const upload = vi.fn();
+    const remove = vi.fn();
     const selectEq = vi.fn();
-    // `delete().eq().eq()` benar-benar berantai, jadi stub harus mendukungnya.
-    const deleteTable: { eq: (col: string, val: string) => unknown } = { eq: deleteEq };
-    deleteEq.mockReturnValue(deleteTable);
-    const from = vi.fn(() => ({ update, insert, delete: () => deleteTable, select: () => ({ eq: selectEq }) }));
+    const from = vi.fn(() => ({ update, select: () => ({ eq: selectEq }) }));
+    const storageFrom = vi.fn(() => ({ upload, remove }));
     return {
       update,
-      insert,
-      deleteEq,
-      deleteTable,
+      upload,
+      remove,
       selectEq,
       from,
+      storageFrom,
       getActiveTenant: vi.fn(),
-      createAdminClient: vi.fn(() => ({ from })),
+      createAdminClient: vi.fn(() => ({ from, storage: { from: storageFrom } })),
       revalidatePath: vi.fn(),
     };
   });
@@ -27,27 +25,34 @@ vi.mock("@/lib/supabase/actor", () => ({ getActiveTenant }));
 vi.mock("@/lib/supabase/admin", () => ({ createAdminClient }));
 vi.mock("next/cache", () => ({ revalidatePath }));
 
-import { deleteTestimonial, saveLacakBranding, saveTestimonial } from "./actions";
+import { removeLacakBanner, saveLacakBranding, uploadLacakBanner } from "./actions";
 
-type Hasil = { data?: unknown; error: { message: string } | null };
-
-function chain(result: Hasil) {
-  const maybeSingle = () => Promise.resolve(result);
-  const withEq = { select: () => ({ maybeSingle }) };
-  return { eq: () => withEq, select: () => ({ maybeSingle }) };
-}
+const BANNER_A = "tenant-logos/org-1/aaaaaaaaaaaaaaaaaaaaaaaa.png";
+const BANNER_B = "tenant-logos/org-1/bbbbbbbbbbbbbbbbbbbbbbbb.png";
+const BANNER_C = "tenant-logos/org-1/cccccccccccccccccccccccc.png";
 
 beforeEach(() => {
   vi.clearAllMocks();
-  update.mockImplementation(() => chain({ data: { id: "org-1", slug: "pujon" }, error: null }));
-  insert.mockResolvedValue({ error: null });
-  deleteEq.mockReturnValue(deleteTable);
-  from.mockReturnValue({ update, insert, delete: () => ({ eq: deleteEq }), select: () => ({ eq: selectEq }) });
+  update.mockImplementation(() => ({ eq: () => Promise.resolve({ error: null }) }));
+  upload.mockResolvedValue({ error: null });
+  remove.mockResolvedValue({ error: null });
+  selectEq.mockReturnValue({ maybeSingle: () => Promise.resolve({ data: { banner_urls: [] }, error: null }) });
   getActiveTenant.mockResolvedValue({ role: "MASTER_ADMIN", orgId: "org-1", branchId: "branch-1" });
 });
 
 function sebagaiRole(role: string) {
   getActiveTenant.mockResolvedValue({ role, orgId: "org-1", branchId: "branch-1" });
+}
+
+function bannerTersimpan(paths: string[]) {
+  selectEq.mockReturnValue({ maybeSingle: () => Promise.resolve({ data: { banner_urls: paths }, error: null }) });
+}
+
+function formBanner(index: number) {
+  const form = new FormData();
+  form.append("file", new File([new Uint8Array(1024)], "banner.png", { type: "image/png" }));
+  form.append("index", String(index));
+  return form;
 }
 
 describe("saveLacakBranding", () => {
@@ -112,71 +117,62 @@ describe("saveLacakBranding", () => {
   });
 });
 
-describe("saveTestimonial", () => {
-  const valid = { nama: "Budi", isi: "Servis cepat.", rating: 5 as number | null, urutan: 0 };
-
+describe("uploadLacakBanner", () => {
   it("menolak role selain MASTER_ADMIN", async () => {
     sebagaiRole("ADMIN");
 
-    await expect(saveTestimonial(valid)).rejects.toThrow();
-    expect(insert).not.toHaveBeenCalled();
+    await expect(uploadLacakBanner(formBanner(0))).rejects.toThrow();
+    expect(upload).not.toHaveBeenCalled();
   });
 
-  it("menyimpan testimoni ke organisasi actor", async () => {
-    await saveTestimonial(valid);
+  it("mengisi slot pertama lalu menyimpan satu path", async () => {
+    await uploadLacakBanner(formBanner(0));
 
-    expect(insert).toHaveBeenCalledWith({
-      organization_id: "org-1",
-      nama: "Budi",
-      isi: "Servis cepat.",
-      rating: 5,
-      urutan: 0,
-    });
+    const dikirim = update.mock.calls[0][0] as { banner_urls: string[] };
+    expect(dikirim.banner_urls).toHaveLength(1);
+    expect(dikirim.banner_urls[0]).toMatch(/^tenant-logos\/org-1\/[a-z0-9]+\.png$/);
   });
 
-  it("menerima rating null untuk testimoni tanpa bintang", async () => {
-    await saveTestimonial({ ...valid, rating: null });
-
-    expect(insert).toHaveBeenCalledWith(expect.objectContaining({ rating: null }));
+  it("menolak slot yang melompati slot sebelumnya", async () => {
+    await expect(uploadLacakBanner(formBanner(2))).rejects.toThrow(/slot pertama/);
+    expect(upload).not.toHaveBeenCalled();
   });
 
-  it("menolak rating di luar 1-5", async () => {
-    for (const rating of [0, 6, -1]) {
-      await expect(saveTestimonial({ ...valid, rating })).rejects.toThrow();
-    }
-    expect(insert).not.toHaveBeenCalled();
+  it("mengganti isi slot dan menghapus objek lama", async () => {
+    bannerTersimpan([BANNER_A, BANNER_B]);
+
+    await uploadLacakBanner(formBanner(0));
+
+    const dikirim = update.mock.calls[0][0] as { banner_urls: string[] };
+    expect(dikirim.banner_urls).toHaveLength(2);
+    expect(dikirim.banner_urls[0]).not.toBe(BANNER_A);
+    expect(dikirim.banner_urls[1]).toBe(BANNER_B);
+    expect(remove).toHaveBeenCalledWith([BANNER_A]);
   });
 
-  it("menolak nama atau isi kosong", async () => {
-    await expect(saveTestimonial({ ...valid, nama: "  " })).rejects.toThrow();
-    await expect(saveTestimonial({ ...valid, isi: "" })).rejects.toThrow();
-    expect(insert).not.toHaveBeenCalled();
-  });
-
-  it("memotong spasi di nama dan isi", async () => {
-    await saveTestimonial({ ...valid, nama: " Budi ", isi: " Bagus " });
-
-    expect(insert).toHaveBeenCalledWith(expect.objectContaining({ nama: "Budi", isi: "Bagus" }));
+  it("menolak slot di luar rentang 0-2", async () => {
+    await expect(uploadLacakBanner(formBanner(3))).rejects.toThrow(/tidak valid/);
   });
 });
 
-describe("deleteTestimonial", () => {
+describe("removeLacakBanner", () => {
   it("menolak role selain MASTER_ADMIN", async () => {
     sebagaiRole("ADMIN");
 
-    await expect(deleteTestimonial("t1")).rejects.toThrow();
-    expect(deleteEq).not.toHaveBeenCalled();
+    await expect(removeLacakBanner(0)).rejects.toThrow();
+    expect(update).not.toHaveBeenCalled();
   });
 
-  it("membatasi delete ke tenant actor dan id yang diminta", async () => {
-    await deleteTestimonial("t1");
+  it("membuang slot yang diminta dan menghapus objeknya", async () => {
+    bannerTersimpan([BANNER_A, BANNER_B, BANNER_C]);
 
-    expect(deleteEq).toHaveBeenCalledWith("organization_id", "org-1");
-    expect(deleteEq).toHaveBeenCalledWith("id", "t1");
+    await removeLacakBanner(1);
+
+    expect(update).toHaveBeenCalledWith({ banner_urls: [BANNER_A, BANNER_C] });
+    expect(remove).toHaveBeenCalledWith([BANNER_B]);
   });
 
-  it("menolak id kosong", async () => {
-    await expect(deleteTestimonial("   ")).rejects.toThrow();
-    expect(deleteEq).not.toHaveBeenCalled();
+  it("menolak slot di luar rentang 0-2", async () => {
+    await expect(removeLacakBanner(3)).rejects.toThrow(/tidak valid/);
   });
 });

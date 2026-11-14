@@ -116,11 +116,10 @@ export async function getPublicTenant(slug: string): Promise<PublicTenant | null
   const { data, error } = await admin
     .from("organizations")
     .select(
-      "id, name, slug, status, logo_url, banner_url, tagline, instagram_url, tiktok_url, lacak_appearance, branches(id, name, city, phone, is_active, created_at), lacak_testimonials(id, nama, isi, rating, urutan, is_active, created_at)",
+      "id, name, slug, status, logo_url, banner_urls, tagline, instagram_url, tiktok_url, website_url, facebook_url, x_url, youtube_url, whatsapp_url, maps_url, footer_note, lacak_appearance, branches(id, name, city, phone, is_active, created_at)",
     )
     .eq("slug", normalized)
     .in("status", ACTIVE_TENANT_STATUSES)
-    .order("urutan", { referencedTable: "lacak_testimonials", ascending: true })
     .limit(1)
     .maybeSingle();
   if (error) return null;

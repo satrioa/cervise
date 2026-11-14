@@ -4,32 +4,19 @@ import { pickLandingBranch, toPublicTenant, type LandingRow } from "./landing";
 const BASE = "https://proj.supabase.co";
 const LOGO_PATH = "tenant-logos/org-1/abcdef0123456789abcdef01.png";
 const BANNER_PATH = "tenant-logos/org-1/fedcba9876543210fedcba98.png";
+const BANNER_PATH_2 = "tenant-logos/org-1/00aa11bb22cc33dd44ee55ff.png";
 
 function row(overrides: Partial<LandingRow> = {}): LandingRow {
   return {
     name: "JCellular",
     slug: "jcellular",
     logo_url: LOGO_PATH,
-    banner_url: BANNER_PATH,
+    banner_urls: [BANNER_PATH],
     tagline: "Servis Gadget Ter-murah Se-Indonesia",
     instagram_url: "https://instagram.com/jcellular.id",
     tiktok_url: "https://tiktok.com/@jcellular",
     lacak_appearance: { mode: "dark", palette: "indigo" },
     branches: [],
-    lacak_testimonials: [],
-    ...overrides,
-  };
-}
-
-function testimonial(overrides: Record<string, unknown> = {}) {
-  return {
-    id: "t1",
-    nama: "Budi",
-    isi: "Servis cepat.",
-    rating: 5,
-    urutan: 0,
-    is_active: true,
-    created_at: "2026-09-01T00:00:00Z",
     ...overrides,
   };
 }
@@ -82,15 +69,32 @@ describe("toPublicTenant", () => {
   });
 
   it("mengubah path banner menjadi URL publik", () => {
-    expect(toPublicTenant(row(), BASE).bannerUrl).toBe(
+    expect(toPublicTenant(row(), BASE).bannerUrls).toEqual([
       `${BASE}/storage/v1/object/public/cervise-photos/${BANNER_PATH}`,
-    );
+    ]);
   });
 
-  it("memberi logo dan banner null saat path-nya kosong atau bukan path bucket", () => {
-    const hasil = toPublicTenant(row({ logo_url: "", banner_url: "bukan/path.png" }), BASE);
+  it("memberi logo null dan banner kosong saat path-nya kosong atau bukan path bucket", () => {
+    const hasil = toPublicTenant(row({ logo_url: "", banner_urls: ["bukan/path.png"] }), BASE);
     expect(hasil.logoUrl).toBeNull();
-    expect(hasil.bannerUrl).toBeNull();
+    expect(hasil.bannerUrls).toEqual([]);
+  });
+
+  it("membatasi slider maksimal tiga banner", () => {
+    const hasil = toPublicTenant(
+      row({ banner_urls: [BANNER_PATH, BANNER_PATH_2, BANNER_PATH, BANNER_PATH_2] }),
+      BASE,
+    );
+    expect(hasil.bannerUrls).toHaveLength(3);
+  });
+
+  it("membuang path banner yang tidak aman tanpa menggeser urutan", () => {
+    const hasil = toPublicTenant(
+      row({ banner_urls: [BANNER_PATH, "../../etc/passwd", BANNER_PATH_2] }),
+      BASE,
+    );
+    expect(hasil.bannerUrls).toHaveLength(2);
+    expect(hasil.bannerUrls[1]).toContain(BANNER_PATH_2);
   });
 
   it("tidak pernah mengambil logo dari branches.logo_url", () => {
@@ -133,19 +137,6 @@ describe("toPublicTenant", () => {
     );
     expect(hasil.branchAddress).toBeNull();
     expect(hasil.branchPhone).toBeNull();
-  });
-
-  it("membawa testimoni aktif yang sudah ternormalisasi", () => {
-    const hasil = toPublicTenant(
-      row({ lacak_testimonials: [testimonial({ id: "a" }), testimonial({ id: "b", rating: 99 })] as never }),
-      BASE,
-    );
-    expect(hasil.testimonials.map((t) => t.id)).toEqual(["a", "b"]);
-    expect(hasil.testimonials[1].rating).toBeNull();
-  });
-
-  it("mengembalikan testimoni kosong saat tenant belum punya satu pun", () => {
-    expect(toPublicTenant(row({ lacak_testimonials: null }), BASE).testimonials).toEqual([]);
   });
 
   it("memotong tagline kosong menjadi null", () => {

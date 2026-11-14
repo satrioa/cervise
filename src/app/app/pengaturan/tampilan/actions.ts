@@ -6,6 +6,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { canAccess } from "@/lib/rbac";
 import { readLacakAppearance } from "@/lib/operational/lacak-appearance";
 import { safeExternalUrl } from "@/lib/public/testimonial";
+import { MAX_BANNERS } from "@/lib/public/landing";
 import {
   PHOTO_BUCKET,
   isSafeObjectPath,
@@ -151,68 +152,24 @@ export async function saveLacakBranding(input: {
 }
 
 /**
- * Testimoni ditulis manual oleh admin, bukan turunan dari data servis.
+ * Banner halaman Lacak: tiga slot gambar (maks 3) yang dipakai slider publik.
+ * Path lama pada slot yang diganti/dihapus ikut dibersihkan dari storage supaya
+ * tidak menumpuk file yatim.
  *
- * `organization_id` selalu diambil dari actor, tidak pernah dari payload,
- * supaya admin tidak bisa menulis ke tenant lain hanya dengan mengubah form.
+ * Slot diisi berurutan (0,1,2). Server menolak lompatan slot karena array
+ * `text[]` yang berlubang akan menggeser urutan setelah dibaca ulang.
  */
-export async function saveTestimonial(input: {
-  nama: string;
-  isi: string;
-  rating: number | null;
-  urutan: number;
-}) {
-  const actor = await requireTampilanAdmin();
 
-  const nama = teksAtauNull(input.nama, 80, "Nama");
-  const isi = teksAtauNull(input.isi, 400, "Testimoni");
-  if (!nama) throw new Error("Nama testimoni wajib diisi");
-  if (!isi) throw new Error("Isi testimoni wajib diisi");
-
-  const rating =
-    input.rating === null || input.rating === undefined
-      ? null
-      : typeof input.rating === "number" && Number.isInteger(input.rating) && input.rating >= 1 && input.rating <= 5
-        ? input.rating
-        : (() => {
-            throw new Error("Rating harus antara 1 dan 5");
-          })();
-
-  const urutan = Number.isFinite(Number(input.urutan)) ? Math.trunc(Number(input.urutan)) : 0;
-
-  const { error } = await createAdminClient()
-    .from("lacak_testimonials")
-    .insert({ organization_id: actor.orgId, nama, isi, rating, urutan });
-
-  if (error) throw new Error(error.message);
-  revalidatePath("/app/pengaturan/tampilan");
-  return { ok: true };
+/** Path banner yang tersimpan, sudah dibuang nilai yang tidak aman. */
+function pathBanner(value: unknown): string[] {
+  return (Array.isArray(value) ? value : []).filter((path): path is string => isSafeObjectPath(path));
 }
 
-export async function deleteTestimonial(id: string) {
-  const actor = await requireTampilanAdmin();
-  const bersih = typeof id === "string" ? id.trim() : "";
-  if (!bersih) throw new Error("Id testimoni wajib diisi");
-
-  // organization_id ikut jadi syarat: id saja tidak boleh cukup.
-  const { error } = await createAdminClient()
-    .from("lacak_testimonials")
-    .delete()
-    .eq("organization_id", actor.orgId)
-    .eq("id", bersih);
-
-  if (error) throw new Error(error.message);
-  revalidatePath("/app/pengaturan/tampilan");
-  return { ok: true };
+function urlsBanner(paths: string[]): string[] {
+  const base = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
+  return paths.map((path) => publicPhotoUrl(base, path)).filter((url): url is string => url !== null);
 }
-/**
- * Banner memakai prefix `tenant-logos/` yang sama dengan logo, jadi
- * `isSafeObjectPath` sudah menerimanya tanpa perlu aturan path baru.
- *
- * Batas 2 MB mengikuti bucket. Foto potret dari HP sering lewat angka itu,
- * jadi kalau banner ditolak, kompres dulu - menaikkan batas bucket belum
- * disepakati.
- */
+
 export async function uploadLacakBanner(formData: FormData) {
   const actor = await requireTampilanAdmin();
 
@@ -220,18 +177,29 @@ export async function uploadLacakBanner(formData: FormData) {
   if (!(entry instanceof File)) throw new Error("File tidak ditemukan");
   if (entry.size === 0) throw new Error("File kosong");
 
+  const index = Number(formData.get("index"));
+  if (!Number.isInteger(index) || index < 0 || index >= MAX_BANNERS) {
+    throw new Error("Slot banner tidak valid");
+  }
+
   const validation = validatePhotoFile(entry);
   if (!validation.ok) throw new Error(validation.error);
 
   const admin = createAdminClient();
   const { data: current, error: readError } = await admin
     .from("organizations")
-    .select("banner_url")
+    .select("banner_urls")
     .eq("id", actor.orgId)
     .maybeSingle();
   if (readError) throw new Error(readError.message);
 
-  const previous = current?.banner_url ?? null;
+  const existing = pathBanner(current?.banner_urls);
+  if (index > existing.length) throw new Error("Isi banner mulai dari slot pertama");
+  if (index === existing.length && existing.length >= MAX_BANNERS) {
+    throw new Error(`Maksimal ${MAX_BANNERS} banner`);
+  }
+
+  const previous = existing[index] ?? null;
   const path = tenantLogoPath(actor.orgId!, validation.extension);
 
   const { error: uploadError } = await admin.storage
@@ -239,9 +207,12 @@ export async function uploadLacakBanner(formData: FormData) {
     .upload(path, entry, { contentType: entry.type, upsert: false });
   if (uploadError) throw new Error(`Gagal mengunggah banner: ${uploadError.message}`);
 
+  const next = [...existing];
+  next[index] = path;
+
   const { error: writeError } = await admin
     .from("organizations")
-    .update({ banner_url: path })
+    .update({ banner_urls: next })
     .eq("id", actor.orgId);
   if (writeError) {
     await hapusObjek(path);
@@ -250,18 +221,36 @@ export async function uploadLacakBanner(formData: FormData) {
 
   await hapusObjek(previous);
   revalidatePath("/app/pengaturan/tampilan");
-  return { ok: true, url: publicPhotoUrl(process.env.NEXT_PUBLIC_SUPABASE_URL ?? "", path) };
+  return { ok: true, urls: urlsBanner(next) };
 }
 
-export async function removeLacakBanner() {
+export async function removeLacakBanner(index: number) {
   const actor = await requireTampilanAdmin();
-  const admin = createAdminClient();
+  if (!Number.isInteger(index) || index < 0 || index >= MAX_BANNERS) {
+    throw new Error("Slot banner tidak valid");
+  }
 
-  const { error } = await admin.from("organizations").update({ banner_url: null }).eq("id", actor.orgId);
+  const admin = createAdminClient();
+  const { data: current, error: readError } = await admin
+    .from("organizations")
+    .select("banner_urls")
+    .eq("id", actor.orgId)
+    .maybeSingle();
+  if (readError) throw new Error(readError.message);
+
+  const existing = pathBanner(current?.banner_urls);
+  const removed = existing[index] ?? null;
+  const next = existing.filter((_, i) => i !== index);
+
+  const { error } = await admin
+    .from("organizations")
+    .update({ banner_urls: next })
+    .eq("id", actor.orgId);
   if (error) throw new Error(error.message);
 
+  await hapusObjek(removed);
   revalidatePath("/app/pengaturan/tampilan");
-  return { ok: true };
+  return { ok: true, urls: urlsBanner(next) };
 }
 
 /**

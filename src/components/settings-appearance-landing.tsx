@@ -3,24 +3,21 @@
 import { useRef, useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { PlusIcon, StarIcon, Trash2Icon } from "lucide-react";
+import { Images, PlusIcon } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import {
-  deleteTestimonial,
   removeLacakBanner,
   removeLacakLogo,
   saveLacakBranding,
-  saveTestimonial,
   uploadLacakBanner,
   uploadLacakLogo,
 } from "@/app/app/pengaturan/tampilan/actions";
 import { playPageTransition } from "@/components/layout/page-transition";
-import type { PublicTenant } from "@/lib/public/landing";
+import { MAX_BANNERS, type PublicTenant } from "@/lib/public/landing";
 
 /**
  * Banner, tagline, sosial, dan testimoni - data yang dipakai header dan
@@ -48,6 +45,7 @@ export function LandingSection({
   const [whatsappUrl, setWhatsappUrl] = useState(tenant.whatsappUrl ?? "");
   const [mapsUrl, setMapsUrl] = useState(tenant.mapsUrl ?? "");
   const [footerNote, setFooterNote] = useState(tenant.footerNote ?? "");
+  const [bannerUrls, setBannerUrls] = useState<string[]>(tenant.bannerUrls);
   const [shownSocials, setShownSocials] = useState<Set<string>>(() => {
     const s = new Set<string>(["instagram"]);
     if (tenant.tiktokUrl) s.add("tiktok");
@@ -60,13 +58,9 @@ export function LandingSection({
     return s;
   });
   const [saving, setSaving] = useState(false);
-  const [uploading, setUploading] = useState(false);
+  const [uploading, setUploading] = useState<number | null>(null);
   const [uploadingLogo, setUploadingLogo] = useState(false);
-  const [busy, setBusy] = useState(false);
-
-  const [nama, setNama] = useState("");
-  const [isi, setIsi] = useState("");
-  const [rating, setRating] = useState<number | null>(null);
+  const slotRef = useRef(0);
 
   const ganti = (patch: Partial<PublicTenant>) => onSaved({ ...tenant, ...patch });
 
@@ -108,35 +102,39 @@ export function LandingSection({
   };
 
   const handleUpload = async (file: File) => {
-    setUploading(true);
+    const index = slotRef.current;
+    setUploading(index);
     try {
       const form = new FormData();
       form.append("file", file);
+      form.append("index", String(index));
       const hasil = await uploadLacakBanner(form);
-      ganti({ bannerUrl: hasil.url ?? null });
+      setBannerUrls(hasil.urls);
+      ganti({ bannerUrls: hasil.urls });
       playPageTransition();
       router.refresh();
       toast.success("Banner diperbarui");
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : "Gagal mengunggah banner");
     } finally {
-      setUploading(false);
+      setUploading(null);
       if (fileRef.current) fileRef.current.value = "";
     }
   };
 
-  const handleHapusBanner = async () => {
-    setUploading(true);
+  const handleHapusBanner = async (index: number) => {
+    setUploading(index);
     try {
-      await removeLacakBanner();
-      ganti({ bannerUrl: null });
+      const hasil = await removeLacakBanner(index);
+      setBannerUrls(hasil.urls);
+      ganti({ bannerUrls: hasil.urls });
       playPageTransition();
       router.refresh();
-      toast.success("Banner dihapus, halaman memakai warna toko");
+      toast.success("Banner dihapus");
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : "Gagal menghapus banner");
     } finally {
-      setUploading(false);
+      setUploading(null);
     }
   };
 
@@ -154,7 +152,7 @@ export function LandingSection({
       toast.error(e instanceof Error ? e.message : "Gagal mengunggah logo");
     } finally {
       setUploadingLogo(false);
-      if (fileRef.current) fileRef.current.value = "";
+      if (logoFileRef.current) logoFileRef.current.value = "";
     }
   };
 
@@ -173,46 +171,14 @@ export function LandingSection({
     }
   };
 
-  const handleTambah = async () => {
-    setBusy(true);
-    try {
-      await saveTestimonial({ nama, isi, rating, urutan: 0 });
-      setNama("");
-      setIsi("");
-      setRating(null);
-      playPageTransition();
-      router.refresh();
-      toast.success("Testimoni ditambahkan");
-    } catch (e: unknown) {
-      toast.error(e instanceof Error ? e.message : "Gagal menambah testimoni");
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const handleHapus = async (id: string) => {
-    setBusy(true);
-    try {
-      await deleteTestimonial(id);
-      ganti({ testimonials: tenant.testimonials.filter((t) => t.id !== id) });
-      playPageTransition();
-      router.refresh();
-      toast.success("Testimoni dihapus");
-    } catch (e: unknown) {
-      toast.error(e instanceof Error ? e.message : "Gagal menghapus testimoni");
-    } finally {
-      setBusy(false);
-    }
-  };
-
   return (
     <div className="mt-12 space-y-10 border-t pt-10">
       <section>
-        <SectionHead title="Logo" hint="Logo toko di header halaman Lacak. Kosongkan untuk memakai inisial nama toko." />
+        <SectionHead title="Logo" hint="Tampil bulat di bar atas halaman Lacak — gunakan gambar persegi (1:1). Kosongkan untuk memakai inisial nama toko." />
         <div className="mt-4 flex flex-wrap items-center gap-4">
           <div className="relative h-14 w-14 overflow-hidden rounded-full border border-border/60 bg-muted/40">
             {tenant.logoUrl ? (
-              <Image src={tenant.logoUrl} alt="Logo toko" fill sizes="80px" unoptimized className="object-contain p-2" />
+              <Image src={tenant.logoUrl} alt="Logo toko" fill sizes="80px" unoptimized className="object-cover" />
             ) : (
               <div className="flex size-full items-center justify-center text-xs text-muted-foreground">
                 Belum ada logo
@@ -246,41 +212,68 @@ export function LandingSection({
       </section>
 
       <section className="mt-10">
-        <SectionHead title="Banner" hint="Gambar di bagian atas halaman Lacak. Kosongkan untuk memakai warna toko." />
-        <div className="mt-4 flex flex-wrap items-center gap-4">
-          <div className="relative h-28 w-full max-w-xs overflow-hidden rounded-xl border border-border/60 bg-muted/40">
-            {tenant.bannerUrl ? (
-              <Image src={tenant.bannerUrl} alt="Banner halaman Lacak" fill sizes="320px" unoptimized className="object-cover" />
-            ) : (
-              <div className="flex size-full items-center justify-center text-xs text-muted-foreground">
-                Belum ada banner
+        <SectionHead
+          title="Banner"
+          hint="Slider di bagian atas halaman Lacak. Maksimal 3 gambar, kosongkan untuk memakai warna toko."
+        />
+        <input
+          ref={fileRef}
+          type="file"
+          accept="image/jpeg,image/png,image/webp"
+          className="hidden"
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            if (file) void handleUpload(file);
+          }}
+        />
+        <div className="mt-4 grid gap-3 sm:grid-cols-3">
+          {Array.from({ length: MAX_BANNERS }, (_, index) => {
+            const url = bannerUrls[index];
+            const sibuk = uploading === index;
+            return (
+              <div key={index} className="space-y-2">
+                <div className="relative aspect-[2/1] overflow-hidden rounded-xl border border-border/60 bg-muted/40">
+                  {url ? (
+                    <Image src={url} alt={`Banner ${index + 1}`} fill sizes="320px" unoptimized className="object-cover" />
+                  ) : (
+                    <div className="flex size-full flex-col items-center justify-center gap-1 text-xs text-muted-foreground">
+                      <Images className="size-5" aria-hidden />
+                      Slot {index + 1}
+                    </div>
+                  )}
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    type="button"
+                    variant={url ? "outline" : "default"}
+                    disabled={uploading !== null}
+                    onClick={() => {
+                      slotRef.current = index;
+                      fileRef.current?.click();
+                    }}
+                  >
+                    {sibuk ? "Mengunggah..." : url ? "Ganti" : "Unggah"}
+                  </Button>
+                  {url ? (
+                    <Button
+                      size="sm"
+                      type="button"
+                      variant="ghost"
+                      disabled={uploading !== null}
+                      onClick={() => void handleHapusBanner(index)}
+                    >
+                      Hapus
+                    </Button>
+                  ) : null}
+                </div>
               </div>
-            )}
-          </div>
-          <div className="flex flex-col gap-2">
-            <input
-              ref={fileRef}
-              type="file"
-              accept="image/jpeg,image/png,image/webp"
-              className="hidden"
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                if (file) void handleUpload(file);
-              }}
-            />
-            <Button size="sm" type="button" disabled={uploading} onClick={() => fileRef.current?.click()}>
-              {uploading ? "Mengunggah..." : tenant.bannerUrl ? "Ganti banner" : "Unggah banner"}
-            </Button>
-            {tenant.bannerUrl ? (
-              <Button size="sm" type="button" variant="outline" disabled={uploading} onClick={handleHapusBanner}>
-                Hapus banner
-              </Button>
-            ) : null}
-            <p className="max-w-xs text-[11px] text-muted-foreground">
-              JPG, PNG, atau WEBP, maksimal 2.0 MB. Potret lebih baik supaya tidak terpotong di HP.
-            </p>
-          </div>
+            );
+          })}
         </div>
+        <p className="mt-2 max-w-lg text-[11px] text-muted-foreground">
+          JPG, PNG, atau WEBP, maksimal 2.0 MB per gambar. Rasio 2:1 (contoh 1200 × 600 px) supaya tidak terpotong.
+        </p>
       </section>
 
       <section>
@@ -387,88 +380,6 @@ export function LandingSection({
           <div className="flex justify-end">
             <Button size="sm" type="button" disabled={saving} onClick={handleSimpan}>
               {saving ? "Menyimpan..." : "Simpan identitas"}
-            </Button>
-          </div>
-        </div>
-      </section>
-
-      <section>
-        <SectionHead
-          title="Testimoni"
-          hint="Ditulis manual oleh admin, bukan diambil dari data servis. Section tidak muncul di halaman kalau kosong."
-        />
-
-        {tenant.testimonials.length > 0 ? (
-          <ul className="mt-4 space-y-2">
-            {tenant.testimonials.map((t) => (
-              <li key={t.id} className="flex items-start gap-3 rounded-xl border border-border/60 bg-background/40 p-3">
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-semibold">{t.nama}</span>
-                    {t.rating !== null ? (
-                      <span className="flex gap-0.5" aria-label={`${t.rating} dari 5`}>
-                        {Array.from({ length: t.rating }, (_, i) => (
-                          <StarIcon key={i} aria-hidden className="size-3 fill-primary text-primary" />
-                        ))}
-                      </span>
-                    ) : null}
-                  </div>
-                  <p className="mt-0.5 text-sm text-muted-foreground">{t.isi}</p>
-                </div>
-                <Button
-                  size="icon"
-                  type="button"
-                  variant="ghost"
-                  aria-label={`Hapus testimoni ${t.nama}`}
-                  disabled={busy}
-                  onClick={() => void handleHapus(t.id)}
-                >
-                  <Trash2Icon className="size-4" />
-                </Button>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p className="mt-4 text-sm text-muted-foreground">Belum ada testimoni.</p>
-        )}
-
-        <div className="mt-5 max-w-2xl space-y-4 rounded-xl border border-border/60 bg-background/40 p-4">
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-1.5">
-              <Label className="font-mono text-[10px] uppercase tracking-[0.2em]">Nama</Label>
-              <Input value={nama} onChange={(e) => setNama(e.target.value)} placeholder="Budi Santoso" />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="font-mono text-[10px] uppercase tracking-[0.2em]">Rating</Label>
-              <div className="flex gap-1 pt-1.5">
-                {[1, 2, 3, 4, 5].map((n) => (
-                  <button
-                    key={n}
-                    type="button"
-                    aria-label={`${n} bintang`}
-                    aria-pressed={rating === n}
-                    onClick={() => setRating(rating === n ? null : n)}
-                    className="rounded p-1"
-                  >
-                    <StarIcon
-                      className={
-                        rating !== null && n <= rating
-                          ? "size-5 fill-primary text-primary"
-                          : "size-5 text-muted-foreground/40"
-                      }
-                    />
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-          <div className="space-y-1.5">
-            <Label className="font-mono text-[10px] uppercase tracking-[0.2em]">Testimoni</Label>
-            <Textarea value={isi} rows={3} maxLength={400} onChange={(e) => setIsi(e.target.value)} placeholder="Servis cepat, Done jam 2 sore." />
-          </div>
-          <div className="flex justify-end">
-            <Button size="sm" type="button" disabled={busy || !nama.trim() || !isi.trim()} onClick={handleTambah}>
-              {busy ? "Menyimpan..." : "Tambah testimoni"}
             </Button>
           </div>
         </div>

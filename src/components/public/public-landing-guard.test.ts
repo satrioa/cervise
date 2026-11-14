@@ -72,11 +72,12 @@ describe("kerangka halaman Lacak", () => {
     expect(shell).not.toMatch(/style=\{\{[^}]*--(lacak|font|primary)/);
   });
 
-  it("merender banner, form, testimoni, dan footer", () => {
+  it("merender bar atas, banner, form, dan footer tanpa testimoni", () => {
+    expect(shell).toContain("PublicTopNav");
     expect(shell).toContain("PublicHeader");
     expect(shell).toContain("LacakForm");
-    expect(shell).toContain("TestimonialsCarousel");
     expect(shell).toContain("PublicFooter");
+    expect(shell).not.toContain("TestimonialsCarousel");
   });
 
   it("tidak lagi memuat TenantBadge di body karena logo sudah di header", () => {
@@ -85,11 +86,6 @@ describe("kerangka halaman Lacak", () => {
 });
 
 describe("testimoni dan footer", () => {
-  it("carousel tidak merender apa pun saat daftar kosong", () => {
-    const carousel = readFileSync(join(DIR, "testimonials-carousel.tsx"), "utf8");
-    expect(carousel).toMatch(/items\.length === 0\) return null/);
-  });
-
   it("footer tidak merender apa pun saat tidak ada sosial maupun kontak", () => {
     const footer = readFileSync(join(DIR, "public-footer.tsx"), "utf8");
     expect(footer).toMatch(/adaSocial && !adaKontak\) return null/);
@@ -105,15 +101,21 @@ describe("testimoni dan footer", () => {
 });
 
 describe("header memakai token, bukan hex yang bisa melenceng dari css", () => {
-  const header = codeOnly(readFileSync(join(DIR, "public-header.tsx"), "utf8"));
+  const banner = codeOnly(readFileSync(join(DIR, "public-banner.tsx"), "utf8"));
+  const topNav = codeOnly(readFileSync(join(DIR, "public-top-nav.tsx"), "utf8"));
 
   it("fallback banner memakai --primary, bukan warna tetap", () => {
-    expect(header).toContain("var(--primary)");
-    expect(header).not.toMatch(/#[0-9a-f]{6}/i);
+    expect(banner).toContain("var(--primary)");
+    expect(banner).not.toMatch(/#[0-9a-f]{6}/i);
   });
 
   it("tombol WhatsApp dibangun dari nomor telepon, bukan URL yang sudah jadi", () => {
-    expect(header).toContain("wa.me");
-    expect(header).not.toMatch(/href=\{?"https:\/\//);
+    expect(topNav).toContain("wa.me");
+    expect(topNav).not.toMatch(/href=\{?"https:\/\//);
+  });
+
+  it("logo bar atas benar-benar bulat penuh", () => {
+    expect(topNav).toContain("rounded-full");
+    expect(topNav).toContain("object-cover");
   });
 });
