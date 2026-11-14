@@ -37,8 +37,8 @@ function safe(value: string | null | undefined, fallback = EM_DASH): string {
 
 export function buildSaleReceiptLines(input: SalesReceiptInput): string[] {
   const { context, sale, customer, items } = input;
-  const brand = context.brandName?.trim() || context.branchName?.trim() || "Nota Penjualan";
-  const lines: string[] = [centerLine(brand.toUpperCase(), 16)];
+  const tenant = context.brandName?.trim() || "Nota Penjualan";
+  const lines: string[] = [centerLine(tenant.toUpperCase(), 16)];
 
   if (context.tagline?.trim()) lines.push(centerLine(context.tagline.trim().toUpperCase()));
   if (context.address?.trim()) lines.push(...wrap(context.address.trim()).map((row) => centerLine(row)));
@@ -83,13 +83,16 @@ export function buildSaleReceiptLines(input: SalesReceiptInput): string[] {
   if (returnedValue > 0) lines.push(columns("Diretur", formatCurrencyPlain(returnedValue)));
 
   lines.push(line());
-  lines.push(centerLine("~Terima kasih sudah berbelanja~"));
+  const footer = context.footerText?.trim() || "~Terima kasih sudah berbelanja~";
+  lines.push(...wrap(footer).map((row) => centerLine(row)));
   return lines;
 }
 
 export function buildServiceReceiptLines(input: ServiceReceiptInput): string[] {
   const { branch, service, customer } = input;
-  const lines: string[] = [centerLine(safe(branch.name, "Nota Servis").toUpperCase(), 16)];
+  const tenantName = safe(branch.name, "Nota Servis").toUpperCase();
+  const lines: string[] = [centerLine(tenantName, 16)];
+  if (branch.branchName?.trim()) lines.push(centerLine(`[ ${normalizeAscii(branch.branchName.trim())} ]`));
 
   if (branch.address?.trim()) lines.push(...wrap(branch.address.trim()).map((row) => centerLine(row)));
   if (branch.phone?.trim()) lines.push(centerLine(branch.phone.trim()));
@@ -101,19 +104,19 @@ export function buildServiceReceiptLines(input: ServiceReceiptInput): string[] {
   if (customer.address?.trim()) lines.push(...wrap(`Alamat: ${customer.address.trim()}`));
   if (customer.phone?.trim()) lines.push(columns("No. HP", customer.phone.trim()));
   lines.push(columns("Teknisi", safe(input.teknisi)));
+  lines.push(columns("Status", safe(service.status)));
 
   lines.push(line());
   lines.push(...wrap(service.device));
   if (service.complaint?.trim()) {
     lines.push(line("-"));
-    lines.push("Keluhan:");
+    lines.push("Kerusakan:");
     lines.push(...wrap(service.complaint));
   }
   if (!service.isEstimate && service.sparepart?.trim()) {
     lines.push("Sparepart:");
     lines.push(...wrap(service.sparepart));
   }
-  lines.push(columns("Status", safe(service.status)));
 
   lines.push(line());
   const price = service.price === null || !Number.isFinite(service.price) ? EM_DASH : formatCurrencyPlain(service.price);
@@ -144,8 +147,13 @@ export function buildServiceReceiptLines(input: ServiceReceiptInput): string[] {
   }
 
   lines.push(line());
-  lines.push(centerLine("Simpan Nota ini untuk pengambilan device"));
-  lines.push(centerLine("Terima Kasih"));
+  const footer = input.receiptFooterText?.trim();
+  if (footer) {
+    lines.push(...wrap(footer).map((row) => centerLine(row)));
+  } else {
+    lines.push(centerLine("Simpan Nota ini untuk pengambilan device"));
+    lines.push(centerLine("Terima Kasih"));
+  }
   return lines;
 }
 
@@ -162,7 +170,7 @@ export function buildSaleEscpos(
 
 export function buildServiceEscpos(
   input: ServiceReceiptInput,
-  options: { trackingUrl?: string | null; cut?: boolean } = {},
+  options: { trackingUrl?: string | null; cut?: boolean; logo?: EscposRaster | null } = {},
 ): Uint8Array {
   const after: number[] = [];
   if (options.trackingUrl) {
@@ -176,6 +184,7 @@ export function buildServiceEscpos(
   }
   after.push(...align("center"), ...barcode(input.invoiceNo), ...align("left"));
   return renderLines(buildServiceReceiptLines(input), {
+    logo: options.logo ?? null,
     boldLine: (row) => row.startsWith("TOTAL") || row.startsWith("ESTIMASI"),
     afterLines: after,
     cut: options.cut,
@@ -183,6 +192,13 @@ export function buildServiceEscpos(
 }
 
 /* ------------------------------------------------------- ringkasan shift --- */
+
+export type ShiftReceiptAppearance = {
+  logo?: EscposRaster | null;
+  footerText?: string | null;
+  /** Nama tenant/brand untuk header; fallback ke nama cabang dari laporan. */
+  tenantName?: string | null;
+};
 
 function wibDateTime(iso: string): string {
   const date = new Date(iso);
@@ -207,13 +223,32 @@ function durationText(minutes: number): string {
   return `${Math.floor(total / 60)}j ${total % 60}m`;
 }
 
+function paymentMethodBreakdown(report: ShiftReport): { label: string; value: number }[] {
+  const byMethod = new Map<string, number>();
+  for (const sale of report.sales) {
+    const key = sale.method?.trim() || "Tanpa metode";
+    byMethod.set(key, (byMethod.get(key) ?? 0) + sale.paid);
+  }
+  const rows = [...byMethod.entries()]
+    .sort((a, b) => a[0].localeCompare(b[0]))
+    .map(([label, value]) => ({ label, value }));
+  const serviceCounted = report.services
+    .filter((s) => s.counted)
+    .reduce((sum, s) => sum + s.amount, 0);
+  if (serviceCounted > 0) rows.push({ label: "Servis (tanpa penjualan)", value: serviceCounted });
+  return rows;
+}
+
 /**
- * Struk ringkasan shift 58mm. Isinya sengaja lebih lengkap dari tampilan
- * dialog: struk adalah catatan laci, jadi siapa membuka/menutup, berapa lama,
- * sparepart apa yang terpakai, dan hitungan status servis ikut tercetak.
+ * Nota tutup toko 58mm: detail penjualan, servis, kas manual, dan pendapatan
+ * berdasarkan metode pembayaran.
  */
-export function buildShiftReceiptLines(report: ShiftReport): string[] {
-  const lines: string[] = [centerLine(safe(report.branchName, "Toko").toUpperCase(), 16)];
+export function buildShiftReceiptLines(report: ShiftReport, appearance: ShiftReceiptAppearance = {}): string[] {
+  const headerName = appearance.tenantName?.trim() || report.branchName || "Toko";
+  const lines: string[] = [centerLine(safe(headerName, "Toko").toUpperCase(), 16)];
+  if (appearance.tenantName?.trim() && report.branchName) {
+    lines.push(centerLine(`[ ${safe(report.branchName)} ]`));
+  }
 
   lines.push(columns("Open Shift", wibDateTime(report.openAt)));
   lines.push(columns("Open By", safe(report.employeeName)));
@@ -243,9 +278,66 @@ export function buildShiftReceiptLines(report: ShiftReport): string[] {
   if (stats.batal > 0) lines.push(columns("Batal", String(stats.batal)));
   lines.push(line());
 
+  lines.push(`DETAIL PENJUALAN (${report.sales.length})`);
+  if (report.sales.length === 0) {
+    lines.push("  -");
+  } else {
+    for (const sale of report.sales) {
+      lines.push(...wrap(sale.label));
+      const status = sale.settled ? "lunas" : "belum bayar";
+      const meta = [status, sale.method?.trim() || null].filter(Boolean).join(" · ");
+      lines.push(`  ${meta}`);
+      lines.push(columns("  Total", formatCurrencyPlain(sale.amount)));
+      if (sale.paid !== sale.amount) {
+        lines.push(columns("  Diterima", formatCurrencyPlain(sale.paid)));
+      }
+    }
+  }
+  lines.push(line("-"));
+
+  lines.push(`DETAIL SERVIS (${report.services.length})`);
+  if (report.services.length === 0) {
+    lines.push("  -");
+  } else {
+    for (const svc of report.services) {
+      lines.push(...wrap(svc.label));
+      const note = svc.counted ? svc.status : `${svc.status} · lewat penjualan`;
+      lines.push(`  ${note}`);
+      lines.push(columns("  Nominal", formatCurrencyPlain(svc.amount)));
+    }
+  }
+  lines.push(line("-"));
+
+  lines.push(`KAS MANUAL (${report.cashTx.length})`);
+  if (report.cashTx.length === 0) {
+    lines.push("  -");
+  } else {
+    for (const tx of report.cashTx) {
+      const sign = tx.direction === "pemasukan" ? "+" : "-";
+      lines.push(...wrap(`${sign} ${tx.label}`));
+      const meta = [tx.source, tx.metode].filter(Boolean).join(" · ");
+      if (meta) lines.push(`  ${meta}`);
+      lines.push(columns("  Nominal", formatCurrencyPlain(tx.amount)));
+    }
+  }
+  lines.push(line());
+
+  lines.push("PENDAPATAN / METODE");
+  const breakdown = paymentMethodBreakdown(report);
+  if (breakdown.length === 0) {
+    lines.push("  -");
+  } else {
+    for (const row of breakdown) {
+      lines.push(columns(`  ${safe(row.label)}`, formatCurrencyPlain(row.value)));
+    }
+  }
+  lines.push(line());
+
   lines.push(columns("Saldo awal", formatCurrencyPlain(report.openingBalance)));
   lines.push(columns(`Servis (${report.services.length})`, formatCurrencyPlain(report.totals.services)));
   lines.push(columns(`Penjualan (${report.sales.length})`, formatCurrencyPlain(report.totals.sales)));
+  lines.push(columns("Masuk manual", formatCurrencyPlain(report.totals.manualIn)));
+  lines.push(columns("Keluar manual", formatCurrencyPlain(report.totals.manualOut)));
   lines.push(columns("Kas manual", formatCurrencyPlain(report.totals.manualNet)));
   lines.push(line());
   lines.push(columns("Harus ada", formatCurrencyPlain(report.expectedCash)));
@@ -260,16 +352,24 @@ export function buildShiftReceiptLines(report: ShiftReport): string[] {
   );
   if (report.reason?.trim()) lines.push(...wrap(`Catatan: ${report.reason.trim()}`));
   lines.push(line());
+  const footer = appearance.footerText?.trim();
+  if (footer) lines.push(...wrap(footer).map((row) => centerLine(row)));
   lines.push(centerLine(`Dicetak ${wibDateTime(new Date().toISOString())}`));
   return lines;
 }
 
 export function buildShiftEscpos(
   report: ShiftReport,
-  options: { cut?: boolean } = {},
+  options: { cut?: boolean; logo?: EscposRaster | null; footerText?: string | null; tenantName?: string | null } = {},
 ): Uint8Array {
-  return renderLines(buildShiftReceiptLines(report), {
-    boldLine: (row) => row.startsWith("Harus ada") || row.startsWith("Selisih"),
+  return renderLines(buildShiftReceiptLines(report, { footerText: options.footerText, tenantName: options.tenantName }), {
+    logo: options.logo ?? null,
+    boldLine: (row) =>
+      row.startsWith("Harus ada") ||
+      row.startsWith("Selisih") ||
+      row.startsWith("DETAIL") ||
+      row.startsWith("KAS MANUAL") ||
+      row.startsWith("PENDAPATAN"),
     cut: options.cut,
   });
 }

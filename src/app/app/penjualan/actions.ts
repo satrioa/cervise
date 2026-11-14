@@ -440,10 +440,15 @@ export async function checkoutSale(input: CheckoutSaleInput): Promise<CheckoutSa
 }
 
 export type ReceiptContext = {
+  /** Nama tenant/brand. */
   brandName: string | null;
-  tagline: string | null;
-  logoUrl: string | null;
+  /** Nama cabang. */
   branchName: string | null;
+  tagline: string | null;
+  /** Logo nota (utama) dengan fallback logo tenant. */
+  logoUrl: string | null;
+  /** Teks footer nota; null = pakai default. */
+  footerText: string | null;
   address: string | null;
   phone: string | null;
 };
@@ -453,18 +458,25 @@ export async function getReceiptContext(): Promise<ReceiptContext> {
   const actor = await getActiveTenant();
   const { supabase, orgId, branchId } = actor;
   const [{ data: org }, branchResult] = await Promise.all([
-    supabase.from("organizations").select("name, tagline, logo_url").eq("id", orgId).maybeSingle(),
+    supabase
+      .from("organizations")
+      .select("name, tagline, logo_url, receipt_logo_url, receipt_footer_text")
+      .eq("id", orgId)
+      .maybeSingle(),
     branchId
       ? supabase.from("branches").select("name, address, phone").eq("id", branchId).maybeSingle()
       : Promise.resolve({ data: null } as any),
   ]);
   const branch = branchResult?.data as { name?: string; address?: string | null; phone?: string | null } | null;
+  const base = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
+  const receiptLogo = publicPhotoUrl(base, (org as any)?.receipt_logo_url ?? null);
+  const tenantLogo = publicPhotoUrl(base, (org as any)?.logo_url ?? null);
   return {
     brandName: (org as any)?.name ?? null,
-    tagline: (org as any)?.tagline ?? null,
-    // Logo milik tenant; path divalidasi dulu supaya tidak menunjuk host lain.
-    logoUrl: publicPhotoUrl(process.env.NEXT_PUBLIC_SUPABASE_URL ?? "", (org as any)?.logo_url ?? null),
     branchName: branch?.name ?? null,
+    tagline: (org as any)?.tagline ?? null,
+    logoUrl: receiptLogo ?? tenantLogo,
+    footerText: ((org as any)?.receipt_footer_text as string | null | undefined)?.trim() || null,
     address: branch?.address ?? null,
     phone: branch?.phone ?? null,
   };

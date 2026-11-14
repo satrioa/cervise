@@ -72,11 +72,19 @@ export function ShiftReportView({
         ))}
       </Section>
 
+      <Section title="Pendapatan berdasarkan metode pembayaran" empty="Belum ada pendapatan tercatat.">
+        {paymentMethodBreakdown(report).map((row) => (
+          <Row key={row.label} label={row.label} value={rupiah(row.value)} />
+        ))}
+      </Section>
+
       <div className="space-y-1 border-t border-border/60 pt-3">
         <Row label="Omzet servis" value={rupiah(report.totals.services)} />
         <Row label="Omzet penjualan" value={rupiah(report.totals.sales)} />
+        <Row label="Masuk manual" value={rupiah(report.totals.manualIn)} />
+        <Row label="Keluar manual" value={rupiah(report.totals.manualOut)} />
         <Row
-          label="Transaksi manual"
+          label="Kas manual (net)"
           value={`${report.totals.manualNet < 0 ? "-" : "+"} ${rupiah(Math.abs(report.totals.manualNet))}`}
         />
         <div className="flex items-baseline justify-between border-t border-border/60 pt-2 font-medium">
@@ -188,4 +196,18 @@ function Row({
       <span className="shrink-0 font-mono text-xs">{value}</span>
     </div>
   );
+}
+
+function paymentMethodBreakdown(report: ShiftReport): { label: string; value: number }[] {
+  const byMethod = new Map<string, number>();
+  for (const sale of report.sales) {
+    const key = sale.method?.trim() || "Tanpa metode";
+    byMethod.set(key, (byMethod.get(key) ?? 0) + sale.paid);
+  }
+  const rows = [...byMethod.entries()]
+    .sort((a, b) => a[0].localeCompare(b[0]))
+    .map(([label, value]) => ({ label, value }));
+  const serviceCounted = report.services.filter((s) => s.counted).reduce((sum, s) => sum + s.amount, 0);
+  if (serviceCounted > 0) rows.push({ label: "Servis (tanpa penjualan)", value: serviceCounted });
+  return rows;
 }

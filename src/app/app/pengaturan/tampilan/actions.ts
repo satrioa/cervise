@@ -88,6 +88,7 @@ function teksAtauNull(value: unknown, batas: number, nama: string): string | nul
  * juga, bukan hanya saat ditampilkan.
  */
 const FOOTER_NOTE_MAX = 200;
+const RECEIPT_FOOTER_MAX = 200;
 
 export async function saveLacakBranding(input: {
   tagline: string;
@@ -321,4 +322,96 @@ export async function removeLacakLogo() {
   await hapusObjek(data?.logo_url ?? null);
   revalidatePath("/app/pengaturan/tampilan");
   return { ok: true };
+}
+
+export async function saveReceiptAppearance(input: { footerText: string }) {
+  const actor = await requireTampilanAdmin();
+  const receiptFooterText = teksAtauNull(input.footerText ?? "", RECEIPT_FOOTER_MAX, "Footer nota");
+  const { error } = await createAdminClient()
+    .from("organizations")
+    .update({ receipt_footer_text: receiptFooterText })
+    .eq("id", actor.orgId);
+  if (error) throw new Error(error.message);
+  revalidatePath("/app/pengaturan/tampilan");
+  return { ok: true, receiptFooterText };
+}
+
+export async function uploadReceiptLogo(formData: FormData) {
+  const actor = await requireTampilanAdmin();
+  const entry = formData.get("file");
+  if (!(entry instanceof File)) throw new Error("File tidak ditemukan");
+  if (entry.size === 0) throw new Error("File kosong");
+
+  const validation = validatePhotoFile(entry);
+  if (!validation.ok) throw new Error(validation.error);
+
+  const admin = createAdminClient();
+  const { data: current, error: readError } = await admin
+    .from("organizations")
+    .select("receipt_logo_url")
+    .eq("id", actor.orgId)
+    .maybeSingle();
+  if (readError) throw new Error(readError.message);
+
+  const previous = isSafeObjectPath(current?.receipt_logo_url) ? (current!.receipt_logo_url as string) : null;
+  const path = tenantLogoPath(actor.orgId!, validation.extension);
+
+  const { error: uploadError } = await admin.storage
+    .from(PHOTO_BUCKET)
+    .upload(path, entry, { contentType: entry.type, upsert: false });
+  if (uploadError) throw new Error(`Gagal mengunggah logo nota: ${uploadError.message}`);
+
+  const { error: writeError } = await admin
+    .from("organizations")
+    .update({ receipt_logo_url: path })
+    .eq("id", actor.orgId);
+  if (writeError) {
+    await hapusObjek(path);
+    throw new Error(`Gagal menyimpan logo nota: ${writeError.message}`);
+  }
+
+  await hapusObjek(previous);
+  revalidatePath("/app/pengaturan/tampilan");
+  return { ok: true, url: publicPhotoUrl(process.env.NEXT_PUBLIC_SUPABASE_URL ?? "", path) };
+}
+
+export async function removeReceiptLogo() {
+  const actor = await requireTampilanAdmin();
+  const admin = createAdminClient();
+
+  const { data: current, error: readError } = await admin
+    .from("organizations")
+    .select("receipt_logo_url")
+    .eq("id", actor.orgId)
+    .maybeSingle();
+  if (readError) throw new Error(readError.message);
+
+  const previous = isSafeObjectPath(current?.receipt_logo_url) ? (current!.receipt_logo_url as string) : null;
+  const { error } = await admin
+    .from("organizations")
+    .update({ receipt_logo_url: null })
+    .eq("id", actor.orgId);
+  if (error) throw new Error(error.message);
+
+  await hapusObjek(previous);
+  revalidatePath("/app/pengaturan/tampilan");
+  return { ok: true };
+}
+
+/** Pengaturan nota untuk cetak (bisa dibaca role yang boleh mencetak). */
+export async function getReceiptAppearance() {
+  const actor = await getActiveTenant();
+  if (!actor.orgId) return { logoUrl: null as string | null, footerText: null as string | null };
+  const { data } = await createAdminClient()
+    .from("organizations")
+    .select("logo_url, receipt_logo_url, receipt_footer_text")
+    .eq("id", actor.orgId)
+    .maybeSingle();
+  const base = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
+  const receiptLogo = publicPhotoUrl(base, (data as any)?.receipt_logo_url ?? null);
+  const tenantLogo = publicPhotoUrl(base, (data as any)?.logo_url ?? null);
+  return {
+    logoUrl: receiptLogo ?? tenantLogo,
+    footerText: (((data as any)?.receipt_footer_text as string | null | undefined) ?? "").trim() || null,
+  };
 }

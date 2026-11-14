@@ -42,7 +42,18 @@ export type PrintResult = {
  * `components/print-templates.tsx` bisa dipakai langsung tanpa konversi.
  */
 export type ServiceReceiptInput = {
-  branch: { name: string; address: string | null; phone: string | null; website?: string | null };
+  branch: {
+    /** Nama tenant/brand. */
+    name: string;
+    /** Nama cabang untuk badge. */
+    branchName?: string | null;
+    address: string | null;
+    phone: string | null;
+    website?: string | null;
+  };
+  /** URL/logo nota (untuk HTML) dan sumber raster (ESC/POS dimuat terpisah). */
+  receiptLogoUrl?: string | null;
+  receiptFooterText?: string | null;
   invoiceNo: string;
   printTime: string;
   customer: { name: string; phone: string; address?: string | null };

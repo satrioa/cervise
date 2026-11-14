@@ -80,7 +80,7 @@ describe("renderShiftThermalHtml", () => {
 
   it("menuliskan identitas shift", () => {
     const html = renderShiftThermalHtml(report());
-    expect(html).toContain("RINGKASAN SHIFT");
+    expect(html).toContain("LAPORAN TUTUP TOKO");
     expect(html).toContain("Cabang Pusat Bandung");
     expect(html).toContain("Rina");
     expect(html).toContain("2026-09-18");
@@ -145,6 +145,7 @@ describe("renderShiftThermalHtml", () => {
     expect(html).toContain("Rp\u00a0500.000");
     expect(html).toContain("Rp\u00a0950.000");
     expect(html).toContain("Rp\u00a0150.000");
+    expect(html).toContain("Rp\u00a0100.000");
     expect(html).toContain("Rp\u00a01.300.000");
     expect(html).toContain("Rp\u00a01.275.000");
     expect(html).toContain("-Rp\u00a025.000");
@@ -218,12 +219,16 @@ describe("renderShiftThermalHtml", () => {
     expect(renderShiftThermalHtml(report())).not.toContain("window.print()");
   });
 
-  it("tidak membocorkan detail baris servis ke struk ringkasan", () => {
-    // Struk thermal sempit. Rincian per servis dan per penjualan ada di
-    // Laporan Shift; memaksanya ke sini membuat struk jadi beberapa halaman.
+  it("menampilkan detail baris servis, penjualan, kas manual, dan pendapatan per metode", () => {
     const html = renderShiftThermalHtml(report());
-    expect(html).not.toContain("iPhone 13");
-    expect(html).not.toContain("Redmi Note 11");
-    expect(html).not.toContain("SAL-0001");
+    expect(html).toContain("DETAIL PENJUALAN (1)");
+    expect(html).toContain("DETAIL SERVIS (2)");
+    expect(html).toContain("KAS MANUAL (1)");
+    expect(html).toContain("PENDAPATAN / METODE");
+    expect(html).toContain("iPhone 13");
+    expect(html).toContain("Redmi Note 11");
+    expect(html).toContain("SAL-0001");
+    expect(html).toContain("Kas manual masuk");
+    expect(html).toContain("Tunai");
   });
 });

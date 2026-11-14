@@ -517,6 +517,7 @@ function RingkasanHariIni({
       ? `Ringkasan Shift ${report.shiftNumber}`
       : "Ringkasan Hari ini";
   const [detailOpen, setDetailOpen] = useState(false);
+  const { world } = useStyleWorld();
 
   if (!report) {
     return (
@@ -524,8 +525,19 @@ function RingkasanHariIni({
         <FrameHeader>
           <FrameTitle className="truncate">{title}</FrameTitle>
         </FrameHeader>
-        <FramePanel className="flex min-h-0 flex-1 items-center justify-center">
-          <p className="text-sm opacity-60">
+        <FramePanel className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 p-4 text-center">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={
+              world === "scifi"
+                ? "/illustration/empty_state_retro_scifi_register.svg"
+                : "/illustration/empty_state_cash_register.svg"
+            }
+            alt=""
+            className="h-auto w-full max-w-[180px] opacity-95 sm:max-w-[220px]"
+            draggable={false}
+          />
+          <p className="max-w-[240px] text-sm opacity-60">
             Belum ada sesi kas terbuka. Buka kas untuk melihat rekap.
           </p>
         </FramePanel>
@@ -602,11 +614,18 @@ function RingkasanHariIni({
        * memisahkannya dari daftar di atas. Dark mode tetap memakai lapisan
        * putih tipis di atas neutral-900.
        */}
-      <div className="mt-2 shrink-0 rounded-xl bg-black/[0.04] p-2.5 ring-1 ring-black/5 dark:bg-white/[0.06] dark:ring-white/10">
+      <div
+        className={cn(
+          "mt-2 shrink-0 rounded-xl p-2.5 ring-1",
+          world === "scifi"
+            ? "bg-[var(--scifi-primary)] text-[var(--scifi-canvas)] ring-[var(--scifi-primary)] [&_.tabular-nums]:!text-[var(--scifi-canvas)] [&_span]:!text-[var(--scifi-canvas)] font-semibold"
+            : "bg-black/[0.04] ring-black/5 dark:bg-white/[0.06] dark:ring-white/10",
+        )}
+      >
         <TotalRow label="Omzet servis" value={rupiah(report.totals.services)} />
         <TotalRow label="Omzet Penjualan" value={rupiah(report.totals.sales)} />
         <TotalRow label="Transaksi Manual" value={rupiah(report.totals.manualNet)} />
-        <div className="my-2 h-px bg-black/[0.08] dark:bg-white/10" />
+        <div className={cn("my-2 h-px", world === "scifi" ? "bg-[var(--scifi-canvas)]/25" : "bg-black/[0.08] dark:bg-white/10")} />
         <div className="flex items-baseline justify-between gap-2 px-0.5">
           <span className="text-xs font-medium">Harus ada di laci</span>
           <span className="text-lg font-semibold leading-none tabular-nums">{rupiah(report.expectedCash)}</span>

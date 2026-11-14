@@ -23,6 +23,7 @@ import { publicTrackingUrl, renderThermalHtml, toPrintData, type PrintContext } 
 import { printReceipt } from "@/lib/printer";
 import { useBranchOptional } from "@/lib/branch-context";
 import { useTenantOptional } from "@/lib/tenant-context";
+import { getReceiptAppearance } from "@/app/app/pengaturan/tampilan/actions";
 import { playPageTransition } from "@/components/layout/page-transition";
 import type { KondisiAwal } from "@/lib/servis-constants";
 
@@ -39,15 +40,18 @@ export function ServisForm({ onSuccess, onCancel }: ServisFormProps) {
     () => tenantCtx?.tenants.find((t) => t.id === tenantCtx.activeOrgId) ?? null,
     [tenantCtx?.tenants, tenantCtx?.activeOrgId],
   );
-  // Header nota memakai brand organisasi, sama seperti cetak manual di halaman servis.
+  const [receiptAppearance, setReceiptAppearance] = useState<{ logoUrl: string | null; footerText: string | null }>({ logoUrl: null, footerText: null });
+  // Header nota memakai brand organisasi; nama cabang sebagai badge pill.
   const printContext = useMemo<PrintContext>(
     () => ({
       brandName: activeTenant?.name ?? null,
       branchName: branchCtx?.branch.label ?? null,
       phone: branchCtx?.branch.phone ?? null,
       tenantSlug: activeTenant?.slug ?? null,
+      receiptLogoUrl: receiptAppearance.logoUrl,
+      receiptFooterText: receiptAppearance.footerText,
     }),
-    [activeTenant?.name, activeTenant?.slug, branchCtx?.branch.label, branchCtx?.branch.phone],
+    [activeTenant?.name, activeTenant?.slug, branchCtx?.branch.label, branchCtx?.branch.phone, receiptAppearance.logoUrl, receiptAppearance.footerText],
   );
 
   // device
@@ -86,6 +90,10 @@ export function ServisForm({ onSuccess, onCancel }: ServisFormProps) {
   useEffect(() => {
     getTeknisi().then(setTeknisiOpts).catch(() => {});
   }, []);
+
+  useEffect(() => {
+    getReceiptAppearance().then(setReceiptAppearance).catch(() => {});
+  }, [tenantCtx?.activeOrgId]);
 
   const isDirty =
     !!merk || !!tipe || !!imei1 || !!imei2 || kerusakan.length > 0 || kelengkapan.length > 0 || !!passwordValue || !!custName || !!custPhone || !!custAddr || !!teknisiId || garansiVal !== "" || priceEstimasi !== "";

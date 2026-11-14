@@ -30,6 +30,8 @@ export type LandingRow = {
   whatsapp_url?: string | null;
   maps_url?: string | null;
   footer_note?: string | null;
+  receipt_logo_url?: string | null;
+  receipt_footer_text?: string | null;
   lacak_appearance: unknown;
   branches: LandingBranch[] | null;
 };
@@ -51,6 +53,10 @@ export type PublicTenant = {
   whatsappUrl: string | null;
   mapsUrl: string | null;
   footerNote: string | null;
+  /** Logo khusus nota/struk (bukan logo halaman Lacak). */
+  receiptLogoUrl: string | null;
+  /** Teks footer nota/struk. */
+  receiptFooterText: string | null;
   branchAddress: string | null;
   branchPhone: string | null;
 };
@@ -115,6 +121,8 @@ export function toPublicTenant(row: LandingRow, storageBase: string): PublicTena
     whatsappUrl: safeExternalUrl(row.whatsapp_url),
     mapsUrl: safeExternalUrl(row.maps_url),
     footerNote: textOrNull(row.footer_note),
+    receiptLogoUrl: urlFoto(row.receipt_logo_url ?? null),
+    receiptFooterText: textOrNull(row.receipt_footer_text),
     // `branches.city` berisi alamat jalan, bukan nama kota: form admin menulis
     // field berlabel "alamat" ke kolom ini (src/app/app/cabang/actions.ts).
     branchAddress: textOrNull(cabang?.city),

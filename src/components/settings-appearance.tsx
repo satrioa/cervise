@@ -16,7 +16,7 @@ import {
   resolveLacakScheme,
   type LacakAppearance,
 } from "@/lib/operational/lacak-appearance";
-import { LandingSection } from "@/components/settings-appearance-landing";
+import { LandingSection, ReceiptAppearanceSection } from "@/components/settings-appearance-landing";
 import { IPhone17ProMax } from "@/components/ui/apple-iphone-17-pro";
 import type { PublicTenant } from "@/lib/public/landing";
 import type { PublicServisResult } from "@/lib/public/lookup";
@@ -70,6 +70,10 @@ export function SettingsAppearanceShowcasePage({ initial, tenant }: { initial: L
   useEffect(() => {
     setDraft(initial);
   }, [initial]);
+
+  useEffect(() => {
+    setTenant(tenant);
+  }, [tenant]);
 
   const dirty = JSON.stringify(draft) !== JSON.stringify(initial);
 
@@ -261,6 +265,7 @@ export function SettingsAppearanceShowcasePage({ initial, tenant }: { initial: L
         </div>
 
         <LandingSection tenant={tenantData} onSaved={setTenant} />
+        <ReceiptAppearanceSection tenant={tenantData} onSaved={setTenant} />
       </div>
     </div>
   );

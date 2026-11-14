@@ -16,7 +16,7 @@ export default async function TampilanPage() {
   const { data } = await createAdminClient()
     .from("organizations")
     .select(
-      "name, slug, logo_url, banner_urls, tagline, instagram_url, tiktok_url, website_url, facebook_url, x_url, youtube_url, whatsapp_url, maps_url, footer_note, lacak_appearance, branches(id, name, city, phone, is_active, created_at)",
+      "name, slug, logo_url, banner_urls, tagline, instagram_url, tiktok_url, website_url, facebook_url, x_url, youtube_url, whatsapp_url, maps_url, footer_note, receipt_logo_url, receipt_footer_text, lacak_appearance, branches(id, name, city, phone, is_active, created_at)",
     )
     .eq("id", actor.orgId ?? "")
     .maybeSingle();
@@ -37,6 +37,8 @@ export default async function TampilanPage() {
       whatsapp_url: null,
       maps_url: null,
       footer_note: null,
+      receipt_logo_url: null,
+      receipt_footer_text: null,
       lacak_appearance: undefined,
       branches: null,
     }) as LandingRow,

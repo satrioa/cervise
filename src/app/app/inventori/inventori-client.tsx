@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
+import { Pagination } from "@/components/ui/pagination";
 import { Select, SelectItem, SelectPopup, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
 import { InventoriToolbar } from "@/components/inventori/inventori-toolbar";
@@ -14,7 +14,8 @@ import { EditProductDialog } from "@/components/inventori/edit-product-dialog";
 import { ProductPhotoButton } from "@/components/inventori/product-photo";
 import { Checkbox } from "@/components/ui/checkbox";
 import { formatCurrencyPlain } from "@/lib/format";
-import { printSkuLabels, renderSkuLabelHtml, type SkuLabelInput } from "@/lib/printer/label";
+import { renderSkuLabelHtml, type SkuLabelInput } from "@/lib/printer/label";
+import { printSkuLabelsDirect } from "@/lib/printer";
 import { ChevronRightIcon, PencilIcon, PrinterIcon, SearchIcon, SmartphoneIcon, XIcon } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -387,6 +388,7 @@ export function InventoriClient({
   const [pageSize, setPageSize] = useState(10);
   const [editTarget, setEditTarget] = useState<InventoryProduct | null>(null);
   const [labelPreview, setLabelPreview] = useState<SkuLabelInput[] | null>(null);
+  const [printingLabels, setPrintingLabels] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
 
@@ -398,7 +400,7 @@ export function InventoriClient({
     router.replace(pathname, { scroll: false });
   }, [edit, groups, pathname, router]);
 
-  /** Pratinjau dulu; dialog cetak browser baru muncul setelah "Cetak". */
+  /** Pratinjau dulu; cetak langsung ke printer terhubung setelah "Cetak Label". */
   const openLabelPreview = (products: InventoryProduct[]) => {
     if (products.length === 0) return;
     setLabelPreview(
@@ -491,21 +493,7 @@ export function InventoriClient({
             </Select>
             <span>· Menampilkan {(safePage - 1) * pageSize + 1}–{Math.min(safePage * pageSize, filteredGroups.length)} dari {filteredGroups.length}</span>
           </div>
-          <Pagination>
-            <PaginationContent>
-              <PaginationItem>
-                <PaginationPrevious href="#" onClick={(e) => { e.preventDefault(); if (safePage > 1) setPage(safePage - 1); }} aria-disabled={safePage === 1} className={safePage === 1 ? "pointer-events-none opacity-50" : ""} />
-              </PaginationItem>
-              {Array.from({ length: totalPages }, (_, i) => i + 1).slice(Math.max(0, safePage - 3), Math.max(0, safePage - 3) + 5).map((p) => (
-                <PaginationItem key={p}>
-                  <PaginationLink href="#" isActive={p === safePage} onClick={(e) => { e.preventDefault(); setPage(p); }}>{p}</PaginationLink>
-                </PaginationItem>
-              ))}
-              <PaginationItem>
-                <PaginationNext href="#" onClick={(e) => { e.preventDefault(); if (safePage < totalPages) setPage(safePage + 1); }} aria-disabled={safePage === totalPages} className={safePage === totalPages ? "pointer-events-none opacity-50" : ""} />
-              </PaginationItem>
-            </PaginationContent>
-          </Pagination>
+          <Pagination page={safePage} pageCount={totalPages} onPageChange={setPage} />
         </div>
       ) : null}
 
@@ -517,14 +505,14 @@ export function InventoriClient({
         onSuccess={() => router.refresh()}
       />
 
-      <DialogPrimitive.Root open={labelPreview !== null} onOpenChange={(open) => !open && setLabelPreview(null)}>
+      <DialogPrimitive.Root open={labelPreview !== null} onOpenChange={(open) => !open && !printingLabels && setLabelPreview(null)}>
         <DialogPrimitive.Portal>
           <DialogPrimitive.Backdrop className="fixed inset-0 z-50 bg-black/20 backdrop-blur-sm" />
           <DialogPrimitive.Popup className="fixed left-1/2 top-1/2 z-50 flex max-h-[90vh] w-[95vw] max-w-2xl -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-xl border bg-background shadow-2xl">
             <div className="border-b px-5 py-3">
               <DialogPrimitive.Title className="font-heading text-base font-semibold">Pratinjau Label SKU</DialogPrimitive.Title>
               <DialogPrimitive.Description className="text-xs text-muted-foreground">
-                {labelPreview?.length ?? 0} label · 50 × 25 mm
+                {labelPreview?.length ?? 0} label · 50 × 25 mm · dicetak langsung ke printer terhubung
               </DialogPrimitive.Description>
             </div>
             <div className="flex-1 overflow-auto bg-muted/30 p-4">
@@ -535,16 +523,24 @@ export function InventoriClient({
               />
             </div>
             <div className="flex justify-end gap-2 border-t bg-muted/20 px-5 py-3">
-              <Button variant="outline" onClick={() => setLabelPreview(null)}>Batal</Button>
+              <Button variant="outline" disabled={printingLabels} onClick={() => setLabelPreview(null)}>Batal</Button>
               <Button
-                onClick={() => {
-                  if (labelPreview && !printSkuLabels(labelPreview)) {
-                    toast.error("Pop-up diblokir — izinkan pop-up untuk mencetak label");
+                disabled={printingLabels || !labelPreview?.length}
+                onClick={async () => {
+                  if (!labelPreview?.length) return;
+                  setPrintingLabels(true);
+                  try {
+                    await printSkuLabelsDirect(labelPreview);
+                    toast.success("Label dikirim ke printer");
+                    setLabelPreview(null);
+                  } catch (error) {
+                    toast.error(error instanceof Error ? error.message : "Gagal mencetak label");
+                  } finally {
+                    setPrintingLabels(false);
                   }
-                  setLabelPreview(null);
                 }}
               >
-                <PrinterIcon className="size-4" /> Cetak
+                <PrinterIcon className="size-4" /> {printingLabels ? "Mencetak..." : "Cetak Label"}
               </Button>
             </div>
           </DialogPrimitive.Popup>

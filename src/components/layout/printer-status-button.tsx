@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useSyncExternalStore } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { PrinterIcon } from "lucide-react";
 import { Button as CossButton } from "@/components/ui/coss-button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -10,6 +10,7 @@ import {
   getSavedBluetoothPrinter,
   getSavedPrinterType,
   getSavedSerialPort,
+  reconnectSavedPrinter,
 } from "@/lib/printer";
 import { cn } from "@/lib/utils";
 
@@ -27,6 +28,12 @@ export function PrinterStatusButton({ className }: { className?: string }) {
   const mounted = useSyncExternalStore(subscribeNothing, () => true, () => false);
   const [open, setOpen] = useState(false);
   const [, setVersion] = useState(0);
+
+  // Refresh mengosongkan state koneksi in-memory; coba pulihkan izin tersimpan.
+  useEffect(() => {
+    if (!mounted) return;
+    void reconnectSavedPrinter().then(() => setVersion((version) => version + 1));
+  }, [mounted]);
 
   if (!mounted) {
     return (

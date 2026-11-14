@@ -35,19 +35,14 @@ import { updateServisStatus, getServisSpareparts, confirmServisPickup } from "@/
 import { useBranch } from "@/lib/branch-context";
 import { useTenantOptional } from "@/lib/tenant-context";
 import { toPrintData, renderJetHtml, renderDotMatrixHtml, renderThermalHtml, publicTrackingUrl, type PrintContext } from "@/components/print-templates";
+import { getReceiptAppearance } from "@/app/app/pengaturan/tampilan/actions";
 import { printReceipt } from "@/lib/printer";
 import { cn } from "@/lib/utils";
 import { SparepartPickDialog, CancelSparepartDialog } from "@/components/servis/sparepart-dialogs";
 import { PickupSignatureDialog } from "@/components/servis/pickup-signature-dialog";
 import { PageHeader } from "@/components/layout/page-header";
 import { Button as CossButton } from "@/components/ui/coss-button";
-import {
-  Pagination,
-  PaginationContent,
-  PaginationItem,
-  PaginationNext,
-  PaginationPrevious,
-} from "@/components/ui/pagination";
+import { Pagination } from "@/components/ui/pagination";
 import { Skeleton } from "@/components/ui/skeleton";
 import { DOT_COLOR, STAGES, StageTrack, stageIndex, type Stage } from "@/lib/operational/stage-track";
 import { servisLabel } from "@/lib/operational/servis-list";
@@ -246,16 +241,21 @@ export default function ServisPage() {
     () => tenantCtx?.tenants.find((t) => t.id === tenantCtx.activeOrgId) ?? null,
     [tenantCtx?.tenants, tenantCtx?.activeOrgId],
   );
-  // Header struk memakai brand organisasi ("Servisin"), bukan nama cabang
-  // ("Cabang Pusat"). Selector "Semua cabang" tidak pernah jadi nama toko.
+  const [receiptAppearance, setReceiptAppearance] = useState<{ logoUrl: string | null; footerText: string | null }>({ logoUrl: null, footerText: null });
+  useEffect(() => {
+    getReceiptAppearance().then(setReceiptAppearance).catch(() => {});
+  }, [tenantCtx?.activeOrgId]);
+  // Header struk memakai brand organisasi; nama cabang ditampilkan sebagai badge pill.
   const printContext = useMemo<PrintContext>(
     () => ({
       brandName: activeTenant?.name ?? null,
       branchName: branch.id === "all" ? null : branch.label,
       phone: branch.phone ?? null,
       tenantSlug: activeTenant?.slug ?? null,
+      receiptLogoUrl: receiptAppearance.logoUrl,
+      receiptFooterText: receiptAppearance.footerText,
     }),
-    [activeTenant?.name, activeTenant?.slug, branch.id, branch.label, branch.phone],
+    [activeTenant?.name, activeTenant?.slug, branch.id, branch.label, branch.phone, receiptAppearance.logoUrl, receiptAppearance.footerText],
   );
   const [kanbanValue, setKanbanValue] = useState<Record<string, ServisItem[]>>({});
   // Drop terakhir yang menunggu form (Dikerjakan/Batal/Sudah Diambil). Form baru
@@ -965,25 +965,9 @@ export default function ServisPage() {
             )}
           </ul>
           {filteredTable.length > PAGE_SIZE && (
-            <Pagination className="mt-4">
-              <PaginationContent>
-                <PaginationItem>
-                  <PaginationPrevious
-                    render={<button type="button" disabled={pageSafe <= 1} onClick={() => setPage(pageSafe - 1)} />}
-                  />
-                </PaginationItem>
-                <PaginationItem>
-                  <span className="px-3 text-sm text-muted-foreground">
-                    Halaman {pageSafe} dari {totalPages}
-                  </span>
-                </PaginationItem>
-                <PaginationItem>
-                  <PaginationNext
-                    render={<button type="button" disabled={pageSafe >= totalPages} onClick={() => setPage(pageSafe + 1)} />}
-                  />
-                </PaginationItem>
-              </PaginationContent>
-            </Pagination>
+            <div className="mt-4 flex justify-center">
+              <Pagination page={pageSafe} pageCount={totalPages} onPageChange={setPage} />
+            </div>
           )}
           </>
         ) : (

@@ -27,7 +27,8 @@ const sale: SalesReceiptInput = {
 };
 
 const service: ServiceReceiptInput = {
-  branch: { name: "Ekaservice", address: "Jl. Pandanaran 20, Semarang", phone: "6289531467668" },
+  branch: { name: "Ekaservice", branchName: "Cabang Semarang", address: "Jl. Pandanaran 20, Semarang", phone: "6289531467668" },
+  receiptFooterText: "Terima kasih",
   invoiceNo: "SV-2026-0042",
   printTime: "26/10/2026, 14:32",
   customer: { name: "Indah", phone: "628543325676" },
@@ -102,27 +103,33 @@ describe("nota penjualan 58mm", () => {
 });
 
 describe("nota servis 58mm", () => {
-  it("mencetak nomor, perangkat, keluhan, dan total", () => {
-    const text = buildServiceReceiptLines(service).join("\n");
+  it("mencetak header tenant+cabang, nomor, perangkat, kerusakan, status di bawah teknisi, dan total", () => {
+    const lines = buildServiceReceiptLines(service);
+    const text = lines.join("\n");
 
+    expect(lines[0]).toContain("EKASERVICE");
+    expect(text).toContain("[ Cabang Semarang ]");
     expect(text).toContain("SV-2026-0042");
     expect(text).toContain("Samsung Galaxy S23");
-    expect(text).toContain("Keluhan:");
+    expect(text).toContain("Kerusakan:");
     expect(text).toContain("Layar retak");
+    expect(text).toContain("Status");
+    expect(text.indexOf("Teknisi")).toBeLessThan(text.indexOf("Status"));
+    expect(text.indexOf("Status")).toBeLessThan(text.indexOf("Kerusakan:"));
     expect(text).toContain("Garansi");
     expect(text).toContain("1 bulan s/d 26/11/2026");
     expect(text).toContain("1.850.000");
+    expect(text).toContain("Terima kasih");
   });
 
   it("garansi belum aktif: cetak lama garansi, bukan tanda hubung", () => {
-    const belumAktif = {
+    const belumAktif: ServiceReceiptInput = {
       ...service,
       service: { ...service.service, garansiSampai: undefined },
     };
     const text = buildServiceReceiptLines(belumAktif).join("\n");
 
     expect(text).toContain("1 bulan (belum aktif)");
-    expect(text).not.toContain("Garansi s/d");
   });
 
   it("mencetak perangkat sekali, tanpa mengulang merk dan tipe", () => {

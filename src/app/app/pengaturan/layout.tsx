@@ -1,7 +1,11 @@
-import Link from "next/link";
 import { getActiveTenant } from "@/lib/supabase/actor";
 import { NAV_ENTRIES, normalizeAppRole, type NavEntry, type NavGroup } from "@/lib/nav/manifest";
-import { SettingsNav, type SettingsNavGroup } from "@/components/layout/settings-nav";
+import {
+  SettingsMobileNav,
+  SettingsNav,
+  SettingsSectionHeader,
+  type SettingsNavGroup,
+} from "@/components/layout/settings-nav";
 
 /**
  * Sub-sidebar pengaturan.
@@ -23,8 +27,8 @@ import { SettingsNav, type SettingsNavGroup } from "@/components/layout/settings
  */
 
 const GROUP_LABEL: Partial<Record<NavGroup, string>> = {
-  akun: "Account",
-  pengaturan: "Configuration",
+  akun: "Akun",
+  pengaturan: "Pengaturan Tenant",
 };
 
 const GROUP_ORDER: NavGroup[] = ["akun", "pengaturan"];
@@ -53,43 +57,29 @@ export default async function PengaturanLayout({ children }: { children: React.R
         (entry) =>
           entry.surface.includes("legacy") &&
           entry.roles.includes(role) &&
-          entry.href.startsWith("/app/pengaturan") &&
-          // Profil dibangun tanpa sub-nav; sidebar kosong kalau ikut.
-          !entry.href.endsWith("/profil"),
+          entry.href.startsWith("/app/pengaturan"),
       )
     : [];
 
   const groups = buildSettingsGroups(entries);
 
-  // Role ini tidak punya halaman pengaturan selain profil: jangan tampilkan
-  // sidebar yang kosong.
+  // Tidak ada item pengaturan yang boleh dibuka role ini.
   if (groups.length === 0) {
     return <div className="flex-1 min-h-0 overflow-y-auto">{children}</div>;
   }
 
   return (
     <div className="flex min-h-0 flex-1">
-      <aside className="hidden w-[220px] shrink-0 border-r border-border/60 bg-muted/20 lg:flex flex-col">
-        <div className="p-4">
-          <div className="font-mono text-[10px] text-muted-foreground uppercase tracking-[0.3em]">Pengaturan Sistem</div>
-          <p className="mt-1 text-xs text-muted-foreground">Kelola konfigurasi &amp; billing</p>
+      <aside className="hidden w-[232px] shrink-0 border-r border-border/60 bg-muted/10 lg:flex flex-col">
+        <div className="border-b border-border/50 px-4 py-4">
+          <SettingsSectionHeader groups={groups} />
         </div>
         <SettingsNav groups={groups} />
       </aside>
 
       <div className="flex flex-1 flex-col min-w-0">
-        <div className="lg:hidden border-b border-border/60 bg-muted/20 px-4 py-2 overflow-x-auto scrollbar-none">
-          <div className="flex gap-1">
-            {groups.flatMap((block) => block.entries).map((entry) => (
-              <Link
-                key={entry.href}
-                href={entry.href}
-                className="whitespace-nowrap rounded-full border bg-background px-3 py-1.5 text-xs text-muted-foreground transition-colors"
-              >
-                {entry.label}
-              </Link>
-            ))}
-          </div>
+        <div className="lg:hidden border-b border-border/60 bg-muted/10 px-3 py-2 overflow-x-auto scrollbar-none">
+          <SettingsMobileNav groups={groups} />
         </div>
         <div className="flex-1 min-h-0 overflow-y-auto">
           {children}

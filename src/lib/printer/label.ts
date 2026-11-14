@@ -1,13 +1,11 @@
 import { code128Svg } from "@/lib/barcode/code128";
-import { normalizeAscii } from "./escpos";
+import { align, barcode, feed, init, normalizeAscii, text, wrap } from "./escpos";
 import { printHtml } from "./transports/browserPrint";
 
 /**
- * Label harga SKU: 50 × 25 mm, jarak antar label 1 inci.
- *
- * shortcut: selalu lewat dialog cetak browser karena protokol label printer
- * (TSPL/ZPL/ESC-POS) belum diketahui. Ganti ke byte TSPL mentah lewat
- * `transport.write` setelah merek printer label dipastikan.
+ * Label harga SKU.
+ * - Preview HTML: 50 × 25 mm, jarak antar label 1 inci.
+ * - Cetak langsung: ESC/POS ke printer termal yang terhubung (best-effort).
  */
 
 export const LABEL_WIDTH_MM = 50;
@@ -32,11 +30,12 @@ function escapeHtml(value: string): string {
 
 /** Satu label HTML. Harga sengaja tidak dicetak; teks rata tengah. */
 function renderLabel(item: SkuLabelInput): string {
+  const variant = item.variant && item.variant !== "\u2014" ? item.variant : "";
   return `<div class="label">
   <div class="name">${escapeHtml(item.name)}</div>
-  ${item.variant && item.variant !== "—" ? `<div class="meta">${escapeHtml(item.variant)}</div>` : ""}
-  <div class="sku">${escapeHtml(item.sku)}</div>
+  ${variant ? `<div class="meta">${escapeHtml(variant)}</div>` : ""}
   <div class="code">${code128Svg(item.sku, { height: 28, moduleWidth: 1, margin: 2 })}</div>
+  <div class="sku">${escapeHtml(item.sku)}</div>
 </div>`;
 }
 
@@ -62,9 +61,9 @@ export function renderSkuLabelHtml(items: SkuLabelInput[], autoPrint = true): st
   }
   .name { font-size: 8pt; font-weight: 700; line-height: 1.1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .meta { font-size: 6.5pt; line-height: 1.2; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .code { margin-top: auto; display: flex; justify-content: center; }
+  .code svg { width: auto; max-width: 100%; height: 7mm; display: block; margin: 0 auto; }
   .sku { font-size: 6.5pt; font-family: ui-monospace, monospace; letter-spacing: .02em; }
-  .code { margin-top: auto; }
-  .code svg { width: 100%; height: 7mm; display: block; }
 </style>
 </head><body>
 ${items.map(renderLabel).join("\n")}
@@ -72,8 +71,28 @@ ${autoPrint ? "<script>window.print();</script>" : ""}
 </body></html>`;
 }
 
-/** Buka dialog cetak label. Return false kalau pop-up diblokir. */
+/** Buka dialog cetak label (browser). Dipertahankan untuk fallback lama. */
 export function printSkuLabels(items: SkuLabelInput[]): boolean {
   if (items.length === 0) return false;
   return printHtml(renderSkuLabelHtml(items));
+}
+
+/** Byte ESC/POS untuk cetak label ke printer termal terhubung (best-effort). */
+export function buildSkuLabelEscpos(items: SkuLabelInput[]): Uint8Array {
+  const bytes: number[] = [...init()];
+  items.forEach((item, index) => {
+    // Pakai perintah align printer (bukan padding spasi) agar tetap tengah di lebar kertas aktual.
+    bytes.push(...align("center"));
+    for (const row of wrap(item.name, 32).slice(0, 2)) bytes.push(...text(row));
+    const variant = item.variant && item.variant !== "\u2014" ? item.variant : "";
+    if (variant) for (const row of wrap(variant, 32).slice(0, 1)) bytes.push(...text(row));
+    if (item.sku) {
+      bytes.push(...barcode(item.sku, { hri: "none" }));
+      bytes.push(...text(item.sku.slice(0, 32)));
+    }
+    bytes.push(...align("left"));
+    if (index < items.length - 1) bytes.push(...feed(3));
+  });
+  bytes.push(...feed(4));
+  return Uint8Array.from(bytes);
 }

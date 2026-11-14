@@ -1,11 +1,12 @@
 import type { PrinterStatus, PrinterTransport, PrintResult, ReceiptData, TransportId } from "./types";
 import { bestDirectTransport, supportedTransports, transportById } from "./detect";
 import { saveTransport, getSavedPrinterType } from "./storage";
-import { buildSaleEscpos, buildServiceEscpos, buildShiftEscpos } from "./receipt";
+import { buildSaleEscpos, buildServiceEscpos, buildShiftEscpos, type ShiftReceiptAppearance } from "./receipt";
 import { loadLogoRaster } from "./logo";
 import { centerLine, line, renderLines } from "./escpos";
 import { browserPrint, printHtml } from "./transports/browserPrint";
 import type { ShiftReport } from "@/lib/operational/laporan-shift";
+import { buildSkuLabelEscpos, type SkuLabelInput } from "./label";
 
 /**
  * API publik cetak nota.
@@ -26,12 +27,39 @@ function activeDirect(): PrinterTransport | null {
   return bestDirectTransport();
 }
 
+let reconnecting: Promise<PrinterStatus> | null = null;
+
 async function ensureConnected(transport: PrinterTransport): Promise<void> {
   if (transport.isConnected()) return;
   // `reconnect()` memakai izin yang sudah ada; kalau gagal, `connect()` akan
   // menampilkan chooser perangkat (masih dalam gesture klik yang sama).
   if (await transport.reconnect()) return;
   await transport.connect();
+}
+
+/**
+ * Coba sambung ulang printer tersimpan tanpa chooser perangkat.
+ *
+ * Dipakai saat load: refresh halaman mengosongkan state koneksi in-memory,
+ * tapi izin browser (getDevices/getPorts) sering masih ada. Tidak pernah
+ * memanggil `connect()` agar tidak memunculkan prompt tanpa gesture.
+ */
+export async function reconnectSavedPrinter(): Promise<PrinterStatus> {
+  if (reconnecting) return reconnecting;
+  reconnecting = (async () => {
+    const transport = activeDirect();
+    if (transport && !transport.isConnected()) {
+      try {
+        await transport.reconnect();
+      } catch {
+        // Device mati/izin hilang: biarkan status offline.
+      }
+    }
+    return getPrinterStatus();
+  })().finally(() => {
+    reconnecting = null;
+  });
+  return reconnecting;
 }
 
 export async function connectPrinter(id?: TransportId): Promise<PrinterStatus> {
@@ -71,7 +99,10 @@ export async function printReceipt(data: ReceiptData): Promise<PrintResult> {
           ? buildSaleEscpos(data, {
               logo: data.context.logoUrl ? await loadLogoRaster(data.context.logoUrl) : null,
             })
-          : buildServiceEscpos(data.service, { trackingUrl: data.trackingUrl });
+          : buildServiceEscpos(data.service, {
+              trackingUrl: data.trackingUrl,
+              logo: data.service.receiptLogoUrl ? await loadLogoRaster(data.service.receiptLogoUrl) : null,
+            });
       await transport.write(bytes);
       saveTransport(transport.id);
       return { transport: transport.id, fallback: false };
@@ -90,6 +121,12 @@ export async function printReceipt(data: ReceiptData): Promise<PrintResult> {
   throw new Error("Pop-up diblokir — izinkan pop-up untuk mencetak nota");
 }
 
+export type ShiftReceiptPrintOptions = {
+  logoUrl?: string | null;
+  footerText?: string | null;
+  tenantName?: string | null;
+};
+
 /**
  * Cetak struk ringkasan shift langsung ke printer yang tersimpan.
  *
@@ -98,13 +135,23 @@ export async function printReceipt(data: ReceiptData): Promise<PrintResult> {
  * membuka dialog cetak. Dengan begitu Tutup Toko bisa mencetak otomatis tanpa
  * dialog saat printer sudah terhubung, tapi struk tidak pernah hilang.
  */
-export async function printShiftReceipt(report: ShiftReport): Promise<PrintResult> {
+export async function printShiftReceipt(
+  report: ShiftReport,
+  options: ShiftReceiptPrintOptions = {},
+): Promise<PrintResult> {
   const transport = activeDirect();
   if (!transport) throw new Error(NO_TRANSPORT);
 
   try {
     await ensureConnected(transport);
-    await transport.write(buildShiftEscpos(report));
+    const logo = options.logoUrl ? await loadLogoRaster(options.logoUrl) : null;
+    await transport.write(
+      buildShiftEscpos(report, {
+        logo,
+        footerText: options.footerText,
+        tenantName: options.tenantName,
+      }),
+    );
     saveTransport(transport.id);
     return { transport: transport.id, fallback: false };
   } catch (cause) {
@@ -114,7 +161,24 @@ export async function printShiftReceipt(report: ShiftReport): Promise<PrintResul
   }
 }
 
-/** Nota contoh untuk tombol "Cetak Tes" di pengaturan. */export async function printTest(): Promise<PrintResult> {
+/** Cetak label SKU langsung ke printer terhubung (tanpa dialog browser). */
+export async function printSkuLabelsDirect(items: SkuLabelInput[]): Promise<PrintResult> {
+  if (items.length === 0) throw new Error("Tidak ada label untuk dicetak");
+  const transport = activeDirect();
+  if (!transport) throw new Error("Printer belum terhubung. Hubungkan printer di Pengaturan terlebih dahulu.");
+  try {
+    await ensureConnected(transport);
+    await transport.write(buildSkuLabelEscpos(items));
+    saveTransport(transport.id);
+    return { transport: transport.id, fallback: false };
+  } catch (cause) {
+    await transport.disconnect().catch(() => {});
+    throw cause instanceof Error ? cause : new Error("Printer gagal dipakai");
+  }
+}
+
+/** Nota contoh untuk tombol "Cetak Tes" di pengaturan. */
+export async function printTest(): Promise<PrintResult> {
   const transport = activeDirect();
   if (!transport) throw new Error(NO_TRANSPORT);
   if (transport.id === "rawbt") throw new Error("RawBT tidak mendukung cetak tes langsung; pilih transport lain atau hubungkan perangkat");

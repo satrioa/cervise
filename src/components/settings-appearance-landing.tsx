@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { Images, PlusIcon } from "lucide-react";
@@ -9,15 +9,20 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { ImageCropDialog } from "@/components/image-crop-dialog";
 import {
   removeLacakBanner,
   removeLacakLogo,
+  removeReceiptLogo,
   saveLacakBranding,
+  saveReceiptAppearance,
   uploadLacakBanner,
   uploadLacakLogo,
+  uploadReceiptLogo,
 } from "@/app/app/pengaturan/tampilan/actions";
 import { playPageTransition } from "@/components/layout/page-transition";
 import { MAX_BANNERS, type PublicTenant } from "@/lib/public/landing";
+import { validatePhotoFile } from "@/lib/photos";
 
 /**
  * Banner, tagline, sosial, dan testimoni - data yang dipakai header dan
@@ -61,6 +66,46 @@ export function LandingSection({
   const [uploading, setUploading] = useState<number | null>(null);
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const slotRef = useRef(0);
+  const cropSrcRef = useRef<string | null>(null);
+  const [cropState, setCropState] = useState<
+    | { src: string; aspect: number; fileName: string; mimeType: string; target: "logo" | number }
+    | null
+  >(null);
+
+  useEffect(() => {
+    setTagline(tenant.tagline ?? "");
+    setInstagramUrl(tenant.instagramUrl ?? "");
+    setTiktokUrl(tenant.tiktokUrl ?? "");
+    setWebsiteUrl(tenant.websiteUrl ?? "");
+    setFacebookUrl(tenant.facebookUrl ?? "");
+    setXUrl(tenant.xUrl ?? "");
+    setYoutubeUrl(tenant.youtubeUrl ?? "");
+    setWhatsappUrl(tenant.whatsappUrl ?? "");
+    setMapsUrl(tenant.mapsUrl ?? "");
+    setFooterNote(tenant.footerNote ?? "");
+    setBannerUrls(tenant.bannerUrls);
+    setShownSocials(() => {
+      const s = new Set<string>(["instagram"]);
+      if (tenant.tiktokUrl) s.add("tiktok");
+      if (tenant.whatsappUrl) s.add("whatsapp");
+      if (tenant.websiteUrl) s.add("website");
+      if (tenant.facebookUrl) s.add("facebook");
+      if (tenant.xUrl) s.add("x");
+      if (tenant.youtubeUrl) s.add("youtube");
+      if (tenant.mapsUrl) s.add("maps");
+      return s;
+    });
+  }, [tenant]);
+
+  const clearCrop = useCallback(() => {
+    if (cropSrcRef.current) {
+      URL.revokeObjectURL(cropSrcRef.current);
+      cropSrcRef.current = null;
+    }
+    setCropState(null);
+  }, []);
+
+  useEffect(() => () => clearCrop(), [clearCrop]);
 
   const ganti = (patch: Partial<PublicTenant>) => onSaved({ ...tenant, ...patch });
 
@@ -99,6 +144,20 @@ export function LandingSection({
     } finally {
       setSaving(false);
     }
+  };
+
+  const openCrop = (file: File, target: "logo" | number, aspect: number) => {
+    const validation = validatePhotoFile(file);
+    if (!validation.ok) {
+      toast.error(validation.error);
+      if (fileRef.current) fileRef.current.value = "";
+      if (logoFileRef.current) logoFileRef.current.value = "";
+      return;
+    }
+    clearCrop();
+    const url = URL.createObjectURL(file);
+    cropSrcRef.current = url;
+    setCropState({ src: url, aspect, fileName: file.name, mimeType: file.type, target });
   };
 
   const handleUpload = async (file: File) => {
@@ -193,7 +252,8 @@ export function LandingSection({
               className="hidden"
               onChange={(e) => {
                 const file = e.target.files?.[0];
-                if (file) void handleUploadLogo(file);
+                if (file) openCrop(file, "logo", 1);
+                if (logoFileRef.current) logoFileRef.current.value = "";
               }}
             />
             <Button size="sm" type="button" disabled={uploadingLogo} onClick={() => logoFileRef.current?.click()}>
@@ -223,7 +283,8 @@ export function LandingSection({
           className="hidden"
           onChange={(e) => {
             const file = e.target.files?.[0];
-            if (file) void handleUpload(file);
+            if (file) openCrop(file, slotRef.current, 2);
+            if (fileRef.current) fileRef.current.value = "";
           }}
         />
         <div className="mt-4 grid gap-3 sm:grid-cols-3">
@@ -384,6 +445,205 @@ export function LandingSection({
           </div>
         </div>
       </section>
+
+      <ImageCropDialog
+        open={cropState !== null}
+        src={cropState?.src ?? null}
+        aspect={cropState?.aspect ?? 1}
+        title={cropState?.target === "logo" ? "Potong logo" : "Potong banner"}
+        description={
+          cropState?.target === "logo"
+            ? "Sesuaikan area persegi (1:1) untuk logo."
+            : "Sesuaikan area banner (rasio 2:1)."
+        }
+        fileName={cropState?.fileName}
+        mimeType={cropState?.mimeType}
+        onOpenChange={(next) => {
+          if (!next) clearCrop();
+        }}
+        onComplete={(file) => {
+          const target = cropState?.target;
+          clearCrop();
+          if (target === "logo") void handleUploadLogo(file);
+          else if (typeof target === "number") {
+            slotRef.current = target;
+            void handleUpload(file);
+          }
+        }}
+      />
+    </div>
+  );
+}
+
+/** Pengaturan tampilan nota/struk: logo dan teks footer (terpisah dari halaman Lacak). */
+export function ReceiptAppearanceSection({
+  tenant,
+  onSaved,
+}: {
+  tenant: PublicTenant;
+  onSaved: (next: PublicTenant) => void;
+}) {
+  const router = useRouter();
+  const fileRef = useRef<HTMLInputElement>(null);
+  const cropSrcRef = useRef<string | null>(null);
+  const [footerText, setFooterText] = useState(tenant.receiptFooterText ?? "");
+  const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [cropState, setCropState] = useState<{ src: string; fileName: string; mimeType: string } | null>(null);
+
+  useEffect(() => {
+    setFooterText(tenant.receiptFooterText ?? "");
+  }, [tenant.receiptFooterText]);
+
+  const ganti = (patch: Partial<PublicTenant>) => onSaved({ ...tenant, ...patch });
+
+  const clearCrop = useCallback(() => {
+    if (cropSrcRef.current) {
+      URL.revokeObjectURL(cropSrcRef.current);
+      cropSrcRef.current = null;
+    }
+    setCropState(null);
+  }, []);
+
+  useEffect(() => () => clearCrop(), [clearCrop]);
+
+  const handleUpload = async (file: File) => {
+    setUploading(true);
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      const hasil = await uploadReceiptLogo(form);
+      ganti({ receiptLogoUrl: hasil.url ?? null });
+      playPageTransition();
+      router.refresh();
+      toast.success("Logo nota diperbarui");
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : "Gagal mengunggah logo nota");
+    } finally {
+      setUploading(false);
+      if (fileRef.current) fileRef.current.value = "";
+    }
+  };
+
+  const handleRemove = async () => {
+    setUploading(true);
+    try {
+      await removeReceiptLogo();
+      ganti({ receiptLogoUrl: null });
+      playPageTransition();
+      router.refresh();
+      toast.success("Logo nota dihapus");
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : "Gagal menghapus logo nota");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      const hasil = await saveReceiptAppearance({ footerText });
+      ganti({ receiptFooterText: hasil.receiptFooterText ?? (footerText.trim() || null) });
+      playPageTransition();
+      router.refresh();
+      toast.success("Tampilan nota disimpan");
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : "Gagal menyimpan tampilan nota");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const openCrop = (file: File) => {
+    const validation = validatePhotoFile(file);
+    if (!validation.ok) {
+      toast.error(validation.error);
+      if (fileRef.current) fileRef.current.value = "";
+      return;
+    }
+    clearCrop();
+    const url = URL.createObjectURL(file);
+    cropSrcRef.current = url;
+    setCropState({ src: url, fileName: file.name, mimeType: file.type });
+  };
+
+  return (
+    <div className="mt-12 space-y-8 border-t pt-10">
+      <section>
+        <SectionHead
+          title="Tampilan Nota"
+          hint="Logo dan teks footer yang dicetak pada nota/struk (penjualan, servis, tutup toko)."
+        />
+        <div className="mt-4 flex flex-wrap items-center gap-4">
+          <div className="relative h-14 w-14 overflow-hidden rounded-lg border border-border/60 bg-muted/40">
+            {tenant.receiptLogoUrl ? (
+              <Image src={tenant.receiptLogoUrl} alt="Logo nota" fill sizes="80px" unoptimized className="object-contain p-1" />
+            ) : (
+              <div className="flex size-full items-center justify-center text-center text-[10px] text-muted-foreground">
+                Belum ada logo
+              </div>
+            )}
+          </div>
+          <div className="flex flex-col gap-2">
+            <input
+              ref={fileRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) openCrop(file);
+                if (fileRef.current) fileRef.current.value = "";
+              }}
+            />
+            <Button size="sm" type="button" disabled={uploading} onClick={() => fileRef.current?.click()}>
+              {uploading ? "Mengunggah..." : tenant.receiptLogoUrl ? "Ganti logo" : "Unggah logo"}
+            </Button>
+            {tenant.receiptLogoUrl ? (
+              <Button size="sm" type="button" variant="outline" disabled={uploading} onClick={() => void handleRemove()}>
+                Hapus logo
+              </Button>
+            ) : null}
+            <p className="max-w-xs text-[11px] text-muted-foreground">
+              JPG, PNG, atau WEBP, maksimal 2.0 MB. Disarankan persegi (1:1) agar rapi di struk.
+            </p>
+          </div>
+        </div>
+        <div className="mt-6 max-w-2xl space-y-4">
+          <div className="space-y-1.5">
+            <Label className="font-mono text-[10px] uppercase tracking-[0.2em]">Footer nota</Label>
+            <Input
+              value={footerText}
+              maxLength={200}
+              onChange={(e) => setFooterText(e.target.value)}
+              placeholder="Contoh: Terima kasih telah mempercayai kami"
+            />
+          </div>
+          <div className="flex justify-end">
+            <Button size="sm" type="button" disabled={saving} onClick={() => void handleSave()}>
+              {saving ? "Menyimpan..." : "Simpan tampilan nota"}
+            </Button>
+          </div>
+        </div>
+      </section>
+
+      <ImageCropDialog
+        open={cropState !== null}
+        src={cropState?.src ?? null}
+        aspect={1}
+        title="Potong logo nota"
+        description="Sesuaikan area persegi (1:1) untuk logo nota."
+        fileName={cropState?.fileName}
+        mimeType={cropState?.mimeType}
+        onOpenChange={(next) => {
+          if (!next) clearCrop();
+        }}
+        onComplete={(file) => {
+          clearCrop();
+          void handleUpload(file);
+        }}
+      />
     </div>
   );
 }

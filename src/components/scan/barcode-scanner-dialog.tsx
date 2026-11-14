@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { Loader2 } from "lucide-react";
 import {
   Dialog,
@@ -10,18 +10,12 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 
-type ScannerControls = { stop: () => void };
-
 /**
  * Dialog kamera untuk scan barcode.
  *
- * `@zxing/browser` diimpor dinamis saat dialog dibuka: paketnya besar
- * (~120KB gzip) dan tidak tree-shakeable, jadi tidak boleh ikut bundle awal
- * halaman POS. `BarcodeDetector` sengaja tidak dipakai karena tidak ada di
- * Safari/iOS.
- *
- * `onDetected` disimpan di ref supaya effect tidak perlu ikut re-run setiap
- * render induk — kamera cukup dibuka sekali per `open`.
+ * `html5-qrcode` diimpor dinamis saat dialog dibuka agar tidak ikut bundle awal
+ * halaman POS. `onDetected`/`onOpenChange` disimpan di ref supaya kamera cukup
+ * dibuka sekali per `open`.
  */
 export function BarcodeScannerDialog({
   open,
@@ -36,10 +30,11 @@ export function BarcodeScannerDialog({
   title?: string;
   description?: string;
 }) {
-  const videoRef = useRef<HTMLVideoElement>(null);
   const [error, setError] = useState<string | null>(null);
   const detected = useRef(onDetected);
   const changeOpen = useRef(onOpenChange);
+  const uid = useId().replace(/:/g, "");
+  const regionId = `barcode-scan-${uid}`;
 
   useEffect(() => {
     detected.current = onDetected;
@@ -50,29 +45,65 @@ export function BarcodeScannerDialog({
     if (!open) return;
     setError(null);
 
-    let controls: ScannerControls | null = null;
+    let scanner: { stop: () => Promise<void>; clear: () => void } | null = null;
     let cancelled = false;
     let handled = false;
 
     void (async () => {
       try {
-        const { BrowserMultiFormatReader } = await import("@zxing/browser");
-        const video = videoRef.current;
-        if (cancelled || !video) return;
+        const { Html5Qrcode, Html5QrcodeSupportedFormats } = await import("html5-qrcode");
+        if (cancelled) return;
 
-        controls = await new BrowserMultiFormatReader().decodeFromConstraints(
-          { video: { facingMode: { ideal: "environment" } } },
-          video,
-          (result) => {
-            const value = result?.getText().trim();
+        const instance = new Html5Qrcode(regionId, {
+          verbose: false,
+          formatsToSupport: [
+            Html5QrcodeSupportedFormats.CODE_128,
+            Html5QrcodeSupportedFormats.CODE_39,
+            Html5QrcodeSupportedFormats.CODE_93,
+            Html5QrcodeSupportedFormats.EAN_13,
+            Html5QrcodeSupportedFormats.EAN_8,
+            Html5QrcodeSupportedFormats.ITF,
+            Html5QrcodeSupportedFormats.UPC_A,
+            Html5QrcodeSupportedFormats.UPC_E,
+            Html5QrcodeSupportedFormats.CODABAR,
+            Html5QrcodeSupportedFormats.QR_CODE,
+          ],
+        });
+        scanner = instance;
+
+        await instance.start(
+          { facingMode: "environment" },
+          { fps: 10, qrbox: { width: 280, height: 140 }, aspectRatio: 1.333 },
+          (decodedText) => {
+            const value = decodedText?.trim();
             if (!value || handled) return;
             handled = true;
-            controls?.stop();
-            detected.current(value);
-            changeOpen.current(false);
+            void instance
+              .stop()
+              .catch(() => {})
+              .then(() => {
+                try {
+                  instance.clear();
+                } catch {
+                  /* ignore */
+                }
+                detected.current(value);
+                changeOpen.current(false);
+              });
+          },
+          () => {
+            /* frame tanpa kode: abaikan agar tetap "Mencari barcode…" */
           },
         );
-        if (cancelled) controls.stop();
+
+        if (cancelled) {
+          await instance.stop().catch(() => {});
+          try {
+            instance.clear();
+          } catch {
+            /* ignore */
+          }
+        }
       } catch {
         if (!cancelled) {
           setError(
@@ -84,12 +115,18 @@ export function BarcodeScannerDialog({
 
     return () => {
       cancelled = true;
-      controls?.stop();
-      const stream = videoRef.current?.srcObject as MediaStream | null;
-      stream?.getTracks().forEach((track) => track.stop());
-      if (videoRef.current) videoRef.current.srcObject = null;
+      void scanner
+        ?.stop()
+        .catch(() => {})
+        .then(() => {
+          try {
+            scanner?.clear();
+          } catch {
+            /* ignore */
+          }
+        });
     };
-  }, [open]);
+  }, [open, regionId]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -100,11 +137,9 @@ export function BarcodeScannerDialog({
         </DialogHeader>
 
         <div className="relative aspect-[4/3] w-full overflow-hidden bg-black">
-          <video
-            ref={videoRef}
-            muted
-            playsInline
-            className="size-full object-cover"
+          <div
+            id={regionId}
+            className="size-full [&_video]:!h-full [&_video]:!w-full [&_video]:!object-cover [&_img]:hidden [&>div]:!h-full [&>div]:!w-full"
           />
           {error ? (
             <p className="absolute inset-0 flex items-center justify-center p-4 text-center text-xs text-white/80">

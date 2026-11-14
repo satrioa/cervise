@@ -1,39 +1,19 @@
 /**
- * Struk thermal 58mm untuk ringkasan shift.
- *
- * Berbeda dengan `renderThermalHtml` di `print-templates.tsx` yang mencetak
- * nota servis lengkap, struk ini hanya ringkasan: total per sumber dan angka
- * kas. Struk thermal sempit dan tujuannya jadi catatan cepat di laci, bukan
- * laporan yang dibaca ulang. Laporan lengkap tetap ada di Laporan Shift dan
- * tombol PDF di sana.
- *
- * Format (58mm, monospace, pemisah putus-putus) mengikuti `renderThermalHtml`
- * supaya dua struk dari app ini terlihat berasal dari satu keluarga.
- *
- * Cetak lewat dialog cetak browser, bukan driver printer: sama seperti seluruh
- * cetak di app ini. Struk thermal dipilih sebagai printer tujuan di dialog itu.
+ * Struk thermal 58mm untuk laporan tutup toko (detail).
+ * Dipakai sebagai fallback dialog cetak browser bila printer langsung tidak tersedia.
  */
 
 import { rupiah, type ShiftReport } from "@/lib/operational/laporan-shift";
 import { printShiftReceipt } from "@/lib/printer";
+import { getReceiptAppearance } from "@/app/app/pengaturan/tampilan/actions";
 
-/** Jam toko dalam zona waktu cabang. */
-function clockTime(iso: string): string {
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return iso;
-  // `en-GB`, bukan `id-ID`: id-ID memakai titik sebagai pemisah jam, sehingga
-  // jam 10 Output "10.00" dan "23.59" - di struk sekecil ini keduanya terbaca
-  // seperti angka desimal. en-GB memakai titik dua, sesuai kolom jam di struk
-  // nota servis.
-  return new Intl.DateTimeFormat("en-GB", {
-    timeZone: "Asia/Jakarta",
-    hour: "2-digit",
-    minute: "2-digit",
-    hourCycle: "h23",
-  }).format(date);
-}
+export type ShiftPrintAppearance = {
+  logoUrl?: string | null;
+  footerText?: string | null;
+  tenantName?: string | null;
+};
 
-/** Tanggal + jam WIB, untuk header dan baris "Dicetak". */
+/** Jam/tanggal WIB. */
 function stampTime(iso: string): string {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return iso;
@@ -43,7 +23,13 @@ function stampTime(iso: string): string {
     month: "2-digit",
     year: "numeric",
   }).format(date);
-  return `${day} ${clockTime(iso)}`;
+  const time = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Asia/Jakarta",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).format(date);
+  return `${day} ${time}`;
 }
 
 function durationText(minutes: number): string {
@@ -51,37 +37,75 @@ function durationText(minutes: number): string {
   return `${Math.floor(total / 60)}j ${total % 60}m`;
 }
 
-/** Baris label/kolor nilai. Nilai selalu dirata-kanan agar kolom rupiah lurus. */
 function row(label: string, value: string): string {
   return `<div class="row"><span>${escapeHtml(label)}</span><span class="n">${escapeHtml(value)}</span></div>`;
 }
 
-/**
- * HTML struk ringkasan shift.
- *
- * Semua nilai dari laporan masuk lewat `escapeHtml`. `reason` ditulis sendiri
- * oleh frontliner, jadi isinya bukan data tepercaya - tanpa escaping, satu
- * karakter `<` membatalkan seluruh markup struk.
- */
-export function renderShiftThermalHtml(report: ShiftReport): string {
+function paymentMethodBreakdown(report: ShiftReport): { label: string; value: number }[] {
+  const byMethod = new Map<string, number>();
+  for (const sale of report.sales) {
+    const key = sale.method?.trim() || "Tanpa metode";
+    byMethod.set(key, (byMethod.get(key) ?? 0) + sale.paid);
+  }
+  const rows = [...byMethod.entries()]
+    .sort((a, b) => a[0].localeCompare(b[0]))
+    .map(([label, value]) => ({ label, value }));
+  const serviceCounted = report.services.filter((s) => s.counted).reduce((sum, s) => sum + s.amount, 0);
+  if (serviceCounted > 0) rows.push({ label: "Servis (tanpa penjualan)", value: serviceCounted });
+  return rows;
+}
+
+/** HTML struk laporan tutup toko (detail). */
+export function renderShiftThermalHtml(report: ShiftReport, appearance: ShiftPrintAppearance = {}): string {
   const { totals } = report;
-
-  // Tanda untuk kas manual diambil dari `rupiah()` sendiri, bukan ditambahkan
-  // di sini. `Intl` sudah menaruh tanda minus sebelum "Rp" (sehingga
-  // "-Rp 40.000"), jadi kalau tanda ditambahkan lagi hasilnya "+ Rp 40.000"
-  // untuk pengeluaran - tanda maju, sementara selisih di bawah tampil
-  // "-Rp 40.000" - tanda mundur. Dua bentuk tanda dalam satu struk.
-  const manualNet = rupiah(totals.manualNet);
-
-  // Selisih boleh null kalau saldo akhir belum diisi, walau pada alur Tutup
-  // Toko normalnya sudah terisi. Struk tetap dicetak dengan "—" supaya
-  // struknya tidak berlubang di tengah.
+  const tenantName = appearance.tenantName?.trim() || report.branchName;
   const variance = report.variance === null ? "—" : rupiah(report.variance);
   const closing = report.closingBalance === null ? "—" : rupiah(report.closingBalance);
+  const breakdown = paymentMethodBreakdown(report);
+  const stats = report.serviceStats ?? { masuk: report.services.length, selesai: 0, diambil: 0, batal: 0 };
 
-  return `<!doctype html><html lang="id"><head><meta charset="utf-8"><title>Ringkasan Shift ${escapeHtml(
-    report.date,
-  )}</title>
+  const salesHtml =
+    report.sales.length === 0
+      ? `<div class="note">-</div>`
+      : report.sales
+          .map((s) => {
+            const meta = [s.settled ? "lunas" : "belum bayar", s.method?.trim() || null].filter(Boolean).join(" · ");
+            const received = s.paid !== s.amount ? row("Diterima", rupiah(s.paid)) : "";
+            return `<div class="item"><div class="bold">${escapeHtml(s.label)}</div><div class="note">${escapeHtml(meta)}</div>${row("Total", rupiah(s.amount))}${received}</div>`;
+          })
+          .join("");
+
+  const servicesHtml =
+    report.services.length === 0
+      ? `<div class="note">-</div>`
+      : report.services
+          .map((s) => {
+            const note = s.counted ? s.status : `${s.status} · lewat penjualan`;
+            return `<div class="item"><div class="bold">${escapeHtml(s.label)}</div><div class="note">${escapeHtml(note)}</div>${row("Nominal", rupiah(s.amount))}</div>`;
+          })
+          .join("");
+
+  const cashHtml =
+    report.cashTx.length === 0
+      ? `<div class="note">-</div>`
+      : report.cashTx
+          .map((tx) => {
+            const sign = tx.direction === "pemasukan" ? "+" : "-";
+            const meta = [tx.source, tx.metode].filter(Boolean).join(" · ");
+            return `<div class="item"><div class="bold">${escapeHtml(`${sign} ${tx.label}`)}</div>${meta ? `<div class="note">${escapeHtml(meta)}</div>` : ""}${row("Nominal", rupiah(tx.amount))}</div>`;
+          })
+          .join("");
+
+  const breakdownHtml =
+    breakdown.length === 0
+      ? `<div class="note">-</div>`
+      : breakdown.map((b) => row(b.label, rupiah(b.value))).join("\n  ");
+
+  const footer = appearance.footerText?.trim()
+    ? `<div class="center note" style="margin-top:4px;">${escapeHtml(appearance.footerText.trim())}</div>`
+    : "";
+
+  return `<!doctype html><html lang="id"><head><meta charset="utf-8"><title>Laporan Tutup Toko ${escapeHtml(report.date)}</title>
 <style>
   @page { size: 58mm auto; margin: 0; }
   *{box-sizing:border-box;}
@@ -92,11 +116,15 @@ export function renderShiftThermalHtml(report: ShiftReport): string {
   .row{ display:flex; justify-content:space-between; gap:4px; }
   .n{ white-space:nowrap; font-variant-numeric:tabular-nums; }
   .note{ font-size:9px; word-break:break-word; }
+  .item{ margin:4px 0; }
+  .pill{ display:inline-block; border:1px solid #000; border-radius:999px; padding:1px 8px; font-size:10px; margin-top:2px; }
   @media print{ body{ width:58mm; margin:0; } }
 </style>
 </head><body>
-  <div class="center bold" style="font-size:12px;">RINGKASAN SHIFT</div>
-  <div class="center">${escapeHtml(report.branchName)}</div>
+  ${appearance.logoUrl ? `<div class="center" style="margin-bottom:4px;"><img src="${escapeHtml(appearance.logoUrl)}" alt="" style="max-height:36px; max-width:120px; object-fit:contain;" /></div>` : ""}
+  <div class="center bold" style="font-size:12px;">LAPORAN TUTUP TOKO</div>
+  <div class="center bold">${escapeHtml(tenantName)}</div>
+  ${appearance.tenantName?.trim() && report.branchName ? `<div class="center"><span class="pill">${escapeHtml(report.branchName)}</span></div>` : ""}
   <div class="center" style="font-size:9px;">${escapeHtml(report.date)}</div>
   <hr class="sep">
   ${row("Open Shift", stampTime(report.openAt))}
@@ -105,41 +133,55 @@ export function renderShiftThermalHtml(report: ShiftReport): string {
   ${row("Close By", report.closedByName?.trim() || "—")}
   ${row("Total Duration", durationText(report.durationMinutes ?? 0))}
   <hr class="sep">
-  ${report.spareparts && report.spareparts.length > 0
-    ? `<div class="bold">Sparepart terpakai</div>
-  ${report.spareparts.map((part) => row(part.name, `x${part.qty}`)).join("\n  ")}
-  <hr class="sep">`
-    : ""}
-  ${row("Servis Masuk", String(report.serviceStats?.masuk ?? report.services.length))}
-  ${(report.serviceStats?.selesai ?? 0) > 0 ? row("Servis Selesai", String(report.serviceStats?.selesai)) : ""}
-  ${(report.serviceStats?.diambil ?? 0) > 0 ? row("Diambil", String(report.serviceStats?.diambil)) : ""}
-  ${(report.serviceStats?.batal ?? 0) > 0 ? row("Batal", String(report.serviceStats?.batal)) : ""}
+  ${report.spareparts && report.spareparts.length > 0 ? `<div class="bold">Sparepart terpakai</div>${report.spareparts.map((p) => row(p.name, `x${p.qty}`)).join("")}<hr class="sep">` : ""}
+  ${row("Servis Masuk", String(stats.masuk))}
+  ${stats.selesai > 0 ? row("Servis Selesai", String(stats.selesai)) : ""}
+  ${stats.diambil > 0 ? row("Diambil", String(stats.diambil)) : ""}
+  ${stats.batal > 0 ? row("Batal", String(stats.batal)) : ""}
+  <hr class="sep">
+  <div class="bold">DETAIL PENJUALAN (${report.sales.length})</div>
+  ${salesHtml}
+  <hr class="sep">
+  <div class="bold">DETAIL SERVIS (${report.services.length})</div>
+  ${servicesHtml}
+  <hr class="sep">
+  <div class="bold">KAS MANUAL (${report.cashTx.length})</div>
+  ${cashHtml}
+  <hr class="sep">
+  <div class="bold">PENDAPATAN / METODE</div>
+  ${breakdownHtml}
   <hr class="sep">
   ${row("Saldo awal", rupiah(report.openingBalance))}
   ${row(`Servis (${report.services.length})`, rupiah(totals.services))}
   ${row(`Penjualan (${report.sales.length})`, rupiah(totals.sales))}
-  ${row("Kas manual", manualNet)}
+  ${row("Masuk manual", rupiah(totals.manualIn))}
+  ${row("Keluar manual", rupiah(totals.manualOut))}
+  ${row("Kas manual", rupiah(totals.manualNet))}
   <hr class="sep">
-  ${row("Harus ada", rupiah(totals.expected))}
+  ${row("Harus ada", rupiah(report.expectedCash))}
   ${row("Saldo akhir", closing)}
   ${row("Selisih", variance)}
   ${report.reason ? `<hr class="sep"><div class="note">${escapeHtml(report.reason)}</div>` : ""}
   <hr class="sep">
+  ${footer}
   <div class="center" style="font-size:8px;">Dicetak ${escapeHtml(stampTime(new Date().toISOString()))}</div>
 </body></html>`;
 }
 
-/**
- * Buka dialog cetak untuk struk thermal shift.
- *
- * Iframe tersembunyi dipakai sebagai konteks cetak, sama seperti
- * `shift-export-bar.tsx`. `document.write` langsung di halaman utama tidak
- * dipakai karena akan mengganti isi dokumen aplikasi.
- *
- * Mengembalikan `false` kalau konteks cetak tidak tersedia, supaya pemanggil
- * bisa memberi tahu alih-alih diam saja.
- */
-export function printShiftThermal(report: ShiftReport): boolean {
+async function resolveAppearance(appearance?: ShiftPrintAppearance): Promise<ShiftPrintAppearance> {
+  if (appearance && (appearance.logoUrl !== undefined || appearance.footerText !== undefined || appearance.tenantName !== undefined)) {
+    return appearance;
+  }
+  try {
+    const a = await getReceiptAppearance();
+    return { logoUrl: a.logoUrl, footerText: a.footerText, tenantName: null, ...(appearance ?? {}) };
+  } catch {
+    return appearance ?? {};
+  }
+}
+
+/** Buka dialog cetak browser untuk struk shift (fallback). */
+export function printShiftThermal(report: ShiftReport, appearance: ShiftPrintAppearance = {}): boolean {
   if (typeof window === "undefined" || typeof document === "undefined") return false;
 
   const frame = document.createElement("iframe");
@@ -162,11 +204,9 @@ export function printShiftThermal(report: ShiftReport): boolean {
       return false;
     }
     doc.open();
-    doc.write(renderShiftThermalHtml(report));
+    doc.write(renderShiftThermalHtml(report, appearance));
     doc.close();
 
-    // Beri frame kesempatan memuat stylesheet sebelum dialog cetak dibuka.
-    // Tanpa jeda, beberapa browser mencetak halaman kosong.
     window.setTimeout(() => {
       try {
         frame.contentWindow?.focus();
@@ -183,19 +223,18 @@ export function printShiftThermal(report: ShiftReport): boolean {
   }
 }
 
-/**
- * Cetak struk shift: langsung ke printer yang tersimpan, atau dialog browser.
- *
- * Printer langsung (Bluetooth/serial/RawBT) tidak butuh dialog sama sekali.
- * Kalau belum ada transport atau pengiriman gagal, struk tetap keluar lewat
- * dialog cetak browser supaya shift tidak tutup tanpa catatan.
- */
-export async function printShiftReport(report: ShiftReport): Promise<boolean> {
+/** Cetak struk shift: langsung ke printer terhubung, fallback dialog browser. */
+export async function printShiftReport(report: ShiftReport, appearance?: ShiftPrintAppearance): Promise<boolean> {
+  const resolved = await resolveAppearance(appearance);
   try {
-    await printShiftReceipt(report);
+    await printShiftReceipt(report, {
+      logoUrl: resolved.logoUrl,
+      footerText: resolved.footerText,
+      tenantName: resolved.tenantName,
+    });
     return true;
   } catch {
-    return printShiftThermal(report);
+    return printShiftThermal(report, resolved);
   }
 }
 

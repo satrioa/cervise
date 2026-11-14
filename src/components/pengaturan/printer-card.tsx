@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useSyncExternalStore } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { BluetoothIcon, UsbIcon } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
@@ -13,6 +13,7 @@ import {
   getSavedBluetoothPrinter,
   getSavedSerialPort,
   getSavedPrinterType,
+  reconnectSavedPrinter,
   savePrinterType,
 } from "@/lib/printer";
 import { supportedTransports, bestDirectTransport } from "@/lib/printer/detect";
@@ -43,6 +44,12 @@ export function PrinterSettings({ compact = false }: { compact?: boolean }) {
   const [busy, setBusy] = useState<"connect" | "test" | "disconnect" | null>(null);
   const status = mounted ? getPrinterStatus() : null;
   const refresh = () => setVersion((version) => version + 1);
+
+  // Refresh mengosongkan state koneksi in-memory; coba pulihkan izin tersimpan.
+  useEffect(() => {
+    if (!mounted) return;
+    void reconnectSavedPrinter().then(() => setVersion((version) => version + 1));
+  }, [mounted]);
 
   if (!status) return null;
   const direct = status.supported.filter((id) => id !== "browser");

@@ -6,10 +6,18 @@ import { code128Svg } from "@/lib/barcode/code128";
 
 export type PrintData = {
   /**
-   * `name` = brand (organizations.name). Kontak opsional: Cetak/struk tidak
-   * boleh menampilkan alamat/telepon fiktif bila data cabang belum diisi.
+   * Identitas toko untuk header nota.
+   * `name` = nama tenant/brand, `branchName` = cabang (badge pill).
    */
-  branch: { name: string; address: string | null; phone: string | null; website: string | null };
+  branch: {
+    name: string;
+    branchName?: string | null;
+    address: string | null;
+    phone: string | null;
+    website: string | null;
+  };
+  receiptLogoUrl?: string | null;
+  receiptFooterText?: string | null;
   invoiceNo: string;
   service: {
     id: string;
@@ -105,7 +113,8 @@ function garansiHtml(service: PrintData["service"]): string {
   return `${durasi} (s/d ${escapeHtml(service.garansiSampai)})`;
 }
 
-/** Barcode Code 128 nomor servis. Kosong bila nomor tidak ada. */function barcodeBlock(code: string | undefined, opts: { height?: number; fontSize?: string } = {}): string {
+/** Barcode Code 128 nomor servis. Kosong bila nomor tidak ada. */
+function barcodeBlock(code: string | undefined, opts: { height?: number; fontSize?: string } = {}): string {
   const value = (code ?? "").trim();
   if (!value) return "";
   return `<div style="margin-top:4px;"><div style="text-align:center;">${code128Svg(value, { height: opts.height ?? 34, moduleWidth: 1 })}</div><div style="text-align:center; font-family:ui-monospace,monospace; font-size:${opts.fontSize ?? "8pt"}; letter-spacing:.12em;">${escapeHtml(value)}</div></div>`;
@@ -144,7 +153,6 @@ function maskPhone(phone: string): string {
   const normalized = digits.replace(/^0/, "62").replace(/^8/, "62");
   if (normalized.length < 10) return phone;
   return normalized.replace(/(\d{3})\d{4}(\d+)/, (_, a, b) => `${a}****${b}`.replace("+", ""));
-  // keep +62 prefix for display
 }
 
 function formatPhoneDisplay(phone: string): string {
@@ -160,11 +168,14 @@ function formatEn(price: number | null): string {
 /** Identitas toko untuk header struk. Brand = organizations.name. */
 export type PrintContext = {
   brandName?: string | null;
+  /** Nama cabang (badge pill). */
   branchName?: string | null;
   address?: string | null;
   phone?: string | null;
   website?: string | null;
   tenantSlug?: string | null;
+  receiptLogoUrl?: string | null;
+  receiptFooterText?: string | null;
 };
 
 /** URL halaman lacak publik, dicetak kecil di struk. */
@@ -235,25 +246,21 @@ export function toPrintData(servis: any, context: PrintContext, detail?: any): P
   // Garansi baru berjalan saat perangkat diambil, jadi `garansi_until` masih
   // kosong di nota masuk. Lamanya tetap dicetak supaya pelanggan tahu haknya.
   const garansiDurasi = s?.garansi_value && s?.garansi_unit ? `${s.garansi_value} ${s.garansi_unit}` : null;
-  // Nomor struk = nomor servis (service_number), bukan nomor yang dihitung ulang.
-  // Dulu ini `s?.invoice_no || formatInvoiceNo(createdAt)`: kolom invoice_no tidak
-  // pernah ada di tabel servis, jadi setiap cetak menghasilkan nomor BERBEDA
-  // dari tanggal yang sama - padahal nomor itulah yang dibawa pelanggan ke kasir
-  // dan dicatat di service log.
   const serviceNumber = s?.service_number ?? s?.serviceNumber ?? null;
   const receiptNumber = serviceNumber;
 
-  // Brand = organizations.name (mis. "Servisin"). Fallback ke nama cabang
-  // hanya jika brand belum dimuat; jangan pernah memakai nama toko fiktif.
-  const storeName = text(context.brandName || context.branchName);
+  const tenantName = text(context.brandName || context.branchName);
 
   return {
     branch: {
-      name: storeName,
+      name: tenantName,
+      branchName: context.branchName ?? null,
       address: context.address ?? null,
       phone: context.phone ?? null,
       website: context.website ?? null,
     },
+    receiptLogoUrl: context.receiptLogoUrl ?? null,
+    receiptFooterText: context.receiptFooterText ?? null,
     invoiceNo: text(receiptNumber),
     service: {
       id: text(s?.id),
@@ -346,9 +353,23 @@ function renderPolaDotsHtml(passwordValue?: string): string {
   }).join("");
 }
 
+function branchPill(name?: string | null): string {
+  if (!name?.trim()) return "";
+  return `<div style="margin-top:4px;"><span style="display:inline-block; border:1px solid #d1d5db; border-radius:999px; padding:2px 10px; font-size:8pt; font-weight:600; color:#374151;">${escapeHtml(name.trim())}</span></div>`;
+}
+
+function footerHtml(text?: string | null): string {
+  const value = text?.trim();
+  if (value) {
+    return `<div style="text-align:center; font-size:8pt; margin-top:10px;">${escapeHtml(value)}</div>`;
+  }
+  return `<div style="text-align:center; font-size:8pt; margin-top:10px;">Simpan Nota ini untuk pengambilan device</div>
+  <div style="text-align:center; font-size:10pt; font-weight:700;">Terima Kasih</div>`;
+}
+
 // JET - A4, system-ui, 8-col table, pola, signatures
 export function renderJetHtml(data: PrintData): string {
-  const { branch, invoiceNo, service, customer, admin, teknisi, printTime } = data;
+  const { branch, invoiceNo, service, customer, admin, teknisi, printTime, receiptLogoUrl, receiptFooterText } = data;
   const kerusakanStr = (service.kerusakan || []).join(", ").toUpperCase() || service.complaint?.toUpperCase() || EM_DASH;
   const kelengkapanStr = (service.kelengkapan || []).join(", ").toUpperCase() || EM_DASH;
   const polaSvg = service.passwordType === "POLA" ? renderPolaSvg(service.passwordValue) : "";
@@ -356,7 +377,7 @@ export function renderJetHtml(data: PrintData): string {
   const maskedBranchPhone = branch.phone;
   const hasSparepart = !!service.sparepart && service.sparepart !== EM_DASH;
 
-  return `<!doctype html><html><head><meta charset="utf-8"><title>${invoiceNo} — Jet</title>
+  return `<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(invoiceNo)} — Jet</title>
 <style>
   @page { size: A4 portrait; margin: 12mm 12mm 14mm 12mm; }
   * { box-sizing: border-box; }
@@ -365,10 +386,6 @@ export function renderJetHtml(data: PrintData): string {
   .page { width:210mm; min-height:297mm; margin:0 auto; padding:12mm; display:flex; flex-direction:column; position:relative; }
   @media print { body{padding:0;} .page{margin:0; border:none; box-shadow:none; width:auto; min-height:auto;} .no-print{display:none;} }
   .top-bar{ height:4px; background:#111827; margin:-12mm -12mm 12px -12mm; }
-  .header-store{ text-align:center; margin-bottom:6px; }
-  .header-store h1{ font-size:17pt; font-weight:700; letter-spacing:.02em; margin:0; }
-  .invoice-label{ font-family: ui-monospace, monospace; font-size:8pt; letter-spacing:.28em; text-transform:uppercase; color:#6b7280; text-align:center; margin-top:4px; }
-  .invoice-no{ text-align:center; font-family: ui-monospace, monospace; font-size:13pt; font-weight:700; letter-spacing:.04em; margin:2px 0 8px; }
   .rule{ border:none; border-top:1.5px solid #111827; margin:6px 0 8px; }
   table.jet{ width:100%; border-collapse:collapse; font-size:7.5pt; }
   table.jet th{ background:#111827; color:#fff; font-weight:700; text-transform:uppercase; letter-spacing:.04em; border:1px solid #111827; padding:5px 6px; text-align:center; }
@@ -384,7 +401,6 @@ export function renderJetHtml(data: PrintData): string {
   .info .val.url{ overflow-wrap:anywhere; word-break:break-all; }
   .info .row.bullet::before{ content:"●"; position:absolute; left:0; top:0.45em; font-size:5pt; line-height:1; margin:0; }
   .total-row{ display:flex; justify-content:space-between; align-items:baseline; margin-top:8px; border-top:2px solid #111827; padding-top:6px; font-weight:700; }
-  .total-row .payment{ font-weight:400; font-size:8.5pt; }
   .total-row .total{ font-family: ui-monospace, monospace; font-size:10pt; font-variant-numeric: tabular-nums; text-align:right; }
   .checks{ text-align:center; font-size:7.5pt; letter-spacing:.08em; margin:8px 0; }
   .checks span{ display:inline-block; border:1px solid #111827; padding:3px 10px; margin:0 4px; }
@@ -407,60 +423,67 @@ export function renderJetHtml(data: PrintData): string {
   .footer{ margin-top:auto; padding-top:10px; border-top:1px solid #e5e7eb; display:flex; justify-content:space-between; gap:8px; font-size:6pt; color:#9ca3af; font-family: ui-monospace, monospace; }
 </style>
 </head><body><div class="page"><div class="top-bar"></div>
+  ${receiptLogoUrl ? `<div style="text-align:center; margin-bottom:6px;"><img src="${escapeHtml(receiptLogoUrl)}" alt="" style="max-height:56px; max-width:180px; object-fit:contain;" /></div>` : ""}
   <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:24px;">
     <div>
-      <h1 style="font-size:18pt; font-weight:700; margin:0;">${branch.name}</h1>
-      ${optionalLine(joinPresent(branch.address, branch.phone), (v) => `<div style="font-size:8pt; color:#6b7280; word-break:break-word;">${v}</div>`)}
-      ${optionalLine(branch.website, (v) => `<div style="font-size:8pt; color:#6b7280; word-break:break-all;">${v}</div>`)}
+      <h1 style="font-size:18pt; font-weight:700; margin:0;">${escapeHtml(branch.name)}</h1>
+      ${branchPill(branch.branchName)}
+      ${optionalLine(joinPresent(branch.address, branch.phone), (v) => `<div style="font-size:8pt; color:#6b7280; word-break:break-word; margin-top:4px;">${escapeHtml(v)}</div>`)}
+      ${optionalLine(branch.website, (v) => `<div style="font-size:8pt; color:#6b7280; word-break:break-all;">${escapeHtml(v)}</div>`)}
     </div>
     <div style="border:2px solid #111827; border-radius:8px; padding:8px 12px; text-align:right; align-self:flex-start; min-width:140px;">
       <div style="font-size:7pt; font-weight:700; color:#6b7280; text-transform:uppercase; letter-spacing:.1em;">No. Servis</div>
-      <div style="font-size:13pt; font-weight:700; font-family:ui-monospace,monospace; letter-spacing:.02em;">${invoiceNo}</div>
-      <div style="font-size:8pt; color:#6b7280;">${service.date}</div>
+      <div style="font-size:13pt; font-weight:700; font-family:ui-monospace,monospace; letter-spacing:.02em;">${escapeHtml(invoiceNo)}</div>
+      <div style="font-size:8pt; color:#6b7280;">${escapeHtml(service.date)}</div>
     </div>
   </div>
   <hr class="rule">
   <table class="jet"><thead><tr><th>Merek</th><th>Kelengkapan</th><th>Imei 1</th><th>Imei 2</th><th>Kerusakan</th><th>Deskripsi</th>${hasSparepart ? "<th>Sparepart</th>" : ""}<th>Harga</th></tr></thead>
-  <tbody><tr><td>${(service.merk || service.device.split(" ")[0]).toUpperCase()}</td><td>${kelengkapanStr}</td><td>${service.imei1}</td><td>${service.imei2}</td><td class="kerusakan">${kerusakanStr}</td><td>${service.deskripsi}</td>${hasSparepart ? `<td>${service.sparepart}</td>` : ""}<td class="harga">${formatEn(service.price)}</td></tr></tbody></table>
+  <tbody><tr><td>${escapeHtml((service.merk || service.device.split(" ")[0]).toUpperCase())}</td><td>${escapeHtml(kelengkapanStr)}</td><td>${escapeHtml(service.imei1 ?? "")}</td><td>${escapeHtml(service.imei2 ?? "")}</td><td class="kerusakan">${escapeHtml(kerusakanStr)}</td><td>${escapeHtml(service.deskripsi ?? "")}</td>${hasSparepart ? `<td>${escapeHtml(service.sparepart ?? "")}</td>` : ""}<td class="harga">${formatEn(service.price)}</td></tr></tbody></table>
   <div class="info" style="display:grid; grid-template-columns: 1fr 1fr; gap: 12px 24px;">
     <div>
-      <div class="row bullet"><span class="label">Admin</span><span class="colon">:</span><span class="val">${admin}</span></div>
-      <div class="row bullet"><span class="label">Teknisi</span><span class="colon">:</span><span class="val">${teknisi}</span></div>
-      ${optionalLine(maskedBranchPhone, (v) => `<div class="row bullet"><span class="label">Telepon Toko</span><span class="colon">:</span><span class="val phone">${v}</span></div>`)}
-      ${optionalLine(branch.address, (v) => `<div class="row bullet"><span class="label">Alamat</span><span class="colon">:</span><span class="val" style="overflow-wrap:break-word;">${v}</span></div>`)}
-      ${optionalLine(branch.website, (v) => `<div class="row bullet"><span class="label">Website</span><span class="colon">:</span><span class="val url">${v}</span></div>`)}
+      <div class="row bullet"><span class="label">Admin</span><span class="colon">:</span><span class="val">${escapeHtml(admin)}</span></div>
+      <div class="row bullet"><span class="label">Teknisi</span><span class="colon">:</span><span class="val">${escapeHtml(teknisi)}</span></div>
+      <div class="row bullet"><span class="label">Status</span><span class="colon">:</span><span class="val">${escapeHtml(service.status)}</span></div>
+      ${optionalLine(maskedBranchPhone, (v) => `<div class="row bullet"><span class="label">Telepon Toko</span><span class="colon">:</span><span class="val phone">${escapeHtml(v)}</span></div>`)}
+      ${optionalLine(branch.address, (v) => `<div class="row bullet"><span class="label">Alamat</span><span class="colon">:</span><span class="val" style="overflow-wrap:break-word;">${escapeHtml(v)}</span></div>`)}
+      ${optionalLine(branch.website, (v) => `<div class="row bullet"><span class="label">Website</span><span class="colon">:</span><span class="val url">${escapeHtml(v)}</span></div>`)}
     </div>
     <div>
-      <div class="row bullet"><span class="label">Konsumen</span><span class="colon">:</span><span class="val">${customer.name}</span></div>
+      <div class="row bullet"><span class="label">Konsumen</span><span class="colon">:</span><span class="val">${escapeHtml(customer.name)}</span></div>
       ${optionalLine(customer.address, (v) => `<div class="row bullet"><span class="label">Alamat</span><span class="colon">:</span><span class="val" style="overflow-wrap:break-word;">${escapeHtml(v)}</span></div>`)}
-      <div class="row bullet"><span class="label">Telepon</span><span class="colon">:</span><span class="val phone">${maskedCustomerPhone}</span></div>
-      <div class="row bullet"><span class="label">Tanggal Service</span><span class="colon">:</span><span class="val">${service.date}</span></div>
+      <div class="row bullet"><span class="label">Telepon</span><span class="colon">:</span><span class="val phone">${escapeHtml(maskedCustomerPhone)}</span></div>
+      <div class="row bullet"><span class="label">Tanggal Service</span><span class="colon">:</span><span class="val">${escapeHtml(service.date)}</span></div>
       <div class="row bullet"><span class="label">Garansi</span><span class="colon">:</span><span class="val">${garansiHtml(service)}</span></div>
     </div>
   </div>
   <div class="total-row"><span class="total">${priceLabel(service)} &nbsp; ${formatEn(service.price)}</span></div>
-  <div style="font-size:9pt; margin-top:6px;">${paymentSummary(service)}</div>
+  <div style="font-size:9pt; margin-top:6px;">${escapeHtml(paymentSummary(service))}</div>
   <div class="checks"><span>Cek Service</span><span>Cek Garansi</span></div>
   ${service.trackingCode ? `<div class="row bullet"><span class="label">Kode cek</span><span class="colon">:</span><span class="val" style="font-family:ui-monospace,monospace; letter-spacing:.04em;">${trackingCodeLine(service.trackingCode)}</span></div>${trackingPathLine(branch.website, service.tenantSlug, service.trackingCode) ? `<div class="row"><span class="label" style="font-size:6.5pt;">Cek status</span><span class="colon">:</span><span class="val" style="font-size:6.5pt;">${escapeHtml(trackingPathLine(branch.website, service.tenantSlug, service.trackingCode))}</span></div>` : ""}` : ""}
   ${barcodeBlock(invoiceNo)}
   ${service.passwordType === "POLA" ? `<div class="pola"><h3>POLA</h3><div class="pola-grid">${polaSvg}${renderPolaDotsHtml(service.passwordValue)}</div></div>` : ""}
   <div class="catatan"><h3>Catatan :</h3><ol><li>Garansi service 2 Minggu, berlaku barang sudah diambil.</li><li>Slip ini wajib dibawa ketika akan mengambil service.</li><li>Garansi berlaku pada kerusakan yang sama.</li><li>Cek kembali barang service anda saat penyerahan.</li></ol></div>
-  <div class="sigs"><div class="sig"><div class="role">Konsumen</div><div class="name">( ${customer.name} )</div></div><div class="sig"><div class="role">Admin</div><div class="name">( ${admin} )</div></div></div>
-  <div style="text-align:center; font-size:8pt; margin-top:10px;">Simpan Nota ini untuk pengambilan device</div>
-  <div style="text-align:center; font-size:10pt; font-weight:700;">Terima Kasih</div>
-  <div class="footer"><span>${printTime} Service ${invoiceNo}</span><span>${invoiceNo}</span><span>1/1</span></div>
+  <div class="sigs"><div class="sig"><div class="role">Konsumen</div><div class="name">( ${escapeHtml(customer.name)} )</div></div><div class="sig"><div class="role">Admin</div><div class="name">( ${escapeHtml(admin)} )</div></div></div>
+  ${footerHtml(receiptFooterText)}
+  <div class="footer"><span>${escapeHtml(printTime)} Service ${escapeHtml(invoiceNo)}</span><span>${escapeHtml(invoiceNo)}</span><span>1/1</span></div>
 </div><script>window.print();</script></body></html>`;
 }
 
 // Dot Matrix - 80 cols continuous, monospace, dashed
 export function renderDotMatrixHtml(data: PrintData): string {
-  const { branch, invoiceNo, service, customer, admin, teknisi, printTime } = data;
+  const { branch, invoiceNo, service, customer, admin, teknisi, printTime, receiptLogoUrl, receiptFooterText } = data;
   const kelengkapanStr = (service.kelengkapan || []).join(", ").toUpperCase() || EM_DASH;
   const kerusakanStr = (service.kerusakan || []).join(", ").toUpperCase() || service.complaint?.toUpperCase() || EM_DASH;
   const maskedCustomerPhone = formatPhoneDisplay(customer.phone);
   const maskedBranchPhone = branch.phone;
 
-  return `<!doctype html><html><head><meta charset="utf-8"><title>${invoiceNo} — Dot Matrix</title>
+  const footer = receiptFooterText?.trim()
+    ? `<div style="text-align:center; margin-top:12px; font-size:11px;">${escapeHtml(receiptFooterText.trim())}</div>`
+    : `<div style="text-align:center; margin-top:12px; font-size:11px;">Simpan Nota ini untuk pengambilan device</div>
+  <div style="text-align:center; font-size:12px; font-weight:700;">Terima Kasih</div>`;
+
+  return `<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(invoiceNo)} — Dot Matrix</title>
 <style>
   @page { size: 9.5in 11in; margin: 6mm 8mm; }
   *{box-sizing:border-box;}
@@ -483,46 +506,53 @@ export function renderDotMatrixHtml(data: PrintData): string {
   @media print{ body{margin:0;} }
 </style>
 </head><body><div class="page">
-  <dl class="header-stack">
-    <dt>Toko :</dt><dd>${branch.name}</dd>
-    <dt>Alamat :</dt><dd>${branch.address}</dd>
-    <dt>Website :</dt><dd>${branch.website}</dd>
-    <dt>No. Servis :</dt><dd>${invoiceNo}</dd>
-    <dt>Teknisi :</dt><dd>${teknisi}</dd>
-    <dt>Deskripsi :</dt><dd>${service.deskripsi}</dd>
-    <dt>Tanggal terima :</dt><dd>${service.tanggalTerima}</dd>
+  ${receiptLogoUrl ? `<div style="text-align:center; margin-bottom:6px;"><img src="${escapeHtml(receiptLogoUrl)}" alt="" style="max-height:56px; max-width:180px; object-fit:contain;" /></div>` : ""}
+  <div style="text-align:center; font-weight:700; font-size:14px;">${escapeHtml(branch.name)}</div>
+  ${branch.branchName?.trim() ? `<div style="text-align:center; margin:4px 0;"><span style="border:1px solid #000; border-radius:999px; padding:1px 10px; font-size:10px;">${escapeHtml(branch.branchName.trim())}</span></div>` : ""}
+  <dl class="header-stack" style="margin-top:6px;">
+    <dt>Alamat :</dt><dd>${escapeHtml(branch.address ?? "")}</dd>
+    <dt>Website :</dt><dd>${escapeHtml(branch.website ?? "")}</dd>
+    <dt>No. Servis :</dt><dd>${escapeHtml(invoiceNo)}</dd>
+    <dt>Teknisi :</dt><dd>${escapeHtml(teknisi)}</dd>
+    <dt>Status :</dt><dd>${escapeHtml(service.status)}</dd>
+    <dt>Deskripsi :</dt><dd>${escapeHtml(service.deskripsi ?? "")}</dd>
+    <dt>Tanggal terima :</dt><dd>${escapeHtml(service.tanggalTerima ?? "")}</dd>
     <dt>Garansi :</dt><dd>${garansiHtml(service)}</dd>
   </dl>
   <div style="text-align:center; font-size:11px; margin:6px 0;">Cek Service &nbsp;&nbsp; Cek Garansi</div>
   ${service.trackingCode ? `<div style="text-align:center; font-size:12px; letter-spacing:.06em; margin:0 0 6px;">KODE CEK: ${trackingCodeLine(service.trackingCode)}</div>${trackingPathLine(branch.website, service.tenantSlug, service.trackingCode) ? `<div style="text-align:center; font-size:9px; margin:0 0 6px;">Cek status: ${escapeHtml(trackingPathLine(branch.website, service.tenantSlug, service.trackingCode))}</div>` : ""}` : ""}
   ${barcodeBlock(invoiceNo, { height: 30, fontSize: "8pt" })}
   <hr class="dashed">
-  <div class="meta-2col"><span>Imei 1 /SN : ${service.imei1}</span><span>No. Servis : ${invoiceNo}</span></div>
-  <div class="meta-2col"><span>Imei 2 /SN : ${service.imei2}</span><span>Tanggal Service : ${service.date}</span></div>
+  <div class="meta-2col"><span>Imei 1 /SN : ${escapeHtml(service.imei1 ?? "")}</span><span>No. Servis : ${escapeHtml(invoiceNo)}</span></div>
+  <div class="meta-2col"><span>Imei 2 /SN : ${escapeHtml(service.imei2 ?? "")}</span><span>Tanggal Service : ${escapeHtml(service.date)}</span></div>
   <hr class="dashed">
   <table class="items"><thead><tr><th>Merek</th><th>Kelengkapan</th><th>Kerusakan</th><th>Harga</th></tr></thead>
-  <tbody><tr><td>${(service.merk || service.device.split(" ")[0]).toUpperCase()} ${service.tipe || ""}</td><td>${kelengkapanStr}</td><td>${kerusakanStr}</td><td>${formatEn(service.price)}</td></tr></tbody></table>
+  <tbody><tr><td>${escapeHtml((service.merk || service.device.split(" ")[0]).toUpperCase())} ${escapeHtml(service.tipe || "")}</td><td>${escapeHtml(kelengkapanStr)}</td><td>${escapeHtml(kerusakanStr)}</td><td>${formatEn(service.price)}</td></tr></tbody></table>
   <hr class="dashed">
   <div class="totals">${priceLabel(service)} &nbsp; ${formatEn(service.price)}</div>
-  <div style="margin:4px 0;">${paymentSummary(service)}</div>
+  <div style="margin:4px 0;">${escapeHtml(paymentSummary(service))}</div>
   <hr class="double">
   <div>Catatan :</div><ol class="notes"><li>Garansi 2 Minggu, berlaku barang sudah diambil.</li><li>Slip ini wajib dibawa ketika akan mengambil service.</li><li>Garansi berlaku pada kerusakan yang sama.</li><li>Cek kembali barang service anda saat penyerahan.</li></ol>
   <hr class="dashed">
-  <div class="sign"><div>Konsumen<br>( ${customer.name} )<br>${customer.address ? `${escapeHtml(customer.address)}<br>` : ""}${maskedCustomerPhone}</div><div>Admin<br>( ${admin} )<br>${maskedBranchPhone}</div></div>
-  <div style="text-align:center; margin-top:12px; font-size:11px;">Simpan Nota ini untuk pengambilan device</div>
-  <div style="text-align:center; font-size:12px; font-weight:700;">Terima Kasih</div>
-  <div style="text-align:center; margin-top:12px; font-size:9px; color:#666;">${printTime} · ${invoiceNo}</div>
+  <div class="sign"><div>Konsumen<br>( ${escapeHtml(customer.name)} )<br>${customer.address ? `${escapeHtml(customer.address)}<br>` : ""}${escapeHtml(maskedCustomerPhone)}</div><div>Admin<br>( ${escapeHtml(admin)} )<br>${escapeHtml(maskedBranchPhone ?? "")}</div></div>
+  ${footer}
+  <div style="text-align:center; margin-top:12px; font-size:9px; color:#666;">${escapeHtml(printTime)} · ${escapeHtml(invoiceNo)}</div>
 </div><script>window.print();</script></body></html>`;
 }
 
 // Thermal - 58mm narrow receipt, centered, dashed separators
 export function renderThermalHtml(data: PrintData): string {
-  const { branch, invoiceNo, service, customer, admin, teknisi, printTime } = data;
+  const { branch, invoiceNo, service, customer, admin, teknisi, printTime, receiptLogoUrl, receiptFooterText } = data;
   const maskedCustomerPhone = formatPhoneDisplay(customer.phone);
   const maskedBranchPhone = branch.phone;
   const kerusaanStr = (service.kerusakan || []).join(", ").toUpperCase() || service.complaint?.toUpperCase() || EM_DASH;
 
-  return `<!doctype html><html><head><meta charset="utf-8"><title>Print ${invoiceNo} — Thermal</title>
+  const footer = receiptFooterText?.trim()
+    ? `<div class="center" style="font-size:9px; margin-top:6px;">${escapeHtml(receiptFooterText.trim())}</div>`
+    : `<div class="center" style="font-size:9px;">Simpan Nota ini untuk pengambilan device</div>
+  <div class="center bold" style="font-size:11px;">Terima Kasih</div>`;
+
+  return `<!doctype html><html><head><meta charset="utf-8"><title>Print ${escapeHtml(invoiceNo)} — Thermal</title>
 <style>
   @page { size: 58mm auto; margin: 0; }
   *{box-sizing:border-box;}
@@ -534,36 +564,39 @@ export function renderThermalHtml(data: PrintData): string {
   .field .label{ display:block; font-size:10px; text-transform:uppercase; letter-spacing:.04em; }
   .field .value{ display:block; font-weight:600; word-break:break-word; }
   .row{ display:flex; justify-content:space-between; gap:4px; }
+  .pill{ display:inline-block; border:1px solid #000; border-radius:999px; padding:1px 8px; font-size:10px; margin-top:2px; }
   @media print{ body{width:58mm; margin:0;} }
 </style>
 </head><body>
-  <div class="center bold" style="font-size:13px;">${branch.name}</div>
-  <div class="center" style="font-size:9px; word-break:break-word;">${branch.address}</div>
-  <div class="center" style="font-size:8px; word-break:break-all;">${branch.website}</div>
-  <div class="center">${maskedBranchPhone}</div>
+  ${receiptLogoUrl ? `<div class="center" style="margin-bottom:4px;"><img src="${escapeHtml(receiptLogoUrl)}" alt="" style="max-height:36px; max-width:120px; object-fit:contain;" /></div>` : ""}
+  <div class="center bold" style="font-size:13px;">${escapeHtml(branch.name)}</div>
+  ${branch.branchName?.trim() ? `<div class="center"><span class="pill">${escapeHtml(branch.branchName.trim())}</span></div>` : ""}
+  ${branch.address ? `<div class="center" style="font-size:9px; word-break:break-word;">${escapeHtml(branch.address)}</div>` : ""}
+  ${branch.website ? `<div class="center" style="font-size:8px; word-break:break-all;">${escapeHtml(branch.website)}</div>` : ""}
+  ${maskedBranchPhone ? `<div class="center">${escapeHtml(maskedBranchPhone)}</div>` : ""}
   <hr class="sep">
-  <div class="field"><span class="label">Admin</span><span class="value">${admin}</span></div>
-  <div class="field"><span class="label">Teknisi</span><span class="value">${teknisi}</span></div>
-  <div class="field"><span class="label">Tanggal Service</span><span class="value">${service.date}</span></div>
-  <div class="field"><span class="label">No. Servis</span><span class="value">${invoiceNo}</span></div>
-  <div class="field"><span class="label">Tanggal terima</span><span class="value">${service.tanggalTerima}</span></div>
+  <div class="field"><span class="label">Admin</span><span class="value">${escapeHtml(admin)}</span></div>
+  <div class="field"><span class="label">Teknisi</span><span class="value">${escapeHtml(teknisi)}</span></div>
+  <div class="field"><span class="label">Status</span><span class="value">${escapeHtml(service.status)}</span></div>
+  <div class="field"><span class="label">Tanggal Service</span><span class="value">${escapeHtml(service.date)}</span></div>
+  <div class="field"><span class="label">No. Servis</span><span class="value">${escapeHtml(invoiceNo)}</span></div>
+  <div class="field"><span class="label">Tanggal terima</span><span class="value">${escapeHtml(service.tanggalTerima ?? "")}</span></div>
   <div class="field"><span class="label">Garansi</span><span class="value">${garansiHtml(service)}</span></div>
   <hr class="sep">
-  <div class="field"><span class="label">Konsumen</span><span class="value">${customer.name}</span></div>
+  <div class="field"><span class="label">Konsumen</span><span class="value">${escapeHtml(customer.name)}</span></div>
   ${customer.address ? `<div class="field"><span class="label">Alamat</span><span class="value" style="word-break:break-word; overflow-wrap:anywhere;">${escapeHtml(customer.address)}</span></div>` : ""}
-  <div class="field"><span class="label">Telepon</span><span class="value">${maskedCustomerPhone}</span></div>
-  <div class="field"><span class="label">Merek</span><span class="value">${service.merk || service.device.split(" ")[0]} ${service.tipe || ""}</span></div>
-  <div class="field"><span class="label">Imei 1 /SN</span><span class="value">${service.imei1}</span></div>
-  <div class="field"><span class="label">Imei 2 /SN</span><span class="value">${service.imei2}</span></div>
-  <div class="field"><span class="label">Kelengkapan</span><span class="value">${(service.kelengkapan || []).join(", ") || EM_DASH}</span></div>
-  <div class="field"><span class="label">Deskripsi</span><span class="value">${service.deskripsi}</span></div>
+  <div class="field"><span class="label">Telepon</span><span class="value">${escapeHtml(maskedCustomerPhone)}</span></div>
+  <div class="field"><span class="label">Merek</span><span class="value">${escapeHtml(service.merk || service.device.split(" ")[0] || "")} ${escapeHtml(service.tipe || "")}</span></div>
+  <div class="field"><span class="label">Imei 1 /SN</span><span class="value">${escapeHtml(service.imei1 ?? "")}</span></div>
+  <div class="field"><span class="label">Imei 2 /SN</span><span class="value">${escapeHtml(service.imei2 ?? "")}</span></div>
+  <div class="field"><span class="label">Kelengkapan</span><span class="value">${escapeHtml((service.kelengkapan || []).join(", ") || EM_DASH)}</span></div>
+  <div class="field"><span class="label">Kerusakan</span><span class="value">${escapeHtml(kerusaanStr)}</span></div>
+  <div class="field"><span class="label">Deskripsi</span><span class="value">${escapeHtml(service.deskripsi ?? "")}</span></div>
   <hr class="sep">
   <div class="center bold">###COPY###</div>
   <hr class="sep">
-  <div class="row bold"><span>${kerusaanStr}</span><span>${formatEn(service.price)}</span></div>
-  <hr class="sep">
   <div class="row bold"><span>${priceLabel(service)}</span><span>${formatEn(service.price)}</span></div>
-  <div class="row"><span>Pembayaran</span><span>${service.payment.status}</span></div>
+  <div class="row"><span>Pembayaran</span><span>${escapeHtml(service.payment.status)}</span></div>
   ${service.payment.paid > 0 ? `<div class="row"><span>Metode</span><span>${escapeHtml(service.payment.methods || EM_DASH)}</span></div><div class="row"><span>Dibayar</span><span>${formatEn(service.payment.paid)}</span></div>` : ""}
   ${service.payment.remaining > 0 ? `<div class="row"><span>Sisa</span><span>${formatEn(service.payment.remaining)}</span></div>` : ""}
   <hr class="sep">
@@ -573,8 +606,7 @@ export function renderThermalHtml(data: PrintData): string {
   <hr class="sep">
   <div class="row center" style="justify-content:center; gap:16px;"><span>Service</span><span>Cek Garansi</span></div>
   <hr class="sep">
-  <div class="center" style="font-size:9px;">Simpan Nota ini untuk pengambilan device</div>
-  <div class="center bold" style="font-size:11px;">Terima Kasih</div>
-  <div class="center" style="font-size:8px; color:#666; margin-top:8px;">${printTime} · ${invoiceNo}</div>
+  ${footer}
+  <div class="center" style="font-size:8px; color:#666; margin-top:8px;">${escapeHtml(printTime)} · ${escapeHtml(invoiceNo)}</div>
 </div><script>window.print();</script></body></html>`;
 }

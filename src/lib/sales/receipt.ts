@@ -24,9 +24,10 @@ export type SalesReceiptItem = {
 export type SalesReceiptInput = {
   context: {
     brandName?: string | null;
+    branchName?: string | null;
     tagline?: string | null;
     logoUrl?: string | null;
-    branchName?: string | null;
+    footerText?: string | null;
     address?: string | null;
     phone?: string | null;
   };
@@ -78,9 +79,7 @@ function row(label: string, value: string, extraClass = ""): string {
 
 export function buildSalesReceiptHtml(input: SalesReceiptInput): string {
   const { context, sale, customer, items } = input;
-  const brand = context.brandName?.trim() || context.branchName?.trim() || "Nota Penjualan";
-  // Nama cabang tidak diulang: alamatnya sudah menyebut kota, jadi cukup
-  // alamat satu baris dan nomor telepon di baris berikutnya.
+  const tenant = context.brandName?.trim() || "Nota Penjualan";
   const alamat = context.address?.trim() ?? "";
   const telepon = context.phone?.trim() ?? "";
 
@@ -133,6 +132,7 @@ export function buildSalesReceiptHtml(input: SalesReceiptInput): string {
   .brand .logo { display: block; max-height: 56px; max-width: 160px; margin: 0 auto 8px; object-fit: contain; }
   .brand h1 { margin: 0; font-size: 26px; font-weight: 700; letter-spacing: .02em; text-transform: uppercase; }
   .brand .tagline { margin: 5px 0 0; font-size: 10px; font-weight: 600; letter-spacing: .22em; text-transform: uppercase; color: #4b5563; }
+
   .brand .branch { margin: 8px 0 0; font-size: 10.5px; font-weight: 500; color: #374151; line-height: 1.45; }
   .meta { margin-top: 14px; font-size: 11.5px; }
   .meta .row { display: flex; gap: 6px; padding: 1.5px 0; }
@@ -155,7 +155,7 @@ export function buildSalesReceiptHtml(input: SalesReceiptInput): string {
 <body><div class="nota">
   <div class="brand">
     ${context.logoUrl?.trim() ? `<img class="logo" src="${escapeHtml(context.logoUrl.trim())}" alt="">` : ""}
-    <h1>${escapeHtml(brand)}</h1>
+    <h1>${escapeHtml(tenant)}</h1>
     ${context.tagline?.trim() ? `<p class="tagline">${escapeHtml(context.tagline.trim())}</p>` : ""}
     ${alamat || telepon ? `<p class="branch">${[alamat, telepon].filter(Boolean).map((v) => escapeHtml(v)).join("<br>")}</p>` : ""}
   </div>
@@ -171,7 +171,7 @@ export function buildSalesReceiptHtml(input: SalesReceiptInput): string {
     ${paymentRows}
     ${returned > 0 ? `<div class="row"><span>Diretur</span><span class="value">${escapeHtml(formatCurrencyPlain(returned))}</span></div>` : ""}
   </div>
-  <div class="footer">~Terima kasih sudah berbelanja~</div>
+  <div class="footer">${escapeHtml(context.footerText?.trim() || "~Terima kasih sudah berbelanja~")}</div>
 </div></body></html>`;
 }
 
