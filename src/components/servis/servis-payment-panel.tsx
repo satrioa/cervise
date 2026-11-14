@@ -70,21 +70,21 @@ export function ServisPaymentPanel({ servisId, estimasi, totalPaid = 0, onSucces
       return;
     }
     setSaving(true);
-    try {
-      const res = await addPembayaran({
-        servisId,
-        amount: outcome.paid,
-        metode,
-        keterangan: outcome.notes,
-      });
-      playPageTransition();
-      toast.success("Pembayaran tersimpan");
-      onSuccess?.(res.total);
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Gagal menyimpan pembayaran");
-    } finally {
+    const res = await addPembayaran({
+      servisId,
+      amount: outcome.paid,
+      metode,
+      keterangan: outcome.notes,
+    });
+    if (!res.ok) {
+      toast.error(res.error);
       setSaving(false);
+      return;
     }
+    playPageTransition();
+    toast.success("Pembayaran tersimpan");
+    onSuccess?.(res.total);
+    setSaving(false);
   };
 
   return (

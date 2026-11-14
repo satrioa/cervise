@@ -1,10 +1,21 @@
 ﻿import { beforeEach, describe, expect, it, vi } from "vitest";
 import { checkoutSale, createProduct, createSale } from "./actions";
 
-const { from, productQuery, productInsert, productUpdate, rpc, salesItemInsert, salesInsert, getActiveTenant } = vi.hoisted(() => {
+const {
+  from,
+  productQuery,
+  productInsert,
+  productUpdate,
+  rpc,
+  salesItemInsert,
+  salesInsert,
+  getActiveTenant,
+  handoverState,
+} = vi.hoisted(() => {
   const productQuery = { data: [] as any[], error: null as any };
   const customerSingle = { data: { id: "customer-1", tags: [] } as any, error: null as any };
   const salesSingle = { data: { id: "sale-1" } as any, error: null as any };
+  const handoverState = { openSessionId: "session-1" as string | null, pendingHandover: false };
 
   const productInsert = vi.fn(async () => ({ error: null, data: {} }));
   const productUpdate = vi.fn(() => {
@@ -15,14 +26,39 @@ const { from, productQuery, productInsert, productUpdate, rpc, salesItemInsert, 
   const salesItemInsert = vi.fn(async () => ({ error: null }));
   const salesInsert = vi.fn((): any => ({ select: () => ({ single: async () => salesSingle }) }));
   const financeInsert = vi.fn(async () => ({ error: null }));
-  // create_sale_with_stock mengembalikan objek; fungsi lain (next_sale_number)
-  // mengembalikan teks. Bentuk balasan createSale dipakai di sini supaya test
-  // benar-benar melewati pengecekan "id tidak kosong".
   const rpc = vi.fn(async (name: string, _args: Record<string, unknown>) =>
     name === "create_sale_with_stock"
       ? { data: { id: "sale-1", sale_number: "SLV-2026-0003", total: 200 }, error: null }
       : { data: "SLV-2026-0003", error: null },
   );
+
+  const cashSessionChain = () => {
+    const q: any = {
+      select: () => q,
+      eq: () => q,
+      is: () => q,
+      order: () => q,
+      limit: () => q,
+      maybeSingle: async () => ({
+        data: handoverState.openSessionId ? { id: handoverState.openSessionId } : null,
+        error: null,
+      }),
+    };
+    return q;
+  };
+  const handoverChain = () => {
+    const q: any = {
+      select: () => q,
+      eq: () => q,
+      is: () => q,
+      limit: () => q,
+      maybeSingle: async () => ({
+        data: handoverState.pendingHandover ? { id: "handover-1" } : null,
+        error: null,
+      }),
+    };
+    return q;
+  };
 
   const from = vi.fn((table: string) => {
     switch (table) {
@@ -45,13 +81,28 @@ const { from, productQuery, productInsert, productUpdate, rpc, salesItemInsert, 
           select: () => ({ eq: () => ({ contains: async () => ({ data: [] }) }) }),
         };
       case "finance_tx":
+      case "cervise_finance_tx":
         return { insert: financeInsert };
+      case "cervise_cash_sessions":
+        return cashSessionChain();
+      case "cervise_cash_session_handovers":
+        return handoverChain();
       default:
         throw new Error(`unexpected table: ${table}`);
     }
   });
 
-  return { from, productQuery, productInsert, productUpdate, rpc, salesItemInsert, salesInsert, getActiveTenant: vi.fn() };
+  return {
+    from,
+    productQuery,
+    productInsert,
+    productUpdate,
+    rpc,
+    salesItemInsert,
+    salesInsert,
+    getActiveTenant: vi.fn(),
+    handoverState,
+  };
 });
 
 function supabaseStub() {
@@ -65,6 +116,8 @@ vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 describe("createProduct", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    handoverState.openSessionId = "session-1";
+    handoverState.pendingHandover = false;
     productInsert.mockResolvedValue({ error: null, data: {} });
     productQuery.data = [];
     productQuery.error = null;
@@ -183,6 +236,8 @@ describe("createProduct", () => {
 describe("createSale", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    handoverState.openSessionId = "session-1";
+    handoverState.pendingHandover = false;
     productQuery.data = [];
     productQuery.error = null;
     getActiveTenant.mockResolvedValue({
@@ -317,6 +372,8 @@ describe("createSale", () => {
 describe("checkoutSale", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    handoverState.openSessionId = "session-1";
+    handoverState.pendingHandover = false;
     productQuery.data = [{ id: "product-1", name: "Layar", stock_qty: 5, is_serialized: false, price: 100, sku: "GD1", category: "Gadget", cost: 50 }];
     productQuery.error = null;
     getActiveTenant.mockResolvedValue({
@@ -352,5 +409,23 @@ describe("checkoutSale", () => {
     });
 
     expect(res).toEqual({ ok: true, saleId: "sale-1", saleNumber: "SLV-2026-0003" });
+  });
+
+  it("blocks checkout while a handover is pending", async () => {
+    handoverState.pendingHandover = true;
+
+    const res = await checkoutSale({
+      customerId: "customer-1",
+      items: [{ product_id: "product-1", qty: 1, unit_price: 100 }],
+      payment_method: "Tunai",
+      kas_date: "2026-01-01",
+      paid: 100,
+    });
+
+    expect(res).toEqual({
+      ok: false,
+      error: expect.stringContaining("menunggu dilanjutkan"),
+    });
+    expect(rpc).not.toHaveBeenCalled();
   });
 });

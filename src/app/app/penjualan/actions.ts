@@ -12,6 +12,7 @@ import { validateSaleItems } from "@/lib/sales/validation";
 import { sanitizeSearchTerm } from "@/lib/search-term";
 import { findOrCreateCustomer } from "@/app/app/customer/actions";
 import { publicPhotoUrl } from "@/lib/photos";
+import { getPendingHandoverBlockMessage } from "@/lib/cash/handover";
 
 async function getBranchUser() {
   const actor = await getActiveTenant();
@@ -283,6 +284,8 @@ export async function createSale(input: {
 }) {
   const { supabase, branchId, role, userId } = await getBranchUser();
   requireSalesAccess(role);
+  const handoverBlock = await getPendingHandoverBlockMessage(supabase, branchId);
+  if (handoverBlock) throw new Error(handoverBlock);
   if (!input.customerId) throw new Error("Customer wajib");
   if (!input.items.length) throw new Error("Keranjang kosong");
   if (!["Tunai", "Debit", "Transfer", "QRIS", "E-Wallet"].includes(input.payment_method)) throw new Error("Metode invalid");
@@ -470,6 +473,8 @@ export async function getReceiptContext(): Promise<ReceiptContext> {
 export async function returnSaleItems(saleId: string, returns: { item_id: string; qty: number }[]) {
   const { supabase, branchId, role } = await getBranchUser();
   requireSalesAccess(role);
+  const handoverBlock = await getPendingHandoverBlockMessage(supabase, branchId);
+  if (handoverBlock) throw new Error(handoverBlock);
   const { data: sale } = await supabase.from("cervise_sales").select("id, branch_id, status").eq("id", saleId).eq("branch_id", branchId).maybeSingle();
   if (!sale) throw new Error("Sale not found");
   if ((sale as any).status === "retur") throw new Error("Sudah retur");

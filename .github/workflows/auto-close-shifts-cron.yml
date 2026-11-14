@@ -22,6 +22,10 @@ jobs:
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
           set -euo pipefail
+          if [ -z "${CRON_SECRET:-}" ]; then
+            echo "CRON_SECRET kosong; set secret GitHub Actions dengan nilai yang sama seperti Vercel Production." >&2
+            exit 1
+          fi
           curl -fsS \
             --retry 2 --retry-delay 5 --max-time 200 \
             -H "Authorization: Bearer ${CRON_SECRET}" \

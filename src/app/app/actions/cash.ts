@@ -10,6 +10,7 @@ import {
   type ShiftSession,
 } from "@/lib/operational/laporan-shift";
 import { kalenderWIB } from "@/lib/operational/periode-bulan";
+import { getPendingHandoverBlockMessage } from "@/lib/cash/handover";
 import {
   computeShiftReport,
   hydrateSessions,
@@ -204,6 +205,14 @@ export async function closeCashSession(input: {
 
     if (updateError) return fail(updateError.message);
     if (!closed) return fail("Shift sudah ditutup oleh orang lain. Muat ulang.");
+
+    // Handover tertunda harus ikut selesai saat sesi ditutup, agar tidak
+    // meninggalkan baris yang keliru terlihat sebagai "menunggu".
+    await supabase
+      .from("cervise_cash_session_handovers")
+      .update({ resumed_at: new Date().toISOString(), resumed_by: userId })
+      .eq("session_id", input.sessionId)
+      .is("resumed_at", null);
 
     revalidatePath("/app");
     revalidatePath("/app/laporan/shift");
@@ -411,6 +420,8 @@ export async function addCashAdjustment(input: {
 
   try {
     const { supabase, branchId, userId } = await cashContext();
+    const handoverBlock = await getPendingHandoverBlockMessage(supabase, branchId);
+    if (handoverBlock) return fail(handoverBlock);
     const { error } = await supabase.from("finance_tx").insert({
       branch_id: branchId,
       type: input.direction,

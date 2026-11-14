@@ -34,6 +34,7 @@ export type UpdateServisPayload = Partial<CreateServisPayload> & { id: string };
 
 import { getActiveTenant } from "@/lib/supabase/actor";
 import { canAccess } from "@/lib/rbac";
+import { getPendingHandoverBlockMessage } from "@/lib/cash/handover";
 import { isManagerRole } from "@/lib/auth/authorization";
 import { applyBranchScope } from "@/lib/supabase/branch-scope";
 
@@ -498,26 +499,44 @@ export async function deleteServis(id: string) {
  * jadi `getSalesOrders()` menampilkannya dengan qty 0. Menambah item dengan
  * produk dummy akan mengotori katalog stok, jadi itu dibiarkan.
  */
-export async function addPembayaran(params: { servisId: string; amount: number; metode: "Tunai" | "Debit" | "Transfer" | "QRIS" | "E-Wallet"; kas_date?: string; keterangan?: string }) {
-  const { supabase, branchId, userId, role } = await getBranchAndUser();
-  if (!canAccess(role, "servis_pembayaran")) throw new Error("Hanya admin/kasir boleh input pembayaran");
-  if (!params.servisId) throw new Error("Servis ID wajib");
-  if (!params.amount || !Number.isFinite(params.amount) || params.amount <= 0) throw new Error("Nominal harus >0");
-  if (!["Tunai", "Debit", "Transfer", "QRIS", "E-Wallet"].includes(params.metode)) throw new Error("Metode tidak valid");
+export async function addPembayaran(params: {
+  servisId: string;
+  amount: number;
+  metode: "Tunai" | "Debit" | "Transfer" | "QRIS" | "E-Wallet";
+  kas_date?: string;
+  keterangan?: string;
+}): Promise<{ ok: true; total: number } | { ok: false; error: string }> {
+  try {
+    const { supabase, branchId, userId, role } = await getBranchAndUser();
+    if (!canAccess(role, "servis_pembayaran")) {
+      return { ok: false, error: "Hanya admin/kasir boleh input pembayaran" };
+    }
+    const handoverBlock = await getPendingHandoverBlockMessage(supabase, branchId);
+    if (handoverBlock) return { ok: false, error: handoverBlock };
+    if (!params.servisId) return { ok: false, error: "Servis ID wajib" };
+    if (!params.amount || !Number.isFinite(params.amount) || params.amount <= 0) {
+      return { ok: false, error: "Nominal harus >0" };
+    }
+    if (!["Tunai", "Debit", "Transfer", "QRIS", "E-Wallet"].includes(params.metode)) {
+      return { ok: false, error: "Metode tidak valid" };
+    }
 
-  const { data, error } = await supabase.rpc("record_service_payment", {
-    p_branch_id: branchId,
-    p_servis_id: params.servisId,
-    p_amount: Math.round(params.amount),
-    p_metode: params.metode,
-    p_kas_date: params.kas_date ?? kalenderWIB(),
-    p_keterangan: params.keterangan?.trim() || null,
-    p_created_by: userId,
-  });
-  if (error) throw new Error(error.message);
+    const { data, error } = await supabase.rpc("record_service_payment", {
+      p_branch_id: branchId,
+      p_servis_id: params.servisId,
+      p_amount: Math.round(params.amount),
+      p_metode: params.metode,
+      p_kas_date: params.kas_date ?? kalenderWIB(),
+      p_keterangan: params.keterangan?.trim() || null,
+      p_created_by: userId,
+    });
+    if (error) return { ok: false, error: error.message };
 
-  const result = data as { total?: number } | null;
-  return { ok: true, total: Number(result?.total ?? 0) };
+    const result = data as { total?: number } | null;
+    return { ok: true, total: Number(result?.total ?? 0) };
+  } catch (cause) {
+    return { ok: false, error: cause instanceof Error ? cause.message : "Gagal menyimpan pembayaran" };
+  }
 }
 
 export async function getPembayaranHistory(servisId: string) {
