@@ -1,13 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Image from "next/image";
 import { CheckIcon, MonitorIcon, MoonIcon, SunIcon } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/layout/page-header";
-import { PublicFooter } from "@/components/public/public-footer";
-import { initialsOf } from "@/lib/photos";
+import { LacakPage } from "@/components/public/lacak-shell";
 import { saveLacakAppearance } from "@/app/app/pengaturan/tampilan/actions";
 import { playPageTransition } from "@/components/layout/page-transition";
 import {
@@ -21,6 +19,7 @@ import {
 import { LandingSection } from "@/components/settings-appearance-landing";
 import { IPhone17ProMax } from "@/components/ui/apple-iphone-17-pro";
 import type { PublicTenant } from "@/lib/public/landing";
+import type { PublicServisResult } from "@/lib/public/lookup";
 
 const PALETTE_LABEL: Record<(typeof LACAK_PALETTES)[number], string> = {
   graphite: "Graphite",
@@ -268,66 +267,45 @@ export function SettingsAppearanceShowcasePage({ initial, tenant }: { initial: L
 }
 
 /**
- * Pratinjau memakai komponen halaman Lacak yang sungguhan di dalam pembungkus
- * `.lacak-theme`, bukan tiruan dengan hex hardcode. Hex di sini dulu tidak
- * cocok dengan `globals.css`, jadi apa yang dilihat admin tidak sama dengan
- * yang dilihat pelanggan; sekarang keduanya membaca token yang sama.
+ * Pratinjau memakai `LacakPage` yang sama dengan halaman publik di dalam frame
+ * iPhone, jadi banner, header, kartu status, testimoni, dan footer tidak bisa
+ * menyimpang dari yang dilihat pelanggan. Tema memakai `draft` (belum disimpan)
+ * supaya perubahan langsung terlihat.
  */
 function LacakPreview({ appearance, tenant }: { appearance: LacakAppearance; tenant: PublicTenant }) {
-  void tenant;
+  // `system` tidak bisa dibaca di server; pratinjau berjalan di klien.
   const prefersDark =
     typeof window !== "undefined" && window.matchMedia("(prefers-color-scheme: dark)").matches;
-  const scheme = resolveLacakScheme(appearance.mode, prefersDark);
+  const mode = resolveLacakScheme(appearance.mode, prefersDark) === "lacak-dark" ? "dark" : "light";
 
-  // Pratinjau memakai iPhone 17 Pro Max sebagai frame preview halaman Lacak,
-  // dengan tampilan memakai header/logo/banner + data dummy status. Tema mengikuti
-  // pengaturan realtime dari `draft` (mode/palette/density/font), bukan hardcoded.
-  const tenantNama = tenant.name || "Nama Toko";
-  const tenantLogo = tenant.logoUrl;
-  const tenantBanner = tenant.bannerUrl;
-  const tenantTagline = tenant.tagline;
+  const dummyResult: PublicServisResult = {
+    serviceNumber: "SRV-0426",
+    trackingCode: "F5FB0DFCB6",
+    device: "iPhone 15 Pro Max",
+    status: "Dikerjakan",
+    createdAt: new Date().toISOString(),
+    branchName: tenant.branchName ?? "Cabang Utama",
+    teknisiName: "Budi Santoso",
+    garansiUntil: null,
+    garansi: { state: "aktif", pct: 40, daysLeft: 36, total: 90 },
+    history: [
+      { at: new Date().toISOString(), from: null, to: "Masuk" },
+      { at: new Date().toISOString(), from: "Masuk", to: "Dikerjakan" },
+    ],
+  };
 
   return (
-    <div
-      className={`lacak-theme ${scheme} max-h-[620px] w-full overflow-hidden rounded-xl border border-border/60 bg-background`}
-      data-palette={appearance.palette}
-      data-density={appearance.density}
-      data-font={appearance.font}
-    >
-      <div className="mx-auto flex w-full max-w-[340px] items-center justify-center overflow-hidden rounded-xl border border-border/60 bg-muted/30 p-4">
-        <IPhone17ProMax frameColor="graphite" showStatusBar time="9:41" onScreenTap={() => {}} onDynamicIslandTap={() => {}}>
-          <div className="flex h-full w-full flex-col bg-background">
-            <div className="relative h-[76px] shrink-0 overflow-hidden">
-              {tenantBanner ? (
-                <Image src={tenantBanner} alt="" fill sizes="320px" unoptimized className="object-cover" />
-              ) : (
-                <div className="size-full bg-[linear-gradient(135deg,var(--primary),color-mix(in_oklch,var(--primary)_55%,var(--background)))]" />
-              )}
-            </div>
-            <div className="relative -mt-4 flex flex-1 flex-col rounded-t-2xl border-t bg-background px-3 pb-3">
-              <div className="flex items-center gap-2 pt-2">
-                <span className="flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-background text-[10px] font-bold">
-                  {tenantLogo ? (
-                    <Image src={tenantLogo} alt={tenantNama} fill sizes="32px" unoptimized className="object-contain p-1" />
-                  ) : (
-                    initialsOf(tenantNama)
-                  )}
-                </span>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate font-heading text-xs font-bold">{tenantNama}</p>
-                  {tenantTagline ? <p className="truncate text-[10px] font-medium text-muted-foreground">{tenantTagline}</p> : null}
-                </div>
-                <span className="rounded-full bg-primary/15 px-2.5 py-0.5 text-[10px] font-semibold text-primary">Aktif</span>
-              </div>
-              <div className="mt-3 flex-1 rounded-2xl border border-border/60 bg-card p-3">
-                <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Kode Lacak</p>
-                <p className="mt-1 font-mono text-sm font-bold">F5FB0DFCB6</p>
-                <p className="mt-2 text-xs font-medium">Status: Dalam proses pengerjaan. Teknisi sedang dikerjakan.</p>
-              </div>
-            </div>
-          </div>
-        </IPhone17ProMax>
-      </div>
+    <div className="mx-auto flex w-full max-w-[340px] items-center justify-center overflow-hidden rounded-xl border border-border/60 bg-muted/30 p-4">
+      <IPhone17ProMax frameColor="graphite" showStatusBar time="9:41" onScreenTap={() => {}} onDynamicIslandTap={() => {}}>
+        <div className="h-full w-full overflow-y-auto bg-background [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <LacakPage
+            tenant={tenant}
+            appearance={{ ...appearance, mode }}
+            initialResult={dummyResult}
+            initialError={null}
+          />
+        </div>
+      </IPhone17ProMax>
     </div>
   );
 }

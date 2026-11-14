@@ -28,13 +28,15 @@ const SCRIPT_MODE_SISTEM = `(function(){try{var e=document.currentScript.closest
  */
 export function LacakShell({
   tenant,
+  appearance = tenant.appearance,
   children,
 }: {
   tenant: PublicTenant;
-  /** Pratinjau di Pengaturan hanya menampilkan body, bukan banner + footer. */
+  /** Pengaturan yang belum disimpan (pratinjau) dipakai menggantikan milik tenant. */
+  appearance?: PublicTenant["appearance"];
   children?: React.ReactNode;
 }) {
-  const theme = lacakThemeProps(tenant.appearance, resolveLacakScheme(tenant.appearance.mode, false));
+  const theme = lacakThemeProps(appearance, resolveLacakScheme(appearance.mode, false));
 
   return (
     <main
@@ -44,7 +46,7 @@ export function LacakShell({
       suppressHydrationWarning
       data-font={theme["data-font"]}
     >
-      {tenant.appearance.mode === "system" ? (
+      {appearance.mode === "system" ? (
         <script dangerouslySetInnerHTML={{ __html: SCRIPT_MODE_SISTEM }} />
       ) : null}
       <PublicBackdrop />
@@ -55,17 +57,20 @@ export function LacakShell({
 
 export function LacakPage({
   tenant,
+  appearance,
   initialCode,
   initialResult,
   initialError,
 }: {
   tenant: PublicTenant;
+  /** Pengaturan yang belum disimpan (pratinjau) dipakai menggantikan milik tenant. */
+  appearance?: PublicTenant["appearance"];
   initialCode?: string;
   initialResult?: PublicServisResult | null;
   initialError?: string | null;
 }) {
   return (
-    <LacakShell tenant={tenant}>
+    <LacakShell tenant={tenant} appearance={appearance}>
       <PublicHeader
         name={tenant.name}
         logoUrl={tenant.logoUrl}
