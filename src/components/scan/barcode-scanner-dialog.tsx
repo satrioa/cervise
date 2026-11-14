@@ -87,8 +87,11 @@ export function BarcodeScannerDialog({
                 } catch {
                   /* ignore */
                 }
-                detected.current(value);
-                changeOpen.current(false);
+                try {
+                  detected.current(value);
+                } finally {
+                  changeOpen.current(false);
+                }
               });
           },
           () => {

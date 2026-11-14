@@ -593,14 +593,18 @@ export function PenjualanPOSClient({ initialRows, receiptContext }: { initialRow
         title="Scan produk"
         description="Arahkan kamera ke barcode produk."
         onDetected={(value) => {
-          const hit = matchProductByCode(products, value);
-          if (hit) {
-            addToCart(hit);
-            return;
+          try {
+            const hit = matchProductByCode(products, value);
+            if (hit) {
+              addToCart(hit);
+              return;
+            }
+            // Tidak ketemu: isi kolom cari supaya kasir bisa lihat kandidat.
+            setQ(value);
+            toast.error(`Barcode ${value} tidak ditemukan`);
+          } catch (cause) {
+            toast.error(cause instanceof Error ? cause.message : "Gagal memproses barcode");
           }
-          // Tidak ketemu: isi kolom cari supaya kasir bisa lihat kandidat.
-          setQ(value);
-          toast.error(`Barcode ${value} tidak ditemukan`);
         }}
       />
 

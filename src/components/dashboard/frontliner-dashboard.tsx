@@ -945,11 +945,11 @@ function PickupDialog({ open, onOpenChange, queue, onSaved }: { open: boolean; o
   const [saving, setSaving] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Dialog ditutup = pencarian lama dibuang, supaya buka berikutnya bersih.
-  if (!open && (query !== "" || results.length > 0)) {
+  useEffect(() => {
+    if (open) return;
     setQuery("");
     setResults([]);
-  }
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
@@ -961,15 +961,22 @@ function PickupDialog({ open, onOpenChange, queue, onSaved }: { open: boolean; o
     let cancelled = false;
     const timer = window.setTimeout(() => {
       setLoading(true);
-      void searchPickupServices(term).then((result) => {
-        if (cancelled) return;
-        setLoading(false);
-        if (result.ok) setResults(result.data);
-        else {
+      void searchPickupServices(term)
+        .then((result) => {
+          if (cancelled) return;
+          setLoading(false);
+          if (result.ok) setResults(result.data);
+          else {
+            setResults([]);
+            toast.error(result.error);
+          }
+        })
+        .catch((cause) => {
+          if (cancelled) return;
+          setLoading(false);
           setResults([]);
-          toast.error(result.error);
-        }
-      });
+          toast.error(cause instanceof Error ? cause.message : "Gagal mencari device");
+        });
     }, 250);
     return () => {
       cancelled = true;

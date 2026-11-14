@@ -51,11 +51,14 @@
       "settings": "Pengaturan Sistem",
       "profile": "Profil",
       "localization": "Lokalisasi",
-      "appearance": "Tampilan",
+      "appearance": "Tampilan Store",
       "subscription": "Subscription",
-      "usage": "Usage"
+      "usage": "Usage",
+      "receiptAppearance": "Tampilan Nota"
     },
-    "search": { "placeholder": "Cari servis, customer..." },
+    "search": {
+      "placeholder": "Cari servis, customer..."
+    },
     "menu": {
       "title": "Menu",
       "description": "Navigasi, analitik servis, dan preferensi aplikasi.",
@@ -80,9 +83,17 @@
       "loadFailed": "Gagal memuat data",
       "empty": "Belum ada menu"
     },
-    "branch": { "choose": "Pilih cabang" },
-    "bottomTabs": { "home": "Beranda", "service": "Servis", "add": "Tambah", "sparepart": "Sparepart",
-    "inventory": "Inventori", "more": "Lainnya" },
+    "branch": {
+      "choose": "Pilih cabang"
+    },
+    "bottomTabs": {
+      "home": "Beranda",
+      "service": "Servis",
+      "add": "Tambah",
+      "sparepart": "Sparepart",
+      "inventory": "Inventori",
+      "more": "Lainnya"
+    },
     "trial": {
       "title": "Trial Pro {days} hari lagi",
       "subtitle": "Upgrade untuk buka {branches} cabang & {users} user",

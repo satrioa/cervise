@@ -60,6 +60,7 @@ describe("isi sub-sidebar", () => {
     expect(hrefs).toContain("/app/pengaturan/lokalisasi");
     expect(hrefs).toContain("/app/pengaturan");
     expect(hrefs).toContain("/app/pengaturan/tampilan");
+    expect(hrefs).toContain("/app/pengaturan/nota");
     expect(hrefs).toContain("/app/pengaturan/subscription");
     expect(hrefs).toContain("/app/pengaturan/usage");
   });
@@ -78,6 +79,7 @@ describe("isi sub-sidebar", () => {
     expect(pengaturan?.entries.map((e) => e.href)).toEqual([
       "/app/pengaturan",
       "/app/pengaturan/tampilan",
+      "/app/pengaturan/nota",
       "/app/pengaturan/subscription",
       "/app/pengaturan/usage",
       "/app/pengaturan/role",

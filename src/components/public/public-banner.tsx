@@ -30,7 +30,15 @@ export function PublicBanner({ images }: { images: string[] }) {
 
   useEffect(() => {
     const track = trackRef.current;
-    if (track) track.scrollTo({ left: Math.min(index, Math.max(0, images.length - 1)) * track.clientWidth, behavior: "smooth" });
+    if (!track || images.length === 0) return;
+    const target = Math.min(index, Math.max(0, images.length - 1));
+    const scroll = () => {
+      if (track.clientWidth === 0) return;
+      track.scrollTo({ left: target * track.clientWidth, behavior: "smooth" });
+    };
+    scroll();
+    const raf = requestAnimationFrame(scroll);
+    return () => cancelAnimationFrame(raf);
   }, [index, images.length]);
 
   return (

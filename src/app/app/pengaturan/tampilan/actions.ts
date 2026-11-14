@@ -32,11 +32,7 @@ export async function saveLacakAppearance(input: {
   density: string;
   font: string;
 }) {
-  const actor = await getActiveTenant();
-  if (!canAccess(actor.role, "pengaturan_tampilan")) {
-    throw new Error("Role tidak diizinkan mengubah tampilan Lacak");
-  }
-  if (!actor.orgId) throw new Error("Organisasi tidak ditemukan");
+  const actor = await requireStoreTampilanAdmin();
 
   // Jangan pernah menyimpan apa adanya: nilai ini nanti berakhir sebagai
   // atribut `data-*` di halaman publik. Yang tidak dikenal jatuh ke default.
@@ -64,11 +60,21 @@ export async function saveLacakAppearance(input: {
 
 const TAGLINE_MAX = 120;
 
-/** Actor yang boleh mengubah apa pun di halaman ini, atau lempar. */
-async function requireTampilanAdmin() {
+/** Actor yang boleh mengubah Tampilan Store/Lacak, atau lempar. */
+async function requireStoreTampilanAdmin() {
   const actor = await getActiveTenant();
   if (!canAccess(actor.role, "pengaturan_tampilan")) {
-    throw new Error("Role tidak diizinkan mengubah tampilan Lacak");
+    throw new Error("Role tidak diizinkan mengubah Tampilan Store");
+  }
+  if (!actor.orgId) throw new Error("Organisasi tidak ditemukan");
+  return actor;
+}
+
+/** Actor yang boleh mengubah Tampilan Nota, atau lempar. */
+async function requireNotaTampilanAdmin() {
+  const actor = await getActiveTenant();
+  if (!canAccess(actor.role, "pengaturan_tampilan_nota")) {
+    throw new Error("Role tidak diizinkan mengubah Tampilan Nota");
   }
   if (!actor.orgId) throw new Error("Organisasi tidak ditemukan");
   return actor;
@@ -102,7 +108,7 @@ export async function saveLacakBranding(input: {
   mapsUrl?: string;
   footerNote?: string;
 }) {
-  const actor = await requireTampilanAdmin();
+  const actor = await requireStoreTampilanAdmin();
 
   const tagline = teksAtauNull(input.tagline, TAGLINE_MAX, "Tagline");
   const instagram = safeExternalUrl(input.instagramUrl);
@@ -172,7 +178,7 @@ function urlsBanner(paths: string[]): string[] {
 }
 
 export async function uploadLacakBanner(formData: FormData) {
-  const actor = await requireTampilanAdmin();
+  const actor = await requireStoreTampilanAdmin();
 
   const entry = formData.get("file");
   if (!(entry instanceof File)) throw new Error("File tidak ditemukan");
@@ -226,7 +232,7 @@ export async function uploadLacakBanner(formData: FormData) {
 }
 
 export async function removeLacakBanner(index: number) {
-  const actor = await requireTampilanAdmin();
+  const actor = await requireStoreTampilanAdmin();
   if (!Number.isInteger(index) || index < 0 || index >= MAX_BANNERS) {
     throw new Error("Slot banner tidak valid");
   }
@@ -268,7 +274,7 @@ async function hapusObjek(path: string | null | undefined): Promise<void> {
 }
 
 export async function uploadLacakLogo(formData: FormData) {
-  const actor = await requireTampilanAdmin();
+  const actor = await requireStoreTampilanAdmin();
 
   const entry = formData.get("file");
   if (!(entry instanceof File)) throw new Error("File tidak ditemukan");
@@ -308,7 +314,7 @@ export async function uploadLacakLogo(formData: FormData) {
 }
 
 export async function removeLacakLogo() {
-  const actor = await requireTampilanAdmin();
+  const actor = await requireStoreTampilanAdmin();
   const admin = createAdminClient();
 
   const { data, error } = await admin
@@ -325,19 +331,19 @@ export async function removeLacakLogo() {
 }
 
 export async function saveReceiptAppearance(input: { footerText: string }) {
-  const actor = await requireTampilanAdmin();
+  const actor = await requireNotaTampilanAdmin();
   const receiptFooterText = teksAtauNull(input.footerText ?? "", RECEIPT_FOOTER_MAX, "Footer nota");
   const { error } = await createAdminClient()
     .from("organizations")
     .update({ receipt_footer_text: receiptFooterText })
     .eq("id", actor.orgId);
   if (error) throw new Error(error.message);
-  revalidatePath("/app/pengaturan/tampilan");
+  revalidatePath("/app/pengaturan/nota");
   return { ok: true, receiptFooterText };
 }
 
 export async function uploadReceiptLogo(formData: FormData) {
-  const actor = await requireTampilanAdmin();
+  const actor = await requireNotaTampilanAdmin();
   const entry = formData.get("file");
   if (!(entry instanceof File)) throw new Error("File tidak ditemukan");
   if (entry.size === 0) throw new Error("File kosong");
@@ -371,12 +377,12 @@ export async function uploadReceiptLogo(formData: FormData) {
   }
 
   await hapusObjek(previous);
-  revalidatePath("/app/pengaturan/tampilan");
+  revalidatePath("/app/pengaturan/nota");
   return { ok: true, url: publicPhotoUrl(process.env.NEXT_PUBLIC_SUPABASE_URL ?? "", path) };
 }
 
 export async function removeReceiptLogo() {
-  const actor = await requireTampilanAdmin();
+  const actor = await requireNotaTampilanAdmin();
   const admin = createAdminClient();
 
   const { data: current, error: readError } = await admin
@@ -394,7 +400,7 @@ export async function removeReceiptLogo() {
   if (error) throw new Error(error.message);
 
   await hapusObjek(previous);
-  revalidatePath("/app/pengaturan/tampilan");
+  revalidatePath("/app/pengaturan/nota");
   return { ok: true };
 }
 

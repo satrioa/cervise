@@ -479,9 +479,11 @@ export function LandingSection({
 export function ReceiptAppearanceSection({
   tenant,
   onSaved,
+  showHeader = true,
 }: {
   tenant: PublicTenant;
   onSaved: (next: PublicTenant) => void;
+  showHeader?: boolean;
 }) {
   const router = useRouter();
   const fileRef = useRef<HTMLInputElement>(null);
@@ -569,12 +571,14 @@ export function ReceiptAppearanceSection({
   };
 
   return (
-    <div className="mt-12 space-y-8 border-t pt-10">
+    <div className={showHeader ? "mt-12 space-y-8 border-t pt-10" : "space-y-8"}>
       <section>
-        <SectionHead
-          title="Tampilan Nota"
-          hint="Logo dan teks footer yang dicetak pada nota/struk (penjualan, servis, tutup toko)."
-        />
+        {showHeader ? (
+          <SectionHead
+            title="Tampilan Nota"
+            hint="Logo dan teks footer yang dicetak pada nota/struk (penjualan, servis, tutup toko)."
+          />
+        ) : null}
         <div className="mt-4 flex flex-wrap items-center gap-4">
           <div className="relative h-14 w-14 overflow-hidden rounded-lg border border-border/60 bg-muted/40">
             {tenant.receiptLogoUrl ? (

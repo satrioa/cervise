@@ -51,11 +51,14 @@
       "settings": "Settings",
       "profile": "Profile",
       "localization": "Localization",
-      "appearance": "Appearance",
+      "appearance": "Store Appearance",
       "subscription": "Subscription",
-      "usage": "Usage"
+      "usage": "Usage",
+      "receiptAppearance": "Receipt Appearance"
     },
-    "search": { "placeholder": "Search service, customer..." },
+    "search": {
+      "placeholder": "Search service, customer..."
+    },
     "menu": {
       "title": "Menu",
       "description": "Navigation, service analytics, and app preferences.",
@@ -80,9 +83,17 @@
       "loadFailed": "Failed to load data",
       "empty": "No menu yet"
     },
-    "branch": { "choose": "Choose branch" },
-    "bottomTabs": { "home": "Home", "service": "Service", "add": "Add", "sparepart": "Spareparts",
-    "inventory": "Inventory", "more": "More" },
+    "branch": {
+      "choose": "Choose branch"
+    },
+    "bottomTabs": {
+      "home": "Home",
+      "service": "Service",
+      "add": "Add",
+      "sparepart": "Spareparts",
+      "inventory": "Inventory",
+      "more": "More"
+    },
     "trial": {
       "title": "Trial Pro {days} days left",
       "subtitle": "Upgrade to open {branches} branches & {users} users",

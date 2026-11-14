@@ -1,18 +1,14 @@
 import { requireMenu } from "@/lib/auth/require-menu";
 import { getActiveTenant } from "@/lib/supabase/actor";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { SettingsAppearanceShowcasePage } from "@/components/settings-appearance";
+import { StoreAppearancePage } from "@/components/settings-appearance";
 import { toPublicTenant, type LandingRow, type PublicTenant } from "@/lib/public/landing";
 
-export default async function TampilanPage() {
-  // Pengaturan di sini milik toko, bukan milik satu pengguna: halaman Lacak
-  // dibaca pengunjung tanpa sesi, jadi penampilannya harus sama untuk semua.
-  // Hanya MASTER_ADMIN yang boleh mengubahnya.
+export default async function TampilanStorePage() {
+  // Pengaturan tampilan Store/Lacak milik toko (publik) — hanya MASTER_ADMIN.
   await requireMenu("pengaturan_tampilan");
   const actor = await getActiveTenant();
 
-  // Sama seperti `updateBrand`, `organizations` di-revoke dari `authenticated`,
-  // jadi satu-satunya jalur baca-tulis adalah service role.
   const { data } = await createAdminClient()
     .from("organizations")
     .select(
@@ -45,5 +41,5 @@ export default async function TampilanPage() {
     process.env.NEXT_PUBLIC_SUPABASE_URL ?? "",
   );
 
-  return <SettingsAppearanceShowcasePage initial={tenant.appearance} tenant={tenant} />;
+  return <StoreAppearancePage initial={tenant.appearance} tenant={tenant} />;
 }

@@ -16,7 +16,7 @@ import {
   resolveLacakScheme,
   type LacakAppearance,
 } from "@/lib/operational/lacak-appearance";
-import { LandingSection, ReceiptAppearanceSection } from "@/components/settings-appearance-landing";
+import { LandingSection } from "@/components/settings-appearance-landing";
 import { IPhone17ProMax } from "@/components/ui/apple-iphone-17-pro";
 import type { PublicTenant } from "@/lib/public/landing";
 import type { PublicServisResult } from "@/lib/public/lookup";
@@ -62,7 +62,7 @@ const DENSITY_LABEL: Record<(typeof LACAK_DENSITIES)[number], string> = {
   compact: "Padat",
 };
 
-export function SettingsAppearanceShowcasePage({ initial, tenant }: { initial: LacakAppearance; tenant: PublicTenant }) {
+export function StoreAppearancePage({ initial, tenant }: { initial: LacakAppearance; tenant: PublicTenant }) {
   const [tenantData, setTenant] = useState<PublicTenant>(tenant);
   const [draft, setDraft] = useState<LacakAppearance>(initial);
   const [saving, setSaving] = useState(false);
@@ -98,9 +98,9 @@ export function SettingsAppearanceShowcasePage({ initial, tenant }: { initial: L
   return (
     <div className="min-h-svh bg-background text-foreground">
       <PageHeader
-        title="Tampilan halaman Lacak"
+        title="Tampilan Store"
         titleClassName="font-heading text-2xl"
-        description="Berlaku untuk halaman lacak publik milik toko ini. Pengaturan di sini tidak mengubah tampilan aplikasi yang Anda pakai sendiri."
+        description="Atur tampilan halaman Lacak/Store publik (mode, warna, tipografi, banner, dan identitas). Pengaturan di sini tidak mengubah tampilan aplikasi yang Anda pakai sendiri."
       />
 
       {dirty ? (
@@ -265,7 +265,6 @@ export function SettingsAppearanceShowcasePage({ initial, tenant }: { initial: L
         </div>
 
         <LandingSection tenant={tenantData} onSaved={setTenant} />
-        <ReceiptAppearanceSection tenant={tenantData} onSaved={setTenant} />
       </div>
     </div>
   );
@@ -299,11 +298,21 @@ function LacakPreview({ appearance, tenant }: { appearance: LacakAppearance; ten
     ],
   };
 
+  const previewTenant = {
+    ...tenant,
+    bannerUrls:
+      tenant.bannerUrls.length >= 2
+        ? tenant.bannerUrls
+        : tenant.bannerUrls.length === 1
+          ? [...tenant.bannerUrls, ...demoBanners(tenant.name).slice(1)]
+          : demoBanners(tenant.name),
+  };
+
   return (
     <IPhone17ProMax frameColor="graphite" showStatusBar time="9:41" onScreenTap={() => {}} onDynamicIslandTap={() => {}}>
       <div className="h-full w-full overflow-y-auto bg-background [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         <LacakPage
-          tenant={tenant}
+          tenant={previewTenant}
           appearance={{ ...appearance, mode }}
           initialResult={dummyResult}
           initialError={null}
@@ -311,6 +320,22 @@ function LacakPreview({ appearance, tenant }: { appearance: LacakAppearance; ten
       </div>
     </IPhone17ProMax>
   );
+}
+
+function demoBanners(name: string): string[] {
+  const label = (n: number) =>
+    `data:image/svg+xml;utf8,${encodeURIComponent(
+      `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1200 600'>
+        <defs><linearGradient id='g${n}' x1='0' y1='0' x2='1' y2='1'>
+          <stop offset='0%' stop-color='${n === 1 ? "#2563eb" : n === 2 ? "#7c3aed" : "#059669"}'/>
+          <stop offset='100%' stop-color='${n === 1 ? "#0ea5e9" : n === 2 ? "#db2777" : "#0d9488"}'/>
+        </linearGradient></defs>
+        <rect width='1200' height='600' fill='url(#g${n})'/>
+        <text x='60' y='120' font-family='Arial,sans-serif' font-size='56' font-weight='700' fill='white'>${name || "Toko"}</text>
+        <text x='60' y='200' font-family='Arial,sans-serif' font-size='34' fill='rgba(255,255,255,0.9)'>Banner ${n} (Pratinjau)</text>
+      </svg>`,
+    )}`;
+  return [label(1), label(2), label(3)];
 }
 
 function SectionHeader({ title, hint }: { title: string; hint?: string }) {

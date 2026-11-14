@@ -273,10 +273,11 @@ describe("canAccess", () => {
     expect(canAccess("MASTER_ADMIN", "karyawan")).toBe(true);
   });
 
-  it("hanya MASTER_ADMIN boleh pengaturan umum, tampilan, subscription, usage", () => {
+  it("hanya MASTER_ADMIN boleh pengaturan umum, tampilan store/nota, subscription, usage", () => {
     for (const key of [
       "pengaturan_general",
       "pengaturan_tampilan",
+      "pengaturan_tampilan_nota",
       "pengaturan_subscription",
       "pengaturan_usage",
     ]) {
@@ -350,6 +351,7 @@ describe("menu per role", () => {
       "/app/pengaturan/lokalisasi",
       "/app/pengaturan",
       "/app/pengaturan/tampilan",
+      "/app/pengaturan/nota",
       "/app/pengaturan/subscription",
       "/app/pengaturan/usage",
       "/app/pengaturan/role",
@@ -421,6 +423,7 @@ describe("menu per role", () => {
     for (const href of [
       "/app/pengaturan",
       "/app/pengaturan/tampilan",
+      "/app/pengaturan/nota",
       "/app/pengaturan/subscription",
       "/app/pengaturan/usage",
     ]) {
