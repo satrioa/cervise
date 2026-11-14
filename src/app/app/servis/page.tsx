@@ -543,7 +543,7 @@ export default function ServisPage() {
     } catch {}
     const data = toPrintData(s, { ...printContext, receiptLogoUrl: appearance.logoUrl, receiptFooterText: appearance.footerText }, detail);
 
-    // Thermal = printer ESC/POS 58mm; Jet/Dot Matrix tetap lewat dialog cetak.
+    // Thermal = printer ESC/POS 58mm (langsung), fallback ke dialog browser jika tidak tersedia/gagal.
     if (type === "Thermal") {
       try {
         const result = await printReceipt({

@@ -89,6 +89,10 @@ export function buildSaleReceiptLines(input: SalesReceiptInput): string[] {
 }
 
 export function buildServiceReceiptLines(input: ServiceReceiptInput): string[] {
+  return [...buildServiceBodyLines(input), ...buildServiceFooterLines(input)];
+}
+
+function buildServiceBodyLines(input: ServiceReceiptInput): string[] {
   const { branch, service, customer } = input;
   const tenantName = safe(branch.name, "Nota Servis").toUpperCase();
   const lines: string[] = [centerLine(tenantName, 16)];
@@ -145,14 +149,15 @@ export function buildServiceReceiptLines(input: ServiceReceiptInput): string[] {
   }
 
   lines.push(line());
+  return lines;
+}
+
+function buildServiceFooterLines(input: ServiceReceiptInput): string[] {
   const footer = input.receiptFooterText?.trim();
   if (footer) {
-    lines.push(...wrap(footer).map((row) => centerLine(row)));
-  } else {
-    lines.push(centerLine("Simpan Nota ini untuk pengambilan device"));
-    lines.push(centerLine("Terima Kasih"));
+    return wrap(footer).map((row) => centerLine(row));
   }
-  return lines;
+  return [centerLine("Simpan Nota ini untuk pengambilan device"), centerLine("Terima Kasih")];
 }
 
 export function buildSaleEscpos(
@@ -180,8 +185,11 @@ export function buildServiceEscpos(
       ...text(line()),
     );
   }
-  after.push(...align("center"), ...barcode(input.invoiceNo), ...align("left"));
-  return renderLines(buildServiceReceiptLines(input), {
+  after.push(...align("center"), ...barcode(input.invoiceNo), ...align("left"), ...text(line()));
+  for (const row of buildServiceFooterLines(input)) {
+    after.push(...text(row));
+  }
+  return renderLines(buildServiceBodyLines(input), {
     logo: options.logo ?? null,
     boldLine: (row) => row.startsWith("TOTAL") || row.startsWith("ESTIMASI"),
     afterLines: after,

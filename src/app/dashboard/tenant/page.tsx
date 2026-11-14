@@ -1,7 +1,9 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { publicPhotoUrl } from "@/lib/photos";
+import { PageTransition } from "@/components/layout/page-transition";
 import { CreateTenantDialog, type TenantCreatePackage } from "@/components/tenant/create-tenant-dialog";
+import { TenantSelectTile } from "@/components/tenant/tenant-select-tile";
 import { selectTenant } from "./actions";
 
 type OrganizationRow = {
@@ -63,6 +65,7 @@ export default async function TenantSelectorPage() {
 
   return (
     <main className="flex min-h-svh items-center justify-center bg-background px-4 py-12 text-foreground">
+      <PageTransition />
       <div className="w-full max-w-3xl">
         <header className="mb-10 text-center">
           <h1 className="font-heading text-3xl font-semibold tracking-tight sm:text-4xl">Pilih tenant</h1>
@@ -73,23 +76,14 @@ export default async function TenantSelectorPage() {
           {tenantList.map((organization) => {
             const logoUrl = publicPhotoUrl(supabaseUrl, organization.logo_url);
             return (
-              <form key={organization.id} action={selectTenant} className="flex">
-                <input type="hidden" name="organizationId" value={organization.id} />
-                <button
-                  type="submit"
-                  className="group flex h-full min-h-[152px] w-32 flex-col items-center justify-center gap-3 rounded-2xl border bg-card p-4 text-center transition-all hover:-translate-y-0.5 hover:border-foreground/20 hover:bg-accent/40 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:w-36"
-                >
-                  <span className="relative flex size-16 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-primary/10 text-xl font-semibold text-primary ring-1 ring-inset ring-primary/15 transition-colors group-hover:bg-primary group-hover:text-primary-foreground">
-                    {logoUrl ? (
-                      // eslint-disable-next-line @next/next/no-img-element -- remote tenant logo URL, no remotePatterns config required
-                      <img src={logoUrl} alt="" className="size-full object-cover" />
-                    ) : (
-                      tenantInitial(organization.name)
-                    )}
-                  </span>
-                  <span className="line-clamp-2 text-sm font-medium leading-snug">{organization.name}</span>
-                </button>
-              </form>
+              <TenantSelectTile
+                key={organization.id}
+                organizationId={organization.id}
+                name={organization.name}
+                logoUrl={logoUrl}
+                initial={tenantInitial(organization.name)}
+                action={selectTenant}
+              />
             );
           })}
 

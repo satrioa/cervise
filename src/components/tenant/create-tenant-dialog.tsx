@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
 import { toast } from "sonner";
 import { createOwnTenant } from "@/app/dashboard/tenant/actions";
-import { playPageTransition } from "@/components/layout/page-transition";
+import { beginTenantTransition } from "@/components/layout/page-transition";
 import { validateRequiredTenantName } from "@/lib/onboarding/validation";
 
 export type TenantCreatePackage = {
@@ -56,8 +56,7 @@ export function CreateTenantDialog({
       setName("");
       setBranchName("");
       setPackageId(packages[0]?.id ?? "");
-      playPageTransition();
-      router.refresh();
+      beginTenantTransition();
       router.push(result.isPaidPackage ? "/app/pengaturan/subscription" : "/app");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Gagal membuat tenant");
