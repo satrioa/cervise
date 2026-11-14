@@ -242,7 +242,7 @@ export function SettingsAppearanceShowcasePage({ initial, tenant }: { initial: L
             </section>
           </div>
 
-          <aside className="lg:sticky lg:top-12 lg:self-start">
+          <aside className="lg:sticky lg:top-8 lg:self-start">
             <div className="font-mono text-[10px] text-muted-foreground uppercase tracking-[0.3em]">Pratinjau</div>
             <div className="mt-2 flex items-center justify-between text-muted-foreground text-xs">
               <span>Menampilkan halaman Lacak sungguhan.</span>
