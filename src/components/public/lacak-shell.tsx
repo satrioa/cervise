@@ -73,9 +73,14 @@ export function LacakPage({
     <LacakShell tenant={tenant} appearance={appearance}>
       <PublicTopNav name={tenant.name} logoUrl={tenant.logoUrl} phone={tenant.branchPhone} />
 
-      <PublicHeader bannerUrls={tenant.bannerUrls} tagline={tenant.tagline} />
+      <PublicHeader bannerUrls={tenant.bannerUrls} />
 
-      <div className="relative flex-1 rounded-t-3xl border-t bg-background px-4 pb-10 shadow-sm">
+      <div className="relative -mt-6 flex-1 rounded-t-3xl border-t bg-background px-4 pt-5 pb-10 shadow-sm">
+        {tenant.tagline ? (
+          <p className="mx-auto w-full max-w-2xl px-2 pb-2 text-center font-heading text-xl font-bold leading-snug">
+            {tenant.tagline}
+          </p>
+        ) : null}
         <LacakForm
           tenant={tenant}
           initialCode={initialCode}

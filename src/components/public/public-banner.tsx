@@ -77,7 +77,7 @@ export function PublicBanner({ images }: { images: string[] }) {
       )}
 
       {images.length > 1 ? (
-        <div className="absolute inset-x-0 bottom-3 z-10 flex justify-center gap-1.5">
+        <div className="absolute inset-x-0 bottom-9 z-10 flex justify-center gap-1.5">
           {images.map((src, i) => (
             <button
               key={src}
