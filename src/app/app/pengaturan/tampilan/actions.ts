@@ -410,14 +410,12 @@ export async function getReceiptAppearance() {
   if (!actor.orgId) return { logoUrl: null as string | null, footerText: null as string | null };
   const { data } = await createAdminClient()
     .from("organizations")
-    .select("logo_url, receipt_logo_url, receipt_footer_text")
+    .select("receipt_logo_url, receipt_footer_text")
     .eq("id", actor.orgId)
     .maybeSingle();
   const base = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
-  const receiptLogo = publicPhotoUrl(base, (data as any)?.receipt_logo_url ?? null);
-  const tenantLogo = publicPhotoUrl(base, (data as any)?.logo_url ?? null);
   return {
-    logoUrl: receiptLogo ?? tenantLogo,
+    logoUrl: publicPhotoUrl(base, (data as any)?.receipt_logo_url ?? null),
     footerText: (((data as any)?.receipt_footer_text as string | null | undefined) ?? "").trim() || null,
   };
 }

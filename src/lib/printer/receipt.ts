@@ -107,11 +107,9 @@ export function buildServiceReceiptLines(input: ServiceReceiptInput): string[] {
   lines.push(columns("Status", safe(service.status)));
 
   lines.push(line());
-  lines.push(...wrap(service.device));
+  lines.push(...wrap(`Device: ${service.device}`));
   if (service.complaint?.trim()) {
-    lines.push(line("-"));
-    lines.push("Kerusakan:");
-    lines.push(...wrap(service.complaint));
+    lines.push(...wrap(`Kerusakan: ${service.complaint.trim()}`));
   }
   if (!service.isEstimate && service.sparepart?.trim()) {
     lines.push("Sparepart:");

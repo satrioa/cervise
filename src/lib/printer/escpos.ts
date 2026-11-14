@@ -158,7 +158,9 @@ export function renderLines(
   } = {},
 ): Uint8Array {
   const bytes: number[] = [...init()];
-  if (options.logo) bytes.push(...rasterCommand(options.logo));
+  if (options.logo) {
+    bytes.push(...align("center"), ...rasterCommand(options.logo), ...align("left"));
+  }
 
   const isBold = options.boldLine ?? (() => false);
   lines.forEach((line, index) => {

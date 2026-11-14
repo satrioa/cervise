@@ -24,6 +24,7 @@ import { printReceipt } from "@/lib/printer";
 import { useBranchOptional } from "@/lib/branch-context";
 import { useTenantOptional } from "@/lib/tenant-context";
 import { getReceiptAppearance } from "@/app/app/pengaturan/tampilan/actions";
+import { createClient } from "@/lib/supabase/client";
 import { playPageTransition } from "@/components/layout/page-transition";
 import type { KondisiAwal } from "@/lib/servis-constants";
 
@@ -41,17 +42,44 @@ export function ServisForm({ onSuccess, onCancel }: ServisFormProps) {
     [tenantCtx?.tenants, tenantCtx?.activeOrgId],
   );
   const [receiptAppearance, setReceiptAppearance] = useState<{ logoUrl: string | null; footerText: string | null }>({ logoUrl: null, footerText: null });
+  const [branchInfo, setBranchInfo] = useState<{ address: string | null; phone: string | null }>({ address: null, phone: null });
+  const branch = branchCtx?.branch;
+  useEffect(() => {
+    if (!branch?.id || branch.id === "all") {
+      setBranchInfo({ address: null, phone: branch?.phone ?? null });
+      return;
+    }
+    let cancelled = false;
+    const supabase = createClient();
+    supabase
+      .from("branches")
+      .select("city, address, phone")
+      .eq("id", branch.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (cancelled) return;
+        const addr = (data?.city as string | null | undefined) ?? (data?.address as string | null | undefined) ?? null;
+        setBranchInfo({
+          address: addr,
+          phone: (data?.phone as string | null | undefined) ?? branch.phone ?? null,
+        });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [branch?.id, branch?.phone]);
   // Header nota memakai brand organisasi; nama cabang sebagai badge pill.
   const printContext = useMemo<PrintContext>(
     () => ({
       brandName: activeTenant?.name ?? null,
-      branchName: branchCtx?.branch.label ?? null,
-      phone: branchCtx?.branch.phone ?? null,
+      branchName: branch?.label ?? null,
+      address: branchInfo.address,
+      phone: branchInfo.phone ?? branch?.phone ?? null,
       tenantSlug: activeTenant?.slug ?? null,
       receiptLogoUrl: receiptAppearance.logoUrl,
       receiptFooterText: receiptAppearance.footerText,
     }),
-    [activeTenant?.name, activeTenant?.slug, branchCtx?.branch.label, branchCtx?.branch.phone, receiptAppearance.logoUrl, receiptAppearance.footerText],
+    [activeTenant?.name, activeTenant?.slug, branch?.label, branch?.phone, branchInfo.address, branchInfo.phone, receiptAppearance.logoUrl, receiptAppearance.footerText],
   );
 
   // device
@@ -140,8 +168,17 @@ export function ServisForm({ onSuccess, onCancel }: ServisFormProps) {
    */
   const printNota = async (servisId: string) => {
     try {
+      let appearance = receiptAppearance;
+      try {
+        appearance = await getReceiptAppearance();
+        setReceiptAppearance(appearance);
+      } catch {}
       const detail = await getServisDetail(servisId);
-      const data = toPrintData(detail, printContext, detail);
+      const data = toPrintData(
+        detail,
+        { ...printContext, receiptLogoUrl: appearance.logoUrl, receiptFooterText: appearance.footerText },
+        detail,
+      );
       const result = await printReceipt({
         kind: "service",
         html: renderThermalHtml(data),

@@ -480,10 +480,12 @@ export function ReceiptAppearanceSection({
   tenant,
   onSaved,
   showHeader = true,
+  onPreviewChange,
 }: {
   tenant: PublicTenant;
   onSaved: (next: PublicTenant) => void;
   showHeader?: boolean;
+  onPreviewChange?: (draft: { receiptLogoUrl: string | null; receiptFooterText: string }) => void;
 }) {
   const router = useRouter();
   const fileRef = useRef<HTMLInputElement>(null);
@@ -496,6 +498,13 @@ export function ReceiptAppearanceSection({
   useEffect(() => {
     setFooterText(tenant.receiptFooterText ?? "");
   }, [tenant.receiptFooterText]);
+
+  useEffect(() => {
+    onPreviewChange?.({
+      receiptLogoUrl: tenant.receiptLogoUrl ?? null,
+      receiptFooterText: footerText,
+    });
+  }, [tenant.receiptLogoUrl, footerText, onPreviewChange]);
 
   const ganti = (patch: Partial<PublicTenant>) => onSaved({ ...tenant, ...patch });
 

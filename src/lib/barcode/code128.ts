@@ -43,9 +43,10 @@ export function code128B(value: string): Code128Result {
 export function code128Svg(value: string, options: { height?: number; moduleWidth?: number; margin?: number } = {}): string {
   const { widths } = code128B(value);
   if (widths.length === 0) return "";
-  const moduleWidth = options.moduleWidth ?? 1;
-  const height = options.height ?? 40;
-  const margin = options.margin ?? 8;
+  const moduleWidth = options.moduleWidth ?? 2;
+  const height = options.height ?? 48;
+  // Quiet zone minimal ~10 modul di tiap sisi agar mudah discan kamera.
+  const margin = options.margin ?? moduleWidth * 10;
   let x = margin;
   const rects: string[] = [];
   widths.forEach((width, index) => {
@@ -53,5 +54,6 @@ export function code128Svg(value: string, options: { height?: number; moduleWidt
     if (index % 2 === 0) rects.push(`<rect x="${x}" y="0" width="${w}" height="${height}"/>`);
     x += w;
   });
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${x + margin}" height="${height}" viewBox="0 0 ${x + margin} ${height}" role="img" aria-label="Barcode ${value}"><g fill="#111827">${rects.join("")}</g></svg>`;
+  const totalWidth = x + margin;
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${totalWidth}" height="${height}" viewBox="0 0 ${totalWidth} ${height}" shape-rendering="crispEdges" style="max-width:100%;height:auto" role="img" aria-label="Barcode ${value}"><g fill="#111827">${rects.join("")}</g></svg>`;
 }

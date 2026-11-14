@@ -79,11 +79,18 @@ describe("nota penjualan 58mm", () => {
     expect(bytes.slice(-3)).toEqual([0x1b, 0x64, 0x04]);
   });
 
-  it("menyisipkan bitmap logo sebelum nama toko kalau logo ada", () => {
+  it("menyisipkan bitmap logo (centered) sebelum nama toko kalau logo ada", () => {
     const withoutLogo = buildSaleEscpos(sale);
     const withLogo = buildSaleEscpos(sale, { logo: { width: 8, height: 1, data: [0b10101010] } });
 
-    expect(Array.from(withLogo.slice(0, 11))).toEqual([0x1b, 0x40, 0x1d, 0x76, 0x30, 0x00, 1, 0, 1, 0, 0b10101010]);
+    // init + center + raster + left, lalu size ganda baris pertama
+    expect(Array.from(withLogo.slice(0, 19))).toEqual([
+      0x1b, 0x40, // init
+      0x1b, 0x61, 0x01, // center
+      0x1d, 0x76, 0x30, 0x00, 1, 0, 1, 0, 0b10101010, // raster
+      0x1b, 0x61, 0x00, // left
+      0x1d, 0x21, // size double (start)
+    ]);
     expect(withLogo.length).toBeGreaterThan(withoutLogo.length);
   });
 

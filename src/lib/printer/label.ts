@@ -34,7 +34,7 @@ function renderLabel(item: SkuLabelInput): string {
   return `<div class="label">
   <div class="name">${escapeHtml(item.name)}</div>
   ${variant ? `<div class="meta">${escapeHtml(variant)}</div>` : ""}
-  <div class="code">${code128Svg(item.sku, { height: 28, moduleWidth: 1, margin: 2 })}</div>
+  <div class="code">${code128Svg(item.sku, { height: 44, moduleWidth: 2 })}</div>
   <div class="sku">${escapeHtml(item.sku)}</div>
 </div>`;
 }
@@ -61,8 +61,8 @@ export function renderSkuLabelHtml(items: SkuLabelInput[], autoPrint = true): st
   }
   .name { font-size: 8pt; font-weight: 700; line-height: 1.1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .meta { font-size: 6.5pt; line-height: 1.2; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .code { margin-top: auto; display: flex; justify-content: center; }
-  .code svg { width: auto; max-width: 100%; height: 7mm; display: block; margin: 0 auto; }
+  .code { margin-top: auto; display: flex; justify-content: center; overflow: hidden; }
+  .code svg { max-width: 100%; height: 8mm; width: auto; display: block; margin: 0 auto; }
   .sku { font-size: 6.5pt; font-family: ui-monospace, monospace; letter-spacing: .02em; }
 </style>
 </head><body>

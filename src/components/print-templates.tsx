@@ -117,7 +117,7 @@ function garansiHtml(service: PrintData["service"]): string {
 function barcodeBlock(code: string | undefined, opts: { height?: number; fontSize?: string } = {}): string {
   const value = (code ?? "").trim();
   if (!value) return "";
-  return `<div style="margin-top:4px;"><div style="text-align:center;">${code128Svg(value, { height: opts.height ?? 34, moduleWidth: 1 })}</div><div style="text-align:center; font-family:ui-monospace,monospace; font-size:${opts.fontSize ?? "8pt"}; letter-spacing:.12em;">${escapeHtml(value)}</div></div>`;
+  return `<div style="margin-top:4px;"><div style="text-align:center;overflow:hidden;">${code128Svg(value, { height: opts.height ?? 56, moduleWidth: 2 })}</div><div style="text-align:center; font-family:ui-monospace,monospace; font-size:${opts.fontSize ?? "8pt"}; letter-spacing:.12em;">${escapeHtml(value)}</div></div>`;
 }
 
 function text(value: unknown): string {
@@ -586,11 +586,11 @@ export function renderThermalHtml(data: PrintData): string {
   <div class="field"><span class="label">Konsumen</span><span class="value">${escapeHtml(customer.name)}</span></div>
   ${customer.address ? `<div class="field"><span class="label">Alamat</span><span class="value" style="word-break:break-word; overflow-wrap:anywhere;">${escapeHtml(customer.address)}</span></div>` : ""}
   <div class="field"><span class="label">Telepon</span><span class="value">${escapeHtml(maskedCustomerPhone)}</span></div>
-  <div class="field"><span class="label">Merek</span><span class="value">${escapeHtml(service.merk || service.device.split(" ")[0] || "")} ${escapeHtml(service.tipe || "")}</span></div>
+  <div class="field"><span class="label">Device</span><span class="value">${escapeHtml(service.device)}</span></div>
+  <div class="field"><span class="label">Kerusakan</span><span class="value">${escapeHtml(kerusaanStr)}</span></div>
   <div class="field"><span class="label">Imei 1 /SN</span><span class="value">${escapeHtml(service.imei1 ?? "")}</span></div>
   <div class="field"><span class="label">Imei 2 /SN</span><span class="value">${escapeHtml(service.imei2 ?? "")}</span></div>
   <div class="field"><span class="label">Kelengkapan</span><span class="value">${escapeHtml((service.kelengkapan || []).join(", ") || EM_DASH)}</span></div>
-  <div class="field"><span class="label">Kerusakan</span><span class="value">${escapeHtml(kerusaanStr)}</span></div>
   <div class="field"><span class="label">Deskripsi</span><span class="value">${escapeHtml(service.deskripsi ?? "")}</span></div>
   <hr class="sep">
   <div class="center bold">###COPY###</div>

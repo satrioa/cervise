@@ -37,6 +37,7 @@ import { useTenantOptional } from "@/lib/tenant-context";
 import { toPrintData, renderJetHtml, renderDotMatrixHtml, renderThermalHtml, publicTrackingUrl, type PrintContext } from "@/components/print-templates";
 import { getReceiptAppearance } from "@/app/app/pengaturan/tampilan/actions";
 import { printReceipt } from "@/lib/printer";
+import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 import { SparepartPickDialog, CancelSparepartDialog } from "@/components/servis/sparepart-dialogs";
 import { PickupSignatureDialog } from "@/components/servis/pickup-signature-dialog";
@@ -242,20 +243,46 @@ export default function ServisPage() {
     [tenantCtx?.tenants, tenantCtx?.activeOrgId],
   );
   const [receiptAppearance, setReceiptAppearance] = useState<{ logoUrl: string | null; footerText: string | null }>({ logoUrl: null, footerText: null });
+  const [branchInfo, setBranchInfo] = useState<{ address: string | null; phone: string | null }>({ address: null, phone: null });
   useEffect(() => {
     getReceiptAppearance().then(setReceiptAppearance).catch(() => {});
   }, [tenantCtx?.activeOrgId]);
+  useEffect(() => {
+    if (!branch.id || branch.id === "all") {
+      setBranchInfo({ address: null, phone: branch.phone ?? null });
+      return;
+    }
+    let cancelled = false;
+    const supabase = createClient();
+    supabase
+      .from("branches")
+      .select("city, address, phone")
+      .eq("id", branch.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (cancelled) return;
+        const addr = (data?.city as string | null | undefined) ?? (data?.address as string | null | undefined) ?? null;
+        setBranchInfo({
+          address: addr,
+          phone: (data?.phone as string | null | undefined) ?? branch.phone ?? null,
+        });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [branch.id, branch.phone]);
   // Header struk memakai brand organisasi; nama cabang ditampilkan sebagai badge pill.
   const printContext = useMemo<PrintContext>(
     () => ({
       brandName: activeTenant?.name ?? null,
       branchName: branch.id === "all" ? null : branch.label,
-      phone: branch.phone ?? null,
+      address: branchInfo.address,
+      phone: branchInfo.phone ?? branch.phone ?? null,
       tenantSlug: activeTenant?.slug ?? null,
       receiptLogoUrl: receiptAppearance.logoUrl,
       receiptFooterText: receiptAppearance.footerText,
     }),
-    [activeTenant?.name, activeTenant?.slug, branch.id, branch.label, branch.phone, receiptAppearance.logoUrl, receiptAppearance.footerText],
+    [activeTenant?.name, activeTenant?.slug, branch.id, branch.label, branch.phone, branchInfo.address, branchInfo.phone, receiptAppearance.logoUrl, receiptAppearance.footerText],
   );
   const [kanbanValue, setKanbanValue] = useState<Record<string, ServisItem[]>>({});
   // Drop terakhir yang menunggu form (Dikerjakan/Batal/Sudah Diambil). Form baru
@@ -509,7 +536,12 @@ export default function ServisPage() {
     try {
       detail = await getServisDetail(s.id);
     } catch {}
-    const data = toPrintData(s, printContext, detail);
+    let appearance = receiptAppearance;
+    try {
+      appearance = await getReceiptAppearance();
+      setReceiptAppearance(appearance);
+    } catch {}
+    const data = toPrintData(s, { ...printContext, receiptLogoUrl: appearance.logoUrl, receiptFooterText: appearance.footerText }, detail);
 
     // Thermal = printer ESC/POS 58mm; Jet/Dot Matrix tetap lewat dialog cetak.
     if (type === "Thermal") {
@@ -680,13 +712,19 @@ export default function ServisPage() {
   const handleBulkPrint = async (type: "Dot Matrix" | "Jet" | "Thermal") => {
     const data = selectedData;
     if (data.length === 0) return;
+    let appearance = receiptAppearance;
+    try {
+      appearance = await getReceiptAppearance();
+      setReceiptAppearance(appearance);
+    } catch {}
+    const ctx = { ...printContext, receiptLogoUrl: appearance.logoUrl, receiptFooterText: appearance.footerText };
     const printDatas = await Promise.all(
       data.map(async (s) => {
         let detail: any = null;
         try {
           detail = await getServisDetail(s.id);
         } catch {}
-        return toPrintData(s, printContext, detail);
+        return toPrintData(s, ctx, detail);
       })
     );
     const htmlPages = printDatas
