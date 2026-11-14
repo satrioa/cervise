@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Menu, MenuItem, MenuPopup, MenuSeparator, MenuTrigger } from "@/components/ui/menu";
 import { Select, SelectItem, SelectPopup, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
+import { Pagination } from "@/components/ui/pagination";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { KaryawanFormDialog, TempPasswordDialog } from "./karyawan-form-dialog";
 import { deleteKaryawan, resetKaryawanPassword, setKaryawanActive, updateKaryawan } from "@/app/app/karyawan/actions";
@@ -202,21 +202,7 @@ export function KaryawanList({ rows, branches }: { rows: KaryawanRow[]; branches
               </Select>
               <span>· Menampilkan {(safePage - 1) * pageSize + 1}–{Math.min(safePage * pageSize, rows.length)} dari {rows.length}</span>
             </div>
-            <Pagination>
-              <PaginationContent>
-                <PaginationItem>
-                  <PaginationPrevious href="#" onClick={(e) => { e.preventDefault(); if (safePage > 1) setPage(safePage - 1); }} aria-disabled={safePage === 1} className={safePage === 1 ? "pointer-events-none opacity-50" : ""} />
-                </PaginationItem>
-                {Array.from({ length: totalPages }, (_, i) => i + 1).slice(Math.max(0, safePage - 3), Math.max(0, safePage - 3) + 5).map((p) => (
-                  <PaginationItem key={p}>
-                    <PaginationLink href="#" isActive={p === safePage} onClick={(e) => { e.preventDefault(); setPage(p); }}>{p}</PaginationLink>
-                  </PaginationItem>
-                ))}
-                <PaginationItem>
-                  <PaginationNext href="#" onClick={(e) => { e.preventDefault(); if (safePage < totalPages) setPage(safePage + 1); }} aria-disabled={safePage === totalPages} className={safePage === totalPages ? "pointer-events-none opacity-50" : ""} />
-                </PaginationItem>
-              </PaginationContent>
-            </Pagination>
+            <Pagination page={safePage} pageCount={totalPages} onPageChange={setPage} />
           </div>
         ) : null}
       </div>

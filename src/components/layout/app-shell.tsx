@@ -213,6 +213,9 @@ function SidebarContent({
       cancelled = true;
     };
   }, [branch.id, pathname]);
+  const accountActive = pathname.startsWith("/app/pengaturan/profil");
+  const tenantSettingsActive =
+    pathname.startsWith("/app/pengaturan") && !accountActive;
   return (
     <>
       <div className="flex h-16 shrink-0 items-center border-b border-border/60 bg-white px-2 dark:bg-card">
@@ -271,14 +274,24 @@ function SidebarContent({
       <TrialCard organizationId={activeOrgId} canManageSubscription={canAccess(role, "pengaturan_subscription")} />
 
       <div className="flex items-center gap-2 border-t border-border/60 px-3 py-2.5">
-        <IdentityAvatar photoUrl={avatarUrl} name={fullName ?? roleLabel(role)} className="size-8 text-xs" />
-        <div className="min-w-0 flex-1">
+        <Link
+          href="/app/pengaturan/profil"
+          aria-label="Pengaturan akun"
+          title="Pengaturan akun"
+          className={cn(
+            "flex min-w-0 flex-1 items-center gap-2 rounded-md px-1 py-1 -ml-1 transition-colors",
+            accountActive ? "bg-foreground/[0.06]" : "hover:bg-foreground/[0.04]",
+          )}
+        >
+          <IdentityAvatar photoUrl={avatarUrl} name={fullName ?? roleLabel(role)} className="size-8 text-xs shrink-0" />
+          <div className="min-w-0 flex-1 text-left">
             <div className="truncate text-sm font-medium">{fullName ?? roleLabel(role)}</div>
-          <div className="flex items-center gap-1.5 truncate text-xs text-muted-foreground">
-            <span className="size-1.5 rounded-full bg-emerald-500" />
-            <span className="truncate">{branch.label}</span>
+            <div className="flex items-center gap-1.5 truncate text-xs text-muted-foreground">
+              <span className="size-1.5 rounded-full bg-emerald-500" />
+              <span className="truncate">{branch.label}</span>
+            </div>
           </div>
-        </div>
+        </Link>
         <SoundToggle />
         <button
           type="button"
@@ -294,9 +307,15 @@ function SidebarContent({
           <LogOut className="size-4" />
         </button>
         <Link
-          href="/app/pengaturan/profil"
-          aria-label="Pengaturan profil"
-          className={`rounded-md p-1.5 ${pathname.startsWith("/app/pengaturan") ? "bg-foreground/[0.06] text-foreground" : "text-muted-foreground hover:bg-foreground/[0.04]"}`}
+          href="/app/pengaturan"
+          aria-label="Pengaturan tenant"
+          title="Pengaturan tenant"
+          className={cn(
+            "rounded-md p-1.5 transition-colors",
+            tenantSettingsActive
+              ? "bg-foreground/[0.06] text-foreground"
+              : "text-muted-foreground hover:bg-foreground/[0.04] hover:text-foreground",
+          )}
         >
           <Settings className="size-4" />
         </Link>

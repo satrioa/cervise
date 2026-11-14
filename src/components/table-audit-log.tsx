@@ -13,7 +13,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
+import { Pagination } from "@/components/ui/pagination";
 import { getAuditLog } from "@/app/app/audit-log/actions";
 import { Skeleton } from "@/components/ui/skeleton";
 import { TableRowsSkeleton } from "@/components/ui/skeleton-shapes";
@@ -348,21 +348,7 @@ export function CerviseAuditLogTable({ cabangFilter }: { cabangFilter?: string }
             </Select>
             <span>· Menampilkan {(safePage - 1) * pageSize + 1}–{Math.min(safePage * pageSize, filtered.length)} dari {filtered.length}</span>
           </div>
-          <Pagination>
-            <PaginationContent>
-              <PaginationItem>
-                <PaginationPrevious href="#" onClick={(e) => { e.preventDefault(); if (safePage > 1) setPage(safePage - 1); }} aria-disabled={safePage === 1} className={safePage === 1 ? "pointer-events-none opacity-50" : ""} />
-              </PaginationItem>
-              {Array.from({ length: totalPages }, (_, i) => i + 1).slice(Math.max(0, safePage - 3), Math.max(0, safePage - 3) + 5).map((p) => (
-                <PaginationItem key={p}>
-                  <PaginationLink href="#" isActive={p === safePage} onClick={(e) => { e.preventDefault(); setPage(p); }}>{p}</PaginationLink>
-                </PaginationItem>
-              ))}
-              <PaginationItem>
-                <PaginationNext href="#" onClick={(e) => { e.preventDefault(); if (safePage < totalPages) setPage(safePage + 1); }} aria-disabled={safePage === totalPages} className={safePage === totalPages ? "pointer-events-none opacity-50" : ""} />
-              </PaginationItem>
-            </PaginationContent>
-          </Pagination>
+          <Pagination page={safePage} pageCount={totalPages} onPageChange={setPage} />
         </div>
       ) : null}
     </>

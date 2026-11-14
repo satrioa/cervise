@@ -1,5 +1,6 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
@@ -7,6 +8,10 @@ import {
   getSubscriptionAccessState,
   type SubscriptionLifecycleStatus,
 } from "@/lib/billing/renewal";
+import { slugify } from "@/lib/tenant-slug";
+import { validateRequiredTenantName } from "@/lib/onboarding/validation";
+
+const MAX_TENANTS = 5;
 
 export async function selectTenant(formData: FormData) {
   const organizationId = String(formData.get("organizationId") ?? "").trim();
@@ -95,4 +100,102 @@ export async function selectTenant(formData: FormData) {
   });
 
   redirect("/app");
+}
+
+export async function createOwnTenant(input: {
+  name: string;
+  branchName?: string;
+  packageId: string;
+}) {
+  const supabase = await createClient();
+  const { data: auth } = await supabase.auth.getUser();
+  if (!auth.user) redirect("/login?next=/dashboard/tenant");
+
+  const [platformAdminResult, membershipsResult] = await Promise.all([
+    supabase
+      .from("platform_admins")
+      .select("profile_id")
+      .eq("profile_id", auth.user.id)
+      .eq("is_active", true)
+      .maybeSingle(),
+    supabase
+      .from("employees")
+      .select("organization_id, role")
+      .eq("profile_id", auth.user.id)
+      .eq("is_active", true),
+  ]);
+  if (platformAdminResult.error) throw new Error("Gagal memverifikasi akses tenant");
+  if (membershipsResult.error) throw new Error("Gagal memverifikasi akses tenant");
+  if (platformAdminResult.data) redirect("/owner");
+
+  const memberships = (membershipsResult.data ?? []) as { organization_id: string; role: string }[];
+  const managerCount = memberships.filter((membership) => (membership.role ?? "").toUpperCase() === "MASTER_ADMIN").length;
+  if (managerCount === 0) throw new Error("Akun harus memiliki peran Master Admin untuk membuat tenant");
+  if (managerCount >= MAX_TENANTS) throw new Error(`Batas maksimal ${MAX_TENANTS} tenant per akun`);
+
+  const name = input.name.trim();
+  const validationError = validateRequiredTenantName(name);
+  if (validationError) throw new Error(validationError);
+
+  const baseSlug = slugify(name);
+  let slug = baseSlug;
+  let organizationId: string | null = null;
+  let lastError: { code?: string; message?: string } | null = null;
+  for (let attempt = 0; attempt <= 10; attempt += 1) {
+    const { data, error } = await supabase.rpc("create_own_tenant", {
+      p_tenant_name: name,
+      p_tenant_slug: slug,
+      p_branch_name: input.branchName?.trim() || "Cabang Pusat",
+      p_branch_city: null,
+      p_branch_phone: null,
+    });
+    if (!error) {
+      const payload = (Array.isArray(data) ? data[0] : data) as { organization_id?: string } | null;
+      if (payload?.organization_id) {
+        organizationId = payload.organization_id;
+        break;
+      }
+      throw new Error("Respons create tenant tidak valid");
+    }
+    lastError = error;
+    if (error.code === "23505") {
+      const suffix = `-${attempt + 2}`;
+      slug = `${baseSlug.slice(0, 63 - suffix.length)}${suffix}`;
+      continue;
+    }
+    throw new Error(error.message || "Gagal membuat tenant");
+  }
+  if (!organizationId) throw new Error(lastError?.message || "Gagal membuat slug tenant unik");
+
+  const packageResult = await supabase
+    .from("packages")
+    .select("id, code, name, monthly_price, branch_limit")
+    .eq("id", input.packageId)
+    .eq("is_active", true)
+    .maybeSingle();
+  if (packageResult.error) throw new Error("Gagal memuat paket tenant");
+  const createdPackage = (packageResult.data ?? null) as { id: string; code: string } | null;
+
+  const isPaidPackage = !!createdPackage && createdPackage.code !== "trial";
+  if (isPaidPackage) {
+    const { data: invoiceData, error: invoiceError } = await supabase.rpc("platform_create_billing_invoice", {
+      target_organization_id: organizationId,
+      target_package_id: createdPackage.id,
+      invoice_type: "upgrade",
+    });
+    if (invoiceError) throw new Error("Gagal membuat invoice paket");
+    if (!invoiceData) throw new Error("Respons invoice paket tidak valid");
+  }
+
+  const cookieStore = await cookies();
+  cookieStore.set("cervise_org", organizationId, {
+    path: "/",
+    maxAge: 60 * 60 * 24 * 365,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+  });
+
+  revalidatePath("/app");
+  revalidatePath("/dashboard/tenant");
+  return { organizationId, isPaidPackage };
 }

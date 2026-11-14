@@ -23,7 +23,6 @@ import {
   updateTodo,
   type StaffTodo,
 } from "@/app/app/actions/todos";
-import { playPageTransition } from "@/components/layout/page-transition";
 
 /**
  * Kartu catatan tugas pribadi.
@@ -120,7 +119,7 @@ export function TaskNoteCard({
   const [todos, setTodos] = useState<StaffTodo[]>(initialTodos ?? []);
   const [loaded, setLoaded] = useState(initialTodos !== undefined);
   const [draft, setDraft] = useState("");
-  const [composing, setComposing] = useState(false);
+  const [addOpen, setAddOpen] = useState(false);
   const [editing, setEditing] = useState<string | null>(null);
   // Mention yang dipilih tapi belum disimpan. Dipisah dari `mentionsByTodo`
   // supaya membatalkan composer tidak mengubah catatan yang sudah tersimpan.
@@ -137,6 +136,11 @@ export function TaskNoteCard({
   const [mentionsByTodo, setMentionsByTodo] = useState<Record<string, TodoMention[]>>(() =>
     groupMentions(initialMentions ?? []),
   );
+
+  const resetDraft = () => {
+    setDraft("");
+    setDraftMentions([]);
+  };
 
   // `router.refresh()` (dan navigasi biasa) mengirim daftar To-Do baru tanpa
   // me-mount ulang kartu. Tanpa sinkronisasi di sini, kartu tetap menampilkan
@@ -230,10 +234,8 @@ export function TaskNoteCard({
       return;
     }
     setTodos((prev) => [result.data, ...prev]);
-    playPageTransition();
-    setDraft("");
-    setDraftMentions([]);
-    setComposing(false);
+    resetDraft();
+    setAddOpen(false);
 
     // Mention disimpan setelah task-nya ada, karena `todo_id`-nya harus
     // sudah benar. Kalau gagal, task tetap tampil -- catatan tanpa
@@ -297,7 +299,6 @@ export function TaskNoteCard({
       return;
     }
     setTodos((prev) => prev.map((t) => (t.id === todo.id ? { ...t, doneAt: result.data.doneAt } : t)));
-    playPageTransition();
   };
 
   const onDelete = async (todo: StaffTodo) => {
@@ -322,7 +323,6 @@ export function TaskNoteCard({
       setTodos(previous);
       toast.error(result.error);
     }
-    playPageTransition();
   };
 
   const onRename = async (todo: StaffTodo, title: string) => {
@@ -342,7 +342,6 @@ export function TaskNoteCard({
       return;
     }
     setTodos((prev) => prev.map((t) => (t.id === todo.id ? result.data : t)));
-    playPageTransition();
     setEditing(null);
   };
 
@@ -370,8 +369,8 @@ export function TaskNoteCard({
     </p>
   );
 
-  const composer = composing ? (
-    <div className="flex shrink-0 flex-col gap-2 pb-2">
+  const addComposer = (
+    <div className="flex flex-col gap-2">
       <MentionComposerInput
         value={draft}
         onChange={setDraft}
@@ -379,9 +378,8 @@ export function TaskNoteCard({
         onMentionsChange={setDraftMentions}
         onEnter={() => void submitDraft()}
         onEscape={() => {
-          setComposing(false);
-          setDraft("");
-          setDraftMentions([]);
+          setAddOpen(false);
+          resetDraft();
         }}
       />
       <div className="flex flex-wrap items-center gap-2">
@@ -393,16 +391,15 @@ export function TaskNoteCard({
           size="icon-sm"
           className="h-8"
           onClick={() => {
-            setComposing(false);
-            setDraft("");
-            setDraftMentions([]);
+            setAddOpen(false);
+            resetDraft();
           }}
         >
           <XIcon />
         </Button>
       </div>
     </div>
-  ) : null;
+  );
 
   const listBody = loading ? (
     // Bentuknya mengikuti baris tugas yang dirender: tombol centang bulat,
@@ -494,9 +491,9 @@ export function TaskNoteCard({
                     onChange={setEditDraft}
                     mentions={mentionsByTodo[todo.id] ?? []}
                     onMentionsChange={() => {}}
+                    placeholder=""
                     onEnter={() => {
                       void onRename(todo, editDraft);
-                      setEditing(null);
                     }}
                     onEscape={() => setEditing(null)}
                     className="h-7 min-h-7 py-0"
@@ -524,21 +521,28 @@ export function TaskNoteCard({
                 </button>
               )}
 
-              {/* Satu-satunya affordance edit. Dulu ada tombol "Edit" di
-                  toolbar plus pensil per baris; keduanya melakukan hal yang
-                  sama dan toolbar-nya terasa seperti tombol yang salah. Selalu
-                  terlihat (opacity-60) karena layar sentuh tidak punya hover. */}
-              <button
-                type="button"
-                onClick={() => {
-                  setEditDraft(todo.title);
-                  setEditing(todo.id);
-                }}
-                aria-label="Ubah tugas"
-                className="shrink-0 rounded-full p-1 text-muted-foreground opacity-60 transition-opacity hover:text-foreground hover:opacity-100 focus-visible:opacity-100"
-              >
-                <PencilIcon className="size-3.5" />
-              </button>
+              {isEditing ? (
+                <button
+                  type="button"
+                  onClick={() => void onRename(todo, editDraft)}
+                  aria-label="Simpan perubahan"
+                  className="shrink-0 rounded-full p-1 text-emerald-600 opacity-80 transition-opacity hover:opacity-100 focus-visible:opacity-100"
+                >
+                  <CheckIcon className="size-3.5" />
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditDraft(todo.title);
+                    setEditing(todo.id);
+                  }}
+                  aria-label="Ubah tugas"
+                  className="shrink-0 rounded-full p-1 text-muted-foreground opacity-60 transition-opacity hover:text-foreground hover:opacity-100 focus-visible:opacity-100"
+                >
+                  <PencilIcon className="size-3.5" />
+                </button>
+              )}
 
               <button
                 type="button"
@@ -627,15 +631,28 @@ export function TaskNoteCard({
     variant === "compact" && "px-2 py-0.5 text-[10px]",
   );
 
-  // Hanya "Tambah" yang tinggal di toolbar. Tombol "Edit" dulu mengaktifkan
-  // mode yang memunculkan pensil per baris - dua jalan untuk hal yang sama,
-  // dan toolbar-nya jadi terasa seperti tombol yang tidak melakukan apa-apa.
+  // Tambah tugas dibuka di popover kanan kartu, bukan inline di dalam daftar.
   const toolbar = (
     <div className="flex flex-wrap items-center gap-1.5">
-      <button type="button" onClick={() => setComposing((v) => !v)} className={addButtonClass}>
-        <PlusIcon className="size-3.5" />
-        {variant === "compact" ? "Tambah" : "Tambah tugas"}
-      </button>
+      <Popover
+        open={addOpen}
+        onOpenChange={(open) => {
+          setAddOpen(open);
+          if (!open) resetDraft();
+        }}
+      >
+        <PopoverTrigger
+          render={
+            <button type="button" className={addButtonClass}>
+              <PlusIcon className="size-3.5" />
+              {variant === "compact" ? "Tambah" : "Tambah tugas"}
+            </button>
+          }
+        />
+        <PopoverContent side="right" align="start" className="w-80">
+          {addComposer}
+        </PopoverContent>
+      </Popover>
     </div>
   );
 
@@ -656,7 +673,6 @@ export function TaskNoteCard({
           <div>{toolbar}</div>
 
           <div className="mt-3 flex min-h-0 flex-1 flex-col border-t border-black/5 pt-2 dark:border-white/10">
-            {composer}
             {listBody}
           </div>
         </FramePanel>
@@ -681,7 +697,6 @@ export function TaskNoteCard({
         </FrameHeader>
         <FramePanel className="flex min-h-0 flex-1 flex-col p-4">
           <div>{toolbar}</div>
-          {composer}
           {listBody}
         </FramePanel>
       </Frame>
@@ -689,16 +704,7 @@ export function TaskNoteCard({
   }
 
   return (
-    <Card
-      title="TodoList"
-      trailing={
-        <Button variant="ghost" size="sm" onClick={() => setComposing((v) => !v)}>
-          <PlusIcon />
-          Baru
-        </Button>
-      }
-    >
-      {composer}
+    <Card title="TodoList" trailing={toolbar}>
       {listBody}
     </Card>
   );

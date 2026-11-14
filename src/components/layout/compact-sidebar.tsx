@@ -8,7 +8,7 @@ import { useBranch } from "@/lib/branch-context";
 import { createClient } from "@/lib/supabase/client";
 import { IdentityAvatar } from "@/components/identity-avatar";
 import { TenantLogo } from "@/components/layout/tenant-logo";
-import { GROUP_LABEL_KEY, navFor, type NavEntry } from "@/lib/nav/manifest";
+import { GROUP_LABEL_KEY, NAV_ENTRIES, navFor, normalizeAppRole, type NavEntry } from "@/lib/nav/manifest";
 import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
 
@@ -124,6 +124,22 @@ export function CompactSidebar({
       ...block,
       label: GROUP_LABEL_KEY[block.group],
     }));
+  const normalizedRole = normalizeAppRole(role);
+  const hasTenantSettings =
+    normalizedRole != null &&
+    NAV_ENTRIES.some(
+      (e) =>
+        e.surface.includes("legacy") &&
+        e.roles.includes(normalizedRole) &&
+        e.href.startsWith("/app/pengaturan") &&
+        e.group === "pengaturan",
+    );
+  const settingsHref = hasTenantSettings ? "/app/pengaturan" : "/app/pengaturan/profil";
+  const settingsLabel = hasTenantSettings ? "Pengaturan tenant" : "Pengaturan";
+  const profileActive = pathname.startsWith("/app/pengaturan/profil");
+  const settingsActive = hasTenantSettings
+    ? pathname.startsWith("/app/pengaturan") && !profileActive
+    : profileActive;
 
   return (
     <>
@@ -174,24 +190,24 @@ export function CompactSidebar({
       <div className="flex flex-col items-center gap-0.5 border-t border-border/60 px-1 py-1.5">
         <Link
           href="/app/pengaturan/profil"
-          aria-label="Profil"
+          aria-label="Pengaturan akun"
           onClick={onNavigate}
-          title={fullName ? `${fullName} · ${branch.label}` : "Profil"}
+          title={fullName ? `${fullName} · Akun` : "Akun"}
           className={cn(
             "flex size-9 items-center justify-center rounded-lg transition-colors hover:bg-foreground/[0.04]",
-            pathname.startsWith("/app/pengaturan") && "bg-foreground/[0.06] text-foreground",
+            profileActive && "bg-foreground/[0.06] text-foreground",
           )}
         >
           <IdentityAvatar photoUrl={avatarUrl} name={fullName ?? "?"} className="size-7 text-[11px]" />
         </Link>
         <Link
-          href="/app/pengaturan/profil"
-          aria-label="Pengaturan"
-          title="Pengaturan"
+          href={settingsHref}
+          aria-label={settingsLabel}
+          title={settingsLabel}
           onClick={onNavigate}
           className={cn(
-            "flex size-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-foreground/[0.04] hover:text-foreground",
-            pathname.startsWith("/app/pengaturan") && "text-foreground",
+            "flex size-9 items-center justify-center rounded-lg transition-colors hover:bg-foreground/[0.04] hover:text-foreground",
+            settingsActive ? "bg-foreground/[0.06] text-foreground" : "text-muted-foreground",
           )}
         >
           <Settings className={COMPACT_ICON_CLASS} />

@@ -1,0 +1,16 @@
+.nav { position: relative; display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1, 0.25rem); }
+.nav button { position: relative; display: grid; width: var(--control-height-sm, 2.25rem); height: var(--control-height-sm, 2.25rem); place-items: center; border: 1px solid transparent; border-radius: var(--radius-control, var(--radius-md, 0.5rem)); background: transparent; color: var(--text-secondary, var(--muted-foreground)); font: inherit; font-size: var(--text-xs, 0.75rem); font-variant-numeric: tabular-nums; cursor: pointer; transition: background-color var(--duration-fast, 150ms) var(--ease-standard, cubic-bezier(0.22, 1, 0.36, 1)), color var(--duration-fast, 150ms) var(--ease-standard, cubic-bezier(0.22, 1, 0.36, 1)); }
+.nav button[aria-current="page"] { color: var(--foreground); }
+/* One shared mark travels between pages. Before it has measured (server render), the button draws its own. */
+.mark { position: absolute; top: 0; left: 0; width: var(--control-height-sm, 2.25rem); height: var(--control-height-sm, 2.25rem); box-sizing: border-box; border: 1px solid var(--border); border-radius: var(--radius-control, var(--radius-md, 0.5rem)); background: var(--surface, var(--card, var(--background))); box-shadow: var(--shadow-resting, var(--shadow-xs, 0 1px 2px rgb(0 0 0 / 0.05))); opacity: 0; pointer-events: none; }
+.nav[data-mark-ready] .mark { opacity: 1; }
+.nav:not([data-mark-ready]) button[aria-current="page"] { border-color: var(--border); background: var(--surface, var(--card, var(--background))); box-shadow: var(--shadow-resting, var(--shadow-xs, 0 1px 2px rgb(0 0 0 / 0.05))); }
+/* Only the arrows press in. Page numbers move with Motion, so they keep CSS off transform and opacity. */
+.nav .step { transition: background-color var(--duration-fast, 150ms) var(--ease-standard, cubic-bezier(0.22, 1, 0.36, 1)), color var(--duration-fast, 150ms) var(--ease-standard, cubic-bezier(0.22, 1, 0.36, 1)), opacity var(--duration-fast, 150ms) var(--ease-standard, cubic-bezier(0.22, 1, 0.36, 1)), transform var(--duration-spring, 200ms) var(--ease-spring, cubic-bezier(0.16, 1, 0.3, 1)); }
+.nav .step:active:not(:disabled) { transform: scale(.96); transition-duration: var(--duration-fast, 150ms), var(--duration-fast, 150ms), var(--duration-fast, 150ms), var(--duration-instant, 100ms); transition-timing-function: var(--ease-standard, cubic-bezier(0.22, 1, 0.36, 1)), var(--ease-standard, cubic-bezier(0.22, 1, 0.36, 1)), var(--ease-standard, cubic-bezier(0.22, 1, 0.36, 1)), ease-out; }
+.nav button:disabled { opacity: .4; cursor: not-allowed; }
+@media (hover: hover) and (pointer: fine) {
+  .nav button:hover:not(:disabled) { background: var(--surface-muted, var(--muted)); color: var(--foreground); }
+  .nav[data-mark-ready] button[aria-current="page"]:hover { background: transparent; }
+}
+@media (prefers-reduced-motion: reduce) { .nav button, .nav .step { transition: none; } .nav .step:active:not(:disabled) { transform: none; } }

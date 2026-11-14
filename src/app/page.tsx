@@ -1,6 +1,7 @@
 import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Wrench, Users, BarChart3, Wallet, UserCog, LayoutDashboard } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { fetchLoginAccess } from "@/lib/auth/login-access";
 import Hero02 from "@/components/originkit/hero-02";
 import { publicPhotoUrl } from "@/lib/photos";
 import { PricingThreeTier } from "@/components/pricing-three-tier";
@@ -32,9 +33,29 @@ export default async function LandingPage() {
     heroUser = { name, email, avatarUrl };
   }
 
+  // Master admin dengan lebih dari satu tenant aktif: Dashboard diarahkan ke
+  // pemilih tenant (/dashboard/tenant) seperti perilaku login multi-tenant.
+  // Satu tenant (atau non-admin) tetap /app.
+  let dashboardHref = "/app";
+  if (isLoggedIn && user) {
+    try {
+      const access = await fetchLoginAccess(supabase);
+      const isManagerWithMultipleTenants =
+        !access.isPlatformAdmin &&
+        access.profileActive &&
+        access.activeMemberships.length > 1 &&
+        access.activeMemberships.some(
+          (membership) => membership.role.toUpperCase() === "MASTER_ADMIN",
+        );
+      if (isManagerWithMultipleTenants) dashboardHref = "/dashboard/tenant";
+    } catch {
+      // Default /app; gateway tetap menangani akses di /app.
+    }
+  }
+
   return (
     <div className="flex min-h-svh flex-col bg-background">
-      <Hero02 isLoggedIn={isLoggedIn} user={heroUser} />
+      <Hero02 isLoggedIn={isLoggedIn} user={heroUser} dashboardHref={dashboardHref} />
 
       <section id="fitur" className="border-t bg-muted/20 px-4 py-12 lg:px-8">
         <div className="mx-auto max-w-6xl">

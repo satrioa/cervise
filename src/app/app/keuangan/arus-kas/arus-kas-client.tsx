@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Button as CossButton } from "@/components/ui/coss-button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
+import { Pagination } from "@/components/ui/pagination";
 import { Menu, MenuItem, MenuPopup, MenuTrigger } from "@/components/ui/menu";
 import { ArusKasExport } from "@/components/arus-kas-export";
 import { PageHeader } from "@/components/layout/page-header";
@@ -391,33 +391,7 @@ export default function ArusKasPage({ initialQuery = "" }: { initialQuery?: stri
             <span className="text-muted-foreground text-xs">
               Menampilkan <span className="text-foreground tabular-nums">{start}–{end}</span> dari {groups.length} hari (halaman {page} dari {totalPages})
             </span>
-            <Pagination>
-              <PaginationContent>
-                <PaginationItem>
-                  <PaginationPrevious href="#" onClick={(e) => { e.preventDefault(); if (page > 1) setPage(page - 1); }} aria-disabled={page === 1} className={page === 1 ? "pointer-events-none opacity-50" : ""} />
-                </PaginationItem>
-                {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
-                  const p = i + 1;
-                  if (totalPages <= 5) return p;
-                  if (p <= 3) return p;
-                  if (p === 4) return totalPages - 1;
-                  if (p === 5) return totalPages;
-                  return null;
-                })
-                  .filter(Boolean)
-                  .map((p) => (
-                    <PaginationItem key={p}>
-                      <PaginationLink href="#" isActive={p === page} onClick={(e) => { e.preventDefault(); setPage(p as number); }}>
-                        {p}
-                      </PaginationLink>
-                    </PaginationItem>
-                  ))}
-                {totalPages > 5 && page > 3 && page < totalPages - 1 && <span className="px-2 text-xs text-muted-foreground">…</span>}
-                <PaginationItem>
-                  <PaginationNext href="#" onClick={(e) => { e.preventDefault(); if (page < totalPages) setPage(page + 1); }} aria-disabled={page === totalPages} className={page === totalPages ? "pointer-events-none opacity-50" : ""} />
-                </PaginationItem>
-              </PaginationContent>
-            </Pagination>
+            <Pagination page={page} pageCount={totalPages} onPageChange={setPage} />
           </div>
         </div>
         </div>

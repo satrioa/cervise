@@ -152,9 +152,9 @@ export function MentionComposerInput({
   readOnly = false,
 }: MentionComposerInputProps) {
   const ref = useRef<HTMLDivElement>(null);
-  // Nilai terakhir yang DIHASILKAN editor ini sendiri. Nilai dari luar hanya
-  // ditulis ke DOM kalau berbeda dari sini; kalau tidak, caret melompat.
-  const lastEmitted = useRef(value);
+  // Nilai terakhir yang sudah tersinkron ke DOM. `null` = belum pernah render,
+  // supaya nilai awal dari luar (mis. mode edit) tetap ditulis saat mount.
+  const lastEmitted = useRef<string | null>(null);
   const composing = useRef(false);
   const map = mentionMap(mentions);
   // Peta mention ditulis ke ref di dalam efek, bukan langsung di render.

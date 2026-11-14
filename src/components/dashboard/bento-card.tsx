@@ -280,10 +280,28 @@ export function BentoCard({
   // `bentoCardVariants`. Menyematkannya di sini akan mematikan stagger.
   const animation = cardProps;
 
+  const dataAttrs = {
+    "data-bento-card": "",
+    ...(candy ? { "data-candy-bento": candy } : {}),
+  };
+
+  const flickerProps = candy
+    ? {
+        onMouseEnter: (e: React.MouseEvent<HTMLElement>) => {
+          const el = e.currentTarget;
+          const steps = String(4 + Math.floor(Math.random() * 8));
+          const min = (0.72 + Math.random() * 0.2).toFixed(3);
+          el.style.setProperty("--scifi-flicker-steps", steps);
+          el.style.setProperty("--scifi-flicker-min", min);
+          el.dataset.flicker = el.dataset.flicker === "a" ? "b" : "a";
+        },
+      }
+    : {};
+
   if (href) {
     return (
       <motion.div {...animation} className={cn("h-full min-h-0 w-full", cellClassName)}>
-        <Link href={href} className={classes} title={title}>
+        <Link href={href} role="button" className={classes} title={title} {...dataAttrs} {...flickerProps}>
           {children}
         </Link>
       </motion.div>
@@ -292,14 +310,14 @@ export function BentoCard({
   if (onClick) {
     return (
       <motion.div {...animation} className={cn("h-full min-h-0 w-full", cellClassName)}>
-        <button type="button" onClick={onClick} className={classes} title={title}>
+        <button type="button" onClick={onClick} className={classes} title={title} {...dataAttrs} {...flickerProps}>
           {children}
         </button>
       </motion.div>
     );
   }
   return (
-    <motion.div {...animation} className={cn(classes, cellClassName)}>
+    <motion.div {...animation} className={cn(classes, cellClassName)} {...dataAttrs} {...flickerProps}>
       {children}
     </motion.div>
   );

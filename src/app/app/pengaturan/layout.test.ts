@@ -20,8 +20,7 @@ function entriesForRole(role: AppRole) {
     (entry) =>
       entry.surface.includes("legacy") &&
       entry.roles.includes(role) &&
-      entry.href.startsWith("/app/pengaturan") &&
-      !entry.href.endsWith("/profil"),
+      entry.href.startsWith("/app/pengaturan"),
   );
 }
 
@@ -53,10 +52,11 @@ describe("payload SettingsNav", () => {
 });
 
 describe("isi sub-sidebar", () => {
-  it("MASTER_ADMIN melihat Lokalisasi bersama halaman pengaturan", () => {
+  it("MASTER_ADMIN melihat akun dan pengaturan tenant terpisah", () => {
     const hrefs = buildSettingsGroups(entriesForRole("MASTER_ADMIN")).flatMap((b) =>
       b.entries.map((e) => e.href),
     );
+    expect(hrefs).toContain("/app/pengaturan/profil");
     expect(hrefs).toContain("/app/pengaturan/lokalisasi");
     expect(hrefs).toContain("/app/pengaturan");
     expect(hrefs).toContain("/app/pengaturan/tampilan");
@@ -64,41 +64,43 @@ describe("isi sub-sidebar", () => {
     expect(hrefs).toContain("/app/pengaturan/usage");
   });
 
-  it("Lokalisasi ada di group akun, halaman sistem ada di group pengaturan", () => {
+  it("Akun dan Pengaturan Tenant dipisah dengan label yang jelas", () => {
     const groups = buildSettingsGroups(entriesForRole("MASTER_ADMIN"));
     const akun = groups.find((b) => b.group === "akun");
     const pengaturan = groups.find((b) => b.group === "pengaturan");
 
-    expect(akun?.entries.map((e) => e.href)).toEqual(["/app/pengaturan/lokalisasi"]);
+    expect(akun?.label).toBe("Akun");
+    expect(akun?.entries.map((e) => e.href)).toEqual([
+      "/app/pengaturan/profil",
+      "/app/pengaturan/lokalisasi",
+    ]);
+    expect(pengaturan?.label).toBe("Pengaturan Tenant");
     expect(pengaturan?.entries.map((e) => e.href)).toEqual([
       "/app/pengaturan",
       "/app/pengaturan/tampilan",
       "/app/pengaturan/subscription",
       "/app/pengaturan/usage",
+      "/app/pengaturan/role",
     ]);
   });
 
-  it("profil tidak pernah ikut — halaman itu tidak punya sub-nav", () => {
-    const hrefs = buildSettingsGroups(entriesForRole("MASTER_ADMIN")).flatMap((b) =>
-      b.entries.map((e) => e.href),
-    );
-    expect(hrefs).not.toContain("/app/pengaturan/profil");
-  });
-
-  it("TECHNICIAN dan FRONTLINER tidak punya sub-sidebar sama sekali", () => {
-    // Setelah Lokalisasi dipindah ke System Preferences drawer, tidak ada lagi
-    // item pengaturan untuk dua role ini. Layout memakai daftar kosong ini
-    // untuk melepas sidebar "Pengaturan Sistem".
+  it("TECHNICIAN dan FRONTLINER hanya melihat akun profil", () => {
     for (const role of ["TECHNICIAN", "FRONTLINER"] as const) {
-      expect(buildSettingsGroups(entriesForRole(role)), role).toEqual([]);
+      const groups = buildSettingsGroups(entriesForRole(role));
+      expect(groups).toHaveLength(1);
+      expect(groups[0].group).toBe("akun");
+      expect(groups[0].entries.map((e) => e.href)).toEqual(["/app/pengaturan/profil"]);
     }
   });
 
-  it("ADMIN hanya melihat Lokalisasi, tanpa halaman pengaturan", () => {
+  it("ADMIN melihat akun (profil, lokalisasi) dan role & izin tenant", () => {
     const groups = buildSettingsGroups(entriesForRole("ADMIN"));
-    expect(groups).toHaveLength(1);
-    expect(groups[0].group).toBe("akun");
-    expect(groups[0].entries.map((e) => e.href)).toEqual(["/app/pengaturan/lokalisasi"]);
+    expect(groups.map((g) => g.group)).toEqual(["akun", "pengaturan"]);
+    expect(groups[0].entries.map((e) => e.href)).toEqual([
+      "/app/pengaturan/profil",
+      "/app/pengaturan/lokalisasi",
+    ]);
+    expect(groups[1].entries.map((e) => e.href)).toEqual(["/app/pengaturan/role"]);
   });
 
   it("normalizeAppRole menolak role tak dikenal", () => {

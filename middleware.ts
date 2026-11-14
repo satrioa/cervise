@@ -108,9 +108,6 @@ export default async function middleware(request: NextRequest) {
     if (destination === "/account/assignment-required" && !pathname.startsWith(destination)) {
       return NextResponse.redirect(new URL(destination, request.url));
     }
-    if (destination === "/app" && protectedPathKind === "tenant") {
-      return NextResponse.redirect(new URL(destination, request.url));
-    }
   }
 
   return response;

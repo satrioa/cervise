@@ -1,41 +1,21 @@
-import { Building2Icon, CheckCircle2Icon, MapPinIcon, PackageIcon } from "lucide-react";
 import { redirect } from "next/navigation";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { createClient } from "@/lib/supabase/server";
+import { publicPhotoUrl } from "@/lib/photos";
+import { CreateTenantDialog, type TenantCreatePackage } from "@/components/tenant/create-tenant-dialog";
 import { selectTenant } from "./actions";
 
 type OrganizationRow = {
   id: string;
   name: string;
   slug: string;
+  logo_url: string | null;
 };
 
-type SubscriptionRow = {
-  organization_id: string;
-  status: string;
-  package: { name: string } | { name: string }[] | null;
-};
+const MAX_TENANTS = 5;
 
-function firstRelation<T>(value: T | T[] | null) {
-  return Array.isArray(value) ? value[0] ?? null : value;
-}
-
-function statusVariant(status: string | undefined) {
-  if (status === "active") return "success" as const;
-  if (status === "trial") return "info" as const;
-  if (status === "grace") return "warning" as const;
-  return "outline" as const;
-}
-
-function statusLabel(status: string | undefined) {
-  if (status === "active") return "Aktif";
-  if (status === "trial") return "Trial";
-  if (status === "grace") return "Grace";
-  if (status === "blocked" || status === "suspended") return "Dibatasi";
-  if (status === "cancelled") return "Dibatalkan";
-  return "Status tidak tersedia";
+function tenantInitial(name: string) {
+  const trimmed = name.trim();
+  return (trimmed[0] ?? "?").toUpperCase();
 }
 
 export default async function TenantSelectorPage() {
@@ -43,7 +23,7 @@ export default async function TenantSelectorPage() {
   const { data: auth } = await supabase.auth.getUser();
   if (!auth.user) redirect("/login?next=/dashboard/tenant");
 
-  const [platformAdminResult, employeesResult] = await Promise.all([
+  const [platformAdminResult, employeesResult, packagesResult] = await Promise.all([
     supabase
       .from("platform_admins")
       .select("profile_id")
@@ -55,48 +35,77 @@ export default async function TenantSelectorPage() {
       .select("organization_id, role")
       .eq("profile_id", auth.user.id)
       .eq("is_active", true),
+    supabase
+      .from("packages")
+      .select("id, code, name, monthly_price, branch_limit")
+      .eq("is_active", true)
+      .order("sort_order", { ascending: true }),
   ]);
   if (platformAdminResult.error) throw platformAdminResult.error;
   if (employeesResult.error) throw employeesResult.error;
+  if (packagesResult.error) throw packagesResult.error;
   if (platformAdminResult.data) redirect("/owner");
 
   const memberships = (employeesResult.data ?? []) as { organization_id: string; role: string }[];
   const organizationIds = [...new Set(memberships.map((membership) => membership.organization_id).filter(Boolean))];
   if (organizationIds.length === 0) redirect("/onboarding");
 
-  const [organizationsResult, branchesResult, subscriptionsResult] = await Promise.all([
-    supabase
-      .from("organizations")
-      .select("id, name, slug")
-      .in("id", organizationIds)
-      .order("name"),
-    supabase
-      .from("branches")
-      .select("organization_id, is_active")
-      .in("organization_id", organizationIds)
-      .eq("is_active", true),
-    supabase
-      .from("tenant_subscriptions")
-      .select("organization_id, status, package:packages!inner(name)")
-      .in("organization_id", organizationIds),
-  ]);
-  if (organizationsResult.error) throw organizationsResult.error;
-  if (branchesResult.error) throw branchesResult.error;
-  if (subscriptionsResult.error) throw subscriptionsResult.error;
+  const { data: organizations, error: organizationsError } = await supabase
+    .from("organizations")
+    .select("id, name, slug, logo_url")
+    .in("id", organizationIds)
+    .order("name");
+  if (organizationsError) throw organizationsError;
 
-  const branchCounts = new Map<string, number>();
-  for (const branch of (branchesResult.data ?? []) as { organization_id: string; is_active: boolean }[]) {
-    if (branch.is_active) branchCounts.set(branch.organization_id, (branchCounts.get(branch.organization_id) ?? 0) + 1);
-  }
-  const subscriptions = new Map(
-    ((subscriptionsResult.data ?? []) as SubscriptionRow[]).map((subscription) => [
-      subscription.organization_id,
-      {
-        status: subscription.status,
-        packageName: firstRelation(subscription.package)?.name ?? null,
-      },
-    ]),
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
+  const packages = (packagesResult.data ?? []) as TenantCreatePackage[];
+  const tenantList = (organizations ?? []) as OrganizationRow[];
+
+  return (
+    <main className="flex min-h-svh items-center justify-center bg-background px-4 py-12 text-foreground">
+      <div className="w-full max-w-3xl">
+        <header className="mb-10 text-center">
+          <h1 className="font-heading text-3xl font-semibold tracking-tight sm:text-4xl">Pilih tenant</h1>
+          <p className="mt-2 text-sm text-muted-foreground">Masuk ke tenant yang ingin Anda kelola.</p>
+        </header>
+
+        <div className="flex flex-wrap justify-center gap-4">
+          {tenantList.map((organization) => {
+            const logoUrl = publicPhotoUrl(supabaseUrl, organization.logo_url);
+            return (
+              <form key={organization.id} action={selectTenant} className="flex">
+                <input type="hidden" name="organizationId" value={organization.id} />
+                <button
+                  type="submit"
+                  className="group flex h-full min-h-[152px] w-32 flex-col items-center justify-center gap-3 rounded-2xl border bg-card p-4 text-center transition-all hover:-translate-y-0.5 hover:border-foreground/20 hover:bg-accent/40 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:w-36"
+                >
+                  <span className="relative flex size-16 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-primary/10 text-xl font-semibold text-primary ring-1 ring-inset ring-primary/15 transition-colors group-hover:bg-primary group-hover:text-primary-foreground">
+                    {logoUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element -- remote tenant logo URL, no remotePatterns config required
+                      <img src={logoUrl} alt="" className="size-full object-cover" />
+                    ) : (
+                      tenantInitial(organization.name)
+                    )}
+                  </span>
+                  <span className="line-clamp-2 text-sm font-medium leading-snug">{organization.name}</span>
+                </button>
+              </form>
+            );
+          })}
+
+          {organizationIds.length < MAX_TENANTS ? (
+            <div className="flex w-32 sm:w-36">
+              <CreateTenantDialog packages={packages} asTile />
+            </div>
+          ) : null}
+        </div>
+
+        {organizationIds.length >= MAX_TENANTS ? (
+          <p className="mt-8 text-center text-sm text-muted-foreground">
+            Batas maksimal {MAX_TENANTS} tenant per akun tercapai.
+          </p>
+        ) : null}
+      </div>
+    </main>
   );
-
-  return <main className="min-h-svh bg-background px-4 py-10 text-foreground sm:px-6 lg:px-8"><div className="mx-auto max-w-3xl"><header className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between"><div><div className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.3em] text-muted-foreground"><Building2Icon className="size-3.5" /> Tenant access</div><h1 className="mt-2 font-heading text-3xl">Pilih tenant</h1><p className="mt-2 max-w-xl text-sm text-muted-foreground">Pilih tenant yang ingin Anda buka. Pilihan ini disimpan di browser ini dan tidak akan diminta lagi selama tenant tersebut masih aktif.</p></div><Badge variant="outline" size="lg">{organizationIds.length} tenant tersedia</Badge></header><div className="flex flex-col gap-3">{((organizationsResult.data ?? []) as OrganizationRow[]).map((organization) => { const subscription = subscriptions.get(organization.id); const branchCount = branchCounts.get(organization.id) ?? 0; return <Card key={organization.id} className="transition-colors hover:bg-muted/20"><CardHeader><div className="flex items-start gap-4"><div className="flex size-12 shrink-0 items-center justify-center rounded-2xl border bg-muted font-heading text-lg font-semibold">{organization.name.slice(0, 1).toUpperCase()}</div><div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><CardTitle className="text-base">{organization.name}</CardTitle><Badge size="sm" variant={statusVariant(subscription?.status)}>{statusLabel(subscription?.status)}</Badge></div><CardDescription className="mt-1 font-mono text-xs">{organization.slug}</CardDescription></div></div></CardHeader><CardContent><div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between"><div className="flex flex-wrap gap-4 text-xs text-muted-foreground"><span className="inline-flex items-center gap-1.5"><PackageIcon className="size-3.5" />{subscription?.packageName ?? "Paket belum tersedia"}</span><span className="inline-flex items-center gap-1.5"><MapPinIcon className="size-3.5" />{branchCount} cabang</span>{subscription?.status === "active" ? <span className="inline-flex items-center gap-1.5 text-success-foreground"><CheckCircle2Icon className="size-3.5" />Akses siap</span> : null}</div><form action={selectTenant}><input type="hidden" name="organizationId" value={organization.id} /><Button type="submit" size="sm">Masuk ke tenant</Button></form></div></CardContent></Card>; })}</div></div></main>;
 }

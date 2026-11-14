@@ -29,7 +29,10 @@ describe("resolvePostLoginDestination", () => {
     })).toBe("/dashboard/tenant");
   });
 
-  it("uses a saved tenant for a multi-tenant owner", () => {
+  it("menampilkan pemilih tenant untuk master admin multi-tenant meski ada tenant tersimpan", () => {
+    // Steam-style: akun multi-tenant selalu lewat pemilih tenant setelah
+    // login, walau ada tenant aktif yang tersimpan. Picker menyusun ulang
+    // urutan dan menyorot tenant tersimpan lewat badge.
     expect(resolvePostLoginDestination({
       isPlatformAdmin: false,
       savedOrganizationId: "org-2",
@@ -37,7 +40,7 @@ describe("resolvePostLoginDestination", () => {
         { organizationId: "org-1", role: "MASTER_ADMIN" },
         { organizationId: "org-2", role: "MASTER_ADMIN" },
       ],
-    })).toBe("/app");
+    })).toBe("/dashboard/tenant");
   });
 
   it("does not allow a saved tenant outside current memberships", () => {

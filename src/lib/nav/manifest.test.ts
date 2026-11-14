@@ -250,9 +250,9 @@ describe("canAccess", () => {
     expect(entries.map((entry) => entry.label)).toEqual(["Karyawan", "Cabang", "Customer"]);
   });
 
-  it("grup operasional tidak lagi memuat Customer", () => {
+  it("grup operasional memuat Penjualan dan tidak memuat Customer", () => {
     const entries = navFor("ADMIN", "legacy").find((block) => block.group === "operasional")!.entries;
-    expect(entries.map((entry) => entry.label)).toEqual(["Servis", "Inventori", "Sparepart"]);
+    expect(entries.map((entry) => entry.label)).toEqual(["Servis", "Inventori", "Penjualan", "Sparepart"]);
   });
 
   it("FRONTLINER boleh mencatat pembayaran servis, tapi bukan lewat keuangan_transaksi", () => {
@@ -339,11 +339,10 @@ describe("canWrite", () => {
 });
 
 describe("menu per role", () => {
-  it("MASTER_ADMIN melihat 17 dari 24 entri di shell legacy", () => {
-    // 24 entri dikurangi analitik-servis, lalu 6 entri akun+pengaturan yang
-    // disembunyikan (gear di footer + sub-sidebar /app/pengaturan).
+  it("MASTER_ADMIN melihat entri legacy yang tidak tersembunyi di sidebar", () => {
+    // Disembunyikan: analitik-servis (compact-only) dan group akun/pengaturan
+    // (diakses lewat footer & sub-sidebar /app/pengaturan).
     const sidebar = sidebarHrefsFor("MASTER_ADMIN", LEGACY);
-    expect(sidebar).toHaveLength(17);
     expect(sidebar).not.toContain("/app/analitik-servis");
     const tersembunyi = new Set([
       "/app/analitik-servis",
@@ -353,6 +352,7 @@ describe("menu per role", () => {
       "/app/pengaturan/tampilan",
       "/app/pengaturan/subscription",
       "/app/pengaturan/usage",
+      "/app/pengaturan/role",
     ]);
     for (const entry of NAV_ENTRIES) {
       if (tersembunyi.has(entry.href)) {

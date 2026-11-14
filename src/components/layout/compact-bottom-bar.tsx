@@ -61,7 +61,7 @@ export function CompactBottomBar({
             {tenantName}
           </span>
           {branchLabel ? (
-            <span className="inline-block h-6 max-w-[8rem] truncate rounded-full bg-[#2563EB] px-2.5 text-[10px] font-medium leading-6 text-white sm:text-[11px]">
+            <span data-branch-badge className="inline-block h-6 max-w-[8rem] truncate rounded-full bg-[#2563EB] px-2.5 text-[10px] font-medium leading-6 text-white sm:text-[11px]">
               {branchLabel}
             </span>
           ) : null}

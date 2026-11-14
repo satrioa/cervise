@@ -41,8 +41,9 @@ export function resolvePostLoginDestination(input: {
   );
   if (!hasManagerMembership) return "/account/assignment-required";
 
-  const savedOrganizationIsValid = input.memberships.some(
-    (membership) => membership.organizationId === input.savedOrganizationId,
-  );
-  return savedOrganizationIsValid ? "/app" : "/dashboard/tenant";
+  // Master admin dengan lebih dari satu tenant: tampilkan pemilih tenant
+  // (Steam-style) sampai mereka memilih. Tanpa ini, akun multi-tenant masuk
+  // diam-diam ke tenant pertama aktif dan tidak pernah bisa lompat ke tenant
+  // lain lewat login berikutnya.
+  return "/dashboard/tenant";
 }

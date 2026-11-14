@@ -117,7 +117,7 @@ const MenuIcon = () => (
   </svg>
 );
 
-const Navbar = ({ isLoggedIn, user }: { isLoggedIn?: boolean; user?: { name: string; email: string; avatarUrl?: string | null } | null }) => {
+const Navbar = ({ isLoggedIn, user, dashboardHref }: { isLoggedIn?: boolean; user?: { name: string; email: string; avatarUrl?: string | null } | null; dashboardHref?: string }) => {
   const router = useRouter();
   const handleSignOut = async () => {
     const supabase = createClient();
@@ -170,7 +170,7 @@ const Navbar = ({ isLoggedIn, user }: { isLoggedIn?: boolean; user?: { name: str
     <div className="flex shrink-0 items-center gap-2">
       {isLoggedIn ? (
         <>
-          <Button variant="candy" color="blue" size="sm" render={<Link href="/app">Dashboard</Link>}>
+          <Button variant="candy" color="blue" size="sm" render={<Link href={dashboardHref ?? "/app"}>Dashboard</Link>}>
             Dashboard
           </Button>
           <Popover>
@@ -195,7 +195,7 @@ const Navbar = ({ isLoggedIn, user }: { isLoggedIn?: boolean; user?: { name: str
               </div>
               <div className="my-1 h-px bg-border" />
               <Link
-                href="/owner"
+                href="/dashboard/tenant"
                 className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-muted"
                 onClick={(e) => e.currentTarget.blur()}
               >
@@ -804,7 +804,7 @@ const PhoneShowcase = () => {
   );
 };
 
-const Section11 = ({ isLoggedIn, user }: { isLoggedIn?: boolean; user?: { name: string; email: string; avatarUrl?: string | null } | null }) => {
+const Section11 = ({ isLoggedIn, user, dashboardHref }: { isLoggedIn?: boolean; user?: { name: string; email: string; avatarUrl?: string | null } | null; dashboardHref?: string }) => {
   return (
     <section
       id="top"
@@ -841,7 +841,7 @@ const Section11 = ({ isLoggedIn, user }: { isLoggedIn?: boolean; user?: { name: 
 
           <div className="relative z-10 flex flex-col items-center px-4 pt-[30px] ipad:px-10">
             <div className="w-full animate-page-reveal will-change-transform">
-              <Navbar isLoggedIn={isLoggedIn} user={user} />
+              <Navbar isLoggedIn={isLoggedIn} user={user} dashboardHref={dashboardHref} />
             </div>
 
             {}
@@ -866,7 +866,7 @@ const Section11 = ({ isLoggedIn, user }: { isLoggedIn?: boolean; user?: { name: 
 
               <div className="flex w-full max-w-[556px] animate-page-reveal flex-col items-center gap-3 will-change-transform [animation-delay:200ms]">
                 <div className="flex flex-wrap items-center justify-center gap-3">
-                  <Button variant="candy" color="blue" size="lg" render={<Link href={isLoggedIn ? "/app" : "/signup"}>Mulai Trial Gratis</Link>}>
+                  <Button variant="candy" color="blue" size="lg" render={<Link href={isLoggedIn ? dashboardHref ?? "/app" : "/signup"}>Mulai Trial Gratis</Link>}>
                     Mulai Trial Gratis
                   </Button>
                   <Button variant="outline" color="neutral" size="lg" render={<Link href="#harga">Lihat Harga</Link>}>

@@ -113,17 +113,17 @@ export default function GeneralPage() {
   return (
     <div className="min-h-svh bg-background">
       <PageHeader
-        title="General"
+        title="Umum Tenant"
         titleClassName="font-heading text-2xl"
-        description="Nama Brand, Logo, dan akses Master Admin per cabang."
+        description="Identitas brand, operasional shift, dan akses master admin untuk organisasi ini."
         containerClassName="max-w-4xl"
       />
 
-      <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8 py-8 space-y-8">
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base flex items-center gap-2"><BuildingIcon className="size-4" /> Nama Brand & Logo</CardTitle>
-          <CardDescription>Terlihat di struk, invoice, dan header cabang</CardDescription>
+      <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-6">
+      <Card className="border-border/60 shadow-sm">
+        <CardHeader className="pb-4">
+          <CardTitle className="text-base flex items-center gap-2"><BuildingIcon className="size-4 text-muted-foreground" /> Identitas Brand</CardTitle>
+          <CardDescription>Nama dan logo tenant yang tampil di struk, invoice, dan header cabang.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           <PhotoUpload
@@ -146,16 +146,16 @@ export default function GeneralPage() {
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base flex items-center gap-2"><ClockIcon className="size-4" /> Tutup Shift Otomatis</CardTitle>
-          <CardDescription>Shift yang lupa ditutup diakhiri sistem pada jam tutup buku.</CardDescription>
+      <Card className="border-border/60 shadow-sm">
+        <CardHeader className="pb-4">
+          <CardTitle className="text-base flex items-center gap-2"><ClockIcon className="size-4 text-muted-foreground" /> Operasional Shift</CardTitle>
+          <CardDescription>Atur penutupan shift otomatis di seluruh cabang tenant ini.</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <Label htmlFor="auto-close-enabled">Aktifkan tutup otomatis</Label>
-              <p className="text-xs text-muted-foreground">Berlaku untuk semua cabang tenant ini.</p>
+        <CardContent className="space-y-5">
+          <div className="flex items-center justify-between gap-4 rounded-lg border border-border/60 bg-muted/20 px-4 py-3">
+            <div className="space-y-0.5">
+              <Label htmlFor="auto-close-enabled" className="text-sm font-medium">Tutup shift otomatis</Label>
+              <p className="text-xs text-muted-foreground">Shift yang lupa ditutup akan diakhiri sistem pada jam tutup buku.</p>
             </div>
             <Switch
               id="auto-close-enabled"
@@ -163,33 +163,32 @@ export default function GeneralPage() {
               onCheckedChange={(checked) => setShiftEnabled(Boolean(checked))}
             />
           </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="auto-close-time">Jam tutup buku (WIB)</Label>
-            <Input
-              id="auto-close-time"
-              type="time"
-              value={shiftTime}
-              onChange={(e) => setShiftTime(e.target.value)}
-              disabled={!shiftEnabled}
-              className="w-40"
-            />
-          </div>
-          <p className="text-xs text-muted-foreground">
-            Shift yang dibuka sebelum jam ini dan belum ditutup akan ditutup sistem dengan catatan
-            “Ditutup otomatis oleh sistem”. Saldo akhir memakai uang yang seharusnya ada di laci.
-          </p>
-          <div className="flex justify-end">
-            <Button onClick={handleSaveShift} disabled={savingShift}>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+            <div className="space-y-1.5">
+              <Label htmlFor="auto-close-time">Jam tutup buku (WIB)</Label>
+              <Input
+                id="auto-close-time"
+                type="time"
+                value={shiftTime}
+                onChange={(e) => setShiftTime(e.target.value)}
+                disabled={!shiftEnabled}
+                className="w-40"
+              />
+              <p className="text-xs text-muted-foreground max-w-md">
+                Shift dibuka sebelum jam ini dan belum ditutup akan ditandai “Ditutup otomatis oleh sistem”.
+              </p>
+            </div>
+            <Button onClick={handleSaveShift} disabled={savingShift} className="sm:self-end">
               {savingShift ? "Menyimpan..." : "Simpan Setelan Shift"}
             </Button>
           </div>
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base flex items-center gap-2"><ShieldIcon className="size-4" /> Brand access — Master Admin</CardTitle>
-          <CardDescription>Kelola siapa yang bisa atur cabang ini. Hanya super_owner & master_admin.</CardDescription>
+      <Card className="border-border/60 shadow-sm">
+        <CardHeader className="pb-4">
+          <CardTitle className="text-base flex items-center gap-2"><ShieldIcon className="size-4 text-muted-foreground" /> Akses Master Admin</CardTitle>
+          <CardDescription>Kelola akun master admin yang dapat mengatur tenant dan seluruh cabang.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid gap-3 sm:grid-cols-2">
