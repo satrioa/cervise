@@ -108,7 +108,6 @@ export function BarcodeScannerDialog({
           } catch {
             /* getCameras opsional; lanjut dengan facingMode */
           }
-          // dedupe sederhana
           const seen = new Set<string>();
           return base.filter((c) => {
             const k = typeof c === "string" ? `id:${c}` : JSON.stringify(c);
@@ -118,74 +117,77 @@ export function BarcodeScannerDialog({
           });
         })();
 
+        const isTransitionError = (e: unknown) => /transition/i.test(e instanceof Error ? e.message : String(e ?? ""));
         const tryModes = [true, false];
         let started = false;
+        let firstMeaningful: unknown = null;
         let lastError: unknown = null;
 
         for (const useNative of tryModes) {
           if (cancelled || started) break;
-          const instance = new Html5Qrcode(regionId, {
-            verbose: false,
-            formatsToSupport,
-            useBarCodeDetectorIfSupported: useNative,
-          });
-          scanner = instance;
-
-          const onSuccess = (decodedText: string) => {
-            const value = decodedText?.trim();
-            if (!value || handled || cancelled) return;
-            handled = true;
-            void instance
-              .stop()
-              .catch(() => {})
-              .then(() => {
-                try {
-                  instance.clear();
-                } catch {
-                  /* ignore */
-                }
-                try {
-                  detected.current(value);
-                } finally {
-                  changeOpen.current(false);
-                }
-              });
-          };
-
           for (const cam of candidates) {
-            if (cancelled) return;
+            if (cancelled || handled) return;
+            const instance = new Html5Qrcode(regionId, {
+              verbose: false,
+              formatsToSupport,
+              useBarCodeDetectorIfSupported: useNative,
+            });
+            scanner = instance;
+
+            const onSuccess = (decodedText: string) => {
+              const value = decodedText?.trim();
+              if (!value || handled || cancelled) return;
+              handled = true;
+              void instance
+                .stop()
+                .catch(() => {})
+                .then(() => {
+                  try {
+                    instance.clear();
+                  } catch {
+                    /* ignore */
+                  }
+                  try {
+                    detected.current(value);
+                  } finally {
+                    changeOpen.current(false);
+                  }
+                });
+            };
+
             try {
               await instance.start(cam as any, config, onSuccess, () => {
                 /* frame tanpa kode */
               });
               started = true;
+              if (cancelled) {
+                await instance.stop().catch(() => {});
+                try {
+                  instance.clear();
+                } catch {
+                  /* ignore */
+                }
+              }
               break;
             } catch (e) {
               lastError = e;
-            }
-          }
-
-          if (started) {
-            if (cancelled) {
-              await instance.stop().catch(() => {});
+              if (!isTransitionError(e) && !firstMeaningful) firstMeaningful = e;
+              try {
+                await instance.stop();
+              } catch {
+                /* ignore - mungkin belum running/masih transisi */
+              }
               try {
                 instance.clear();
               } catch {
                 /* ignore */
               }
+              scanner = null;
             }
-            break;
           }
-
-          try {
-            instance.clear();
-          } catch {
-            /* ignore */
-          }
-          scanner = null;
         }
 
-        if (!started) throw lastError ?? new Error("Tidak ada kamera yang bisa dibuka");
+        if (!started) throw firstMeaningful ?? lastError ?? new Error("Tidak ada kamera yang bisa dibuka");
       } catch (cause) {
         if (!cancelled) {
           const name = (cause && typeof cause === "object" && "name" in cause && typeof (cause as any).name === "string") ? (cause as any).name : "";
