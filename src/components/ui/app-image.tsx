@@ -13,6 +13,8 @@ type ImgProps = React.ImgHTMLAttributes<HTMLImageElement>;
 export type AppImageProps = (ImageProps | (ImgProps & { fill?: never })) & {
   /** Keep image crisp (no dither) even in scifi world, e.g. QR/barcodes. */
   crisp?: boolean;
+  /** Product images use a progressive scifi dither preset. */
+  preset?: "product";
 };
 
 export function isScifiDitherActive(world: string, crisp?: boolean) {
@@ -52,7 +54,7 @@ function toNumber(v: unknown): number | undefined {
 }
 
 function NormalImage(props: any) {
-  const { crisp: _crisp, ...rest } = props;
+  const { crisp: _crisp, preset: _preset, ...rest } = props;
   const { src, fill } = rest;
 
   // Prefer next/image for normal rendering to preserve existing behavior.
@@ -90,7 +92,11 @@ function NormalImage(props: any) {
 export function AppImage(props: AppImageProps) {
   const { world } = useStyleWorld();
   const anyProps = props as any;
-  const { crisp, fill, src, alt, className, style, width, height } = anyProps;
+  const { crisp, preset, fill, src, alt, className, style, width, height } = anyProps;
+  const isProduct = preset === "product";
+  const ditherLevels = isProduct ? 3 : 2;
+  const ditherPixelSize = isProduct ? 3 : 2;
+  const progressive = isProduct;
 
   if (!isScifiDitherActive(world, crisp)) {
     return <NormalImage {...anyProps} />;
@@ -110,8 +116,9 @@ export function AppImage(props: AppImageProps) {
         width={Math.round(explicitW)}
         height={Math.round(explicitH)}
         algorithm="threshold"
-        levels={2}
-        pixelSize={2}
+        levels={ditherLevels}
+        pixelSize={ditherPixelSize}
+        progressive={progressive}
         palette={SCIFI_PALETTE}
         className={cn(className)}
       />
@@ -119,7 +126,17 @@ export function AppImage(props: AppImageProps) {
   }
 
   // fill or unknown size: measure container
-  return <FillDither src={resolvedSrc} alt={alt ?? ""} className={className} style={style} />;
+  return (
+    <FillDither
+      src={resolvedSrc}
+      alt={alt ?? ""}
+      className={className}
+      style={style}
+      levels={ditherLevels}
+      pixelSize={ditherPixelSize}
+      progressive={progressive}
+    />
+  );
 }
 
 function FillDither({
@@ -127,11 +144,17 @@ function FillDither({
   alt,
   className,
   style,
+  levels,
+  pixelSize,
+  progressive,
 }: {
   src: string;
   alt: string;
   className?: string;
   style?: React.CSSProperties;
+  levels: number;
+  pixelSize: number;
+  progressive: boolean;
 }) {
   const { ref, size } = useElementSize<HTMLDivElement>();
   return (
@@ -143,8 +166,9 @@ function FillDither({
           width={size.width}
           height={size.height}
           algorithm="threshold"
-          levels={2}
-          pixelSize={2}
+          levels={levels}
+          pixelSize={pixelSize}
+          progressive={progressive}
           palette={SCIFI_PALETTE}
           className="h-full w-full rounded-[inherit]"
         />

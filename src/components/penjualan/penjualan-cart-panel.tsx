@@ -57,6 +57,7 @@ function CartThumb({ item }: { item: PosCartItem }) {
         unoptimized
         onError={() => setFailed(true)}
         className="object-contain p-1"
+        preset="product"
       />
     </div>
   );

@@ -61,6 +61,7 @@ function ProductImage({
       unoptimized
       onError={() => setFailed(true)}
       className={className ?? "object-contain p-2"}
+      preset="product"
     />
   );
 }

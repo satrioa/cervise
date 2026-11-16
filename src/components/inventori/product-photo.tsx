@@ -31,6 +31,7 @@ function Preview({ src, alt, fallback }: { src: string | null; alt: string; fall
       unoptimized
       onError={() => setFailed(true)}
       className="object-cover"
+      preset="product"
     />
   );
 }
@@ -228,6 +229,7 @@ export function ProductPhotoButton({
             unoptimized
             onError={() => setFailed(true)}
             className="object-cover"
+            preset="product"
           />
           <span className="absolute bottom-0 right-0 flex size-4 items-center justify-center rounded-tl-md bg-background/90 text-muted-foreground">
             <CameraIcon className="size-2.5" />

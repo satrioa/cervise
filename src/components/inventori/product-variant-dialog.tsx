@@ -128,9 +128,9 @@ function PhotoPerWarna({ file, onFile, disabled }: { file: File | null; onFile: 
       <div className="flex items-center gap-1.5">
         <label className="relative flex size-9 shrink-0 cursor-pointer items-center justify-center overflow-hidden rounded-md border border-dashed bg-muted/30 hover:bg-muted/50">
           {preview ? (
-            <AppImage src={preview} alt="" fill sizes="36px" unoptimized className="object-cover" />
+            <AppImage src={preview} alt="" fill sizes="36px" unoptimized className="object-cover" preset="product" />
           ) : (
-            <AppImage src={productThumbnail({ variantType: "BARU" })} alt="" fill sizes="36px" unoptimized className="object-cover opacity-60" />
+            <AppImage src={productThumbnail({ variantType: "BARU" })} alt="" fill sizes="36px" unoptimized className="object-cover opacity-60" preset="product" />
           )}
           <input type="file" accept={ACCEPT} className="hidden" disabled={disabled} onChange={pick} />
         </label>
