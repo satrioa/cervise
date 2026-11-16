@@ -76,97 +76,113 @@ export function BarcodeScannerDialog({
           Html5QrcodeSupportedFormats.QR_CODE,
         ];
 
-        const instance = new Html5Qrcode(regionId, {
-          verbose: false,
-          formatsToSupport,
-          useBarCodeDetectorIfSupported: true,
-        });
-        scanner = instance;
-
         const config = {
           fps: 15,
-          // Kotak lebar untuk barcode 1D; cukup tinggi agar stabil.
+          aspectRatio: 1.333334,
+          // Strip lebar untuk barcode 1D (Code128/EAN) agar fokus dan tajam.
           qrbox: (viewfinderWidth: number, viewfinderHeight: number) => {
-            const w = Math.floor(viewfinderWidth * 0.9);
-            const h = Math.floor(viewfinderHeight * 0.55);
-            return { width: Math.max(220, w), height: Math.max(120, h) };
+            const w = Math.floor(viewfinderWidth * 0.92);
+            const h = Math.floor(viewfinderHeight * 0.38);
+            return { width: Math.max(240, w), height: Math.max(90, Math.min(h, 220)) };
           },
           disableFlip: false,
         };
 
-        const onSuccess = (decodedText: string) => {
-          const value = decodedText?.trim();
-          if (!value || handled || cancelled) return;
-          handled = true;
-          void instance
-            .stop()
-            .catch(() => {})
-            .then(() => {
+        const buildCandidates = async () => {
+          const hi = { width: { ideal: 1280 }, height: { ideal: 720 } };
+          const base: Array<string | MediaTrackConstraints> = [
+            { facingMode: { ideal: "environment" }, ...hi },
+            { facingMode: "environment", ...hi },
+            { facingMode: "user", ...hi },
+          ];
+          try {
+            const cameras = await Html5Qrcode.getCameras();
+            for (const cam of cameras ?? []) {
+              base.push({ deviceId: { exact: cam.id }, ...hi });
+              base.push(cam.id);
+            }
+          } catch {
+            /* getCameras opsional; lanjut dengan facingMode */
+          }
+          return base;
+        };
+
+        const tryModes = [true, false];
+        let started = false;
+        let lastError: unknown = null;
+
+        for (const useNative of tryModes) {
+          if (cancelled || started) break;
+          const instance = new Html5Qrcode(regionId, {
+            verbose: false,
+            formatsToSupport,
+            useBarCodeDetectorIfSupported: useNative,
+          });
+          scanner = instance;
+
+          const onSuccess = (decodedText: string) => {
+            const value = decodedText?.trim();
+            if (!value || handled || cancelled) return;
+            handled = true;
+            void instance
+              .stop()
+              .catch(() => {})
+              .then(() => {
+                try {
+                  instance.clear();
+                } catch {
+                  /* ignore */
+                }
+                try {
+                  detected.current(value);
+                } finally {
+                  changeOpen.current(false);
+                }
+              });
+          };
+
+          const candidates = await buildCandidates();
+          for (const cam of candidates) {
+            if (cancelled) return;
+            try {
+              await instance.start(cam as any, config, onSuccess, () => {
+                /* frame tanpa kode */
+              });
+              started = true;
+              break;
+            } catch (e) {
+              lastError = e;
+            }
+          }
+
+          if (started) {
+            if (cancelled) {
+              await instance.stop().catch(() => {});
               try {
                 instance.clear();
               } catch {
                 /* ignore */
               }
-              try {
-                detected.current(value);
-              } finally {
-                changeOpen.current(false);
-              }
-            });
-        };
-
-        const tryStart = async (camera: string | { facingMode: "environment" } | { facingMode: "user" }) => {
-          await instance.start(camera, config, onSuccess, () => {
-            /* frame tanpa kode */
-          });
-        };
-
-        let started = false;
-        const candidates: Array<string | { facingMode: "environment" } | { facingMode: "user" }> = [
-          { facingMode: "environment" },
-          { facingMode: "user" },
-        ];
-        try {
-          const cameras = await Html5Qrcode.getCameras();
-          if (cameras?.length) {
-            for (const cam of cameras) {
-              if (!candidates.some((c) => typeof c === "string" && c === cam.id)) {
-                candidates.push(cam.id);
-              }
             }
-          }
-        } catch {
-          /* getCameras opsional; lanjut dengan facingMode */
-        }
-
-        let lastError: unknown = null;
-        for (const cam of candidates) {
-          if (cancelled) return;
-          try {
-            await tryStart(cam);
-            started = true;
             break;
-          } catch (e) {
-            lastError = e;
           }
-        }
-        if (!started) throw lastError ?? new Error("Tidak ada kamera yang bisa dibuka");
 
-        if (cancelled) {
-          await instance.stop().catch(() => {});
           try {
             instance.clear();
           } catch {
             /* ignore */
           }
+          scanner = null;
         }
+
+        if (!started) throw lastError ?? new Error("Tidak ada kamera yang bisa dibuka");
       } catch (cause) {
         if (!cancelled) {
           const msg = cause instanceof Error ? cause.message : String(cause ?? "");
           setError(
             /permission|denied|notallowed/i.test(msg)
               ? "Izin kamera ditolak. Izinkan akses kamera lalu coba lagi."
-              : "Kamera tidak bisa dibuka/digunakan. Izinkan akses kamera, gunakan HTTPS, atau pilih kamera lain (Continuity Camera) lalu coba lagi.",
+              : "Kamera tidak bisa dibuka/digunakan. Izinkan akses kamera, gunakan HTTPS, atau pilih kamera lain lalu coba lagi.",
           );
         }
       }

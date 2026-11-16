@@ -12,7 +12,7 @@ const VALID: StyleWorld[] = ["minimal", "scifi", "toy", "craft"];
 export const STYLE_WORLDS: { value: StyleWorld; label: string; comingSoon?: boolean }[] = [
   { value: "minimal", label: "Minimal" },
   { value: "scifi", label: "Scifi" },
-  { value: "toy", label: "Toy", comingSoon: true },
+  { value: "toy", label: "Toy" },
   { value: "craft", label: "Craft", comingSoon: true },
 ];
 

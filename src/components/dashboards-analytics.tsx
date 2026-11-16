@@ -321,9 +321,12 @@ function TechnicianRaceCard({
   loading?: boolean;
 }) {
   const [metric, setMetric] = React.useState<TechMetric>("count");
-  const [frame, setFrame] = React.useState(0);
+  const [progress, setProgress] = React.useState(0);
   const [playing, setPlaying] = React.useState(false);
-  const timerRef = React.useRef<ReturnType<typeof setInterval> | null>(null);
+  const rafRef = React.useRef<number | null>(null);
+  const lastTimeRef = React.useRef<number | null>(null);
+  const cardRef = React.useRef<HTMLElement>(null);
+  const autoPlayedRef = React.useRef(false);
 
   const buckets = race?.buckets ?? [];
   const allTechs = race?.technicians ?? [];
@@ -337,34 +340,67 @@ function TechnicianRaceCard({
   }, [allTechs, metric]);
 
   const frameCount = buckets.length || 1;
+  const maxProgress = Math.max(0, frameCount - 1);
 
-  // Reset frame when period/data changes
+  // Reset progress when period/data changes
   React.useEffect(() => {
-    setFrame(0);
+    setProgress(0);
     setPlaying(false);
+    autoPlayedRef.current = false;
   }, [period, buckets.length]);
 
-  // Autoplay
+  // Smooth autoplay
   React.useEffect(() => {
     if (!playing) {
-      if (timerRef.current) clearInterval(timerRef.current);
-      timerRef.current = null;
+      if (rafRef.current != null) cancelAnimationFrame(rafRef.current);
+      rafRef.current = null;
+      lastTimeRef.current = null;
       return;
     }
-    timerRef.current = setInterval(() => {
-      setFrame((prev) => {
-        if (prev >= frameCount - 1) {
-          setPlaying(false);
-          return prev;
+    const step = (now: number) => {
+      if (lastTimeRef.current == null) lastTimeRef.current = now;
+      const dt = now - lastTimeRef.current;
+      lastTimeRef.current = now;
+      let reachedEnd = false;
+      setProgress((prev) => {
+        const next = prev + dt / 600;
+        if (next >= maxProgress) {
+          reachedEnd = true;
+          return maxProgress;
         }
-        return prev + 1;
+        return next;
       });
-    }, 600);
-    return () => {
-      if (timerRef.current) clearInterval(timerRef.current);
-      timerRef.current = null;
+      if (reachedEnd) {
+        setPlaying(false);
+        return;
+      }
+      rafRef.current = requestAnimationFrame(step);
     };
-  }, [playing, frameCount]);
+    rafRef.current = requestAnimationFrame(step);
+    return () => {
+      if (rafRef.current != null) cancelAnimationFrame(rafRef.current);
+      rafRef.current = null;
+      lastTimeRef.current = null;
+    };
+  }, [playing, maxProgress]);
+
+  // Auto-play once when card scrolls into view
+  React.useEffect(() => {
+    if (loading || autoPlayedRef.current || maxProgress <= 0 || top5.length === 0) return;
+    const el = cardRef.current;
+    if (!el || typeof IntersectionObserver === "undefined") return;
+    const obs = new IntersectionObserver(
+      (entries) => {
+        if (!entries.some((e) => e.isIntersecting) || autoPlayedRef.current) return;
+        autoPlayedRef.current = true;
+        setProgress(0);
+        setPlaying(true);
+      },
+      { threshold: 0.35 },
+    );
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, [loading, maxProgress, top5.length]);
 
   const metricTabs = (
     <Tabs value={metric} onValueChange={(v) => setMetric(v as TechMetric)}>
@@ -377,7 +413,7 @@ function TechnicianRaceCard({
 
   if (loading) {
     return (
-      <BreakdownCard title="Performa teknisi" action={metricTabs}>
+      <BreakdownCard ref={cardRef} title="Performa teknisi" action={metricTabs}>
         <div className="mt-4 flex flex-col gap-2">
           {Array.from({ length: 5 }, (_, i) => (
             <Skeleton key={i} className="h-6 w-full rounded" />
@@ -390,23 +426,27 @@ function TechnicianRaceCard({
 
   if (top5.length === 0) {
     return (
-      <BreakdownCard title="Performa teknisi" action={metricTabs}>
+      <BreakdownCard ref={cardRef} title="Performa teknisi" action={metricTabs}>
         <Empty>Belum ada servis dengan teknisi</Empty>
       </BreakdownCard>
     );
   }
 
-  // Cumulative values up to current frame
+  // Cumulative values up to current progress (interpolated for smooth playback)
   const cumulative = top5.map((t) => {
     const arr = metric === "count" ? t.perBucketCount : t.perBucketValue;
+    const p = Math.min(Math.max(progress, 0), Math.max(arr.length - 1, 0));
+    const whole = Math.floor(p);
+    const frac = p - whole;
     let sum = 0;
-    for (let i = 0; i <= Math.min(frame, arr.length - 1); i++) sum += arr[i] ?? 0;
+    for (let i = 0; i <= whole && i < arr.length; i++) sum += arr[i] ?? 0;
+    if (frac > 0 && whole + 1 < arr.length) sum += (arr[whole + 1] ?? 0) * frac;
     return { tech: t, value: sum };
   });
   const maxVal = Math.max(...cumulative.map((c) => c.value), 1);
 
   return (
-    <BreakdownCard title="Performa teknisi" action={metricTabs}>
+    <BreakdownCard ref={cardRef} title="Performa teknisi" action={metricTabs}>
       {/* Race bars */}
       <div className="mt-4 flex flex-col gap-2">
         {cumulative
@@ -430,7 +470,7 @@ function TechnicianRaceCard({
                   </div>
                   <div className="mt-1 h-2 overflow-hidden rounded-full bg-foreground/[0.06]">
                     <div
-                      className="h-full rounded-full transition-all duration-300 ease-out"
+                      className="h-full rounded-full"
                       style={{ width: `${pct}%`, backgroundColor: color }}
                     />
                   </div>
@@ -458,18 +498,19 @@ function TechnicianRaceCard({
           <input
             type="range"
             min={0}
-            max={Math.max(0, frameCount - 1)}
-            value={frame}
+            max={maxProgress}
+            step={0.01}
+            value={progress}
             onChange={(e) => {
               setPlaying(false);
-              setFrame(Number(e.target.value));
+              setProgress(Number(e.target.value));
             }}
             className="flex-1 accent-foreground"
           />
         </div>
         <div className="mt-1 flex justify-between text-[10px] text-muted-foreground">
           <span>{buckets[0]?.key ?? ""}</span>
-          <span className="font-mono">{buckets[frame]?.key ?? ""}</span>
+          <span className="font-mono">{buckets[Math.min(Math.round(progress), buckets.length - 1)]?.key ?? ""}</span>
           <span>{buckets[buckets.length - 1]?.key ?? ""}</span>
         </div>
       </div>
@@ -485,19 +526,14 @@ function Empty({ children }: { children: React.ReactNode }) {
   return <p className="py-8 text-center text-sm text-muted-foreground">{children}</p>;
 }
 
-function BreakdownCard({
-  title,
-  children,
-  className,
-  action,
-}: {
+const BreakdownCard = React.forwardRef<HTMLElement, {
   title: string;
   children: React.ReactNode;
   className?: string;
   action?: React.ReactNode;
-}) {
+}>(function BreakdownCard({ title, children, className, action }, ref) {
   return (
-    <section className={`rounded-xl border border-border/60 bg-background/40 p-5 ${className ?? ""}`}>
+    <section ref={ref} className={`rounded-xl border border-border/60 bg-background/40 p-5 ${className ?? ""}`}>
       <div className="flex items-center justify-between">
         <div className="font-mono text-[10px] text-muted-foreground uppercase tracking-[0.25em] flex items-center gap-1.5">
           {(title === "Top cabang" || title === "Performa cabang") && <StoreIcon className="size-3" />}
@@ -516,4 +552,4 @@ function BreakdownCard({
       {children}
     </section>
   );
-}
+});

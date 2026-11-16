@@ -871,3 +871,224 @@ html[data-ui-world="scifi"] body::before {
     animation: none;
   }
 }
+
+/* Style world: Toy (playful molded plastic) */
+html[data-ui-world="toy"] {
+  --radius: 1rem;
+  --toy-bg: #e3dfd5;
+  --toy-surface: #f8f5ef;
+  --toy-surface-2: #fffdf8;
+  --toy-ink: #1e1d1a;
+  --toy-ink-2: #55524a;
+  --toy-muted: #6b665b;
+  --toy-line: #cfc7b8;
+  --toy-blue: #2c55e0;
+  --toy-blue-deep: #1a36a3;
+  --toy-red: #ef4f2b;
+  --toy-red-deep: #b5311a;
+  --toy-yellow: #f4b52a;
+  --toy-yellow-deep: #b9821a;
+  --toy-green: #2fb36a;
+  --toy-shadow: 0 2px 0 #b8b1a3, 0 6px 0 rgba(58, 50, 38, 0.18), 0 14px 22px -10px rgba(58, 50, 38, 0.35);
+  --toy-shadow-press: 0 1px 0 #b8b1a3, 0 3px 0 rgba(58, 50, 38, 0.18);
+
+  --background: var(--toy-bg);
+  --foreground: var(--toy-ink);
+  --card: var(--toy-surface);
+  --card-foreground: var(--toy-ink);
+  --popover: var(--toy-surface-2);
+  --popover-foreground: var(--toy-ink);
+  --primary: var(--toy-blue);
+  --primary-foreground: #ffffff;
+  --secondary: var(--toy-yellow);
+  --secondary-foreground: #2a2110;
+  --muted: #ece6da;
+  --muted-foreground: var(--toy-muted);
+  --accent: #eee8dc;
+  --accent-foreground: var(--toy-ink);
+  --destructive: var(--toy-red);
+  --border: var(--toy-line);
+  --input: var(--toy-surface-2);
+  --ring: var(--toy-blue);
+  --canvas: var(--toy-bg);
+  --header: var(--toy-bg);
+  --bento-card-bg: var(--toy-surface);
+  --bento-card-border: var(--toy-line);
+  --sidebar: #efe9dd;
+  --sidebar-foreground: var(--toy-ink);
+  --sidebar-primary: var(--toy-blue);
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #e7e0d2;
+  --sidebar-accent-foreground: var(--toy-ink);
+  --sidebar-border: var(--toy-line);
+  --font-sans: "Archivo", "Inter", system-ui, sans-serif;
+  --font-heading: "Archivo", "Inter", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+  --chart-1: #2c55e0;
+  --chart-2: #f4b52a;
+  --chart-3: #ef4f2b;
+  --chart-4: #2fb36a;
+  --chart-5: #7a5cff;
+  --chart-positive: #2fb36a;
+  --chart-negative: #ef4f2b;
+}
+
+html[data-ui-world="toy"] body {
+  font-family: var(--font-sans);
+  background-color: var(--toy-bg);
+  color: var(--toy-ink);
+}
+
+html[data-ui-world="toy"] [data-shell="compact"] {
+  background-color: var(--toy-bg);
+  background-image: radial-gradient(circle, rgba(60, 45, 20, 0.08) 2px, transparent 2.5px);
+  background-size: 22px 22px;
+}
+
+html[data-ui-world="toy"] [data-bento-card],
+html[data-ui-world="toy"] .rounded-xl.border.bg-card,
+html[data-ui-world="toy"] .rounded-xl.border.bg-background {
+  background: var(--toy-surface);
+  border: 2px solid var(--toy-line);
+  box-shadow: var(--toy-shadow);
+}
+
+html[data-ui-world="toy"] [data-bento-card]:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 3px 0 #b8b1a3, 0 8px 0 rgba(58, 50, 38, 0.18), 0 18px 24px -10px rgba(58, 50, 38, 0.35);
+}
+
+html[data-ui-world="toy"] button,
+html[data-ui-world="toy"] [role="button"] {
+  border-radius: 0.8rem;
+  font-weight: 600;
+}
+
+html[data-ui-world="toy"] button:not([data-unstyled]),
+html[data-ui-world="toy"] [data-candy-button] {
+  border: 2px solid color-mix(in srgb, var(--toy-ink) 12%, var(--toy-line));
+  box-shadow: 0 2px 0 rgba(58, 50, 38, 0.22);
+}
+
+html[data-ui-world="toy"] button:hover:not(:disabled),
+html[data-ui-world="toy"] [role="button"]:hover:not([aria-disabled="true"]) {
+  transform: translateY(-1px);
+}
+
+html[data-ui-world="toy"] button:active:not(:disabled),
+html[data-ui-world="toy"] [role="button"]:active:not([aria-disabled="true"]) {
+  transform: translateY(1px);
+  box-shadow: var(--toy-shadow-press);
+}
+
+html[data-ui-world="toy"] [data-compact-bar] nav,
+html[data-ui-world="toy"] [data-shell="compact"] header nav[aria-label="Navigasi utama"] {
+  background: color-mix(in srgb, var(--toy-surface) 88%, var(--toy-yellow) 12%);
+  border: 2px solid var(--toy-line);
+  box-shadow: 0 3px 0 rgba(58, 50, 38, 0.18);
+}
+
+html[data-ui-world="toy"] [data-shell="compact"] header button[aria-label="Buka menu"],
+html[data-ui-world="toy"] [data-shell="compact"] header [aria-label="Cari atau buka perintah"] {
+  background: var(--toy-surface-2);
+  border: 2px solid var(--toy-line);
+  box-shadow: 0 3px 0 rgba(58, 50, 38, 0.18);
+}
+
+html[data-ui-world="toy"] [data-compact-dock],
+html[data-ui-world="toy"] [data-compact-bottom-bar] {
+  background: color-mix(in srgb, var(--toy-surface) 92%, white 8%);
+  border: 2px solid var(--toy-line);
+  box-shadow: 0 4px 0 rgba(58, 50, 38, 0.16), 0 12px 24px -12px rgba(58, 50, 38, 0.35);
+}
+
+html[data-ui-world="toy"] input,
+html[data-ui-world="toy"] textarea,
+html[data-ui-world="toy"] select,
+html[data-ui-world="toy"] [data-slot="input"],
+html[data-ui-world="toy"] [data-slot="select-trigger"] {
+  border-radius: 0.75rem;
+  border-width: 2px;
+  border-color: var(--toy-line);
+  background: var(--toy-surface-2);
+}
+
+html[data-ui-world="toy"] [data-shell="compact"] .bg-canvas {
+  background-color: var(--toy-bg);
+}
+
+html[data-ui-world="toy"] [data-shell="compact"] h1,
+html[data-ui-world="toy"] [data-shell="compact"] h2,
+html[data-ui-world="toy"] [data-shell="compact"] h3 {
+  letter-spacing: -0.02em;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html[data-ui-world="toy"] [data-bento-card],
+  html[data-ui-world="toy"] button,
+  html[data-ui-world="toy"] [role="button"] {
+    transition: none !important;
+    transform: none !important;
+  }
+}
+
+html[data-ui-world="toy"] [data-compact-bar] > div > div,
+html[data-ui-world="toy"] [data-compact-dock] > div {
+  background: color-mix(in srgb, var(--toy-surface) 94%, #fff 6%) !important;
+  border: 2px solid var(--toy-line) !important;
+  box-shadow: 0 4px 0 rgba(58, 50, 38, 0.16), 0 12px 24px -12px rgba(58, 50, 38, 0.35) !important;
+}
+
+html[data-ui-world="toy"] [data-compact-dock] [aria-current="page"],
+html[data-ui-world="toy"] [data-shell="compact"] header nav [aria-current="page"] {
+  background: var(--toy-blue) !important;
+  color: #fff !important;
+  box-shadow: 0 2px 0 var(--toy-blue-deep) !important;
+}
+
+html[data-ui-world="toy"] [data-shell="compact"] header nav a:hover:not([aria-current="page"]) {
+  background: color-mix(in srgb, var(--toy-yellow) 35%, var(--toy-surface));
+  color: var(--toy-ink);
+}
+
+html[data-ui-world="toy"] [data-bento-card] [class*="text-muted"],
+html[data-ui-world="toy"] [data-shell="compact"] .text-muted-foreground {
+  color: var(--toy-ink-2);
+}
+
+html[data-ui-world="toy"] [data-shell="compact"] [data-slot="sheet-content"] {
+  background: var(--toy-surface) !important;
+  border: 2px solid var(--toy-line) !important;
+}
+
+html[data-ui-world="toy"] [data-bento-card]:hover {
+  background: var(--toy-surface-2);
+}
+
+html[data-ui-world="toy"] [role="status"] .bg-canvas,
+html[data-ui-world="toy"] .bg-canvas {
+  background-color: var(--toy-bg);
+}
+
+html[data-ui-world="toy"] [role="status"] .rounded-\[22px\].bg-white,
+html[data-ui-world="toy"] [role="status"] .dark\:bg-neutral-900 {
+  background: var(--toy-surface) !important;
+  border: 2px solid var(--toy-line);
+  box-shadow: var(--toy-shadow);
+}
+
+html[data-ui-world="toy"] [data-shell="compact"] .border-border\/60 {
+  border-color: var(--toy-line) !important;
+}
+
+html[data-ui-world="toy"] [data-shell="compact"] .text-foreground {
+  color: var(--toy-ink);
+}
+
+html[data-ui-world="toy"] [data-shell="compact"] .bg-card {
+  background-color: var(--toy-surface);
+}
+
+html[data-ui-world="toy"] [data-shell="compact"] .bg-background {
+  background-color: var(--toy-surface-2);
+}

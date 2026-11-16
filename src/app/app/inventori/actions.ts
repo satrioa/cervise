@@ -163,8 +163,6 @@ export async function importInventori(rows: InventoriImportRow[]): Promise<{ ins
       ...product,
       is_serialized: product.variant_type === "BEKAS",
       is_active: true,
-      bh_percent: null,
-      garansi_days: null,
     }));
     const { error } = await actor.supabase.from("cervise_products").insert(payload);
     if (error) throw new Error(error.message);

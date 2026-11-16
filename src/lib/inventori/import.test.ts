@@ -30,20 +30,25 @@ describe("prepareInventoriImport", () => {
         price: 17000000,
         barcode: null,
         imei: null,
+        bh_percent: null,
+        garansi_days: null,
         kondisi_notes: null,
         parent_key: "iphone-14-pro",
       },
     ]);
   });
 
-  it("memaksa stok unit bekas jadi 1 dan mewajibkan IMEI 15 digit", () => {
-    const bekas = { ...base, tipe: "BEKAS", stok: "9", imei: "356938035412345" };
+  it("memaksa stok unit bekas jadi 1, wajib IMEI 15 digit & BH", () => {
+    const bekas = { ...base, tipe: "BEKAS", stok: "9", imei: "356938035412345", bh: "85", garansi_hari: "30", catatan: "Mulus" };
     const ok = prepareInventoriImport([bekas], []);
     expect(ok.errors).toEqual([]);
-    expect(ok.products[0].stock_qty).toBe(1);
+    expect(ok.products[0]).toMatchObject({ stock_qty: 1, bh_percent: 85, garansi_days: 30, kondisi_notes: "Mulus" });
 
-    const bad = prepareInventoriImport([{ ...bekas, imei: "123" }], []);
-    expect(bad.errors[0]).toContain("IMEI 15 digit");
+    const badImei = prepareInventoriImport([{ ...bekas, imei: "123" }], []);
+    expect(badImei.errors[0]).toContain("IMEI 15 digit");
+
+    const badBh = prepareInventoriImport([{ ...bekas, bh: "" }], []);
+    expect(badBh.errors[0]).toContain("BH");
   });
 
   it("menolak SKU ganda, baik di file maupun di cabang", () => {

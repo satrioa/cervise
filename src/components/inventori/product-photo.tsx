@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { CameraIcon, XIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import { ImageCropDialog } from "@/components/image-crop-dialog";
 import {
   ALLOWED_PHOTO_TYPES,
   MAX_PHOTO_BYTES,
@@ -47,62 +48,101 @@ export function ProductPhotoPicker({
   const [preview, setPreview] = useState<string | null>(null);
   const previewRef = useRef<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const [cropOpen, setCropOpen] = useState(false);
+  const [cropSrc, setCropSrc] = useState<string | null>(null);
+  const [cropMeta, setCropMeta] = useState<{ name: string; type: string } | null>(null);
+  const cropSrcRef = useRef<string | null>(null);
 
-  useEffect(() => {
-    return () => {
-      if (previewRef.current) URL.revokeObjectURL(previewRef.current);
-    };
-  }, []);
-
-  const clearPreview = () => {
+  const clearPreview = useCallback(() => {
     if (previewRef.current) {
       URL.revokeObjectURL(previewRef.current);
       previewRef.current = null;
     }
     setPreview(null);
-  };
+  }, []);
+
+  const clearCropSrc = useCallback(() => {
+    if (cropSrcRef.current) {
+      URL.revokeObjectURL(cropSrcRef.current);
+      cropSrcRef.current = null;
+    }
+    setCropSrc(null);
+    setCropMeta(null);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (previewRef.current) URL.revokeObjectURL(previewRef.current);
+      if (cropSrcRef.current) URL.revokeObjectURL(cropSrcRef.current);
+    };
+  }, []);
 
   return (
-    <div className="flex items-center gap-3">
-      <div className="relative flex size-20 shrink-0 items-center justify-center overflow-hidden rounded-xl border bg-muted/30">
-        <Preview src={preview ?? value} alt="Foto produk" fallback={productThumbnail({ variantType: "BARU" })} />
-      </div>
-      <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-        <div className="flex items-center gap-2">
-          <Button type="button" size="sm" variant="outline" disabled={disabled} onClick={() => inputRef.current?.click()}>
-            <CameraIcon /> {preview ? "Ganti foto" : "Pilih foto"}
-          </Button>
-          {preview ? (
-            <Button
-              type="button"
-              size="sm"
-              variant="ghost"
-              disabled={disabled}
-              onClick={() => { clearPreview(); onFile(null); }}
-            >
-              <XIcon /> Hapus
-            </Button>
-          ) : null}
+    <>
+      <div className="flex items-center gap-3">
+        <div className="relative flex size-20 shrink-0 items-center justify-center overflow-hidden rounded-xl border bg-muted/30">
+          <Preview src={preview ?? value} alt="Foto produk" fallback={productThumbnail({ variantType: "BARU" })} />
         </div>
-        <p className="text-[11px] text-muted-foreground">
-          JPG, PNG, atau WEBP, maksimal {formatBytes(MAX_PHOTO_BYTES)}.
-        </p>
+        <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+          <div className="flex items-center gap-2">
+            <Button type="button" size="sm" variant="outline" disabled={disabled} onClick={() => inputRef.current?.click()}>
+              <CameraIcon /> {preview ? "Ganti foto" : "Pilih foto"}
+            </Button>
+            {preview ? (
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                disabled={disabled}
+                onClick={() => { clearPreview(); onFile(null); }}
+              >
+                <XIcon /> Hapus
+              </Button>
+            ) : null}
+          </div>
+          <p className="text-[11px] text-muted-foreground">
+            JPG, PNG, atau WEBP, maksimal {formatBytes(MAX_PHOTO_BYTES)}.
+          </p>
+        </div>
+        <input
+          ref={inputRef}
+          type="file"
+          accept={ACCEPT}
+          className="hidden"
+          disabled={disabled}
+          onChange={(event) => {
+            const file = event.target.files?.[0];
+            event.target.value = "";
+            if (!file) return;
+            const validation = validatePhotoFile(file);
+            if (!validation.ok) {
+              toast.error(validation.error);
+              return;
+            }
+            clearCropSrc();
+            const url = URL.createObjectURL(file);
+            cropSrcRef.current = url;
+            setCropSrc(url);
+            setCropMeta({ name: file.name, type: file.type });
+            setCropOpen(true);
+          }}
+        />
       </div>
-      <input
-        ref={inputRef}
-        type="file"
-        accept={ACCEPT}
-        className="hidden"
-        disabled={disabled}
-        onChange={(event) => {
-          const file = event.target.files?.[0];
-          event.target.value = "";
-          if (!file) return;
-          const validation = validatePhotoFile(file);
-          if (!validation.ok) {
-            toast.error(validation.error);
-            return;
-          }
+
+      <ImageCropDialog
+        open={cropOpen}
+        src={cropSrc}
+        aspect={1}
+        title="Potong foto produk"
+        description="Sesuaikan area persegi (1:1)."
+        fileName={cropMeta?.name}
+        mimeType={cropMeta?.type}
+        onOpenChange={(next) => {
+          if (!next) { setCropOpen(false); clearCropSrc(); }
+        }}
+        onComplete={(file) => {
+          setCropOpen(false);
+          clearCropSrc();
           clearPreview();
           const url = URL.createObjectURL(file);
           previewRef.current = url;
@@ -110,7 +150,7 @@ export function ProductPhotoPicker({
           onFile(file);
         }}
       />
-    </div>
+    </>
   );
 }
 
@@ -136,60 +176,105 @@ export function ProductPhotoButton({
   const [failed, setFailed] = useState(false);
   const src = publicPhotoUrl(process.env.NEXT_PUBLIC_SUPABASE_URL ?? "", imageUrl);
 
+  const [cropOpen, setCropOpen] = useState(false);
+  const [cropSrc, setCropSrc] = useState<string | null>(null);
+  const [cropMeta, setCropMeta] = useState<{ name: string; type: string } | null>(null);
+  const cropSrcRef = useRef<string | null>(null);
+
+  const clearCropSrc = useCallback(() => {
+    if (cropSrcRef.current) {
+      URL.revokeObjectURL(cropSrcRef.current);
+      cropSrcRef.current = null;
+    }
+    setCropSrc(null);
+    setCropMeta(null);
+  }, []);
+
+  useEffect(() => () => clearCropSrc(), [clearCropSrc]);
+
+  const uploadCropped = async (file: File) => {
+    const formData = new FormData();
+    formData.append("file", file);
+    setBusy(true);
+    try {
+      await uploadProductPhoto(productId, formData);
+      playPageTransition();
+      setFailed(false);
+      toast.success("Foto produk tersimpan");
+      router.refresh();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Gagal mengunggah foto");
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return (
-    <div className={`relative shrink-0 ${className}`}>
-      <button
-        type="button"
-        disabled={busy}
-        onClick={() => inputRef.current?.click()}
-        aria-label={`Ganti foto ${name}`}
-        title="Ganti foto"
-        className="relative flex size-full items-center justify-center overflow-hidden rounded-lg border bg-muted/30 transition-colors hover:bg-muted/50 disabled:opacity-50"
-      >
-        <Image
-          src={!failed && src ? src : productThumbnail({ variantType, category })}
-          alt={name}
-          fill
-          sizes="80px"
-          unoptimized
-          onError={() => setFailed(true)}
-          className="object-cover"
+    <>
+      <div className={`relative shrink-0 ${className}`}>
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => inputRef.current?.click()}
+          aria-label={`Ganti foto ${name}`}
+          title="Ganti foto"
+          className="relative flex size-full items-center justify-center overflow-hidden rounded-lg border bg-muted/30 transition-colors hover:bg-muted/50 disabled:opacity-50"
+        >
+          <Image
+            src={!failed && src ? src : productThumbnail({ variantType, category })}
+            alt={name}
+            fill
+            sizes="80px"
+            unoptimized
+            onError={() => setFailed(true)}
+            className="object-cover"
+          />
+          <span className="absolute bottom-0 right-0 flex size-4 items-center justify-center rounded-tl-md bg-background/90 text-muted-foreground">
+            <CameraIcon className="size-2.5" />
+          </span>
+        </button>
+        <input
+          ref={inputRef}
+          type="file"
+          accept={ACCEPT}
+          className="hidden"
+          disabled={busy}
+          onChange={(event) => {
+            const file = event.target.files?.[0];
+            event.target.value = "";
+            if (!file) return;
+            const validation = validatePhotoFile(file);
+            if (!validation.ok) {
+              toast.error(validation.error);
+              return;
+            }
+            clearCropSrc();
+            const url = URL.createObjectURL(file);
+            cropSrcRef.current = url;
+            setCropSrc(url);
+            setCropMeta({ name: file.name, type: file.type });
+            setCropOpen(true);
+          }}
         />
-        <span className="absolute bottom-0 right-0 flex size-4 items-center justify-center rounded-tl-md bg-background/90 text-muted-foreground">
-          <CameraIcon className="size-2.5" />
-        </span>
-      </button>
-      <input
-        ref={inputRef}
-        type="file"
-        accept={ACCEPT}
-        className="hidden"
-        disabled={busy}
-        onChange={async (event) => {
-          const file = event.target.files?.[0];
-          event.target.value = "";
-          if (!file) return;
-          const validation = validatePhotoFile(file);
-          if (!validation.ok) {
-            toast.error(validation.error);
-            return;
-          }
-          const formData = new FormData();
-          formData.append("file", file);
-          setBusy(true);
-          try {
-            await uploadProductPhoto(productId, formData);
-            playPageTransition();
-            setFailed(false);
-            toast.success("Foto produk tersimpan");
-            router.refresh();
-          } catch (error) {
-            toast.error(error instanceof Error ? error.message : "Gagal mengunggah foto");
-          } finally {
-            setBusy(false);
-          }
+      </div>
+
+      <ImageCropDialog
+        open={cropOpen}
+        src={cropSrc}
+        aspect={1}
+        title="Potong foto produk"
+        description="Sesuaikan area persegi (1:1)."
+        fileName={cropMeta?.name}
+        mimeType={cropMeta?.type}
+        onOpenChange={(next) => {
+          if (!next) { setCropOpen(false); clearCropSrc(); }
+        }}
+        onComplete={(file) => {
+          setCropOpen(false);
+          clearCropSrc();
+          void uploadCropped(file);
         }}
       />
-    </div>
+    </>
   );
 }

@@ -21,7 +21,11 @@ export type InventoriImportRow = {
   jual?: number | string | null;
   barcode?: string | null;
   imei?: string | null;
+  bh?: number | string | null;
+  garansi_hari?: number | string | null;
   catatan?: string | null;
+  /** Nama sheet asal (opsional) untuk default tipe/kategori. */
+  _sheet?: string;
 };
 
 export type InventoriImportProduct = {
@@ -36,6 +40,8 @@ export type InventoriImportProduct = {
   price: number;
   barcode: string | null;
   imei: string | null;
+  bh_percent: number | null;
+  garansi_days: number | null;
   kondisi_notes: string | null;
   parent_key: string;
 };
@@ -55,10 +61,23 @@ export const IMPORT_HEADERS = [
   "jual",
   "barcode",
   "imei",
+  "bh",
+  "garansi_hari",
   "catatan",
 ] as const;
 
+export const IMPORT_SHEETS = ["Baru", "Bekas", "Aksesori", "Lainnya"] as const;
+
 const CATEGORIES = ["Gadget", "Aksesori", "Lainnya"];
+
+function defaultsFromSheet(sheet?: string): { category?: string; tipe?: "BARU" | "BEKAS" } {
+  const s = (sheet ?? "").trim().toLowerCase();
+  if (s === "baru" || s === "gadget new") return { tipe: "BARU", category: "Gadget" };
+  if (s === "bekas" || s === "gadget bekas") return { tipe: "BEKAS" };
+  if (s === "aksesori" || s === "aksesoris") return { category: "Aksesori", tipe: "BARU" };
+  if (s === "lainya" || s === "lainnya") return { category: "Lainnya", tipe: "BARU" };
+  return {};
+}
 
 function text(value: unknown): string {
   return String(value ?? "").trim();
@@ -85,20 +104,23 @@ export function prepareInventoriImport(
 
   rows.forEach((row, index) => {
     // +2: baris 1 adalah header Excel, jadi baris data pertama = baris 2.
+    const sheetLabel = text(row._sheet);
     const line = index + 2;
-    const fail = (message: string) => errors.push(`Baris ${line}: ${message}`);
+    const where = sheetLabel ? `Sheet ${sheetLabel}, baris ${line}` : `Baris ${line}`;
+    const fail = (message: string) => errors.push(`${where}: ${message}`);
 
+    const sheetDefaults = defaultsFromSheet(row._sheet);
     const name = text(row.nama);
     const sku = text(row.sku).toUpperCase();
     if (!name) return fail("nama wajib diisi");
     if (!sku) return fail(`SKU wajib diisi untuk ${name}`);
 
-    const category = text(row.kategori) || "Gadget";
+    const category = text(row.kategori) || sheetDefaults.category || "Gadget";
     if (!CATEGORIES.includes(category)) return fail(`kategori "${category}" tidak dikenal (Gadget/Aksesori/Lainnya)`);
 
-    const tipeRaw = text(row.tipe).toUpperCase();
+    const tipeRaw = text(row.tipe).toUpperCase() || sheetDefaults.tipe || "BARU";
     const variant_type = tipeRaw === "BEKAS" ? "BEKAS" : "BARU";
-    if (tipeRaw && tipeRaw !== "BARU" && tipeRaw !== "BEKAS") return fail(`tipe "${row.tipe}" harus BARU atau BEKAS`);
+    if (tipeRaw !== "BARU" && tipeRaw !== "BEKAS") return fail(`tipe "${row.tipe}" harus BARU atau BEKAS`);
 
     const storage = text(row.storage);
     const warna = text(row.warna);
@@ -112,13 +134,31 @@ export function prepareInventoriImport(
 
     let stock_qty = Math.trunc(number(row.stok));
     let imei: string | null = null;
+    let bh_percent: number | null = null;
+    let garansi_days: number | null = null;
     if (variant_type === "BEKAS") {
       imei = text(row.imei);
       if (!/^\d{15}$/.test(imei)) return fail("IMEI 15 digit wajib untuk tipe BEKAS");
+      const bhRaw = text(row.bh);
+      const bhNum = bhRaw === "" ? Number.NaN : number(row.bh);
+      if (!Number.isFinite(bhNum) || bhNum < 0 || bhNum > 100) return fail("BH 0-100 wajib untuk tipe BEKAS");
+      bh_percent = bhNum;
+      const garRaw = text(row.garansi_hari);
+      if (garRaw !== "") {
+        const g = Math.trunc(number(row.garansi_hari));
+        if (!Number.isFinite(g) || g <= 0) return fail("garansi_hari harus > 0 jika diisi");
+        garansi_days = g;
+      }
       // Satu unit bekas = satu IMEI, apa pun isi kolom stok.
       stock_qty = 1;
-    } else if (!Number.isFinite(stock_qty) || stock_qty < 0) {
-      return fail("stok harus bilangan bulat >= 0");
+    } else {
+      if (!Number.isFinite(stock_qty) || stock_qty < 0) return fail("stok harus bilangan bulat >= 0");
+      const garRaw = text(row.garansi_hari);
+      if (garRaw !== "") {
+        const g = Math.trunc(number(row.garansi_hari));
+        if (!Number.isFinite(g) || g <= 0) return fail("garansi_hari harus > 0 jika diisi");
+        garansi_days = g;
+      }
     }
 
     if (taken.has(sku)) return fail(`SKU ${sku} ganda (sudah ada di cabang ini atau di baris lain)`);
@@ -136,6 +176,8 @@ export function prepareInventoriImport(
       price,
       barcode: text(row.barcode) || null,
       imei,
+      bh_percent,
+      garansi_days,
       kondisi_notes: text(row.catatan) || null,
       parent_key: normalizeInventorySlug(name),
     });

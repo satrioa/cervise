@@ -13,13 +13,11 @@ import { printHtml } from "@/lib/printer/transports/browserPrint";
 import type { InventoryGroup } from "@/lib/operational/inventori";
 
 /**
- * Ekspor katalog ke Excel (tiga sheet) atau PDF lewat dialog cetak browser.
- *
- * "Gadget saja" mempersempit ekspor ke dua sheet gadget; tanpa centang,
- * aksesori dan kategori lain ikut ke sheet "Aksesoris".
+ * Ekspor katalog ke Excel/PDF (4 sheet: Baru, Bekas, Aksesori, Lainnya).
+ * "Gadget saja" hanya menyertakan sheet Baru & Bekas.
  */
 
-const HEADERS = ["Nama", "SKU", "Kategori", "Tipe", "Storage", "Warna", "Stok", "Modal", "Jual", "Barcode", "IMEI", "Catatan"];
+const HEADERS = ["Nama", "SKU", "Kategori", "Tipe", "Storage", "Warna", "Stok", "Modal", "Jual", "Barcode", "IMEI", "BH %", "Garansi (hari)", "Catatan"];
 
 type ExportRow = {
   nama: string;
@@ -33,6 +31,8 @@ type ExportRow = {
   jual: number;
   barcode: string;
   imei: string;
+  bh: number | "";
+  garansi_hari: number | "";
   catatan: string;
 };
 
@@ -49,19 +49,21 @@ function toExportRow(product: InventoryGroup["items"][number]): ExportRow {
     jual: product.price ?? 0,
     barcode: product.barcode ?? "",
     imei: product.imei ?? "",
-    catatan: product.kondisi_notes ?? "",
+    bh: (product as any).bh_percent ?? "",
+    garansi_hari: (product as any).garansi_days ?? "",
+    catatan: (product as any).kondisi_notes ?? "",
   };
 }
 
 function buildSheets(groups: InventoryGroup[], gadgetOnly: boolean): { name: string; rows: ExportRow[] }[] {
   const products = groups.flatMap((group) => group.items);
-  const gadget = products.filter((product) => product.category === "Gadget");
   const sheets = [
-    { name: "Gadget New", rows: gadget.filter((product) => product.variant_type !== "BEKAS") },
-    { name: "Gadget Bekas", rows: gadget.filter((product) => product.variant_type === "BEKAS") },
+    { name: "Baru", rows: products.filter((p) => p.category === "Gadget" && p.variant_type !== "BEKAS") },
+    { name: "Bekas", rows: products.filter((p) => p.variant_type === "BEKAS") },
   ];
   if (!gadgetOnly) {
-    sheets.push({ name: "Aksesoris", rows: products.filter((product) => product.category !== "Gadget") });
+    sheets.push({ name: "Aksesori", rows: products.filter((p) => p.category === "Aksesori" && p.variant_type !== "BEKAS") });
+    sheets.push({ name: "Lainnya", rows: products.filter((p) => p.category === "Lainnya" && p.variant_type !== "BEKAS") });
   }
   return sheets.map((sheet) => ({ name: sheet.name, rows: sheet.rows.map(toExportRow) }));
 }
@@ -71,7 +73,7 @@ function downloadExcel(sheets: { name: string; rows: ExportRow[] }[]) {
   for (const sheet of sheets) {
     const data = [
       HEADERS,
-      ...sheet.rows.map((row) => [row.nama, row.sku, row.kategori, row.tipe, row.storage, row.warna, row.stok, row.modal, row.jual, row.barcode, row.imei, row.catatan]),
+      ...sheet.rows.map((row) => [row.nama, row.sku, row.kategori, row.tipe, row.storage, row.warna, row.stok, row.modal, row.jual, row.barcode, row.imei, row.bh, row.garansi_hari, row.catatan]),
     ];
     XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet(data), sheet.name);
   }
@@ -90,7 +92,7 @@ function printPdf(sheets: { name: string; rows: ExportRow[] }[], gadgetOnly: boo
 ${sheet.rows
   .map(
     (row) =>
-      `<tr><td>${escapeHtml(row.nama)}</td><td class="mono">${escapeHtml(row.sku)}</td><td>${escapeHtml(row.kategori)}</td><td>${escapeHtml(row.tipe)}</td><td>${escapeHtml(row.storage)}</td><td>${escapeHtml(row.warna)}</td><td class="num">${row.stok}</td><td class="num">${formatCurrencyPlain(row.modal)}</td><td class="num">${formatCurrencyPlain(row.jual)}</td><td class="mono">${escapeHtml(row.barcode)}</td><td class="mono">${escapeHtml(row.imei)}</td><td>${escapeHtml(row.catatan)}</td></tr>`,
+      `<tr><td>${escapeHtml(row.nama)}</td><td class="mono">${escapeHtml(row.sku)}</td><td>${escapeHtml(row.kategori)}</td><td>${escapeHtml(row.tipe)}</td><td>${escapeHtml(row.storage)}</td><td>${escapeHtml(row.warna)}</td><td class="num">${row.stok}</td><td class="num">${formatCurrencyPlain(row.modal)}</td><td class="num">${formatCurrencyPlain(row.jual)}</td><td class="mono">${escapeHtml(row.barcode)}</td><td class="mono">${escapeHtml(row.imei)}</td><td class="num">${row.bh}</td><td class="num">${row.garansi_hari}</td><td>${escapeHtml(row.catatan)}</td></tr>`,
   )
   .join("\n")}
 </tbody></table>`,
@@ -112,7 +114,7 @@ ${sheet.rows
   tr { break-inside: avoid; }
 </style></head><body>
 <h1>Inventori</h1>
-<p class="meta">Dicetak ${new Date().toLocaleString("id-ID")}${gadgetOnly ? " · gadget saja" : " · termasuk aksesoris"}</p>
+<p class="meta">Dicetak ${new Date().toLocaleString("id-ID")}${gadgetOnly ? " · gadget saja (Baru & Bekas)" : " · Baru, Bekas, Aksesori, Lainnya"}</p>
 ${body}
 <script>window.print();</script>
 </body></html>`;
@@ -140,18 +142,21 @@ export function InventoriExportDialog({
         <DialogPrimitive.Popup className="fixed left-1/2 top-1/2 z-50 w-[95vw] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-xl border bg-background p-5 shadow-2xl">
           <DialogPrimitive.Title className="font-heading text-base font-semibold">Export Inventori</DialogPrimitive.Title>
           <DialogPrimitive.Description className="mt-1 text-xs text-muted-foreground">
-            Excel berisi sheet Gadget New / Gadget Bekas / Aksesoris. PDF dicetak lewat dialog browser.
+            Excel/PDF berisi 4 sheet: Baru, Bekas, Aksesori, Lainnya.
           </DialogPrimitive.Description>
 
           <div className="mt-4 space-y-3">
             <div className="flex items-center gap-2">
               <Checkbox id="export-gadget-only" checked={gadgetOnly} onCheckedChange={(checked) => setGadgetOnly(checked === true)} />
               <Label htmlFor="export-gadget-only" className="text-sm font-normal">
-                Gadget saja (tanpa aksesoris)
+                Gadget saja (Baru & Bekas)
               </Label>
             </div>
             <div className="rounded-lg border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
               {total} produk · {sheets.length} sheet
+              <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-[11px]">
+                {sheets.map((s) => <span key={s.name}>{s.name}: {s.rows.length}</span>)}
+              </div>
             </div>
           </div>
 

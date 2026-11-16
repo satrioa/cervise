@@ -12,6 +12,7 @@ import { importInventori } from "@/app/app/inventori/actions";
 import {
   IMPORT_HEADERS,
   IMPORT_ROW_CAP,
+  IMPORT_SHEETS,
   prepareInventoriImport,
   type InventoriImportRow,
 } from "@/lib/inventori/import";
@@ -19,16 +20,22 @@ import type { InventoryGroup } from "@/lib/operational/inventori";
 import { playPageTransition } from "@/components/layout/page-transition";
 
 /**
- * Impor katalog dari Excel. Template diunduh dari aplikasi supaya header dan
- * urutan kolom selalu sama dengan yang dibaca di sini.
+ * Impor katalog dari Excel (4 sheet: Baru, Bekas, Aksesori, Lainnya).
+ * Template diunduh dari aplikasi supaya header/struktur konsisten.
  */
-
-const TEMPLATE_SAMPLE = ["iPhone 14 Pro", "GD-B-256-BL", "Gadget", "BARU", "256 GB", "Blue", "3", "15000000", "17000000", "", "", ""];
 
 function downloadTemplate() {
   const workbook = XLSX.utils.book_new();
-  const sheet = XLSX.utils.aoa_to_sheet([[...IMPORT_HEADERS], TEMPLATE_SAMPLE]);
-  XLSX.utils.book_append_sheet(workbook, sheet, "Inventori");
+  const samples: Record<string, (string | number)[]> = {
+    Baru: ["iPhone 14 Pro", "GD-B-256-BL", "Gadget", "BARU", "256 GB", "Blue", 3, 15000000, 17000000, "", "", "", "", ""],
+    Bekas: ["iPhone 13", "GD-K-128-BK", "Gadget", "BEKAS", "128 GB", "Black", 1, 7000000, 8500000, "", "356938035412345", 85, 30, "Mulus"],
+    Aksesori: ["Charger 20W", "AKS-CHG-20W", "Aksesori", "BARU", "-", "White", 10, 75000, 120000, "", "", "", "", ""],
+    Lainnya: ["Tempered Glass", "LN-TG-IP14", "Lainnya", "BARU", "-", "Clear", 20, 15000, 35000, "", "", "", "", ""],
+  };
+  for (const name of IMPORT_SHEETS) {
+    const sheet = XLSX.utils.aoa_to_sheet([[...IMPORT_HEADERS], samples[name] ?? samples.Baru]);
+    XLSX.utils.book_append_sheet(workbook, sheet, name);
+  }
   XLSX.writeFile(workbook, "template-inventori.xlsx");
 }
 
@@ -63,11 +70,14 @@ export function InventoriImportDialog({
     try {
       const buffer = await file.arrayBuffer();
       const workbook = XLSX.read(buffer, { type: "array" });
-      const first = workbook.SheetNames[0];
-      if (!first) throw new Error("File tidak punya sheet");
-      const parsed = XLSX.utils.sheet_to_json<InventoriImportRow>(workbook.Sheets[first], { defval: "" });
+      if (workbook.SheetNames.length === 0) throw new Error("File tidak punya sheet");
+      const merged: InventoriImportRow[] = [];
+      for (const sheetName of workbook.SheetNames) {
+        const parsed = XLSX.utils.sheet_to_json<InventoriImportRow>(workbook.Sheets[sheetName], { defval: "" });
+        for (const row of parsed) merged.push({ ...row, _sheet: sheetName });
+      }
       setFileName(file.name);
-      setRows(parsed);
+      setRows(merged);
     } catch (error) {
       reset();
       toast.error(error instanceof Error ? error.message : "Gagal membaca file");
@@ -99,7 +109,7 @@ export function InventoriImportDialog({
           <div className="shrink-0 border-b px-5 py-4">
             <DialogPrimitive.Title className="font-heading text-base font-semibold">Import Inventori</DialogPrimitive.Title>
             <DialogPrimitive.Description className="mt-1 text-xs text-muted-foreground">
-              Unduh template, isi, lalu unggah kembali. Maksimal {IMPORT_ROW_CAP} baris sekali impor.
+              Template 4 sheet (Baru, Bekas, Aksesori, Lainnya). Isi lalu unggah; semua sheet dibaca. Maks {IMPORT_ROW_CAP} baris/impor.
             </DialogPrimitive.Description>
           </div>
 
