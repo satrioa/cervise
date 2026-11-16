@@ -48,6 +48,7 @@ export function BarcodeScannerDialog({
     let scanner: { stop: () => Promise<void>; clear: () => void } | null = null;
     let cancelled = false;
     let handled = false;
+    let fallbackTimer: ReturnType<typeof setTimeout> | null = null;
 
     const start = async () => {
       // Tunggu elemen dialog ter-mount dan punya ukuran sebelum kamera dibuka.
@@ -118,15 +119,17 @@ export function BarcodeScannerDialog({
         })();
 
         const isTransitionError = (e: unknown) => /transition/i.test(e instanceof Error ? e.message : String(e ?? ""));
-        const tryModes = [true, false];
-        let started = false;
         let firstMeaningful: unknown = null;
         let lastError: unknown = null;
+        const cleanupInstance = async (instance: { stop: () => Promise<void>; clear: () => void }) => {
+          try { await instance.stop(); } catch { /* ignore */ }
+          try { instance.clear(); } catch { /* ignore */ }
+          if (scanner === instance) scanner = null;
+        };
 
-        for (const useNative of tryModes) {
-          if (cancelled || started) break;
+        const runMode = async (useNative: boolean): Promise<boolean> => {
           for (const cam of candidates) {
-            if (cancelled || handled) return;
+            if (cancelled || handled) return false;
             const instance = new Html5Qrcode(regionId, {
               verbose: false,
               formatsToSupport,
@@ -138,20 +141,13 @@ export function BarcodeScannerDialog({
               const value = decodedText?.trim();
               if (!value || handled || cancelled) return;
               handled = true;
+              if (fallbackTimer) { clearTimeout(fallbackTimer); fallbackTimer = null; }
               void instance
                 .stop()
                 .catch(() => {})
                 .then(() => {
-                  try {
-                    instance.clear();
-                  } catch {
-                    /* ignore */
-                  }
-                  try {
-                    detected.current(value);
-                  } finally {
-                    changeOpen.current(false);
-                  }
+                  try { instance.clear(); } catch { /* ignore */ }
+                  try { detected.current(value); } finally { changeOpen.current(false); }
                 });
             };
 
@@ -159,35 +155,52 @@ export function BarcodeScannerDialog({
               await instance.start(cam as any, config, onSuccess, () => {
                 /* frame tanpa kode */
               });
-              started = true;
-              if (cancelled) {
-                await instance.stop().catch(() => {});
-                try {
-                  instance.clear();
-                } catch {
-                  /* ignore */
-                }
+              if (cancelled || handled) {
+                await cleanupInstance(instance);
+                return handled;
               }
-              break;
+              if (useNative) {
+                // Native BarcodeDetector kadang tidak decode barcode tertentu; fallback ke ZXing jika lama tak terbaca.
+                fallbackTimer = setTimeout(() => {
+                  if (cancelled || handled) return;
+                  void (async () => {
+                    await cleanupInstance(instance);
+                    if (cancelled || handled) return;
+                    const ok = await runMode(false);
+                    if (!ok && !cancelled && !handled) {
+                      const cause = firstMeaningful ?? lastError ?? new Error("Tidak ada kamera yang bisa dibuka");
+                      const name = (cause && typeof cause === "object" && "name" in cause && typeof (cause as any).name === "string") ? (cause as any).name : "";
+                      const msg = cause instanceof Error ? cause.message : String(cause ?? "");
+                      let friendly = "Kamera tidak bisa dibuka/digunakan. Izinkan akses kamera, gunakan HTTPS, atau pilih kamera lain lalu coba lagi.";
+                      if (/NotAllowed|Permission|denied/i.test(name + " " + msg)) friendly = "Izin kamera ditolak. Izinkan akses kamera di browser lalu coba lagi.";
+                      else if (/NotFound|DevicesNotFound/i.test(name + " " + msg)) friendly = "Kamera tidak ditemukan di perangkat ini.";
+                      else if (/NotReadable|TrackStartError|Could not start video source/i.test(name + " " + msg)) friendly = "Kamera sedang dipakai aplikasi/tab lain atau tidak bisa diakses. Tutup aplikasi lain yang memakai kamera lalu coba lagi.";
+                      else if (/Overconstrained|Constraint/i.test(name + " " + msg)) friendly = "Pengaturan kamera tidak didukung perangkat. Coba kamera lain.";
+                      else if (/Security|secure/i.test(msg) || (typeof window !== "undefined" && !window.isSecureContext)) friendly = "Kamera butuh koneksi aman (HTTPS) atau localhost.";
+                      const detail = [name, msg].filter(Boolean).join(": ");
+                      setError(detail ? `${friendly} (${detail})` : friendly);
+                    }
+                  })();
+                }, 7000);
+              }
+              return true;
             } catch (e) {
               lastError = e;
               if (!isTransitionError(e) && !firstMeaningful) firstMeaningful = e;
-              try {
-                await instance.stop();
-              } catch {
-                /* ignore - mungkin belum running/masih transisi */
-              }
-              try {
-                instance.clear();
-              } catch {
-                /* ignore */
-              }
-              scanner = null;
+              await cleanupInstance(instance);
             }
           }
-        }
+          return false;
+        };
 
-        if (!started) throw firstMeaningful ?? lastError ?? new Error("Tidak ada kamera yang bisa dibuka");
+        const started = await runMode(true);
+        if (!started && !cancelled && !handled) {
+          // native gagal start di semua kandidat, coba ZXing
+          const zxOk = await runMode(false);
+          if (!zxOk) throw firstMeaningful ?? lastError ?? new Error("Tidak ada kamera yang bisa dibuka");
+        } else if (cancelled || handled) {
+          if (fallbackTimer) { clearTimeout(fallbackTimer); fallbackTimer = null; }
+        }
       } catch (cause) {
         if (!cancelled) {
           const name = (cause && typeof cause === "object" && "name" in cause && typeof (cause as any).name === "string") ? (cause as any).name : "";
@@ -214,6 +227,7 @@ export function BarcodeScannerDialog({
 
     return () => {
       cancelled = true;
+      if (fallbackTimer) { clearTimeout(fallbackTimer); fallbackTimer = null; }
       void scanner
         ?.stop()
         .catch(() => {})
