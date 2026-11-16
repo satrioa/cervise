@@ -25,6 +25,8 @@ export interface DitherImageProps {
   palette?: string[];
   /** Size of one dithered block in CSS pixels. */
   pixelSize?: number;
+  /** Shape used for each dithered block. Defaults to square. */
+  pixelShape?: "square" | "plus";
   /** Wipe the dithered pass in when the image scrolls into view. */
   progressive?: boolean;
   /** Image URL. Must allow cross-origin reads to be dithered. */
@@ -223,6 +225,7 @@ const DitherImage = ({
   levels = DEFAULT_LEVELS,
   palette,
   pixelSize = DEFAULT_PIXEL_SIZE,
+  pixelShape = "square",
   progressive = false,
   src,
   width = DEFAULT_WIDTH,
@@ -308,15 +311,38 @@ const DitherImage = ({
       const stops = resolvedPalette
         ? resolvedPalette.map((entry) => readCssColor(scratch, entry))
         : readThemeStops(scratch, container);
-      applyRamp(frame.data, quantised, buildRamp(stops, safeLevels));
-      gridContext.putImageData(frame, 0, 0);
+      const ramp = buildRamp(stops, safeLevels);
 
       const dpr = Math.min(window.devicePixelRatio || 1, MAX_DPR);
       canvas.width = Math.max(1, Math.round(width * dpr));
       canvas.height = Math.max(1, Math.round(height * dpr));
       context.imageSmoothingEnabled = false;
       context.clearRect(0, 0, canvas.width, canvas.height);
-      context.drawImage(grid, 0, 0, canvas.width, canvas.height);
+
+      if (pixelShape === "plus") {
+        const cellW = canvas.width / gridWidth;
+        const cellH = canvas.height / gridHeight;
+        context.fillStyle = `rgb(${ramp[0][0]}, ${ramp[0][1]}, ${ramp[0][2]})`;
+        context.fillRect(0, 0, canvas.width, canvas.height);
+        for (let y = 0; y < gridHeight; y++) {
+          for (let x = 0; x < gridWidth; x++) {
+            const tone = ramp[quantised[y * gridWidth + x]];
+            if (tone[0] === ramp[0][0] && tone[1] === ramp[0][1] && tone[2] === ramp[0][2]) continue;
+            const cx = x * cellW;
+            const cy = y * cellH;
+            const t = Math.max(1, Math.round(Math.min(cellW, cellH) / 3));
+            const vx = Math.round(cx + (cellW - t) / 2);
+            const hy = Math.round(cy + (cellH - t) / 2);
+            context.fillStyle = `rgb(${tone[0]}, ${tone[1]}, ${tone[2]})`;
+            context.fillRect(vx, Math.floor(cy), t, Math.ceil(cellH));
+            context.fillRect(Math.floor(cx), hy, Math.ceil(cellW), t);
+          }
+        }
+      } else {
+        applyRamp(frame.data, quantised, ramp);
+        gridContext.putImageData(frame, 0, 0);
+        context.drawImage(grid, 0, 0, canvas.width, canvas.height);
+      }
       setStatus("ready");
     };
 
@@ -353,6 +379,7 @@ const DitherImage = ({
   }, [
     algorithm,
     height,
+    pixelShape,
     resolvedPalette,
     safeLevels,
     safePixelSize,

@@ -97,6 +97,7 @@ export function AppImage(props: AppImageProps) {
   const ditherLevels = 2;
   const ditherPixelSize = isProduct ? 4 : 2;
   const progressive = isProduct;
+  const pixelShape = isProduct ? "plus" : "square";
 
   if (!isScifiDitherActive(world, crisp)) {
     return <NormalImage {...anyProps} />;
@@ -118,6 +119,7 @@ export function AppImage(props: AppImageProps) {
         algorithm="threshold"
         levels={ditherLevels}
         pixelSize={ditherPixelSize}
+        pixelShape={pixelShape}
         progressive={progressive}
         palette={SCIFI_PALETTE}
         className={cn(className)}
@@ -134,6 +136,7 @@ export function AppImage(props: AppImageProps) {
       style={style}
       levels={ditherLevels}
       pixelSize={ditherPixelSize}
+      pixelShape={pixelShape}
       progressive={progressive}
     />
   );
@@ -146,6 +149,7 @@ function FillDither({
   style,
   levels,
   pixelSize,
+  pixelShape,
   progressive,
 }: {
   src: string;
@@ -154,6 +158,7 @@ function FillDither({
   style?: React.CSSProperties;
   levels: number;
   pixelSize: number;
+  pixelShape: "square" | "plus";
   progressive: boolean;
 }) {
   const { ref, size } = useElementSize<HTMLDivElement>();
@@ -168,6 +173,7 @@ function FillDither({
           algorithm="threshold"
           levels={levels}
           pixelSize={pixelSize}
+          pixelShape={pixelShape}
           progressive={progressive}
           palette={SCIFI_PALETTE}
           className="h-full w-full rounded-[inherit]"
