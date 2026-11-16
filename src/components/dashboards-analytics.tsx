@@ -98,7 +98,7 @@ export function CerviseAnalyticsSection({
           : "30 hari terakhir";
 
   return (
-    <section className="bg-background">
+    <section className="bg-transparent">
       <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-8">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
           <div>

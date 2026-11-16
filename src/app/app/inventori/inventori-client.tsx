@@ -10,7 +10,7 @@ import { Pagination } from "@/components/ui/pagination";
 import { Select, SelectItem, SelectPopup, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
 import { InventoriToolbar } from "@/components/inventori/inventori-toolbar";
-import { EditProductDialog } from "@/components/inventori/edit-product-dialog";
+import { ProductVariantDialog } from "@/components/inventori/product-variant-dialog";
 import { ProductPhotoButton } from "@/components/inventori/product-photo";
 import { Checkbox } from "@/components/ui/checkbox";
 import { formatCurrencyPlain } from "@/lib/format";
@@ -497,8 +497,9 @@ export function InventoriClient({
         </div>
       ) : null}
 
-      <EditProductDialog
-        product={editTarget}
+      <ProductVariantDialog
+        open={editTarget !== null}
+        editProduct={editTarget}
         onOpenChange={(open) => {
           if (!open) setEditTarget(null);
         }}

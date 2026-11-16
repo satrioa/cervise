@@ -91,14 +91,20 @@ export async function getProductQuickList(): Promise<QuickProductRow[]> {
 export type UpdateProductVariantInput = {
   id: string;
   name: string;
+  category?: string | null;
   cost: number | null;
   price: number | null;
   stock_qty?: number | null;
+  storage?: string | null;
+  warna?: string | null;
+  barcode?: string | null;
+  imei?: string | null;
+  bh_percent?: number | null;
   kondisi_notes?: string | null;
   garansi_days?: number | null;
 };
 
-/** Edit varian dari halaman inventori. Stok hanya diubah untuk varian BARU. */
+/** Edit varian dari halaman inventori. */
 export async function updateProductVariant(input: UpdateProductVariantInput): Promise<void> {
   const actor = await getActiveTenant();
   requireInventoryAccess(actor.role);
@@ -110,10 +116,16 @@ export async function updateProductVariant(input: UpdateProductVariantInput): Pr
     name: input.name.trim(),
     cost: input.cost,
     price: input.price,
-    kondisi_notes: input.kondisi_notes ?? null,
-    garansi_days: input.garansi_days ?? null,
   };
-  if (input.stock_qty != null) patch.stock_qty = input.stock_qty;
+  if (input.category !== undefined) patch.category = input.category?.trim() || null;
+  if (input.stock_qty !== undefined) patch.stock_qty = input.stock_qty;
+  if (input.storage !== undefined) patch.storage = input.storage?.trim() || null;
+  if (input.warna !== undefined) patch.warna = input.warna?.trim() || null;
+  if (input.barcode !== undefined) patch.barcode = input.barcode?.trim() || null;
+  if (input.imei !== undefined) patch.imei = input.imei?.trim() || null;
+  if (input.bh_percent !== undefined) patch.bh_percent = input.bh_percent;
+  if (input.kondisi_notes !== undefined) patch.kondisi_notes = input.kondisi_notes?.trim() || null;
+  if (input.garansi_days !== undefined) patch.garansi_days = input.garansi_days;
 
   const { error } = await applyBranchScope(
     actor.supabase.from("cervise_products").update(patch).eq("id", input.id),
