@@ -88,24 +88,35 @@ export function BarcodeScannerDialog({
           disableFlip: false,
         };
 
-        const buildCandidates = async () => {
+        const candidates = await (async () => {
           const hi = { width: { ideal: 1280 }, height: { ideal: 720 } };
           const base: Array<string | MediaTrackConstraints> = [
             { facingMode: { ideal: "environment" }, ...hi },
             { facingMode: "environment", ...hi },
             { facingMode: "user", ...hi },
+            { facingMode: { ideal: "environment" } },
+            { facingMode: "environment" },
+            { facingMode: "user" },
           ];
           try {
             const cameras = await Html5Qrcode.getCameras();
             for (const cam of cameras ?? []) {
               base.push({ deviceId: { exact: cam.id }, ...hi });
+              base.push({ deviceId: { exact: cam.id } });
               base.push(cam.id);
             }
           } catch {
             /* getCameras opsional; lanjut dengan facingMode */
           }
-          return base;
-        };
+          // dedupe sederhana
+          const seen = new Set<string>();
+          return base.filter((c) => {
+            const k = typeof c === "string" ? `id:${c}` : JSON.stringify(c);
+            if (seen.has(k)) return false;
+            seen.add(k);
+            return true;
+          });
+        })();
 
         const tryModes = [true, false];
         let started = false;
@@ -141,7 +152,6 @@ export function BarcodeScannerDialog({
               });
           };
 
-          const candidates = await buildCandidates();
           for (const cam of candidates) {
             if (cancelled) return;
             try {
@@ -178,12 +188,22 @@ export function BarcodeScannerDialog({
         if (!started) throw lastError ?? new Error("Tidak ada kamera yang bisa dibuka");
       } catch (cause) {
         if (!cancelled) {
+          const name = (cause && typeof cause === "object" && "name" in cause && typeof (cause as any).name === "string") ? (cause as any).name : "";
           const msg = cause instanceof Error ? cause.message : String(cause ?? "");
-          setError(
-            /permission|denied|notallowed/i.test(msg)
-              ? "Izin kamera ditolak. Izinkan akses kamera lalu coba lagi."
-              : "Kamera tidak bisa dibuka/digunakan. Izinkan akses kamera, gunakan HTTPS, atau pilih kamera lain lalu coba lagi.",
-          );
+          let friendly = "Kamera tidak bisa dibuka/digunakan. Izinkan akses kamera, gunakan HTTPS, atau pilih kamera lain lalu coba lagi.";
+          if (/NotAllowed|Permission|denied/i.test(name + " " + msg)) {
+            friendly = "Izin kamera ditolak. Izinkan akses kamera di browser lalu coba lagi.";
+          } else if (/NotFound|DevicesNotFound/i.test(name + " " + msg)) {
+            friendly = "Kamera tidak ditemukan di perangkat ini.";
+          } else if (/NotReadable|TrackStartError|Could not start video source/i.test(name + " " + msg)) {
+            friendly = "Kamera sedang dipakai aplikasi/tab lain atau tidak bisa diakses. Tutup aplikasi lain yang memakai kamera lalu coba lagi.";
+          } else if (/Overconstrained|Constraint/i.test(name + " " + msg)) {
+            friendly = "Pengaturan kamera tidak didukung perangkat. Coba kamera lain.";
+          } else if (/Security|secure/i.test(msg) || (typeof window !== "undefined" && !window.isSecureContext)) {
+            friendly = "Kamera butuh koneksi aman (HTTPS) atau localhost.";
+          }
+          const detail = [name, msg].filter(Boolean).join(": ");
+          setError(detail ? `${friendly} (${detail})` : friendly);
         }
       }
     };
