@@ -94,8 +94,8 @@ export function AppImage(props: AppImageProps) {
   const anyProps = props as any;
   const { crisp, preset, fill, src, alt, className, style, width, height } = anyProps;
   const isProduct = preset === "product";
-  const ditherLevels = isProduct ? 3 : 2;
-  const ditherPixelSize = isProduct ? 3 : 2;
+  const ditherLevels = 2;
+  const ditherPixelSize = isProduct ? 4 : 2;
   const progressive = isProduct;
 
   if (!isScifiDitherActive(world, crisp)) {
