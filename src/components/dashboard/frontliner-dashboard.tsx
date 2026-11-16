@@ -27,6 +27,7 @@ import SignaturePad from "@/components/kokonutui/signature-pad";
 import { CandyButton } from "@/components/ui/candy-button";
 import { Button as CossButton } from "@/components/ui/coss-button";
 import { Button } from "@/components/ui/button";
+import { AppImage } from "@/components/ui/app-image";
 import { Input } from "@/components/ui/input";
 import Gauge from "@/components/arc/gauge/gauge";
 import {

@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { Dispatch, ReactNode, SetStateAction } from "react";
-import Image from "next/image";
+import { AppImage } from "@/components/ui/app-image";
 import { formatCurrencyPlain } from "@/lib/format";
 import { MinusIcon, PlusIcon, TrashIcon, PackageIcon, XIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -49,7 +49,7 @@ function CartThumb({ item }: { item: PosCartItem }) {
   const src = publicPhotoUrl(process.env.NEXT_PUBLIC_SUPABASE_URL ?? "", item.product.image_url);
   return (
     <div className="relative flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-lg border bg-muted/30">
-      <Image
+      <AppImage
         src={!failed && src ? src : productThumbnail({ variantType: item.product.variant_type })}
         alt={item.product.name}
         fill

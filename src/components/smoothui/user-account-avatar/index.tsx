@@ -3,6 +3,7 @@
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import { TrashIcon, UploadIcon } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
+import { AppImage } from "@/components/ui/app-image";
 
 export interface UserData {
   avatar: string;
@@ -65,7 +66,7 @@ export default function UserAccountAvatar({
   return (
     <Popover>
       <PopoverTrigger render={<button className={`flex cursor-pointer items-center gap-2 rounded-full border bg-background ${className}`} type="button" />}>
-        <img
+        <AppImage
           alt="User Avatar"
           className="rounded-full object-cover"
           draggable={false}

@@ -3,6 +3,7 @@
 import { useCallback, useState } from "react";
 import { PageHeader } from "@/components/layout/page-header";
 import { ReceiptAppearanceSection } from "@/components/settings-appearance-landing";
+import { AppImage } from "@/components/ui/app-image";
 import type { PublicTenant } from "@/lib/public/landing";
 
 type NotaPreviewDraft = { receiptLogoUrl: string | null; receiptFooterText: string };
@@ -80,8 +81,7 @@ function NotaReceiptPreview({
       <div className="font-mono text-[11px] leading-[1.45]">
         {logoUrl ? (
           <div className="mb-2 flex justify-center">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={logoUrl} alt="" className="max-h-10 max-w-[120px] object-contain" />
+            <AppImage src={logoUrl} alt="" width={120} height={40} className="max-h-10 max-w-[120px] object-contain" />
           </div>
         ) : null}
         <div className="text-center font-bold uppercase tracking-wide">{tenantName || "Nama Toko"}</div>

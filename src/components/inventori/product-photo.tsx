@@ -1,8 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import Image from "next/image";
 import { useRouter } from "next/navigation";
+import { AppImage } from "@/components/ui/app-image";
 import { CameraIcon, XIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -23,7 +23,7 @@ const ACCEPT = ALLOWED_PHOTO_TYPES.join(",");
 function Preview({ src, alt, fallback }: { src: string | null; alt: string; fallback: string }) {
   const [failed, setFailed] = useState(false);
   return (
-    <Image
+    <AppImage
       src={!failed && src ? src : fallback}
       alt={alt}
       fill
@@ -220,7 +220,7 @@ export function ProductPhotoButton({
           title="Ganti foto"
           className="relative flex size-full items-center justify-center overflow-hidden rounded-lg border bg-muted/30 transition-colors hover:bg-muted/50 disabled:opacity-50"
         >
-          <Image
+          <AppImage
             src={!failed && src ? src : productThumbnail({ variantType, category })}
             alt={name}
             fill

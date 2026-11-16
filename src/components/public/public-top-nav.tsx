@@ -1,6 +1,6 @@
-import Image from "next/image";
 import { WhatsappLogo } from "@phosphor-icons/react/dist/ssr";
 import { initialsOf } from "@/lib/photos";
+import { AppImage } from "@/components/ui/app-image";
 
 /** Nomor cabang dirapikan jadi tautan wa.me; nomor terlalu pendek diabaikan. */
 function waLink(phone: string | null): string | null {
@@ -33,7 +33,7 @@ export function PublicTopNav({
       <div className="mx-auto flex w-full max-w-3xl items-center gap-2.5 px-4 py-2">
         <span className="relative flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-muted font-heading text-xs font-bold text-foreground">
           {logoUrl ? (
-            <Image src={logoUrl} alt={name} fill sizes="36px" unoptimized className="object-cover" />
+            <AppImage src={logoUrl} alt={name} fill sizes="36px" unoptimized className="object-cover" />
           ) : (
             initialsOf(name)
           )}

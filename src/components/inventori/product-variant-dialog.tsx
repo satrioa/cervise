@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState, type ChangeEvent } from "react";
-import Image from "next/image";
 import { Button } from "@/components/ui/button";
+import { AppImage } from "@/components/ui/app-image";
 import { ImageCropDialog } from "@/components/image-crop-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,15 +13,17 @@ import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
 import { PlusIcon, Trash2Icon, XIcon, PackageIcon, ScanBarcodeIcon, AlertCircleIcon } from "lucide-react";
 import { toast } from "sonner";
 import { createProductAction, searchProductsForSale } from "@/app/app/penjualan/actions";
+import { updateProductVariant } from "@/app/app/inventori/actions";
 import { uploadProductPhoto } from "@/app/app/inventori/photo-actions";
 import { ProductPhotoPicker } from "@/components/inventori/product-photo";
 import { useBranch } from "@/lib/branch-context";
 import { playPageTransition } from "@/components/layout/page-transition";
 import { BarcodeScannerDialog } from "@/components/scan/barcode-scanner-dialog";
 import { productThumbnail } from "@/lib/product-thumbnail";
-import { ALLOWED_PHOTO_TYPES, validatePhotoFile } from "@/lib/photos";
+import { ALLOWED_PHOTO_TYPES, publicPhotoUrl, validatePhotoFile } from "@/lib/photos";
+import type { InventoryProduct } from "@/lib/operational/inventori";
 
-type Props = { open: boolean; onOpenChange: (v: boolean) => void; onSuccess?: () => void };
+type Props = { open: boolean; onOpenChange: (v: boolean) => void; onSuccess?: () => void; editProduct?: InventoryProduct | null };
 
 const STORAGE_PRESETS = ["64 GB", "128 GB", "256 GB", "512 GB", "1 TB"];
 const WARNA_SUGGESTIONS = ["Black", "White", "Silver", "Gold", "Blue", "Red", "Green", "Purple", "Titanium"];
@@ -126,9 +128,9 @@ function PhotoPerWarna({ file, onFile, disabled }: { file: File | null; onFile: 
       <div className="flex items-center gap-1.5">
         <label className="relative flex size-9 shrink-0 cursor-pointer items-center justify-center overflow-hidden rounded-md border border-dashed bg-muted/30 hover:bg-muted/50">
           {preview ? (
-            <Image src={preview} alt="" fill sizes="36px" unoptimized className="object-cover" />
+            <AppImage src={preview} alt="" fill sizes="36px" unoptimized className="object-cover" />
           ) : (
-            <Image src={productThumbnail({ variantType: "BARU" })} alt="" fill sizes="36px" unoptimized className="object-cover opacity-60" />
+            <AppImage src={productThumbnail({ variantType: "BARU" })} alt="" fill sizes="36px" unoptimized className="object-cover opacity-60" />
           )}
           <input type="file" accept={ACCEPT} className="hidden" disabled={disabled} onChange={pick} />
         </label>
@@ -159,8 +161,13 @@ function PhotoPerWarna({ file, onFile, disabled }: { file: File | null; onFile: 
   );
 }
 
-export function ProductVariantDialog({ open, onOpenChange, onSuccess }: Props) {
+export function ProductVariantDialog({ open, onOpenChange, onSuccess, editProduct }: Props) {
   const { branch } = useBranch();
+  const isEdit = Boolean(editProduct);
+  const existingPhotoUrl = useMemo(
+    () => (editProduct?.image_url ? publicPhotoUrl(process.env.NEXT_PUBLIC_SUPABASE_URL ?? "", editProduct.image_url) : null),
+    [editProduct?.image_url],
+  );
   const [variantType, setVariantType] = useState<"BARU" | "BEKAS">("BARU");
   const [name, setName] = useState("");
   const [category, setCategory] = useState("Gadget");
@@ -214,6 +221,43 @@ export function ProductVariantDialog({ open, onOpenChange, onSuccess }: Props) {
 
   useEffect(() => {
     if (!open) return;
+    if (editProduct) {
+      const isBekas = editProduct.variant_type === "BEKAS";
+      setVariantType(isBekas ? "BEKAS" : "BARU");
+      setName(editProduct.name ?? "");
+      setCategory(editProduct.category ?? "Gadget");
+      setVariasiOn(false);
+      setAxes(defaultAxes());
+      setComboValues({}); setColorPhotos({}); setBulk({ stock: "", cost: "", price: "" });
+      setBekasUnitsByCombo({}); setBekasBulk({ cost: "", price: "", bh: "", garansiDays: "" });
+      setExisting({}); setExistingLoadedFor("");
+      setSaving(false); setSuggestions([]); setShowSuggest(false);
+      if (isBekas) {
+        setBStorage(editProduct.storage ?? "");
+        setBWarna(editProduct.warna ?? "");
+        setBCost(editProduct.cost == null ? "" : String(editProduct.cost));
+        setBPrice(editProduct.price == null ? "" : String(editProduct.price));
+        setBBarcode(editProduct.barcode ?? "");
+        setBImei(editProduct.imei ?? "");
+        setBBh(editProduct.bh_percent == null ? "" : String(editProduct.bh_percent));
+        setBKondisi(editProduct.kondisi_notes ?? "");
+        setBGaransiOn(editProduct.garansi_days != null && editProduct.garansi_days > 0);
+        setBGaransiDays(editProduct.garansi_days == null ? "30" : String(editProduct.garansi_days));
+        setBPhotoFile(null);
+        setSStorage("64 GB"); setSWarna("Black"); setSStock(""); setSCost(""); setSPrice(""); setSBarcode(""); setSPhoto(null);
+      } else {
+        setSStorage(editProduct.storage ?? "");
+        setSWarna(editProduct.warna ?? "");
+        setSStock(editProduct.stock_qty == null ? "" : String(editProduct.stock_qty));
+        setSCost(editProduct.cost == null ? "" : String(editProduct.cost));
+        setSPrice(editProduct.price == null ? "" : String(editProduct.price));
+        setSBarcode(editProduct.barcode ?? "");
+        setSPhoto(null);
+        setBStorage("64 GB"); setBWarna("Black"); setBCost(""); setBPrice(""); setBBarcode("");
+        setBImei(""); setBBh(""); setBKondisi(""); setBGaransiOn(false); setBGaransiDays("30"); setBPhotoFile(null);
+      }
+      return;
+    }
     setVariantType("BARU"); setName(""); setCategory("Gadget");
     setBStorage("64 GB"); setBWarna("Black"); setBCost(""); setBPrice(""); setBBarcode("");
     setBImei(""); setBBh(""); setBKondisi(""); setBGaransiOn(false); setBGaransiDays("30"); setBPhotoFile(null);
@@ -223,16 +267,17 @@ export function ProductVariantDialog({ open, onOpenChange, onSuccess }: Props) {
     setComboValues({}); setColorPhotos({}); setBulk({ stock: "", cost: "", price: "" });
     setExisting({}); setExistingLoadedFor("");
     setSaving(false); setSuggestions([]); setShowSuggest(false);
-  }, [open]);
+  }, [open, editProduct]);
 
   // reset variasi state when switching tipe to avoid cross-contamination
   useEffect(() => {
+    if (isEdit) return;
     setVariasiOn(variantType === "BARU");
     setAxes(defaultAxes());
     setComboValues({}); setColorPhotos({}); setBulk({ stock: "", cost: "", price: "" });
     setBekasUnitsByCombo({}); setBekasBulk({ cost: "", price: "", bh: "", garansiDays: "" });
     setExisting({}); setExistingLoadedFor("");
-  }, [variantType]);
+  }, [variantType, isEdit]);
 
   useEffect(() => {
     if (!name.trim() || name.trim().length < 2) { setSuggestions([]); return; }
@@ -385,6 +430,30 @@ export function ProductVariantDialog({ open, onOpenChange, onSuccess }: Props) {
     if (bGaransiOn && (!bGaransiDays || Number(bGaransiDays) <= 0)) { toast.error("Durasi garansi wajib >0"); return; }
     setSaving(true);
     try {
+      if (isEdit && editProduct) {
+        await updateProductVariant({
+          id: editProduct.id,
+          name: name.trim(),
+          category,
+          cost: Number(bCost),
+          price: Number(bPrice),
+          barcode: bBarcode.trim() || null,
+          storage: bStorage.trim(),
+          warna: bWarna.trim(),
+          imei: bImei.trim(),
+          bh_percent: Number(bBh),
+          kondisi_notes: bKondisi.trim() || null,
+          garansi_days: bGaransiOn ? Number(bGaransiDays) : null,
+          stock_qty: 1,
+        });
+        if (bPhotoFile) {
+          try { const fd = new FormData(); fd.append("file", bPhotoFile); await uploadProductPhoto(editProduct.id, fd); }
+          catch (e) { toast.warning(`Produk tersimpan, foto gagal: ${e instanceof Error ? e.message : "coba lagi"}`); }
+        }
+        toast.success("Produk diperbarui");
+        playPageTransition(); onOpenChange(false); onSuccess?.();
+        return;
+      }
       const res = await createProductAction({
         name: name.trim(), category, cost: Number(bCost), price: Number(bPrice),
         barcode: bBarcode.trim() || undefined, variant_type: "BEKAS", storage: bStorage.trim(), warna: bWarna.trim(),
@@ -456,6 +525,26 @@ export function ProductVariantDialog({ open, onOpenChange, onSuccess }: Props) {
     if (sPrice === "" || Number(sPrice) < 0) { toast.error("Harga jual wajib"); return; }
     setSaving(true);
     try {
+      if (isEdit && editProduct) {
+        await updateProductVariant({
+          id: editProduct.id,
+          name: name.trim(),
+          category,
+          stock_qty: Number(sStock),
+          cost: Number(sCost),
+          price: Number(sPrice),
+          barcode: sBarcode.trim() || null,
+          storage: sStorage.trim(),
+          warna: sWarna.trim(),
+        });
+        if (sPhoto) {
+          try { const fd = new FormData(); fd.append("file", sPhoto); await uploadProductPhoto(editProduct.id, fd); }
+          catch { toast.warning("Produk tersimpan, foto gagal diunggah"); }
+        }
+        toast.success("Produk diperbarui");
+        playPageTransition(); onOpenChange(false); onSuccess?.();
+        return;
+      }
       const res = await createProductAction({
         name: name.trim(), category, stock_qty: Number(sStock), cost: Number(sCost), price: Number(sPrice),
         barcode: sBarcode.trim() || undefined, variant_type: "BARU", storage: sStorage.trim(), warna: sWarna.trim(),
@@ -602,7 +691,7 @@ export function ProductVariantDialog({ open, onOpenChange, onSuccess }: Props) {
           <Button type="button" variant="outline" size="icon" aria-label="Scan barcode" onClick={() => { setScanTarget({ kind: "baru-single" }); setScanOpen(true); }} className="shrink-0"><ScanBarcodeIcon className="size-4" /></Button>
         </div>
       </div>
-      <div className="space-y-1.5"><Label>Foto produk (opsional)</Label><ProductPhotoPicker value={null} onFile={setSPhoto} disabled={saving} /></div>
+      <div className="space-y-1.5"><Label>Foto produk (opsional)</Label><ProductPhotoPicker value={isEdit ? existingPhotoUrl : null} onFile={setSPhoto} disabled={saving} /></div>
     </div>
   );
 
@@ -630,7 +719,7 @@ export function ProductVariantDialog({ open, onOpenChange, onSuccess }: Props) {
           <Button type="button" variant="outline" size="icon" aria-label="Scan barcode" onClick={() => { setScanTarget({ kind: "bekas-single" }); setScanOpen(true); }} className="shrink-0"><ScanBarcodeIcon className="size-4" /></Button>
         </div>
       </div>
-      <div className="space-y-1.5"><Label>Foto produk (opsional)</Label><ProductPhotoPicker value={null} onFile={setBPhotoFile} disabled={saving} /></div>
+      <div className="space-y-1.5"><Label>Foto produk (opsional)</Label><ProductPhotoPicker value={isEdit ? existingPhotoUrl : null} onFile={setBPhotoFile} disabled={saving} /></div>
       <div className="space-y-1.5"><Label>Kondisi fisik notes</Label><Textarea value={bKondisi} onChange={(e: ChangeEvent<HTMLTextAreaElement>) => setBKondisi(e.target.value)} rows={2} /></div>
       <div className="flex items-center justify-between rounded-lg border p-3">
         <div><div className="text-sm font-medium">Garansi</div><div className="text-xs text-muted-foreground">Jika ON, wajib isi durasi hari</div></div>
@@ -803,13 +892,18 @@ export function ProductVariantDialog({ open, onOpenChange, onSuccess }: Props) {
             <div className="flex items-center gap-3">
               <div className="flex size-9 items-center justify-center rounded-lg bg-foreground text-background"><PackageIcon className="size-4" /></div>
               <div>
-                <DialogPrimitive.Title className="font-heading text-base font-semibold">Tambah Produk — {branch.label}</DialogPrimitive.Title>
+              <div>
+                <DialogPrimitive.Title className="font-heading text-base font-semibold">
+                  {isEdit ? "Edit Produk" : `Tambah Produk — ${branch.label}`}
+                </DialogPrimitive.Title>
                 <DialogPrimitive.Description className="text-xs text-muted-foreground">
-                  {variantType === "BARU"
-                    ? (variasiOn ? "Variasi aktif: atur sumbu/opsi dan simpan kombinasi." : "Single produk (variasi nonaktif).")
-                    : (variasiOn ? "Variasi BEKAS aktif: kombinasi + unit per IMEI." : "Unit Bekas: per IMEI, BH, kondisi, garansi (single unit).")}
+                  {isEdit
+                    ? "Ubah data produk/varian yang dipilih."
+                    : variantType === "BARU"
+                      ? (variasiOn ? "Variasi aktif: atur sumbu/opsi dan simpan kombinasi." : "Single produk (variasi nonaktif).")
+                      : (variasiOn ? "Variasi BEKAS aktif: kombinasi + unit per IMEI." : "Unit Bekas: per IMEI, BH, kondisi, garansi (single unit).")}
                 </DialogPrimitive.Description>
-              </div>
+              </div>              </div>
             </div>
           </div>
 
@@ -818,8 +912,8 @@ export function ProductVariantDialog({ open, onOpenChange, onSuccess }: Props) {
               <div className="flex items-center gap-2">
                 <span className="text-xs font-medium">Tipe</span>
                 <div className="flex gap-1 rounded-lg border p-1">
-                  <button type="button" onClick={() => setVariantType("BARU")} className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${variantType === "BARU" ? "bg-foreground text-background" : "hover:bg-muted"}`}>Baru</button>
-                  <button type="button" onClick={() => setVariantType("BEKAS")} className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${variantType === "BEKAS" ? "bg-foreground text-background" : "hover:bg-muted"}`}>Bekas</button>
+                  <button type="button" disabled={isEdit} onClick={() => setVariantType("BARU")} className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${variantType === "BARU" ? "bg-foreground text-background" : "hover:bg-muted"} ${isEdit ? "cursor-not-allowed opacity-60" : ""}`}>Baru</button>
+                  <button type="button" disabled={isEdit} onClick={() => setVariantType("BEKAS")} className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${variantType === "BEKAS" ? "bg-foreground text-background" : "hover:bg-muted"} ${isEdit ? "cursor-not-allowed opacity-60" : ""}`}>Bekas</button>
                 </div>
               </div>
             </div>
@@ -833,25 +927,27 @@ export function ProductVariantDialog({ open, onOpenChange, onSuccess }: Props) {
                     {suggestions.map((s) => (<button key={s} type="button" onMouseDown={(e) => { e.preventDefault(); setName(s); setExistingLoadedFor(""); setShowSuggest(false); }} className="w-full rounded-md px-2.5 py-1.5 text-left text-sm hover:bg-accent">{s}</button>))}
                   </div>
                 )}
-                <p className="text-[11px] text-muted-foreground">Nama existing = reuse grup (parent_key){variantType === "BARU" ? " & deteksi varian BARU yang sudah ada." : "."}</p>
+                {!isEdit && <p className="text-[11px] text-muted-foreground">Nama existing = reuse grup (parent_key){variantType === "BARU" ? " & deteksi varian BARU yang sudah ada." : "."}</p>}
               </div>
               <div className="space-y-1.5"><Label>Kategori *</Label>
                 <Select value={category} onValueChange={(v) => setCategory((v as string) ?? "Gadget")}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{CATEGORY_OPTIONS.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent></Select>
               </div>
             </div>
 
-            <div className="rounded-lg border">
-              <div className="flex items-center gap-2 px-3 py-2">
-                <Label className="text-sm font-semibold">Variasi</Label>
-                <Switch checked={variasiOn} onCheckedChange={setVariasiOn} />
-              </div>
-              {variasiOn && (
-                <div key={`${variantType}-on`} className="animate-in fade-in-0 slide-in-from-top-1 border-t p-3 duration-200">
-                  {variantType === "BARU" ? renderBaruVariasi() : renderBekasVariasi()}
+            {!isEdit && (
+              <div className="rounded-lg border">
+                <div className="flex items-center gap-2 px-3 py-2">
+                  <Label className="text-sm font-semibold">Variasi</Label>
+                  <Switch checked={variasiOn} onCheckedChange={setVariasiOn} />
                 </div>
-              )}
-            </div>
-            {!variasiOn && (
+                {variasiOn && (
+                  <div key={`${variantType}-on`} className="animate-in fade-in-0 slide-in-from-top-1 border-t p-3 duration-200">
+                    {variantType === "BARU" ? renderBaruVariasi() : renderBekasVariasi()}
+                  </div>
+                )}
+              </div>
+            )}
+            {(!variasiOn || isEdit) && (
               <div key={`${variantType}-off`} className="animate-in fade-in-0 slide-in-from-top-1 duration-200">
                 {variantType === "BARU" ? renderBaruSingle() : renderBekasSingle()}
               </div>
@@ -861,7 +957,7 @@ export function ProductVariantDialog({ open, onOpenChange, onSuccess }: Props) {
           <div className="flex shrink-0 justify-end gap-2 border-t bg-muted/20 px-6 py-3">
             <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>Batal</Button>
             <Button onClick={onSubmit} disabled={saving} loading={saving}>
-              {variantType === "BARU" ? (variasiOn ? "Simpan Variasi" : "Simpan Produk") : (variasiOn ? "Simpan Unit Bekas" : "Simpan Unit Bekas")}
+              {isEdit ? "Simpan Perubahan" : (variantType === "BARU" ? (variasiOn ? "Simpan Variasi" : "Simpan Produk") : (variasiOn ? "Simpan Unit Bekas" : "Simpan Unit Bekas"))}
             </Button>
           </div>
           <DialogPrimitive.Close className="absolute right-3 top-3 rounded-md p-1 text-muted-foreground hover:bg-muted"><XIcon className="size-4" /></DialogPrimitive.Close>

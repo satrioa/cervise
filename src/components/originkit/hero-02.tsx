@@ -1,8 +1,8 @@
 "use client";
 
 import "./hero-02.css";
-import Image from "next/image";
 import Link from "next/link";
+import { AppImage } from "@/components/ui/app-image";
 import { motion, useReducedMotion } from "motion/react";
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { Button } from "@/components/ui/button";
@@ -261,7 +261,7 @@ const AnnouncementBadge = () => (
       </span>
     </span>
     <span className="relative size-[18px] shrink-0 overflow-clip">
-      <Image
+      <AppImage
         src={`${A}/arrow-right.svg`}
         alt=""
         width={18}
@@ -284,7 +284,7 @@ const BrandLogoItem = ({
     className="relative h-[42px] w-[126px] shrink-0 overflow-clip"
     aria-hidden={duplicate || undefined}
   >
-    <Image
+    <AppImage
       src={brand.src}
       alt={duplicate ? "" : brand.name}
       width={126}
@@ -406,7 +406,7 @@ const PhoneMockup = ({
   style,
 }: PhoneMockupProps) => (
   <div className={`relative overflow-clip ${className}`} style={style}>
-    <Image
+    <AppImage
       src={`${A}/Mobile.svg`}
       alt=""
       aria-hidden="true"
@@ -422,7 +422,7 @@ const PhoneMockup = ({
       {screen === "placeholder" ? (
         <PhoneScreenPlaceholder />
       ) : (
-        <Image
+        <AppImage
           src={screen}
           alt=""
           width={screenWidth}
@@ -432,7 +432,7 @@ const PhoneMockup = ({
         />
       )}
     </div>
-    <Image
+    <AppImage
       src={`${A}/dynamic-island.svg`}
       alt=""
       aria-hidden="true"

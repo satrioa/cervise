@@ -1,9 +1,9 @@
 "use client";
 
-import Image from "next/image";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { initialsOf } from "@/lib/photos";
+import { AppImage } from "@/components/ui/app-image";
 
 /**
  * Logo TENANT -- bukan foto profil.
@@ -41,7 +41,7 @@ export function TenantLogo({
       )}
     >
       {showLogo ? (
-        <Image
+        <AppImage
           src={logoUrl as string}
           alt={name ?? "Logo tenant"}
           fill

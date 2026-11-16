@@ -1,8 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import Image from "next/image";
 import { TrashIcon, UploadIcon } from "lucide-react";
+import { AppImage } from "@/components/ui/app-image";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { ImageCropDialog } from "@/components/image-crop-dialog";
@@ -133,7 +133,7 @@ export function PhotoUpload({
       <div className="flex items-center gap-5">
         <span className="relative flex size-20 shrink-0 items-center justify-center overflow-hidden rounded-full bg-muted font-medium text-muted-foreground ring-1 ring-border/60">
           {shown ? (
-            <Image src={shown} alt={name || label} fill sizes="80px" unoptimized className="object-cover" />
+            <AppImage src={shown} alt={name || label} fill sizes="80px" unoptimized className="object-cover" />
           ) : (
             <span className="text-lg">{initialsOf(name)}</span>
           )}

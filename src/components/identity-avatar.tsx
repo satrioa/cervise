@@ -1,9 +1,9 @@
 "use client";
 
-import Image from "next/image";
 import { useState } from "react";
 import { initialsOf } from "@/lib/photos";
 import { cn } from "@/lib/utils";
+import { AppImage } from "@/components/ui/app-image";
 
 type IdentityAvatarProps = {
   /** URL publik hasil-built server. null = belum ada foto. */
@@ -36,7 +36,7 @@ export function IdentityAvatar({ photoUrl, name, className, label }: IdentityAva
       )}
     >
       {showPhoto ? (
-        <Image
+        <AppImage
           src={photoUrl as string}
           alt={label ?? name ?? initials}
           fill

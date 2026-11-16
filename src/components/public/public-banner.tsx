@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import Image from "next/image";
+import { AppImage } from "@/components/ui/app-image";
 
 const AUTOPLAY_MS = 5000;
 
@@ -70,7 +70,7 @@ export function PublicBanner({ images }: { images: string[] }) {
               aria-label={`Banner ${i + 1} dari ${images.length}`}
               className="relative size-full shrink-0 snap-center"
             >
-              <Image
+              <AppImage
                 src={src}
                 alt=""
                 fill

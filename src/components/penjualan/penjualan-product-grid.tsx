@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import Image from "next/image";
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
+import { AppImage } from "@/components/ui/app-image";
 import { MinusIcon, PlusIcon, XIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { formatCurrencyPlain } from "@/lib/format";
@@ -53,7 +53,7 @@ function ProductImage({
 }) {
   const [failed, setFailed] = useState(false);
   return (
-    <Image
+    <AppImage
       src={!failed && src ? src : fallback}
       alt={alt}
       fill

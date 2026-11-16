@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
+import { AppImage } from "@/components/ui/app-image";
 import { formatCurrencyPlain, formatNumberPlain } from "@/lib/format";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -428,8 +429,7 @@ export function ServisDetailView({ data }: Props) {
               <CardContent>
                 {d.pickup_signature ? (
                   <div className="flex flex-col items-center gap-2 rounded-lg border bg-muted/20 p-4">
-                    {/* eslint-disable-next-line @next/next/no-img-element -- SVG tanda tangan via data URL, bukan asset asli */}
-                    <img src={`data:image/svg+xml;charset=utf-8,${encodeURIComponent(d.pickup_signature)}`} alt={`Tanda tangan ${customer?.name ?? "customer"}`} className="max-h-28 w-full bg-white rounded" />
+                    <AppImage src={`data:image/svg+xml;charset=utf-8,${encodeURIComponent(d.pickup_signature)}`} alt={`Tanda tangan ${customer?.name ?? "customer"}`} width={400} height={112} className="max-h-28 w-full bg-white rounded object-contain" />
                     <div className="text-xs text-muted-foreground text-center">
                       Ditandatangani oleh {customer?.name ?? "customer"} · {d.picked_up_at ? format(new Date(d.picked_up_at), "d MMM yyyy HH:mm", { locale: localeId }) : "—"}
                     </div>

@@ -1,8 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import Image from "next/image";
 import { useRouter } from "next/navigation";
+import { AppImage } from "@/components/ui/app-image";
 import { Images, PlusIcon } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { toast } from "sonner";
@@ -237,7 +237,7 @@ export function LandingSection({
         <div className="mt-4 flex flex-wrap items-center gap-4">
           <div className="relative h-14 w-14 overflow-hidden rounded-full border border-border/60 bg-muted/40">
             {tenant.logoUrl ? (
-              <Image src={tenant.logoUrl} alt="Logo toko" fill sizes="80px" unoptimized className="object-cover" />
+              <AppImage src={tenant.logoUrl} alt="Logo toko" fill sizes="80px" unoptimized className="object-cover" />
             ) : (
               <div className="flex size-full items-center justify-center text-xs text-muted-foreground">
                 Belum ada logo
@@ -295,7 +295,7 @@ export function LandingSection({
               <div key={index} className="space-y-2">
                 <div className="relative aspect-[2/1] overflow-hidden rounded-xl border border-border/60 bg-muted/40">
                   {url ? (
-                    <Image src={url} alt={`Banner ${index + 1}`} fill sizes="320px" unoptimized className="object-cover" />
+                    <AppImage src={url} alt={`Banner ${index + 1}`} fill sizes="320px" unoptimized className="object-cover" />
                   ) : (
                     <div className="flex size-full flex-col items-center justify-center gap-1 text-xs text-muted-foreground">
                       <Images className="size-5" aria-hidden />
@@ -591,7 +591,7 @@ export function ReceiptAppearanceSection({
         <div className="mt-4 flex flex-wrap items-center gap-4">
           <div className="relative h-14 w-14 overflow-hidden rounded-lg border border-border/60 bg-muted/40">
             {tenant.receiptLogoUrl ? (
-              <Image src={tenant.receiptLogoUrl} alt="Logo nota" fill sizes="80px" unoptimized className="object-contain p-1" />
+              <AppImage src={tenant.receiptLogoUrl} alt="Logo nota" fill sizes="80px" unoptimized className="object-contain p-1" />
             ) : (
               <div className="flex size-full items-center justify-center text-center text-[10px] text-muted-foreground">
                 Belum ada logo
