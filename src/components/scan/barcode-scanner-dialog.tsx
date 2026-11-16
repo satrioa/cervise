@@ -121,8 +121,12 @@ export function BarcodeScannerDialog({
         const isTransitionError = (e: unknown) => /transition/i.test(e instanceof Error ? e.message : String(e ?? ""));
         let firstMeaningful: unknown = null;
         let lastError: unknown = null;
+        const safeStop = async (instance: { stop: () => Promise<void> }) => {
+          try { await instance.stop(); } catch { /* ignore - e.g. not running/paused */ }
+        };
+
         const cleanupInstance = async (instance: { stop: () => Promise<void>; clear: () => void }) => {
-          try { await instance.stop(); } catch { /* ignore */ }
+          await safeStop(instance);
           try { instance.clear(); } catch { /* ignore */ }
           if (scanner === instance) scanner = null;
         };
@@ -142,19 +146,18 @@ export function BarcodeScannerDialog({
               if (!value || handled || cancelled) return;
               handled = true;
               if (fallbackTimer) { clearTimeout(fallbackTimer); fallbackTimer = null; }
-              void instance
-                .stop()
-                .catch(() => {})
-                .then(() => {
-                  try { instance.clear(); } catch { /* ignore */ }
-                  try {
-                    detected.current(value);
-                  } catch (e) {
-                    console.error("[barcode-scan] onDetected failed", e);
-                  } finally {
-                    changeOpen.current(false);
-                  }
-                });
+              void (async () => {
+                await safeStop(instance);
+                try { instance.clear(); } catch { /* ignore */ }
+                if (scanner === instance) scanner = null;
+                try {
+                  detected.current(value);
+                } catch (e) {
+                  console.error("[barcode-scan] onDetected failed", e);
+                } finally {
+                  changeOpen.current(false);
+                }
+              })();
             };
 
             try {
@@ -235,16 +238,14 @@ export function BarcodeScannerDialog({
     return () => {
       cancelled = true;
       if (fallbackTimer) { clearTimeout(fallbackTimer); fallbackTimer = null; }
-      void scanner
-        ?.stop()
-        .catch(() => {})
-        .then(() => {
-          try {
-            scanner?.clear();
-          } catch {
-            /* ignore */
-          }
-        });
+      const inst = scanner;
+      scanner = null;
+      if (inst) {
+        void (async () => {
+          try { await inst.stop(); } catch { /* ignore - e.g. not running/paused */ }
+          try { inst.clear(); } catch { /* ignore */ }
+        })();
+      }
     };
   }, [open, regionId]);
 
