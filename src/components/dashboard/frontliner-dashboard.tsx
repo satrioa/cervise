@@ -526,14 +526,15 @@ function RingkasanHariIni({
           <FrameTitle className="truncate">{title}</FrameTitle>
         </FrameHeader>
         <FramePanel className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 p-4 text-center">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
+          <AppImage
             src={
               world === "scifi"
                 ? "/illustration/empty_state_retro_scifi_register.svg"
                 : "/illustration/empty_state_cash_register.svg"
             }
             alt=""
+            width={220}
+            height={220}
             className="h-auto w-full max-w-[180px] opacity-95 sm:max-w-[220px]"
             draggable={false}
           />
@@ -1124,37 +1125,41 @@ function PickupDialog({ open, onOpenChange, queue, onSaved }: { open: boolean; o
           ) : results.length === 0 ? (
             <p className="text-sm opacity-60">Tidak ada device siap diambil yang cocok.</p>
           ) : (() => {
-            const list = (query.trim().length < 2 ? queue.filter((i: any) => i.status === "Selesai") : results);
+            const list = query.trim().length < 2 ? queue.filter((i: any) => i?.status === "Selesai") : (Array.isArray(results) ? results : []);
             if (list.length === 0) return <p className="text-sm opacity-60">Tidak ada device siap diambil.</p>;
             const visible = list.slice(0, 5);
             return (
               <ul className="space-y-1.5 max-h-[240px] overflow-y-auto scrollbar-thin">
-                {visible.map((item: any) => (
-                  <li key={item.id ?? item.serviceNumber ?? item.device}>
-                    <button
-                      onClick={() => {
-                        startPickup(item);
-                      }}
-                      className="flex w-full items-center gap-2 rounded-xl border border-black/5 px-3 py-2 text-left transition-colors hover:bg-black/[0.03] dark:border-white/10 dark:hover:bg-white/[0.05]"
-                    >
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate text-[13px] font-medium">
-                          {item.serviceNumber ?? "Tanpa nomor"} · {item.device}
+                {visible.map((item: any, idx: number) => {
+                  const bill = Number(item?.bill ?? 0);
+                  const paid = Number(item?.paidAmount ?? 0);
+                  return (
+                    <li key={item?.id ?? item?.serviceNumber ?? idx}>
+                      <button
+                        onClick={() => {
+                          startPickup(item);
+                        }}
+                        className="flex w-full items-center gap-2 rounded-xl border border-black/5 px-3 py-2 text-left transition-colors hover:bg-black/[0.03] dark:border-white/10 dark:hover:bg-white/[0.05]"
+                      >
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-[13px] font-medium">
+                            {(item?.serviceNumber ?? "Tanpa nomor")} · {(item?.device ?? "-")}
+                          </span>
+                          <span className="block truncate text-[11px] opacity-60">
+                            {(item?.customerName ?? "Tanpa nama")}
+                            {item?.customerPhone ? ` · ${item.customerPhone}` : ""}
+                          </span>
                         </span>
-                        <span className="block truncate text-[11px] opacity-60">
-                          {item.customerName ?? "Tanpa nama"}
-                          {item.customerPhone ? ` · ${item.customerPhone}` : ""}
-                        </span>
-                      </span>
-                      {servisOutstanding(item.bill, item.paidAmount) > 0 ? (
-                        <span className="shrink-0 rounded-full bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 dark:text-amber-400">
-                          Belum dibayar
-                        </span>
-                      ) : null}
-                      <ArrowRightIcon className="size-3.5 shrink-0 opacity-50" />
-                    </button>
-                  </li>
-                ))}
+                        {servisOutstanding(bill, paid) > 0 ? (
+                          <span className="shrink-0 rounded-full bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 dark:text-amber-400">
+                            Belum dibayar
+                          </span>
+                        ) : null}
+                        <ArrowRightIcon className="size-3.5 shrink-0 opacity-50" />
+                      </button>
+                    </li>
+                  );
+                })}
                 {list.length > 5 ? <li className="text-xs opacity-60 px-1">+{list.length - 5} lainnya</li> : null}
               </ul>
             );

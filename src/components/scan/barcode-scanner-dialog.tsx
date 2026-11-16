@@ -147,7 +147,13 @@ export function BarcodeScannerDialog({
                 .catch(() => {})
                 .then(() => {
                   try { instance.clear(); } catch { /* ignore */ }
-                  try { detected.current(value); } finally { changeOpen.current(false); }
+                  try {
+                    detected.current(value);
+                  } catch (e) {
+                    console.error("[barcode-scan] onDetected failed", e);
+                  } finally {
+                    changeOpen.current(false);
+                  }
                 });
             };
 
@@ -155,9 +161,10 @@ export function BarcodeScannerDialog({
               await instance.start(cam as any, config, onSuccess, () => {
                 /* frame tanpa kode */
               });
-              if (cancelled || handled) {
+              if (handled) return true;
+              if (cancelled) {
                 await cleanupInstance(instance);
-                return handled;
+                return false;
               }
               if (useNative) {
                 // Native BarcodeDetector kadang tidak decode barcode tertentu; fallback ke ZXing jika lama tak terbaca.
