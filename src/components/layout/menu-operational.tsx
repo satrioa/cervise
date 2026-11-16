@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { operationalEntries } from "@/lib/nav/compact-menu";
 import { playCue } from "@/lib/sound";
+import { useStyleWorld } from "@/lib/style-world-context";
 import { cn } from "@/lib/utils";
 
 /**
@@ -45,6 +46,8 @@ export function MenuOperational({
   onNavigate?: () => void;
 }) {
   const t = useTranslations("nav");
+  const { world } = useStyleWorld();
+  const isScifi = world === "scifi";
   const entries = operationalEntries(role);
 
   if (entries.length === 0) {
@@ -72,8 +75,10 @@ export function MenuOperational({
           >
             <span
               className={cn(
-                "flex size-9 items-center justify-center rounded-[12px] text-white shadow-sm",
-                TILE_CLASS[entry.href] ?? FALLBACK_TILE,
+                "flex size-9 items-center justify-center rounded-[12px] shadow-sm",
+                isScifi
+                  ? "border border-primary bg-transparent text-primary shadow-none"
+                  : cn("text-white", TILE_CLASS[entry.href] ?? FALLBACK_TILE),
               )}
             >
               <Icon className="size-[18px]" />
