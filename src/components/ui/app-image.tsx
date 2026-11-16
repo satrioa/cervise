@@ -94,10 +94,11 @@ export function AppImage(props: AppImageProps) {
   const anyProps = props as any;
   const { crisp, preset, fill, src, alt, className, style, width, height } = anyProps;
   const isProduct = preset === "product";
+  const ditherAlgorithm = isProduct ? "bayer" : "threshold";
   const ditherLevels = 2;
-  const ditherPixelSize = isProduct ? 4 : 2;
+  const ditherPixelSize = isProduct ? 3 : 2;
   const progressive = isProduct;
-  const pixelShape = isProduct ? "plus" : "square";
+  const pixelShape: "square" | "plus" = "square";
 
   if (!isScifiDitherActive(world, crisp)) {
     return <NormalImage {...anyProps} />;
@@ -116,10 +117,9 @@ export function AppImage(props: AppImageProps) {
         alt={alt ?? ""}
         width={Math.round(explicitW)}
         height={Math.round(explicitH)}
-        algorithm="threshold"
+        algorithm={ditherAlgorithm}
         levels={ditherLevels}
         pixelSize={ditherPixelSize}
-        pixelShape={pixelShape}
         progressive={progressive}
         palette={SCIFI_PALETTE}
         className={cn(className)}
@@ -134,9 +134,9 @@ export function AppImage(props: AppImageProps) {
       alt={alt ?? ""}
       className={className}
       style={style}
+      algorithm={ditherAlgorithm}
       levels={ditherLevels}
       pixelSize={ditherPixelSize}
-      pixelShape={pixelShape}
       progressive={progressive}
     />
   );
@@ -147,18 +147,18 @@ function FillDither({
   alt,
   className,
   style,
+  algorithm,
   levels,
   pixelSize,
-  pixelShape,
   progressive,
 }: {
   src: string;
   alt: string;
   className?: string;
   style?: React.CSSProperties;
+  algorithm: "bayer" | "atkinson" | "floyd-steinberg" | "threshold";
   levels: number;
   pixelSize: number;
-  pixelShape: "square" | "plus";
   progressive: boolean;
 }) {
   const { ref, size } = useElementSize<HTMLDivElement>();
@@ -170,10 +170,9 @@ function FillDither({
           alt={alt}
           width={size.width}
           height={size.height}
-          algorithm="threshold"
+          algorithm={algorithm}
           levels={levels}
           pixelSize={pixelSize}
-          pixelShape={pixelShape}
           progressive={progressive}
           palette={SCIFI_PALETTE}
           className="h-full w-full rounded-[inherit]"
