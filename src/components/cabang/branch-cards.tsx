@@ -34,13 +34,9 @@ type BranchItem = {
   teknisiCount: number;
 };
 
-function statusFor(b: BranchItem): "ok" | "warn" | "off" {
-  if (!b.is_active) return "off";
-  if (!b.city && !b.phone) return "warn";
-  return "ok";
-}
-
-const STATUS_LABEL: Record<string, string> = { ok: "Aktif", warn: "Perlu perhatian", off: "Nonaktif" };
+/** Status kartu hanya menyatakan aktif/tidak — bukan kelengkapan data. */
+const STATUS_LABEL = { active: "Aktif", inactive: "Nonaktif" } as const;
+const STATUS_DOT = { active: "bg-emerald-500", inactive: "bg-muted-foreground/40" } as const;
 
 /**
  * Ringkasan insentif untuk kartu cabang.
@@ -60,7 +56,7 @@ function branchIntensifLabel(b: BranchItem): string {
     return b.intensif_target_count ? `${nominal} bila ≥ ${b.intensif_target_count} servis` : `${nominal} (target belum diatur)`;
   }
   return `Insentif ${formatCurrencyPlain(value)} per servis`;
-}const STATUS_DOT: Record<string, string> = { ok: "bg-emerald-500", warn: "bg-amber-500", off: "bg-muted-foreground/40" };
+}
 
 /**
  * `canManage` false untuk ADMIN: RLS `branches_update` sudah mencabut ADMIN,
@@ -127,7 +123,11 @@ export function BranchCards({ branches, onKelola, canManage = true }: { branches
       <div className="flex flex-col gap-3">
         {items.map((b) => {
           const enabled = b.is_active;
-          const status = enabled ? statusFor(b) : "off";
+          const status = enabled ? "active" : "inactive";
+          const missing = [
+            !b.city ? "Alamat belum diisi" : null,
+            !b.phone ? "Telepon belum diisi" : null,
+          ].filter(Boolean) as string[];
           const lastSync = enabled ? `dibuat ${new Date(b.created_at).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })}` : "Nonaktif";
           return (
             <Card key={b.id} className="overflow-hidden">
@@ -141,6 +141,16 @@ export function BranchCards({ branches, onKelola, canManage = true }: { branches
                     </Badge>
                   </div>
                   <p className="truncate text-muted-foreground text-sm">{b.city || "Belum ada alamat"}{b.phone ? ` · ${b.phone}` : ""}</p>
+                  {enabled && missing.length > 0 ? (
+                    <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
+                      <span>{missing.join(" · ")}</span>
+                      {onKelola ? (
+                        <button type="button" onClick={() => onKelola(b)} className="underline underline-offset-2 hover:text-foreground">
+                          Lengkapi
+                        </button>
+                      ) : null}
+                    </div>
+                  ) : null}
                   <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
                     <span className="rounded border bg-background px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
                       {b.teknisiCount} teknisi
@@ -150,7 +160,7 @@ export function BranchCards({ branches, onKelola, canManage = true }: { branches
                     </span>
                   </div>
                   <div className="mt-2 inline-flex items-center gap-1 font-mono text-[11px] text-muted-foreground">
-                    {status === "ok" ? <CheckCircle2Icon className="size-3 text-emerald-600" /> : null}
+                    {enabled ? <CheckCircle2Icon className="size-3 text-emerald-600" /> : null}
                     {lastSync}
                   </div>
                 </div>
