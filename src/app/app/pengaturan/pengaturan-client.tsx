@@ -30,6 +30,7 @@ export default function GeneralPage() {
   const [maEmail, setMaEmail] = useState("");
   const [maPhone, setMaPhone] = useState("");
   const [creating, setCreating] = useState(false);
+  const [showCreateAdmin, setShowCreateAdmin] = useState(false);
   const [createdAccount, setCreatedAccount] = useState<{ email: string; tempPassword: string } | null>(null);
   const [shiftEnabled, setShiftEnabled] = useState(true);
   const [shiftTime, setShiftTime] = useState("03:00");
@@ -103,6 +104,7 @@ export default function GeneralPage() {
       setMaName("");
       setMaEmail("");
       setMaPhone("");
+      setShowCreateAdmin(false);
     } catch (e: any) {
       toast.error(e.message ?? "Gagal membuat akun");
     } finally {
@@ -187,10 +189,26 @@ export default function GeneralPage() {
 
       <Card className="border-border/60 shadow-sm">
         <CardHeader className="pb-4">
-          <CardTitle className="text-base flex items-center gap-2"><ShieldIcon className="size-4 text-muted-foreground" /> Akses Master Admin</CardTitle>
-          <CardDescription>Kelola akun master admin yang dapat mengatur tenant dan seluruh cabang.</CardDescription>
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <CardTitle className="text-base flex items-center gap-2"><ShieldIcon className="size-4 text-muted-foreground" /> Akses Master Admin</CardTitle>
+              <CardDescription>Kelola akun master admin yang dapat mengatur tenant dan seluruh cabang.</CardDescription>
+            </div>
+            {!showCreateAdmin ? (
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                onClick={() => setShowCreateAdmin(true)}
+              >
+                Tambah Akun Master
+              </Button>
+            ) : null}
+          </div>
         </CardHeader>
         <CardContent className="space-y-4">
+          {showCreateAdmin ? (
+          <>
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-1.5">
               <Label htmlFor="ma-name">Nama lengkap</Label>
@@ -208,9 +226,26 @@ export default function GeneralPage() {
               <Input id="ma-phone" placeholder="0812xxxx" value={maPhone} onChange={(e) => setMaPhone(e.target.value)} />
             </div>
           </div>
-          <Button onClick={handleCreateMasterAdmin} disabled={creating}>
-            {creating ? "Membuat akun..." : "Buat akun Master Admin"}
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button onClick={handleCreateMasterAdmin} disabled={creating}>
+              {creating ? "Membuat akun..." : "Buat akun Master Admin"}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={creating}
+              onClick={() => {
+                setShowCreateAdmin(false);
+                setMaName("");
+                setMaEmail("");
+                setMaPhone("");
+              }}
+            >
+              Batal
+            </Button>
+          </div>
+          </>
+          ) : null}
           <Separator />
           <div className="space-y-2">
             {users.length === 0 ? (
