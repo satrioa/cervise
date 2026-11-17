@@ -238,6 +238,32 @@ describe("parameter template invoice customer", () => {
     const params = buildCustomerInvoiceParameters({ ...base, priceEstimasi: 0 });
     expect(params[4].value).toBe("Menunggu pemeriksaan");
   });
+
+  it("memakai fallback saat ketiga field tidak dikirim", () => {
+    const params = buildCustomerInvoiceParameters({
+      storeName: "Servisin",
+      tenantSlug: "servisin",
+      serviceId: "svc-1",
+      serviceNumber: null,
+      device: "Xiaomi Redmi 13C",
+      complaint: null,
+      trackingCode: null,
+      status: null,
+      siteOrigin: null,
+    });
+    expect(params[4].value).toBe("Menunggu pemeriksaan");
+    expect(params[5].value).toBe("-");
+    for (const param of params) expect(param.value).not.toContain("undefined");
+  });
+
+  it("garansi '-' kalau hanya satu dari nilai/satuan yang ada", () => {
+    expect(
+      buildCustomerInvoiceParameters({ ...base, garansiValue: 3, garansiUnit: null })[5].value,
+    ).toBe("-");
+    expect(
+      buildCustomerInvoiceParameters({ ...base, garansiValue: null, garansiUnit: "bulan" })[5].value,
+    ).toBe("-");
+  });
 });
 
 describe("parameter template status customer", () => {

@@ -19,9 +19,9 @@ export type ServiceMessageInput = {
   status: string | null;
   /** Bisa null: task berikutnya membacanya dari env yang belum terkonfigurasi. */
   siteOrigin: string | null;
-  priceEstimasi: number | null;
-  garansiValue: number | null;
-  garansiUnit: "hari" | "bulan" | "tahun" | null;
+  priceEstimasi?: number | null;
+  garansiValue?: number | null;
+  garansiUnit?: "hari" | "bulan" | "tahun" | null;
 };
 
 /** Nilai yang siap ditampilkan: null kalau kosong, string kalau isi. */
@@ -147,19 +147,19 @@ function param(value: string | null | undefined): TemplateParameter {
 
 export function buildCustomerInvoiceParameters(input: ServiceMessageInput): TemplateParameter[] {
   const estimate =
-    input.priceEstimasi !== null &&
+    typeof input.priceEstimasi === "number" &&
     Number.isFinite(input.priceEstimasi) &&
     input.priceEstimasi > 0
       ? `Rp ${new Intl.NumberFormat("id-ID").format(input.priceEstimasi)}`
       : "Menunggu pemeriksaan";
   const warranty =
-    input.garansiValue !== null && input.garansiUnit
+    typeof input.garansiValue === "number" && input.garansiUnit
       ? `${input.garansiValue} ${input.garansiUnit}`
       : "-";
 
   return [
     param(input.storeName),
-    param(input.serviceNumber ?? input.device),
+    param(serviceRef(input)),
     param(input.device),
     param(input.complaint),
     { type: "text", value: estimate },
