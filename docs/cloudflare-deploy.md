@@ -19,8 +19,11 @@ Tombol **Retry build** menjalankan ulang **commit lama** — jangan dipakai untu
 
 ## Environment variables
 
-- Build-time (`NEXT_PUBLIC_*` di-inline saat build): `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `NEXT_PUBLIC_SITE_URL`.
-- Runtime secrets: `SUPABASE_SERVICE_ROLE_KEY`, `CRON_SECRET`, `FONNTE_TOKEN`, `OWNER_WHATSAPP_NUMBER`.
+- **Build variables** (WAJIB,Workers Builds → Settings → Build → Build variables and secrets): `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `NEXT_PUBLIC_SITE_URL`. Next.js meng-inline `NEXT_PUBLIC_*` saat `next build`, jadi mengisinya hanya di runtime tidak cukup — build harus diulang setelah variabel ini tersedia.
+- **Runtime secrets** (Settings → Variables & Secrets, tipe Secret): `SUPABASE_SERVICE_ROLE_KEY`, `CRON_SECRET`, `FONNTE_TOKEN`.
+- **Runtime variables**: `OWNER_WHATSAPP_NUMBER` (dan `NEXT_PUBLIC_*` juga boleh, tidak merusak).
+
+Jangan menaruh nilai secret di `wrangler.jsonc` — gunakan `secrets.required` hanya untuk nama, atau simpan di dashboard / `.dev.vars` lokal.
 
 ## Cron
 
