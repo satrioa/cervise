@@ -13,6 +13,7 @@ import { findAuthUserByEmail } from "@/lib/supabase/admin-users";
 import { generateTempPassword } from "@/lib/auth/password";
 import { buildOwnerAccountRows } from "@/lib/platform/owner-accounts";
 import { resolveSubscriptionAccessState, type SubscriptionLifecycleStatus } from "@/lib/billing/renewal";
+import { verifyMetaPhoneNumber } from "@/lib/meta-wa";
 
 type PackageRow = {
   id: string;
@@ -287,7 +288,7 @@ export async function getTenantDetail(organizationId: string) {
     await Promise.all([
       supabase
         .from("organizations")
-        .select("id, name, slug, status, paket, owner_email, owner_phone, contact_phone, created_at")
+        .select("id, name, slug, status, paket, owner_email, owner_phone, contact_phone, meta_phone_number_id, created_at")
         .eq("id", organizationId)
         .maybeSingle(),
       supabase
@@ -340,6 +341,36 @@ export async function getTenantDetail(organizationId: string) {
       currentPackagePrice: subscription?.custom_monthly_price ?? subscription?.package?.monthly_price ?? null,
     })),
   };
+}
+
+/**
+ * Nomor pengirim WhatsApp per tenant. Validasi ke Graph API supaya ID yang
+ * salah tidak masuk ke database lalu baru gagal di antrean pengiriman.
+ */
+export async function updateTenantMetaPhoneNumber(input: {
+  organizationId: string;
+  phoneNumberId: string;
+}) {
+  const { supabase } = await requirePlatformAdmin();
+  if (!input.organizationId) throw new Error("Tenant id is required");
+
+  const value = input.phoneNumberId.trim();
+  let displayName: string | null = null;
+  if (value) {
+    if (!/^\d+$/.test(value)) {
+      throw new Error("Phone number ID harus berisi angka saja");
+    }
+    displayName = await verifyMetaPhoneNumber(value);
+  }
+
+  const { error } = await supabase
+    .from("organizations")
+    .update({ meta_phone_number_id: value || null })
+    .eq("id", input.organizationId);
+  if (error) throw error;
+
+  revalidatePath(`/owner/tenants/${input.organizationId}`);
+  return { ok: true, displayName };
 }
 
 export async function createTenant(input: {

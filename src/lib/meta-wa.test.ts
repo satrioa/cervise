@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { MetaWaError, sendMetaWA } from "./meta-wa";
+import { MetaWaError, sendMetaWA, verifyMetaPhoneNumber } from "./meta-wa";
 
 const original = {
   token: process.env.META_WA_ACCESS_TOKEN,
@@ -40,6 +40,19 @@ describe("sendMetaWA", () => {
 
     await expect(sendMetaWA("628123456789", "invoice", [])).resolves.toEqual({ skip: true });
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("memakai phone number ID yang diteruskan, bukan env", async () => {
+    process.env.META_WA_ACCESS_TOKEN = "test-token";
+    process.env.META_WA_PHONE_NUMBER_ID = "111111";
+    const fetchMock = vi.fn().mockResolvedValue(ok());
+    vi.stubGlobal("fetch", fetchMock);
+
+    await sendMetaWA("628123456789", "invoice", [], "222222");
+
+    expect(fetchMock.mock.calls[0][0]).toBe(
+      "https://graph.facebook.com/v21.0/222222/messages",
+    );
   });
 
   it("skip tanpa nama template", async () => {
@@ -170,5 +183,36 @@ describe("sendMetaWA", () => {
     const error = await sendMetaWA("628123456789", "invoice", []).catch((e: unknown) => e);
     expect(error).toBeInstanceOf(MetaWaError);
     expect((error as MetaWaError).scope).toBe("message");
+  });
+});
+
+describe("verifyMetaPhoneNumber", () => {
+  it("mengembalikan display_name untuk ID yang bisa diakses", async () => {
+    process.env.META_WA_ACCESS_TOKEN = "test-token";
+    const fetchMock = vi.fn().mockResolvedValue(
+      ok({ id: "222222", display_name: "Servisin Cabang" }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(verifyMetaPhoneNumber("222222")).resolves.toBe("Servisin Cabang");
+    expect(fetchMock.mock.calls[0][0]).toBe(
+      "https://graph.facebook.com/v21.0/222222?fields=id,display_name,verified_name",
+    );
+  });
+
+  it("menolak ID yang tidak dikenal Meta", async () => {
+    process.env.META_WA_ACCESS_TOKEN = "test-token";
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response(JSON.stringify({ error: { code: 100, message: "Invalid parameter" } }), {
+          status: 400,
+        }),
+      ),
+    );
+
+    const error = await verifyMetaPhoneNumber("999999").catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(MetaWaError);
+    expect((error as MetaWaError).reason).toBe("Invalid parameter");
   });
 });

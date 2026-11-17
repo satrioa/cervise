@@ -83,7 +83,7 @@ type ServisRow = {
   teknisi_id: string | null;
   branches: {
     organization_id: string | null;
-    organizations: { name: string; slug: string } | null;
+    organizations: { name: string; slug: string; meta_phone_number_id: string | null } | null;
   } | null;
 };
 
@@ -110,7 +110,7 @@ type CustomerRow = { id: string; phone: string | null };
  * hanya karena antrean sempat bermasalah.
  */
 type Resolved =
-  | { target: string; template: string; parameters: TemplateParameter[] }
+  | { target: string; template: string; parameters: TemplateParameter[]; phoneNumberId: string }
   | { skip: string };
 
 function backoffIso(attempts: number, from: Date): string {
@@ -183,6 +183,10 @@ function resolveRow(
   // menangani nama kosong dengan menghapus pemisah " - "-nya, dan mengarang
   // nama akan mengarang fakta.
   const org = servis.branches?.organizations ?? null;
+  // Nomor tenant dibaca saat kirim, bukan saat enqueue, supaya perubahan oleh
+  // platform owner langsung dipakai oleh baris yang masih retry. Kosong → env
+  // global, sehingga tenant lama tetap terkirim seperti sebelum ada kolom ini.
+  const phoneNumberId = org?.meta_phone_number_id?.trim() || process.env.META_WA_PHONE_NUMBER_ID || "";
   const input: ServiceMessageInput = {
     storeName: org?.name ?? "",
     tenantSlug: org?.slug ?? null,
@@ -215,6 +219,7 @@ function resolveRow(
         row.event === "servis_created"
           ? buildCustomerInvoiceParameters(input)
           : buildCustomerStatusParameters(input),
+      phoneNumberId,
     };
   }
 
@@ -240,6 +245,7 @@ function resolveRow(
     target,
     template: templates.technician,
     parameters: buildTechnicianJobParameters(input),
+    phoneNumberId,
   };
 }
 
@@ -294,7 +300,7 @@ export async function dispatchPendingNotifications(
     const { data: servisRows, error: servisError } = await admin
       .from("cervise_services")
       .select(
-        "id, service_number, device, complaint, tracking_code, status, price_estimasi, garansi_value, garansi_unit, customer_id, teknisi_id, branches(organization_id, organizations(name, slug))",
+        "id, service_number, device, complaint, tracking_code, status, price_estimasi, garansi_value, garansi_unit, customer_id, teknisi_id, branches(organization_id, organizations(name, slug, meta_phone_number_id))",
       )
       .in("id", servisIds);
     if (servisError) {
@@ -386,7 +392,12 @@ export async function dispatchPendingNotifications(
 
       let response: Awaited<ReturnType<typeof sendMetaWA>>;
       try {
-        response = await sendMetaWA(resolved.target, resolved.template, resolved.parameters);
+        response = await sendMetaWA(
+          resolved.target,
+          resolved.template,
+          resolved.parameters,
+          resolved.phoneNumberId,
+        );
       } catch (error) {
         // Hanya kegagalan yang memang soal nomor atau isi pesannya yang
         // terminal. Token kedaluwarsa atau Meta sedang erred scope-nya
