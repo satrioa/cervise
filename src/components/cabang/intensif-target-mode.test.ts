@@ -73,7 +73,12 @@ describe("target hanya berlaku di mode flat", () => {
     // teknisi. Jadi "Atur sekarang" tidak pernah jadi jalan keluar.
     expect(dashboard).not.toMatch(/Atur sekarang/);
     expect(dashboard).not.toMatch(/href="\/app\/analitik-servis"/);
-    expect(dashboard).toMatch(/!kpi\.applicable/);
+    // Kartu sekarang diatur seluruhnya oleh admin cabang lewat `cards`, tanpa
+    // affordance pengaturan di sisi teknisi -- termasuk empty state "Belum
+    // diatur" yang dulu menyiratkan ada yang bisa dikonfigurasi.
+    expect(dashboard).not.toMatch(/kpi\.applicable/);
+    expect(dashboard).not.toMatch(/kpi\.unset/);
+    expect(dashboard).toMatch(/cards\.targetValue/);
   });
 });
 

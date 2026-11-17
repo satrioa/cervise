@@ -264,11 +264,16 @@ function TargetCabangTile({ kpi, cards }: { kpi: TechnicianKpi; cards: Technicia
   return (
     <>
       <p className="text-[15px] font-medium">Target Cabang</p>
-      <div className="mt-auto text-2xl font-medium tabular-nums">
-        {cards.targetType === "penghasilan" ? formatCurrencyPlain(progress.current) : progress.current}
-        <span className="text-sm text-muted-foreground">
-          {" / "}
-          {cards.targetType === "penghasilan" ? formatCurrencyPlain(progress.target) : progress.target}
+      <div className="mt-auto flex flex-wrap items-baseline gap-2">
+        <p className="text-2xl font-medium tabular-nums">
+          {cards.targetType === "penghasilan" ? formatCurrencyPlain(progress.current) : progress.current}
+          <span className="text-sm text-muted-foreground">
+            {" / "}
+            {cards.targetType === "penghasilan" ? formatCurrencyPlain(progress.target) : progress.target}
+          </span>
+        </p>
+        <span className="rounded-full border border-emerald-600/40 px-2.5 py-1 text-[10px] font-medium text-emerald-700 dark:text-emerald-300">
+          {cards.targetType === "penghasilan" ? "Pendapatan" : "Servis selesai"}
         </span>
       </div>
       <div
