@@ -55,6 +55,10 @@ export function OpeningBalanceDialog({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [stale, setStale] = useState<CashSessionRow | null>(null);
+  const [closedToday, setClosedToday] = useState<{
+    closedAt: string;
+    closingBalance: number | null;
+  } | null>(null);
   const [suggested, setSuggested] = useState(false);
 
   useEffect(() => {
@@ -68,6 +72,7 @@ export function OpeningBalanceDialog({
         return;
       }
       setStale(result.data.stale);
+      setClosedToday(result.data.lastClosedToday);
       // Shift berikutnya biasanya mulai dari uang yang tersisa di laci shift
       // sebelumnya. Tetap bisa diubah: kadang laci diisi ulang dari brankas.
       if (result.data.lastClosingBalance !== null) {
@@ -118,6 +123,24 @@ export function OpeningBalanceDialog({
           </DialogDescription>
         </DialogHeader>
 
+        {closedToday ? (
+          <div className="rounded-lg border border-primary/40 bg-primary/5 p-3 text-xs">
+            <div className="font-medium">
+              Shift hari ini sudah ditutup pukul{" "}
+              {new Date(closedToday.closedAt).toLocaleTimeString("id-ID", {
+                hour: "2-digit",
+                minute: "2-digit",
+              })}
+              {closedToday.closingBalance !== null
+                ? ` · saldo akhir ${formatCurrencyPlain(closedToday.closingBalance)}`
+                : ""}
+            </div>
+            <p className="mt-1 text-muted-foreground">
+              Isi saldo berikutnya bila laci dipakai lagi hari ini.
+            </p>
+          </div>
+        ) : null}
+
         {stale ? (
           <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-xs">
             <div className="font-medium">Shift {sessionDate(stale)} belum ditutup</div>
@@ -159,7 +182,7 @@ export function OpeningBalanceDialog({
 
         <DialogFooter>
           <Button onClick={submit} disabled={saving} className="w-full">
-            {saving ? "Menyimpan..." : "Buka Shift"}
+            {saving ? "Menyimpan..." : closedToday ? "Buka Shift Baru" : "Buka Shift"}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -24,6 +24,7 @@ import { OvioProvider } from "@/components/shared/world-provider";
 import { normalizeAppRole } from "@/lib/nav/manifest";
 import { CashDialogProvider, useCashDialog } from "@/components/cash/cash-dialog-context";
 import { checkOpenCashSession } from "@/app/app/actions/cash";
+import { shouldPromptOpeningBalance } from "@/lib/cash/shift-state";
 import { reconnectSavedPrinter } from "@/lib/printer";
 import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
@@ -165,9 +166,11 @@ function CompactShellInner({
     if (!needsCashSession) return;
     let cancelled = false;
     checkOpenCashSession().then((result) => {
-      if (cancelled || !result.ok || result.data.current) return;
-      // Auto-open saat awal hari toko belum dibuka. Tombol "Buka Toko" di
-      // dashboard memakai dialog yang sama sebagai cadangan.
+      if (cancelled || !result.ok) return;
+      // Auto-open hanya bila toko belum pernah dibuka hari ini. Setelah shift
+      // ditutup, statusnya "selesai", dan shift baru dibuka dari tombol
+      // eksplisit di dashboard — bukan prompt otomatis saat login.
+      if (!shouldPromptOpeningBalance(Boolean(result.data.current), result.data.lastClosedToday)) return;
       openCashDialog();
     });
     return () => {

@@ -321,10 +321,16 @@ export function FrontlinerDashboard({
                 className="gap-1.5"
               >
                 <StoreIcon className="size-4" />
-                {lastClosingBalance !== null ? "Buka kembali" : "Buka Toko"}
+                {lastClosingBalance !== null ? "Buka shift baru" : "Buka Toko"}
               </CossButton>
             )}
           </div>
+
+          {!session && lastClosingBalance !== null ? (
+            <p className="mt-2 text-xs text-muted-foreground">
+              Shift hari ini sudah ditutup · saldo akhir {rupiah(lastClosingBalance)}. Buka shift baru bila laci dipakai lagi.
+            </p>
+          ) : null}
 
           {pendingHandover ? (
             <div className="mt-3 flex shrink-0 justify-center">

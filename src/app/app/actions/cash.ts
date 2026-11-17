@@ -71,6 +71,7 @@ export async function checkOpenCashSession(): Promise<
     current: CashSessionRow | null;
     stale: CashSessionRow | null;
     lastClosingBalance: number | null;
+    lastClosedToday: { id: string; closedAt: string; closingBalance: number | null } | null;
   }>
 > {
   try {

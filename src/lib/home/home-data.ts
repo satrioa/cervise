@@ -467,6 +467,8 @@ export async function loadCashSession(
   stale: ShiftSession | null;
   /** Saldo akhir shift terakhir yang tutup di hari WIB yang sama. */
   lastClosingBalance: number | null;
+  /** Sesi yang baru saja ditutup hari ini — bukan berarti toko belum dibuka. */
+  lastClosedToday: { id: string; closedAt: string; closingBalance: number | null } | null;
 }> {
   const { supabase, branchId } = ctx;
 
@@ -481,7 +483,7 @@ export async function loadCashSession(
       .order("open_at", { ascending: false }),
     supabase
       .from("cervise_cash_sessions")
-      .select("closed_at, closing_balance")
+      .select("id, closed_at, closing_balance")
       .eq("branch_id", branchId)
       .not("closed_at", "is", null)
       .order("closed_at", { ascending: false })
@@ -535,6 +537,14 @@ export async function loadCashSession(
     current: current ? { ...current, pendingHandover } : null,
     stale: hydrated.find((row) => kalenderWIB(new Date(row.openAt)) !== today) ?? null,
     lastClosingBalance,
+    lastClosedToday:
+      lastClosed?.closed_at && kalenderWIB(new Date(lastClosed.closed_at)) === today
+        ? {
+            id: String(lastClosed.id),
+            closedAt: lastClosed.closed_at,
+            closingBalance: lastClosed.closing_balance ?? null,
+          }
+        : null,
   };
 }
 
