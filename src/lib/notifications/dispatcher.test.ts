@@ -1,4 +1,18 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+const originalTemplates = {
+  invoice: process.env.META_WA_TEMPLATE_INVOICE,
+  technician: process.env.META_WA_TEMPLATE_TECHNICIAN,
+  status: process.env.META_WA_TEMPLATE_STATUS,
+};
+
+afterEach(() => {
+  for (const [key, value] of Object.entries(originalTemplates)) {
+    const name = `META_WA_TEMPLATE_${key.toUpperCase()}`;
+    if (value === undefined) delete process.env[name];
+    else process.env[name] = value;
+  }
+});
 
 type Row = {
   id: string;
@@ -9,7 +23,7 @@ type Row = {
   attempts: number;
 };
 
-const { mocks, state, FakeFonnteError } = vi.hoisted(() => {
+const { mocks, state, FakeMetaWaError } = vi.hoisted(() => {
   const s = {
     claimed: [] as Record<string, unknown>[],
     servis: [] as Record<string, unknown>[],
@@ -25,7 +39,7 @@ const { mocks, state, FakeFonnteError } = vi.hoisted(() => {
   };
 
   /**
-   * Cermin persis `FonnteError` dari src/lib/fonnte.ts: konstruktornya
+   * Cermin persis `MetaWaError` dari src/lib/meta-wa.ts: konstruktornya
    * `(reason, scope)` dan `retryable` diturunkan dari `scope`.
    *
    * Dua cacat di brief sudah diperbaiki di sini:
@@ -39,14 +53,14 @@ const { mocks, state, FakeFonnteError } = vi.hoisted(() => {
    *    dideklarasikan di luar `hoisted` belum terinisialisasi saat factory
    *    dijalankan -- seluruh berkas gagal dimuat, bukan cuma satu test.
    */
-  class FakeFonnteError extends Error {
+  class FakeMetaWaError extends Error {
     readonly reason: string;
     readonly scope: "message" | "infrastructure";
     readonly retryable: boolean;
 
     constructor(reason: string, scope: "message" | "infrastructure") {
-      super(`Fonnte gagal: ${reason}`);
-      this.name = "FonnteError";
+      super(`Meta WhatsApp gagal: ${reason}`);
+      this.name = "MetaWaError";
       this.reason = reason;
       this.scope = scope;
       this.retryable = scope !== "message";
@@ -55,10 +69,10 @@ const { mocks, state, FakeFonnteError } = vi.hoisted(() => {
 
   return {
     state: s,
-    FakeFonnteError,
+    FakeMetaWaError,
     mocks: {
       createAdminClient: vi.fn(),
-      sendFonnteWA: vi.fn(),
+      sendMetaWA: vi.fn(),
     },
   };
 });
@@ -67,12 +81,12 @@ vi.mock("@/lib/supabase/admin", () => ({
   createAdminClient: mocks.createAdminClient,
 }));
 
-// Dispatcher memeriksa `error instanceof FonnteError`. Kalau kelas yang di-mock
+// Dispatcher memeriksa `error instanceof MetaWaError`. Kalau kelas yang di-mock
 // berbeda dari kelas yang dipakai di test, `instanceof` selalu false dan error
 // yang sebenarnya permanen akan ikut di-retry.
-vi.mock("@/lib/fonnte", () => ({
-  sendFonnteWA: mocks.sendFonnteWA,
-  FonnteError: FakeFonnteError,
+vi.mock("@/lib/meta-wa", () => ({
+  sendMetaWA: mocks.sendMetaWA,
+  MetaWaError: FakeMetaWaError,
 }));
 
 import { dispatchPendingNotifications } from "./dispatcher";
@@ -84,6 +98,9 @@ const SERVIS = {
   complaint: "Layar pecah",
   tracking_code: "F5FB0DFCB6",
   status: "Masuk",
+  price_estimasi: null,
+  garansi_value: null,
+  garansi_unit: null,
   customer_id: "c1",
   teknisi_id: null,
   branches: {
@@ -173,6 +190,9 @@ function profile(
 
 describe("dispatchPendingNotifications", () => {
   beforeEach(() => {
+    process.env.META_WA_TEMPLATE_INVOICE = "invoice-template";
+    process.env.META_WA_TEMPLATE_TECHNICIAN = "technician-template";
+    process.env.META_WA_TEMPLATE_STATUS = "status-template";
     vi.clearAllMocks();
     state.claimed = [];
     state.servis = [];
@@ -186,7 +206,7 @@ describe("dispatchPendingNotifications", () => {
     state.patchError = null;
     state.selects = [];
     mocks.createAdminClient.mockReturnValue(stubAdmin());
-    mocks.sendFonnteWA.mockResolvedValue({ skip: false, status: true, detail: {} });
+    mocks.sendMetaWA.mockResolvedValue({ skip: false, status: true, detail: {} });
   });
 
   describe("klaim", () => {
@@ -197,7 +217,7 @@ describe("dispatchPendingNotifications", () => {
       expect(state.rpcCalls).toEqual([
         { fn: "claim_service_notifications", args: { p_limit: 25 } },
       ]);
-      expect(mocks.sendFonnteWA).not.toHaveBeenCalled();
+      expect(mocks.sendMetaWA).not.toHaveBeenCalled();
     });
 
     it("membatasi jumlah baris sesuai limit", async () => {
@@ -212,7 +232,7 @@ describe("dispatchPendingNotifications", () => {
       state.rpcError = { message: "koneksi ke database putus" };
 
       await expect(dispatchPendingNotifications()).rejects.toThrow();
-      expect(mocks.sendFonnteWA).not.toHaveBeenCalled();
+      expect(mocks.sendMetaWA).not.toHaveBeenCalled();
     });
 
     it("melempar saat salah satu pengambilan data gagal, tanpa menandai baris", async () => {
@@ -226,7 +246,7 @@ describe("dispatchPendingNotifications", () => {
 
       await expect(dispatchPendingNotifications({ siteOrigin: ORIGIN })).rejects.toThrow();
       expect(state.patches).toEqual([]);
-      expect(mocks.sendFonnteWA).not.toHaveBeenCalled();
+      expect(mocks.sendMetaWA).not.toHaveBeenCalled();
     });
   });
 
@@ -239,24 +259,26 @@ describe("dispatchPendingNotifications", () => {
       const result = await dispatchPendingNotifications({ siteOrigin: ORIGIN });
 
       expect(result.sent).toBe(1);
-      expect(mocks.sendFonnteWA).toHaveBeenCalledWith(
+      expect(mocks.sendMetaWA).toHaveBeenCalledWith(
         "6281234567890",
-        expect.stringContaining("F5FB0DFCB6"),
-        "62",
+        "invoice-template",
+        expect.arrayContaining([
+          expect.objectContaining({ value: expect.stringContaining("F5FB0DFCB6") }),
+        ]),
       );
       expect(patchFor("o1")).toMatchObject({ state: "sent", last_error: null });
     });
 
     it("mengisi provider_message_id supaya rekonsiliasi sisi provider mungkin", async () => {
       // Tanpa ini, kolom yang dibuat Task 7 selamanya NULL dan tidak ada cara
-      // mencocokkan baris outbox dengan pesan yang benar-benar ada di Fonnte.
+      // mencocokkan baris outbox dengan pesan yang benar-benar ada di Meta.
       state.claimed = [row()];
       state.servis = [SERVIS];
       state.customers = [{ id: "c1", phone: "628123456789" }];
-      mocks.sendFonnteWA.mockResolvedValue({
+      mocks.sendMetaWA.mockResolvedValue({
         skip: false,
         status: true,
-        detail: { id: "abc", detail: { id: "wm-77123" } },
+        detail: { messages: [{ id: "wm-77123" }] },
       });
 
       await dispatchPendingNotifications({ siteOrigin: ORIGIN });
@@ -265,13 +287,13 @@ describe("dispatchPendingNotifications", () => {
     });
 
     it("menulis provider_message_id null tanpa menggagalkan kirim saat bentuknya berbeda", async () => {
-      // Fonnte versi berikutnya boleh mengubah bentuk payload. Menolak
+      // Meta versi berikutnya boleh mengubah bentuk payload. Menolak
       // pengiriman karena ID tidak terbaca akan jauh lebih buruk daripada
       // kehilangan ID yang hanya berguna untuk rekonsiliasi.
       state.claimed = [row()];
       state.servis = [SERVIS];
       state.customers = [{ id: "c1", phone: "628123456789" }];
-      mocks.sendFonnteWA.mockResolvedValue({
+      mocks.sendMetaWA.mockResolvedValue({
         skip: false,
         status: true,
         detail: { status: true },
@@ -286,14 +308,14 @@ describe("dispatchPendingNotifications", () => {
       });
     });
 
-    it("mengubah id numerik dari Fonnte menjadi teks", async () => {
+    it("mengubah id numerik dari Meta menjadi teks", async () => {
       state.claimed = [row()];
       state.servis = [SERVIS];
       state.customers = [{ id: "c1", phone: "628123456789" }];
-      mocks.sendFonnteWA.mockResolvedValue({
+      mocks.sendMetaWA.mockResolvedValue({
         skip: false,
         status: true,
-        detail: { detail: { id: 12345 } },
+        detail: { messages: [{ id: 12345 }] },
       });
 
       await dispatchPendingNotifications({ siteOrigin: ORIGIN });
@@ -312,10 +334,10 @@ describe("dispatchPendingNotifications", () => {
       const result = await dispatchPendingNotifications({ siteOrigin: ORIGIN });
 
       expect(result.sent).toBe(1);
-      expect(mocks.sendFonnteWA).toHaveBeenCalledWith(
+      expect(mocks.sendMetaWA).toHaveBeenCalledWith(
         "628123456789",
-        expect.stringContaining("Selesai"),
-        "62",
+        "status-template",
+        expect.arrayContaining([expect.objectContaining({ value: "Selesai" })]),
       );
     });
 
@@ -331,6 +353,23 @@ describe("dispatchPendingNotifications", () => {
 
       expect(patchFor("o1")).not.toHaveProperty("sent_at");
     });
+
+    it("menyertakan estimasi dan garansi pada template invoice", async () => {
+      state.claimed = [row()];
+      state.servis = [{ ...SERVIS, price_estimasi: 150000, garansi_value: 3, garansi_unit: "bulan" }];
+      state.customers = [{ id: "c1", phone: "628123456789" }];
+
+      await dispatchPendingNotifications({ siteOrigin: ORIGIN });
+
+      expect(mocks.sendMetaWA).toHaveBeenCalledWith(
+        "628123456789",
+        "invoice-template",
+        expect.arrayContaining([
+          expect.objectContaining({ value: "Rp 150.000" }),
+          expect.objectContaining({ value: "3 bulan" }),
+        ]),
+      );
+    });
   });
 
   describe("penerima yang tidak bisa dihubungi", () => {
@@ -342,7 +381,7 @@ describe("dispatchPendingNotifications", () => {
       const result = await dispatchPendingNotifications({ siteOrigin: ORIGIN });
 
       expect(result).toEqual({ sent: 0, skipped: 0, failed: 1 });
-      expect(mocks.sendFonnteWA).not.toHaveBeenCalled();
+      expect(mocks.sendMetaWA).not.toHaveBeenCalled();
       expect(patchFor("o1")).toMatchObject({ state: "failed", last_error: "no_phone" });
     });
 
@@ -358,7 +397,7 @@ describe("dispatchPendingNotifications", () => {
       const result = await dispatchPendingNotifications({ siteOrigin: ORIGIN });
 
       expect(result).toEqual({ sent: 0, skipped: 0, failed: 1 });
-      expect(mocks.sendFonnteWA).not.toHaveBeenCalled();
+      expect(mocks.sendMetaWA).not.toHaveBeenCalled();
       expect(patchFor("o1")).toMatchObject({ state: "failed", last_error: "no_phone" });
     });
 
@@ -444,10 +483,10 @@ describe("dispatchPendingNotifications", () => {
       const result = await dispatchPendingNotifications({ siteOrigin: ORIGIN });
 
       expect(result.sent).toBe(1);
-      expect(mocks.sendFonnteWA).toHaveBeenCalledWith(
+      expect(mocks.sendMetaWA).toHaveBeenCalledWith(
         "628999999999",
-        expect.stringContaining("SRV-2026-0012"),
-        "62",
+        "technician-template",
+        expect.arrayContaining([expect.objectContaining({ value: "SRV-2026-0012" })]),
       );
     });
 
@@ -461,7 +500,7 @@ describe("dispatchPendingNotifications", () => {
       const result = await dispatchPendingNotifications({ siteOrigin: ORIGIN });
 
       expect(result).toEqual({ sent: 0, skipped: 0, failed: 1 });
-      expect(mocks.sendFonnteWA).not.toHaveBeenCalled();
+      expect(mocks.sendMetaWA).not.toHaveBeenCalled();
       expect(patchFor("o1")).toMatchObject({
         state: "failed",
         last_error: "technician_inactive",
@@ -498,7 +537,7 @@ describe("dispatchPendingNotifications", () => {
       const result = await dispatchPendingNotifications({ siteOrigin: ORIGIN });
 
       expect(result.failed).toBe(1);
-      expect(mocks.sendFonnteWA).not.toHaveBeenCalled();
+      expect(mocks.sendMetaWA).not.toHaveBeenCalled();
       expect(patchFor("o1")).toMatchObject({
         state: "failed",
         last_error: "technician_inactive",
@@ -533,7 +572,7 @@ describe("dispatchPendingNotifications", () => {
       const result = await dispatchPendingNotifications({ siteOrigin: ORIGIN });
 
       expect(result.failed).toBe(1);
-      expect(mocks.sendFonnteWA).not.toHaveBeenCalled();
+      expect(mocks.sendMetaWA).not.toHaveBeenCalled();
       expect(patchFor("o1")).toMatchObject({
         state: "failed",
         last_error: "unsupported_technician_event",
@@ -564,8 +603,8 @@ describe("dispatchPendingNotifications", () => {
       state.claimed = [row({ attempts: 1 })];
       state.servis = [SERVIS];
       state.customers = [{ id: "c1", phone: "628123456789" }];
-      mocks.sendFonnteWA.mockRejectedValue(
-        new FakeFonnteError("insufficient quota", "infrastructure"),
+      mocks.sendMetaWA.mockRejectedValue(
+        new FakeMetaWaError("insufficient quota", "infrastructure"),
       );
 
       const now = new Date("2026-09-27T10:00:00.000Z");
@@ -585,8 +624,8 @@ describe("dispatchPendingNotifications", () => {
       state.claimed = [row({ attempts: 1 })];
       state.servis = [SERVIS];
       state.customers = [{ id: "c1", phone: "628123456789" }];
-      mocks.sendFonnteWA.mockRejectedValue(
-        new FakeFonnteError("HTTP 401", "infrastructure"),
+      mocks.sendMetaWA.mockRejectedValue(
+        new FakeMetaWaError("HTTP 401", "infrastructure"),
       );
 
       const result = await dispatchPendingNotifications({ siteOrigin: ORIGIN });
@@ -599,8 +638,8 @@ describe("dispatchPendingNotifications", () => {
       state.claimed = [row({ attempts: 3 })];
       state.servis = [SERVIS];
       state.customers = [{ id: "c1", phone: "628123456789" }];
-      mocks.sendFonnteWA.mockRejectedValue(
-        new FakeFonnteError("insufficient quota", "infrastructure"),
+      mocks.sendMetaWA.mockRejectedValue(
+        new FakeMetaWaError("insufficient quota", "infrastructure"),
       );
 
       const result = await dispatchPendingNotifications({ siteOrigin: ORIGIN });
@@ -613,7 +652,7 @@ describe("dispatchPendingNotifications", () => {
       state.claimed = [row({ attempts: 1 })];
       state.servis = [SERVIS];
       state.customers = [{ id: "c1", phone: "628123456789" }];
-      mocks.sendFonnteWA.mockRejectedValue(new FakeFonnteError("invalid target", "message"));
+      mocks.sendMetaWA.mockRejectedValue(new FakeMetaWaError("invalid target", "message"));
 
       const result = await dispatchPendingNotifications({ siteOrigin: ORIGIN });
 
@@ -625,13 +664,13 @@ describe("dispatchPendingNotifications", () => {
     });
 
     it("memperlakukan error yang tidak dikenal sebagai sementara", async () => {
-      // `instanceof FonnteError` false untuk apa pun yang lain, termasuk bug di
+      // `instanceof MetaWaError` false untuk apa pun yang lain, termasuk bug di
       // kode ini sendiri. Perlakukan sebagai terminal akan membuang notifikasi
       // karena kesalahan yang tidak ada hubungannya dengan pesannya.
       state.claimed = [row({ attempts: 0 })];
       state.servis = [SERVIS];
       state.customers = [{ id: "c1", phone: "628123456789" }];
-      mocks.sendFonnteWA.mockRejectedValue(new TypeError("undefined is not a function"));
+      mocks.sendMetaWA.mockRejectedValue(new TypeError("undefined is not a function"));
 
       const result = await dispatchPendingNotifications({ siteOrigin: ORIGIN });
 
@@ -649,8 +688,8 @@ describe("dispatchPendingNotifications", () => {
       state.claimed = [row({ attempts: 0 })];
       state.servis = [SERVIS];
       state.customers = [{ id: "c1", phone: "628123456789" }];
-      mocks.sendFonnteWA.mockRejectedValue(
-        new FakeFonnteError("insufficient quota", "infrastructure"),
+      mocks.sendMetaWA.mockRejectedValue(
+        new FakeMetaWaError("insufficient quota", "infrastructure"),
       );
 
       await dispatchPendingNotifications({ siteOrigin: ORIGIN });
@@ -682,8 +721,8 @@ describe("dispatchPendingNotifications", () => {
       state.claimed = [row({ attempts: 4 })];
       state.servis = [SERVIS];
       state.customers = [{ id: "c1", phone: "628123456789" }];
-      mocks.sendFonnteWA.mockRejectedValue(
-        new FakeFonnteError("insufficient quota", "infrastructure"),
+      mocks.sendMetaWA.mockRejectedValue(
+        new FakeMetaWaError("insufficient quota", "infrastructure"),
       );
 
       const result = await dispatchPendingNotifications({ siteOrigin: ORIGIN });
@@ -693,40 +732,40 @@ describe("dispatchPendingNotifications", () => {
     });
   });
 
-  describe("Fonnte belum dikonfigurasi", () => {
+  describe("Meta WhatsApp belum dikonfigurasi", () => {
     it("menunda baris, tidak menghapusnya, dan tidak menambah attempts", async () => {
-      // `skip` berarti FONNTE_TOKEN belum ada: keadaan yang disengaja, bukan
+      // `skip` berarti kredensial Meta belum ada: keadaan yang disengaja, bukan
       // error. Tidak ada permintaan yang keluar, jadi tidak ada percobaan kirim
       // yang perlu dihitung.
       state.claimed = [row({ attempts: 2 })];
       state.servis = [SERVIS];
       state.customers = [{ id: "c1", phone: "628123456789" }];
-      mocks.sendFonnteWA.mockResolvedValue({ skip: true });
+      mocks.sendMetaWA.mockResolvedValue({ skip: true });
 
       const result = await dispatchPendingNotifications({ siteOrigin: ORIGIN });
 
       // Penghitung `skipped` tetap berarti satu hal saja: tidak dikirim pada run
-      // ini karena Fonnte belum dikonfigurasi.
+      // ini karena Meta belum dikonfigurasi.
       expect(result).toEqual({ sent: 0, skipped: 1, failed: 0 });
       const patch = patchFor("o1");
       expect(patch).toMatchObject({
         state: "pending",
-        last_error: "fonnte_not_configured",
+        last_error: "meta_wa_not_configured",
       });
       expect(patch).not.toHaveProperty("attempts");
     });
 
-    it("tidak pernah menulis state terminal untuk Fonnte yang belum dikonfigurasi", async () => {
+    it("tidak pernah menulis state terminal untuk Meta yang belum dikonfigurasi", async () => {
       // Regression guard untuk kehilangan data yang tidak bisa dipulihkan.
       // 'skipped' tidak akan pernah dipilih lagi oleh claim (yang hanya
       // mengambil state = 'pending') dan dedupe_key-nya sudah terpakai di
       // enqueue dengan on conflict do nothing -- jadi satu tick tanpa
-      // FONNTE_TOKEN akan menghapus antrean secara permanen, dan memasang
+      // kredensial Meta akan menghapus antrean secara permanen, dan memasang
       // token belakangan tidak memulihkan apa pun.
       state.claimed = [row({ attempts: 0 })];
       state.servis = [SERVIS];
       state.customers = [{ id: "c1", phone: "628123456789" }];
-      mocks.sendFonnteWA.mockResolvedValue({ skip: true });
+      mocks.sendMetaWA.mockResolvedValue({ skip: true });
 
       await dispatchPendingNotifications({ siteOrigin: ORIGIN });
 
@@ -765,7 +804,7 @@ describe("dispatchPendingNotifications", () => {
       state.claimed = [row({ id: "o1" }), row({ id: "o2" })];
       state.servis = [SERVIS];
       state.customers = [{ id: "c1", phone: "628123456789" }];
-      mocks.sendFonnteWA
+      mocks.sendMetaWA
         .mockRejectedValueOnce(new Error("boom"))
         .mockResolvedValueOnce({ skip: false, status: true, detail: {} });
 
@@ -799,7 +838,7 @@ describe("dispatchPendingNotifications", () => {
       ];
       state.servis = [SERVIS];
       state.customers = [{ id: "c1", phone: "628123456789" }];
-      mocks.sendFonnteWA.mockImplementation(async (target: string) =>
+      mocks.sendMetaWA.mockImplementation(async (target: string) =>
         target === "628999999999" ? { skip: true } : { skip: false, status: true, detail: {} },
       );
       state.patchThrows = ["o4"];
@@ -862,9 +901,10 @@ describe("dispatchPendingNotifications", () => {
       const result = await dispatchPendingNotifications();
 
       expect(result.sent).toBe(1);
-      const message = mocks.sendFonnteWA.mock.calls[0][1] as string;
-      expect(message).not.toContain("undefined");
-      expect(message).not.toContain("/lacak/");
+      const parameters = mocks.sendMetaWA.mock.calls[0][2] as { value: string }[];
+      const values = parameters.map((p) => p.value).join(" ");
+      expect(values).not.toContain("undefined");
+      expect(values).not.toContain("/lacak/");
     });
 
     it("memakai nama toko dari cabang, dan tidak pernah mengarangnya", async () => {
@@ -879,9 +919,9 @@ describe("dispatchPendingNotifications", () => {
       const result = await dispatchPendingNotifications({ siteOrigin: ORIGIN });
 
       expect(result.sent).toBe(1);
-      const message = mocks.sendFonnteWA.mock.calls[0][1] as string;
-      expect(message).toContain("Servis diterima");
-      expect(message).not.toContain("Cervise -");
+      const parameters = mocks.sendMetaWA.mock.calls[0][2] as { value: string }[];
+      expect(parameters[0].value).toBe("-");
+      expect(parameters).toHaveLength(7);
     });
   });
 });
