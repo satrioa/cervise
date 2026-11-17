@@ -146,4 +146,29 @@ describe("sendMetaWA", () => {
     expect((error as MetaWaError).scope).toBe("infrastructure");
     expect((error as MetaWaError).retryable).toBe(true);
   });
+
+  it("membalas kegagalan fetch sebagai infrastructure", async () => {
+    process.env.META_WA_ACCESS_TOKEN = "test-token";
+    process.env.META_WA_PHONE_NUMBER_ID = "1443653698834770";
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("fetch failed")));
+
+    const error = await sendMetaWA("628123456789", "invoice", []).catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(MetaWaError);
+    expect((error as MetaWaError).reason).toBe("fetch failed");
+    expect((error as MetaWaError).scope).toBe("infrastructure");
+    expect((error as MetaWaError).retryable).toBe(true);
+  });
+
+  it("membalas error pada body 200 sebagai message-scoped", async () => {
+    process.env.META_WA_ACCESS_TOKEN = "test-token";
+    process.env.META_WA_PHONE_NUMBER_ID = "1443653698834770";
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(ok({ error: { code: 131026, message: "Message undeliverable" } })),
+    );
+
+    const error = await sendMetaWA("628123456789", "invoice", []).catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(MetaWaError);
+    expect((error as MetaWaError).scope).toBe("message");
+  });
 });

@@ -12,7 +12,7 @@ const MESSAGE_SCOPED_CODES = new Set([100, 131009, 131026, 132001]);
 
 /**
  * `message` = nomor, parameter, atau template yang salah; mengulangnya tidak
- * akan berhasil. `infrastructure` = token/Fonnte/jaringan yang bermasalah;
+ * akan berhasil. `infrastructure` = token/akun Meta/jaringan yang bermasalah;
  * pesannya masih layak dicoba lagi. Token dipakai bersama semua tenant, jadi
  * 190 tidak boleh terminal.
  */
@@ -31,7 +31,8 @@ export class MetaWaError extends Error {
 }
 
 function isMessageScoped(code: unknown, reason: string | null): boolean {
-  if (typeof code === "number" && MESSAGE_SCOPED_CODES.has(code)) return true;
+  const n = Number(code);
+  if (Number.isFinite(n) && MESSAGE_SCOPED_CODES.has(n)) return true;
   if (!reason) return false;
   const lower = reason.toLowerCase();
   return (
@@ -50,26 +51,31 @@ export async function sendMetaWA(
   const phoneNumberId = process.env.META_WA_PHONE_NUMBER_ID;
   if (!token || !phoneNumberId || !templateName) return { skip: true };
 
-  const res = await fetch(
-    `https://graph.facebook.com/v21.0/${encodeURIComponent(phoneNumberId)}/messages`,
-    {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        messaging_product: "whatsapp",
-        to: phone,
-        type: "template",
-        template: {
-          name: templateName,
-          language: { code: "id" },
-          components: [{ type: "body", parameters }],
+  let res: Response;
+  try {
+    res = await fetch(
+      `https://graph.facebook.com/v21.0/${encodeURIComponent(phoneNumberId)}/messages`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
         },
-      }),
-    },
-  );
+        body: JSON.stringify({
+          messaging_product: "whatsapp",
+          to: phone,
+          type: "template",
+          template: {
+            name: templateName,
+            language: { code: "id" },
+            components: [{ type: "body", parameters }],
+          },
+        }),
+      },
+    );
+  } catch (err) {
+    throw new MetaWaError(err instanceof Error ? err.message : String(err), "infrastructure");
+  }
 
   let payload: Record<string, unknown> = {};
   try {
