@@ -24,6 +24,7 @@ import { OvioProvider } from "@/components/shared/world-provider";
 import { normalizeAppRole } from "@/lib/nav/manifest";
 import { CashDialogProvider, useCashDialog } from "@/components/cash/cash-dialog-context";
 import { checkOpenCashSession } from "@/app/app/actions/cash";
+import { reconnectSavedPrinter } from "@/lib/printer";
 import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
 
@@ -132,6 +133,13 @@ function CompactShellInner({
     const onChange = (event: MediaQueryListEvent) => setDesktop(event.matches);
     mql.addEventListener("change", onChange);
     return () => mql.removeEventListener("change", onChange);
+  }, []);
+
+  // Koneksi GATT/printer hilang saat halaman di-refresh. Pulihkan dari izin
+  // tersimpan tanpa chooser — tombol status printer hanya ada di shell admin,
+  // dan pengaturan printer baru ter-mount saat drawer dibuka.
+  useEffect(() => {
+    void reconnectSavedPrinter();
   }, []);
 
   const tabs =
