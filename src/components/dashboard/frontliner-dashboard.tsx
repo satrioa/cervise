@@ -28,6 +28,7 @@ import { CandyButton } from "@/components/ui/candy-button";
 import { Button as CossButton } from "@/components/ui/coss-button";
 import { Button } from "@/components/ui/button";
 import { AppImage } from "@/components/ui/app-image";
+import { HomeGreeting } from "@/components/ui/home-greeting";
 import { Input } from "@/components/ui/input";
 import Gauge from "@/components/arc/gauge/gauge";
 import {
@@ -281,18 +282,14 @@ export function FrontlinerDashboard({
       <div className="flex min-h-0 flex-1 flex-col px-4 py-6 sm:px-6 sm:py-8 lg:px-8 lg:py-10">
         <div className="mx-auto flex min-h-0 w-full max-w-[1264px] flex-1 flex-col">
           <div className="flex shrink-0 flex-wrap items-start justify-between gap-3">
-            <div>
-              <div className="font-mono text-[10px] text-muted-foreground uppercase tracking-[0.3em]">
-                {new Date().toLocaleDateString("id-ID", {
-                  weekday: "long",
-                  day: "numeric",
-                  month: "long",
-                })}
-              </div>
-              <h1 className="mt-1 font-heading text-[2rem] font-normal leading-tight tracking-[-0.03em] sm:text-[2.5rem]">
-                {greeting()}, {fullName ?? "Frontliner"}.
-              </h1>
-            </div>
+            <HomeGreeting
+              dateLabel={new Date().toLocaleDateString("id-ID", {
+                weekday: "long",
+                day: "numeric",
+                month: "long",
+              })}
+              greeting={`${greeting()}, ${fullName ?? "Frontliner"}.`}
+            />
             {pendingHandover ? (
               <CossButton
                 size="sm"
