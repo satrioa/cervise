@@ -1,6 +1,21 @@
 import { describe, expect, it } from "vitest";
 import { NAV_ENTRIES, normalizeAppRole, type AppRole } from "@/lib/nav/manifest";
 import { buildSettingsGroups } from "./layout";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+
+const layoutSource = readFileSync(
+  join(process.cwd(), "src/app/app/pengaturan/layout.tsx"),
+  "utf8",
+);
+const navSource = readFileSync(
+  join(process.cwd(), "src/components/layout/settings-nav.tsx"),
+  "utf8",
+);
+const pageHeaderSource = readFileSync(
+  join(process.cwd(), "src/components/layout/page-header.tsx"),
+  "utf8",
+);
 
 /**
  * Layout ini adalah Server Component (memakai `getActiveTenant()`), sedangkan
@@ -107,5 +122,29 @@ describe("isi sub-sidebar", () => {
 
   it("normalizeAppRole menolak role tak dikenal", () => {
     expect(normalizeAppRole("hacker")).toBeNull();
+  });
+});
+
+describe("sub-menu pengaturan master admin (tabs horizontal)", () => {
+  it("menyediakan grup lewat provider, bukan tabs di atas header", () => {
+    expect(layoutSource).toContain("SettingsTabsProvider");
+    expect(layoutSource).toMatch(/!isCompact[\s\S]*SettingsTabsProvider/);
+    expect(layoutSource).not.toMatch(/<SettingsTabs\s/);
+  });
+
+  it("tabs dirender sebagai Link underline tanpa label dan dengan lebar isi", () => {
+    expect(navSource).toMatch(/export function SettingsHeaderTabs/);
+    expect(navSource).toMatch(/variant="underline"/);
+    expect(navSource).toMatch(/nativeButton=\{false\}/);
+    expect(navSource).toMatch(/render=\{<Link href=\{entry\.href\} \/>\}/);
+    expect(navSource).toContain("shrink-0 !grow-0");
+    const tabsBody = navSource.slice(navSource.indexOf("export function SettingsHeaderTabs"));
+    expect(tabsBody).not.toContain("block.label");
+    expect(pageHeaderSource).toContain("<SettingsHeaderTabs />");
+  });
+
+  it("teknisi/frontliner tetap memakai sidebar lama", () => {
+    expect(layoutSource).toMatch(/role === "TECHNICIAN" \|\| role === "FRONTLINER"/);
+    expect(layoutSource).toContain("<SettingsNav groups={groups} />");
   });
 });

@@ -4,7 +4,7 @@ import {
   SettingsMobileNav,
   SettingsNav,
   SettingsSectionHeader,
-  SettingsTabs,
+  SettingsTabsProvider,
   type SettingsNavGroup,
 } from "@/components/layout/settings-nav";
 
@@ -71,10 +71,11 @@ export default async function PengaturanLayout({ children }: { children: React.R
   const isCompact = role === "TECHNICIAN" || role === "FRONTLINER";
   if (!isCompact) {
     return (
-      <div className="flex min-h-0 flex-1 flex-col">
-        <SettingsTabs groups={groups} />
-        <div className="flex-1 min-h-0 overflow-y-auto">{children}</div>
-      </div>
+      <SettingsTabsProvider value={groups}>
+        <div className="flex min-h-0 flex-1 flex-col">
+          <div className="flex-1 min-h-0 overflow-y-auto">{children}</div>
+        </div>
+      </SettingsTabsProvider>
     );
   }
 

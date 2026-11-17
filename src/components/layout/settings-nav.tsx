@@ -2,8 +2,10 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { createContext, useContext } from "react";
 import { cn } from "@/lib/utils";
 import type { NavGroup } from "@/lib/nav/manifest";
+import { Tabs, TabsList, TabsTab } from "@/components/ui/tabs";
 
 export type SettingsNavItem = { href: string; label: string };
 
@@ -75,6 +77,55 @@ export function SettingsNav({ groups }: { groups: SettingsNavGroup[] }) {
         </ul>
       </div>
     </nav>
+  );
+}
+
+/**
+ * Grup nav pengaturan disuplai layout pengaturan, lalu dibaca `PageHeader`
+ * lewat komponen ini supaya tabs tampil DI BAWAH breadcrumb, bukan di atasnya.
+ */
+const SettingsTabsContext = createContext<SettingsNavGroup[] | null>(null);
+export const SettingsTabsProvider = SettingsTabsContext.Provider;
+
+/**
+ * Sub-menu pengaturan sebagai tabs horizontal underline (partikel `p-tabs-2`)
+ * untuk shell master admin. Tab dirender sebagai `<Link>`, jadi perpindahan
+ * halaman tetap navigasi asli. Tanpa label grup dan dengan lebar tab yang
+ * mengikuti panjang labelnya.
+ */
+export function SettingsHeaderTabs() {
+  const groups = useContext(SettingsTabsContext);
+  const pathname = usePathname();
+  if (!groups) return null;
+  const block = activeGroup(groups, pathname);
+  if (!block) return null;
+
+  const activeHref =
+    block.entries.find((entry) => isEntryActive(pathname, entry.href))?.href ??
+    block.entries[0]?.href;
+
+  return (
+    <div className="border-t border-border/40 px-3 sm:px-4 lg:px-5">
+      <Tabs value={activeHref} className="gap-0">
+        <TabsList
+          variant="underline"
+          className="justify-start overflow-x-auto scrollbar-none border-b-0"
+        >
+          {block.entries.map((entry) => (
+            <TabsTab
+              key={entry.href}
+              value={entry.href}
+              nativeButton={false}
+              render={<Link href={entry.href} />}
+              aria-current={isEntryActive(pathname, entry.href) ? "page" : undefined}
+              className="shrink-0 !grow-0"
+            >
+              {entry.label}
+            </TabsTab>
+          ))}
+        </TabsList>
+      </Tabs>
+    </div>
   );
 }
 

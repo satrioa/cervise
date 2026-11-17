@@ -1,6 +1,9 @@
 import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 import { FilterGroup } from "./filter-group";
+import { PageBreadcrumb } from "./page-breadcrumb";
+import { PageHeaderContainer } from "./page-header-container";
+import { SettingsHeaderTabs } from "./settings-nav";
 import { ShellChrome } from "./shell-chrome";
 
 export type PageHeaderProps = {
@@ -48,31 +51,25 @@ export function PageHeader({
   return (
     <header
       className={cn(
-        "border-b border-border/60 bg-header/90 backdrop-blur-md",
+        "border-b border-border/60 bg-white dark:bg-[#0f0f0f]",
         sticky ? "sticky top-0 z-30" : "relative",
         className,
       )}
     >
-      <div
-        className={cn(
-          "mx-auto flex min-h-16 w-full max-w-6xl flex-row items-center justify-between gap-4 px-4 sm:px-6 lg:px-8",
-          containerClassName,
-        )}
-      >
+      <PageHeaderContainer className="flex min-h-16 flex-row items-center justify-between gap-4">
         <div className="min-w-0 flex-1">
-          <h1 className={cn("truncate font-heading text-xl", titleClassName)}>{title}</h1>
-          {description ? <p className="mt-0.5 truncate text-sm text-muted-foreground">{description}</p> : null}
+          <PageBreadcrumb title={title} titleClassName={titleClassName} />
         </div>
         <ShellChrome />
-      </div>
+      </PageHeaderContainer>
       {hasRow2 ? (
         <div className="border-t border-border/40">
           {/* Mobile: search + tombol filter + aksi di baris pertama. Panel
               filter dibuka lewat ikon dan ditata grid 2 kolom supaya semua
               kontrol terlihat tanpa scroll horizontal. */}
-          <div
+          <PageHeaderContainer
             className={cn(
-              "mx-auto flex w-full max-w-6xl flex-wrap items-center gap-2 px-4 py-2 sm:h-12 sm:flex-nowrap sm:gap-3 sm:py-0 sm:px-6 lg:px-8",
+              "flex flex-wrap items-center gap-2 py-2 sm:h-12 sm:flex-nowrap sm:gap-3 sm:py-0",
               containerClassName,
               row2ClassName,
             )}
@@ -96,9 +93,10 @@ export function PageHeader({
                 {filters}
               </FilterGroup>
             ) : null}
-          </div>
+          </PageHeaderContainer>
         </div>
       ) : null}
+      <SettingsHeaderTabs />
     </header>
   );
 }
