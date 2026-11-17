@@ -28,11 +28,15 @@ describe("pickup servis wajib tanda tangan customer", () => {
   });
 
   it("drag kanban ke Sudah Diambil membuka dialog sebelum state berubah", () => {
-    const start = page.indexOf('if (moved && moved.to === "Sudah Diambil")');
+    // Drop diproses di onDragEnd lewat `pendingDropRef`, bukan lagi dari
+    // objek `moved` saat kartu melintas kolom.
+    const start = page.indexOf('const openForm = () => {');
     expect(start).toBeGreaterThan(-1);
-    const body = page.slice(start, start + 400);
-    expect(body).toContain("openPickup([moved.item])");
+    const body = page.slice(start, start + 700);
+    expect(body).toContain('if (pending.to === "Sudah Diambil")');
+    expect(body).toContain("openPickup([pending.item])");
     expect(body).toContain("return");
+    expect(body).not.toMatch(/updateServisStatus\(pending\.item\.id, "Sudah Diambil"/);
   });
 
   it("bulk Sudah Diambil memakai satu tanda tangan untuk semua servis", () => {

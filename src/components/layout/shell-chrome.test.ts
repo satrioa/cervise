@@ -51,10 +51,11 @@ describe("shell chrome", () => {
   });
 
   it("pil profil tetap di kanan saat tombol cari disembunyikan di lg", () => {
-    // `lg:hidden` menghapus tombol cari dari grid, jadi tanpa `col-start-3`
-    // pil profil auto-place ke kolom tengah: profil dan popover-nya muncul di
-    // tengah layar.
-    expect(compactBottomBar).toMatch(/col-start-3/);
+    // Bar identitas memakai flex: grup tenant di kiri, grup cari+profil
+    // didorong ke kanan dengan `ml-auto`. Tombol cari `lg:hidden` tidak
+    // menggeser profil ke tengah.
+    expect(compactBottomBar).toMatch(/ml-auto flex shrink-0 items-center gap-2/);
+    expect(compactBottomBar).toMatch(/aria-label="Menu akun"/);
   });
 
   it("bottom nav berisi Home, Servis, item role-aware, dan Menu", () => {
