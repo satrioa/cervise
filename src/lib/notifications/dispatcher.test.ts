@@ -5,6 +5,7 @@ const originalTemplates = {
   technician: process.env.META_WA_TEMPLATE_TECHNICIAN,
   status: process.env.META_WA_TEMPLATE_STATUS,
 };
+const originalPhoneNumberId = process.env.META_WA_PHONE_NUMBER_ID;
 
 afterEach(() => {
   for (const [key, value] of Object.entries(originalTemplates)) {
@@ -12,6 +13,8 @@ afterEach(() => {
     if (value === undefined) delete process.env[name];
     else process.env[name] = value;
   }
+  if (originalPhoneNumberId === undefined) delete process.env.META_WA_PHONE_NUMBER_ID;
+  else process.env.META_WA_PHONE_NUMBER_ID = originalPhoneNumberId;
 });
 
 type Row = {
@@ -105,7 +108,7 @@ const SERVIS = {
   teknisi_id: null,
   branches: {
     organization_id: "o1",
-    organizations: { name: "Servisin", slug: "servisin" },
+    organizations: { name: "Servisin", slug: "servisin", meta_phone_number_id: null },
   },
 };
 
@@ -193,6 +196,7 @@ describe("dispatchPendingNotifications", () => {
     process.env.META_WA_TEMPLATE_INVOICE = "invoice-template";
     process.env.META_WA_TEMPLATE_TECHNICIAN = "technician-template";
     process.env.META_WA_TEMPLATE_STATUS = "status-template";
+    process.env.META_WA_PHONE_NUMBER_ID = "global-phone-id";
     vi.clearAllMocks();
     state.claimed = [];
     state.servis = [];
@@ -265,8 +269,50 @@ describe("dispatchPendingNotifications", () => {
         expect.arrayContaining([
           expect.objectContaining({ value: expect.stringContaining("F5FB0DFCB6") }),
         ]),
+        "global-phone-id",
       );
       expect(patchFor("o1")).toMatchObject({ state: "sent", last_error: null });
+    });
+
+    it("memakai nomor tenant bila sudah dikonfigurasi", async () => {
+      state.claimed = [row()];
+      state.servis = [
+        {
+          ...SERVIS,
+          branches: {
+            ...SERVIS.branches,
+            organizations: {
+              ...SERVIS.branches.organizations,
+              meta_phone_number_id: "tenant-phone-id",
+            },
+          },
+        },
+      ];
+      state.customers = [{ id: "c1", phone: "628123456789" }];
+
+      await dispatchPendingNotifications({ siteOrigin: ORIGIN });
+
+      expect(mocks.sendMetaWA).toHaveBeenCalledWith(
+        "628123456789",
+        "invoice-template",
+        expect.any(Array),
+        "tenant-phone-id",
+      );
+    });
+
+    it("fallback ke nomor global bila tenant belum punya nomor", async () => {
+      state.claimed = [row()];
+      state.servis = [SERVIS];
+      state.customers = [{ id: "c1", phone: "628123456789" }];
+
+      await dispatchPendingNotifications({ siteOrigin: ORIGIN });
+
+      expect(mocks.sendMetaWA).toHaveBeenCalledWith(
+        "628123456789",
+        "invoice-template",
+        expect.any(Array),
+        "global-phone-id",
+      );
     });
 
     it("mengisi provider_message_id supaya rekonsiliasi sisi provider mungkin", async () => {
@@ -338,6 +384,7 @@ describe("dispatchPendingNotifications", () => {
         "628123456789",
         "status-template",
         expect.arrayContaining([expect.objectContaining({ value: "Selesai" })]),
+        "global-phone-id",
       );
     });
 
@@ -368,6 +415,7 @@ describe("dispatchPendingNotifications", () => {
           expect.objectContaining({ value: "Rp 150.000" }),
           expect.objectContaining({ value: "3 bulan" }),
         ]),
+        "global-phone-id",
       );
     });
   });
@@ -487,6 +535,7 @@ describe("dispatchPendingNotifications", () => {
         "628999999999",
         "technician-template",
         expect.arrayContaining([expect.objectContaining({ value: "SRV-2026-0012" })]),
+        "global-phone-id",
       );
     });
 

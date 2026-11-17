@@ -46,15 +46,18 @@ export async function sendMetaWA(
   phone: string,
   templateName: string,
   parameters: TemplateParameter[],
+  // Nomor tenant dikirim eksplisit oleh dispatcher. Default env dipakai tenant
+  // yang belum punya nomor sendiri, supaya perilaku lama tetap berjalan.
+  phoneNumberId: string = process.env.META_WA_PHONE_NUMBER_ID ?? "",
 ): Promise<MetaWaResult> {
   const token = process.env.META_WA_ACCESS_TOKEN;
-  const phoneNumberId = process.env.META_WA_PHONE_NUMBER_ID;
-  if (!token || !phoneNumberId || !templateName) return { skip: true };
+  const senderId = phoneNumberId.trim();
+  if (!token || !senderId || !templateName) return { skip: true };
 
   let res: Response;
   try {
     res = await fetch(
-      `https://graph.facebook.com/v21.0/${encodeURIComponent(phoneNumberId)}/messages`,
+      `https://graph.facebook.com/v21.0/${encodeURIComponent(senderId)}/messages`,
       {
         method: "POST",
         headers: {
@@ -96,4 +99,45 @@ export async function sendMetaWA(
   }
 
   return { skip: false, status: true, detail: payload };
+}
+
+/**
+ * Dipakai halaman owner saat menyimpan nomor tenant. Memastikan ID benar-benar
+ * nomor yang bisa diakses token kita, bukan menerima ID asal-asalan yang nanti
+ * baru gagal di antrean pengiriman.
+ */
+export async function verifyMetaPhoneNumber(phoneNumberId: string): Promise<string | null> {
+  const token = process.env.META_WA_ACCESS_TOKEN;
+  const senderId = phoneNumberId.trim();
+  if (!token || !senderId) throw new Error("META_WA_ACCESS_TOKEN belum diset");
+
+  let res: Response;
+  try {
+    res = await fetch(
+      `https://graph.facebook.com/v21.0/${encodeURIComponent(senderId)}?fields=id,display_name,verified_name`,
+      { headers: { Authorization: `Bearer ${token}` } },
+    );
+  } catch (err) {
+    throw new MetaWaError(err instanceof Error ? err.message : String(err), "infrastructure");
+  }
+
+  let payload: Record<string, unknown> = {};
+  try {
+    payload = (await res.json()) as Record<string, unknown>;
+  } catch {
+    payload = {};
+  }
+
+  const apiError = payload.error as { message?: unknown; code?: unknown } | undefined;
+  if (!res.ok || apiError || typeof payload.id !== "string") {
+    const rawReason =
+      typeof apiError?.message === "string" && apiError.message ? apiError.message : null;
+    const reason = rawReason ?? `HTTP ${res.status}`;
+    throw new MetaWaError(
+      reason,
+      isMessageScoped(apiError?.code, rawReason) ? "message" : "infrastructure",
+    );
+  }
+
+  return typeof payload.display_name === "string" ? payload.display_name : null;
 }

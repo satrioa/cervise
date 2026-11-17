@@ -17,7 +17,7 @@ Untuk local, salin ke `.env.local`.
 | `CRON_SECRET` | ya | header `Authorization: Bearer <secret>` untuk `/api/cron/*` |
 | `FONNTE_TOKEN` | ya | notifikasi WhatsApp |
 | `META_WA_ACCESS_TOKEN` | ya | token Meta; rahasia, jangan di-commit |
-| `META_WA_PHONE_NUMBER_ID` | ya | nomor pengirim Meta |
+| `META_WA_PHONE_NUMBER_ID` | ya | nomor pengirim Meta **fallback**; bisa dioverride per tenant di `/owner/tenants/[id]` |
 | `META_WA_TEMPLATE_INVOICE` | ya | template invoice customer |
 | `META_WA_TEMPLATE_STATUS` | ya | template status customer |
 | `META_WA_TEMPLATE_TECHNICIAN` | ya | template teknisi |
@@ -31,6 +31,7 @@ Apply berurutan (Supabase SQL Editor atau `supabase db push`):
 2. `supabase/migrations/20261018140000_sale_return_finance.sql`
 3. `supabase/migrations/20261022094942_login_access_gate.sql`
 4. `supabase/migrations/20261023120000_branch_scope_and_admin_access.sql`
+5. `supabase/migrations/20261117140000_tenant_meta_phone_number.sql` (nomor pengirim WA per tenant)
 
 Tanpa nomor 4, `sale_number` masih UNIQUE global padahal nomor dibuat per
 cabang: cabang kedua yang mulai dari `SLV-2026-0001` gagal dengan
@@ -95,6 +96,9 @@ jadwal `*/5 * * * *` via GitHub Actions (selain `workflow_dispatch` manual).
 
 - Secret yang dibutuhkan: `CRON_SECRET` (Settings → Secrets and variables → Actions).
 - URL endpoint masih hardcoded ke `https://cervise.vercel.app`; ganti kalau domain berubah.
+- Nomor pengirim bisa diatur per tenant di `/owner/tenants/[id]` (field "Nomor pengirim WhatsApp").
+  ID harus terdaftar di WABA yang sama dan divalidasi ke Graph API saat disimpan.
+  Kosong = pakai `META_WA_PHONE_NUMBER_ID` global.
 
 Urutan sebelum cron aktif:
 

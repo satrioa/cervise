@@ -7,6 +7,7 @@ import { InvoiceReviewTable } from "@/components/owner/invoice-review-table";
 import { ExtendSubscription } from "@/components/owner/extend-subscription";
 import { SubscriptionForm } from "@/components/owner/subscription-form";
 import { EmployeeActiveToggle } from "@/components/owner/employee-active-toggle";
+import { MetaPhoneNumberForm } from "@/components/owner/meta-phone-number-form";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -45,7 +46,7 @@ function addDays(value: Date, days: number) {
 export default async function TenantDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const [detail, packages] = await Promise.all([getTenantDetail(id), getPackages()]);
-  const organization = detail.organization as { id: string; name: string; slug: string; status: string; owner_email: string | null; owner_phone: string | null; contact_phone: string | null };
+  const organization = detail.organization as { id: string; name: string; slug: string; status: string; owner_email: string | null; owner_phone: string | null; contact_phone: string | null; meta_phone_number_id: string | null };
   const subscription = detail.subscription as { package_id: string; custom_monthly_price: number | null; grace_days: number; status: string; current_period_start: string | null; current_period_end: string | null; trial_ends_at: string | null; package: { name: string; branch_limit: number; monthly_price: number } } | null;
   const branches = detail.branches as { id: string; name: string; city: string | null; phone: string | null; is_active: boolean }[];
   const employees = detail.employees as { id: string; profile_id: string; role: string; is_active: boolean; branch_id: string }[];
@@ -108,6 +109,7 @@ export default async function TenantDetailPage({ params }: { params: Promise<{ i
             <div className="flex items-center gap-2"><UsersIcon className="size-4 text-muted-foreground" />{organization.owner_email ?? "—"}</div>
             <div className="flex items-center gap-2"><MapPinIcon className="size-4 text-muted-foreground" />{organization.contact_phone ?? organization.owner_phone ?? "—"}</div>
             <div className="flex items-center gap-2"><CreditCardIcon className="size-4 text-muted-foreground" />{branches.filter((branch) => branch.is_active).length} branch aktif · {employees.filter((employee) => employee.is_active).length} staff</div>
+            <MetaPhoneNumberForm organizationId={organization.id} phoneNumberId={organization.meta_phone_number_id} />
           </CardContent>
         </Card>
       </div>
