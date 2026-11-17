@@ -36,7 +36,7 @@ export function HomeGreeting({
             encryptedClassName="text-primary/70"
           />
         ) : (
-          <MaskRevealUp lines={[dateLabel]} />
+          <MaskRevealUp lines={[dateLabel]} perWord stagger={70} />
         )}
       </div>
       <h1 className="mt-1 font-heading text-[2rem] font-normal leading-tight tracking-[-0.03em] sm:text-[2.5rem]">
@@ -48,7 +48,7 @@ export function HomeGreeting({
             encryptedClassName="text-primary/70"
           />
         ) : (
-          <MaskRevealUp lines={[greeting]} delay={90} />
+          <MaskRevealUp lines={[greeting]} delay={90} perWord stagger={70} />
         )}
       </h1>
     </div>
