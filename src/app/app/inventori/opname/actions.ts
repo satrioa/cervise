@@ -34,6 +34,7 @@ export type OpnameLine = {
   imei: string | null;
   snapshot_qty: number;
   counted_qty: number;
+  unit_cost: number;
   notes: string | null;
 };
 
@@ -80,7 +81,7 @@ export async function getSession(
 
   const { data: lines, error: linesError } = await a.supabase
     .from("cervise_stock_opname_lines")
-    .select("id, ref_id, sku, name, imei, snapshot_qty, counted_qty, notes")
+    .select("id, ref_id, sku, name, imei, snapshot_qty, counted_qty, unit_cost, notes")
     .eq("session_id", id)
     .order("name");
   if (linesError) throw new Error(linesError.message);
@@ -138,6 +139,7 @@ export async function createSession(domain: Domain, note: string): Promise<strin
         imei: line.imei,
         snapshot_qty: line.snapshotQty,
         counted_qty: 0,
+        unit_cost: Math.round(line.cost),
       })),
     );
   if (linesError) throw new Error(linesError.message);

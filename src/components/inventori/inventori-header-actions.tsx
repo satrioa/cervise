@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { DownloadIcon, PackageIcon, UploadIcon } from "lucide-react";
+import Link from "next/link";
+import { DownloadIcon, PackageCheckIcon, PackageIcon, UploadIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Button as CossButton } from "@/components/ui/coss-button";
 import type { InventoryGroup } from "@/lib/operational/inventori";
@@ -24,6 +25,12 @@ export function InventoriHeaderActions({
 
   return (
     <>
+      <Button variant="outline" asChild>
+        <Link href="/app/inventori/opname">
+          <PackageCheckIcon data-icon="inline-start" />
+          Stock Opname
+        </Link>
+      </Button>
       <CossButton variant="outline" onClick={() => setImportOpen(true)}>
         <UploadIcon className="size-4" /> Import
       </CossButton>
