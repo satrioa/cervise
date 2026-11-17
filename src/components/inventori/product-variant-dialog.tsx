@@ -21,9 +21,15 @@ import { playPageTransition } from "@/components/layout/page-transition";
 import { BarcodeScannerDialog } from "@/components/scan/barcode-scanner-dialog";
 import { productThumbnail } from "@/lib/product-thumbnail";
 import { ALLOWED_PHOTO_TYPES, publicPhotoUrl, validatePhotoFile } from "@/lib/photos";
-import type { InventoryProduct } from "@/lib/operational/inventori";
+import { normalizeInventorySlug, type InventoryGroup, type InventoryProduct } from "@/lib/operational/inventori";
 
-type Props = { open: boolean; onOpenChange: (v: boolean) => void; onSuccess?: () => void; editProduct?: InventoryProduct | null };
+type Props = {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  onSuccess?: () => void;
+  editProduct?: InventoryProduct | null;
+  editGroup?: { group: InventoryGroup; type: "BARU" | "BEKAS" } | null;
+};
 
 const STORAGE_PRESETS = ["64 GB", "128 GB", "256 GB", "512 GB", "1 TB"];
 const WARNA_SUGGESTIONS = ["Black", "White", "Silver", "Gold", "Blue", "Red", "Green", "Purple", "Titanium"];
@@ -34,7 +40,7 @@ type AxisKey = "warna" | "storage" | "custom";
 type Axis = { id: string; key: AxisKey; name: string; options: { id: string; value: string }[] };
 type ComboRow = { key: string; values: Record<string, string> }; // axisId -> value
 type ComboValue = { stock: string; cost: string; price: string; barcode: string };
-type BekasUnit = { id: string; imei: string; bh: string; cost: string; price: string; barcode: string; kondisi: string; garansiOn: boolean; garansiDays: string; photo: File | null };
+type BekasUnit = { id: string; productId?: string; imei: string; bh: string; cost: string; price: string; barcode: string; kondisi: string; garansiOn: boolean; garansiDays: string; photo: File | null };
 type ExistingMap = Record<string, { id: string; sku: string }>;
 
 function uid() { return Math.random().toString(36).slice(2, 10); }
@@ -161,9 +167,10 @@ function PhotoPerWarna({ file, onFile, disabled }: { file: File | null; onFile: 
   );
 }
 
-export function ProductVariantDialog({ open, onOpenChange, onSuccess, editProduct }: Props) {
+export function ProductVariantDialog({ open, onOpenChange, onSuccess, editProduct, editGroup }: Props) {
   const { branch } = useBranch();
-  const isEdit = Boolean(editProduct);
+  const isGroupEdit = Boolean(editGroup);
+  const isEdit = Boolean(editProduct || editGroup);
   const existingPhotoUrl = useMemo(
     () => (editProduct?.image_url ? publicPhotoUrl(process.env.NEXT_PUBLIC_SUPABASE_URL ?? "", editProduct.image_url) : null),
     [editProduct?.image_url],
@@ -221,6 +228,65 @@ export function ProductVariantDialog({ open, onOpenChange, onSuccess, editProduc
 
   useEffect(() => {
     if (!open) return;
+    if (editGroup) {
+      const { group, type } = editGroup;
+      const items = (type === "BARU" ? group.baru : group.bekas).length > 0
+        ? (type === "BARU" ? group.baru : group.bekas)
+        : group.items;
+      const first = items[0] ?? group.items[0];
+      const uniq = (values: (string | null | undefined)[]) =>
+        [...new Set(values.map((v) => (v ?? "").trim()).filter(Boolean))];
+      const nextAxes: Axis[] = [
+        ensureTrailingEmpty({ id: uid(), key: "warna", name: "Warna", options: uniq(items.map((i) => i.warna)).map((value) => ({ id: uid(), value })) }),
+        ensureTrailingEmpty({ id: uid(), key: "storage", name: "Storage", options: uniq(items.map((i) => i.storage)).map((value) => ({ id: uid(), value })) }),
+      ];
+      const warnaId = nextAxes[0].id;
+      const storageId = nextAxes[1].id;
+      const { rows: cs } = buildCombos(nextAxes);
+      const cv: Record<string, ComboValue> = {};
+      const bu: Record<string, BekasUnit[]> = {};
+      const ex: ExistingMap = {};
+      const matchOf = (warna: string, storage: string) => items.find(
+        (i) => norm(i.warna ?? "") === norm(warna) && norm(i.storage ?? "") === norm(storage),
+      );
+      for (const c of cs) {
+        const warna = c.values[warnaId] ?? "";
+        const storage = c.values[storageId] ?? "";
+        const match = matchOf(warna, storage);
+        cv[c.key] = match
+          ? { stock: String(match.stock_qty ?? 0), cost: String(match.cost ?? 0), price: String(match.price ?? 0), barcode: match.barcode ?? "" }
+          : { stock: "", cost: "", price: "", barcode: "" };
+        if (match) ex[comboLookupKey(warna, storage)] = { id: match.id, sku: match.sku };
+        bu[c.key] = type === "BEKAS"
+          ? items
+              .filter((i) => norm(i.warna ?? "") === norm(warna) && norm(i.storage ?? "") === norm(storage))
+              .map((i) => ({
+                id: uid(), productId: i.id,
+                imei: i.imei ?? "",
+                bh: i.bh_percent == null ? "" : String(i.bh_percent),
+                cost: String(i.cost ?? 0), price: String(i.price ?? 0), barcode: i.barcode ?? "",
+                kondisi: i.kondisi_notes ?? "",
+                garansiOn: (i.garansi_days ?? 0) > 0,
+                garansiDays: i.garansi_days == null ? "30" : String(i.garansi_days),
+                photo: null,
+              }))
+          : [];
+      }
+      const groupName = first?.name ?? group.name;
+      setName(groupName);
+      setCategory(first?.category ?? "Gadget");
+      setVariantType(type);
+      setVariasiOn(true);
+      setAxes(nextAxes);
+      setComboValues(cv);
+      setBekasUnitsByCombo(bu);
+      setExisting(ex);
+      setExistingLoadedFor(groupName.trim());
+      setColorPhotos({}); setBulk({ stock: "", cost: "", price: "" });
+      setBekasBulk({ cost: "", price: "", bh: "", garansiDays: "" });
+      setSaving(false); setSuggestions([]); setShowSuggest(false);
+      return;
+    }
     if (editProduct) {
       const isBekas = editProduct.variant_type === "BEKAS";
       setVariantType(isBekas ? "BEKAS" : "BARU");
@@ -267,7 +333,7 @@ export function ProductVariantDialog({ open, onOpenChange, onSuccess, editProduc
     setComboValues({}); setColorPhotos({}); setBulk({ stock: "", cost: "", price: "" });
     setExisting({}); setExistingLoadedFor("");
     setSaving(false); setSuggestions([]); setShowSuggest(false);
-  }, [open, editProduct]);
+  }, [open, editProduct, editGroup]);
 
   // reset variasi state when switching tipe to avoid cross-contamination
   useEffect(() => {
@@ -293,6 +359,7 @@ export function ProductVariantDialog({ open, onOpenChange, onSuccess, editProduc
   }, [name]);
 
   useEffect(() => {
+    if (isGroupEdit) return;
     const trimmed = name.trim();
     if (!trimmed || trimmed.length < 2) { setExisting({}); setExistingLoadedFor(""); return; }
     if (trimmed === existingLoadedFor) return;
@@ -311,7 +378,7 @@ export function ProductVariantDialog({ open, onOpenChange, onSuccess, editProduc
       } catch { setExisting({}); setExistingLoadedFor(trimmed); }
     }, 350);
     return () => clearTimeout(t);
-  }, [name, existingLoadedFor, variantType]);
+  }, [name, existingLoadedFor, variantType, isGroupEdit]);
 
   const { activeAxes, rows: combos } = useMemo(() => buildCombos(axes), [axes]);
   const warnaAxis = activeAxes.find((a) => a.key === "warna") ?? null;
@@ -369,7 +436,7 @@ export function ProductVariantDialog({ open, onOpenChange, onSuccess, editProduc
     const targets = combos.filter((c) => {
       const warna = warnaAxis ? (c.values[warnaAxis.id] ?? null) : null;
       const storage = storageAxis ? (c.values[storageAxis.id] ?? null) : null;
-      return !existing[comboLookupKey(warna, storage)];
+      return isGroupEdit || !existing[comboLookupKey(warna, storage)];
     });
     if (targets.length === 0) { toast.info("Tidak ada variasi baru untuk diterapkan"); return; }
     setComboValues((prev) => {
@@ -497,21 +564,36 @@ export function ProductVariantDialog({ open, onOpenChange, onSuccess, editProduc
     let created = 0;
     const errors: string[] = [];
     try {
+      const parentKey = normalizeInventorySlug(name.trim());
       for (const { warna, storage, unit } of units) {
         const label = `${warna} / ${storage} / ${unit.imei.trim().slice(-4)}`;
-        const res = await createProductAction({
-          name: name.trim(), category, cost: Number(unit.cost), price: Number(unit.price),
-          barcode: unit.barcode.trim() || undefined, variant_type: "BEKAS", storage, warna,
-          bh_percent: Number(unit.bh), kondisi_notes: unit.kondisi.trim() || null,
-          garansi_days: unit.garansiOn ? Number(unit.garansiDays) : null, imei: unit.imei.trim(),
-        } as any);
-        if (!res.ok) { errors.push(`${label}: ${res.error}`); continue; }
+        let savedId: string;
+        if (isGroupEdit && unit.productId) {
+          savedId = unit.productId;
+          await updateProductVariant({
+            id: savedId, name: name.trim(), category, parent_key: parentKey,
+            cost: Number(unit.cost), price: Number(unit.price),
+            barcode: unit.barcode.trim() || null, storage, warna,
+            bh_percent: Number(unit.bh), kondisi_notes: unit.kondisi.trim() || null,
+            garansi_days: unit.garansiOn ? Number(unit.garansiDays) : null,
+            imei: unit.imei.trim(), stock_qty: 1,
+          });
+        } else {
+          const res = await createProductAction({
+            name: name.trim(), category, cost: Number(unit.cost), price: Number(unit.price),
+            barcode: unit.barcode.trim() || undefined, variant_type: "BEKAS", storage, warna,
+            bh_percent: Number(unit.bh), kondisi_notes: unit.kondisi.trim() || null,
+            garansi_days: unit.garansiOn ? Number(unit.garansiDays) : null, imei: unit.imei.trim(),
+          } as any);
+          if (!res.ok) { errors.push(`${label}: ${res.error}`); continue; }
+          savedId = res.id;
+        }
         created++;
-        if (unit.photo) { try { const fd = new FormData(); fd.append("file", unit.photo); await uploadProductPhoto(res.id, fd); } catch { /* ignore */ } }
+        if (unit.photo) { try { const fd = new FormData(); fd.append("file", unit.photo); await uploadProductPhoto(savedId, fd); } catch { /* ignore */ } }
       }
       if (errors.length && created) { toast.warning(`${created} unit tersimpan, ${errors.length} gagal: ${errors[0]}`); playPageTransition(); onSuccess?.(); }
       else if (errors.length) { toast.error(errors[0]); }
-      else { toast.success(`${created} unit Bekas ditambahkan — ${name.trim()}`); playPageTransition(); onOpenChange(false); onSuccess?.(); }
+      else { toast.success(`${created} unit Bekas ${isGroupEdit ? "diperbarui" : "ditambahkan"} — ${name.trim()}`); playPageTransition(); onOpenChange(false); onSuccess?.(); }
     } catch (e: any) { toast.error(e instanceof Error ? e.message : "Gagal simpan"); }
     finally { setSaving(false); }
   };
@@ -568,8 +650,8 @@ export function ProductVariantDialog({ open, onOpenChange, onSuccess, editProduc
       const ex = existing[comboLookupKey(warna, storage)];
       return { ...c, warna, storage, ex };
     });
-    const toCreate = enriched.filter((c) => !c.ex);
-    if (toCreate.length === 0) { toast.error("Semua kombinasi sudah ada, tidak ada yang baru untuk disimpan"); return; }
+    const toCreate = isGroupEdit ? enriched : enriched.filter((c) => !c.ex);
+    if (toCreate.length === 0) { toast.error(isGroupEdit ? "Tidak ada variasi untuk disimpan" : "Semua kombinasi sudah ada, tidak ada yang baru untuk disimpan"); return; }
     for (const c of toCreate) {
       const v = comboValues[c.key];
       const label = [c.warna, c.storage].filter(Boolean).join(" / ") || "Default";
@@ -583,14 +665,24 @@ export function ProductVariantDialog({ open, onOpenChange, onSuccess, editProduc
     const created: { id: string; warna: string | null }[] = [];
     const errors: string[] = [];
     try {
+      const parentKey = normalizeInventorySlug(name.trim());
       for (const c of toCreate) {
         const v = comboValues[c.key];
         const label = [c.warna, c.storage].filter(Boolean).join(" / ");
-        const res = await createProductAction({
-          name: name.trim(), category, stock_qty: Number(v.stock), cost: Number(v.cost), price: Number(v.price),
-          barcode: v.barcode.trim() || undefined, variant_type: "BARU", storage: c.storage!, warna: c.warna!,
-        } as any);
-        if (!res.ok) errors.push(`${label}: ${res.error}`); else created.push({ id: res.id, warna: c.warna });
+        if (isGroupEdit && c.ex?.id) {
+          await updateProductVariant({
+            id: c.ex.id, name: name.trim(), category, parent_key: parentKey,
+            stock_qty: Number(v.stock), cost: Number(v.cost), price: Number(v.price),
+            barcode: v.barcode.trim() || null, storage: c.storage!, warna: c.warna!,
+          });
+          created.push({ id: c.ex.id, warna: c.warna });
+        } else {
+          const res = await createProductAction({
+            name: name.trim(), category, stock_qty: Number(v.stock), cost: Number(v.cost), price: Number(v.price),
+            barcode: v.barcode.trim() || undefined, variant_type: "BARU", storage: c.storage!, warna: c.warna!,
+          } as any);
+          if (!res.ok) errors.push(`${label}: ${res.error}`); else created.push({ id: res.id, warna: c.warna });
+        }
       }
       for (const item of created) {
         const photo = item.warna ? colorPhotos[norm(item.warna)] : null;
@@ -599,7 +691,7 @@ export function ProductVariantDialog({ open, onOpenChange, onSuccess, editProduc
       }
       if (errors.length && created.length) { toast.warning(`${created.length} varian tersimpan, ${errors.length} gagal: ${errors[0]}`); playPageTransition(); onSuccess?.(); }
       else if (errors.length) { toast.error(errors[0]); }
-      else { toast.success(`${created.length} varian ditambahkan — ${name.trim()}`); playPageTransition(); onOpenChange(false); onSuccess?.(); }
+      else { toast.success(`${created.length} varian ${isGroupEdit ? "diperbarui" : "ditambahkan"} — ${name.trim()}`); playPageTransition(); onOpenChange(false); onSuccess?.(); }
     } catch (e: any) { toast.error(e instanceof Error ? e.message : "Gagal simpan"); }
     finally { setSaving(false); }
   };
@@ -743,7 +835,7 @@ export function ProductVariantDialog({ open, onOpenChange, onSuccess, editProduc
               <div className="space-y-1"><Label className="text-xs">Harga Jual</Label><Input type="number" min={0} value={bulk.price} onChange={(e: ChangeEvent<HTMLInputElement>) => setBulk((b) => ({ ...b, price: e.target.value }))} className="h-8 w-36" /></div>
               <Button type="button" variant="secondary" size="sm" onClick={applyBulk} disabled={!bulkReady}>Terapkan Ke Semua</Button>
             </div>
-            <p className="text-[11px] text-muted-foreground">Menerapkan nilai terisi ke variasi baru yang tampil (kecuali yang sudah ada).</p>
+            <p className="text-[11px] text-muted-foreground">{isGroupEdit ? "Menerapkan nilai terisi ke semua variasi yang tampil." : "Menerapkan nilai terisi ke variasi baru yang tampil (kecuali yang sudah ada)."}</p>
           </div>
 
           <div className="space-y-2">
@@ -770,7 +862,8 @@ export function ProductVariantDialog({ open, onOpenChange, onSuccess, editProduc
                       const warna = warnaAxis ? (c.values[warnaAxis.id] ?? null) : null;
                       const storage = storageAxis ? (c.values[storageAxis.id] ?? null) : null;
                       const ex = existing[comboLookupKey(warna, storage)];
-                      const disabled = !!ex || saving;
+                      // Di mode edit grup, baris "sudah ada" justru yang sedang diedit.
+                      const disabled = isGroupEdit ? saving : (!!ex || saving);
                       const warnaKey = warna ? norm(warna) : "";
                       return (
                         <tr key={c.key} className={`border-t ${ex ? "bg-muted/30 text-muted-foreground" : ""}`}>
@@ -782,7 +875,7 @@ export function ProductVariantDialog({ open, onOpenChange, onSuccess, editProduc
                           <td className="px-3 py-2"><Input type="number" min={0} value={v.cost} onChange={(e: ChangeEvent<HTMLInputElement>) => setComboValues((p) => ({ ...p, [c.key]: { ...(p[c.key] ?? v), cost: e.target.value } }))} className="h-8 w-32" disabled={disabled} /></td>
                           <td className="px-3 py-2"><Input type="number" min={0} value={v.price} onChange={(e: ChangeEvent<HTMLInputElement>) => setComboValues((p) => ({ ...p, [c.key]: { ...(p[c.key] ?? v), price: e.target.value } }))} className="h-8 w-32" disabled={disabled} /></td>
                           <td className="px-3 py-2"><div className="flex gap-1"><Input value={v.barcode} onChange={(e: ChangeEvent<HTMLInputElement>) => setComboValues((p) => ({ ...p, [c.key]: { ...(p[c.key] ?? v), barcode: e.target.value } }))} className="h-8 w-36" disabled={disabled} placeholder="opsional" /><Button type="button" variant="outline" size="icon-sm" disabled={disabled} aria-label="Scan" onClick={() => { setScanTarget({ kind: "baru-combo", key: c.key }); setScanOpen(true); }}><ScanBarcodeIcon className="size-3.5" /></Button></div></td>
-                          <td className="px-3 py-2 text-xs">{ex ? <span className="font-medium text-amber-600">Sudah ada ({ex.sku})</span> : <span className="text-emerald-600">Baru</span>}</td>
+                          <td className="px-3 py-2 text-xs">{ex ? <span className="font-medium text-amber-600">{isGroupEdit ? "Tersimpan" : "Sudah ada"} ({ex.sku})</span> : <span className="text-emerald-600">Baru</span>}</td>
                         </tr>
                       );
                     })}
@@ -897,7 +990,9 @@ export function ProductVariantDialog({ open, onOpenChange, onSuccess, editProduc
                   {isEdit ? "Edit Produk" : `Tambah Produk — ${branch.label}`}
                 </DialogPrimitive.Title>
                 <DialogPrimitive.Description className="text-xs text-muted-foreground">
-                  {isEdit
+                  {isGroupEdit
+                    ? `Ubah ${editGroup?.type === "BEKAS" ? "unit bekas" : "varian"} pada grup "${editGroup?.group.name}".`
+                    : isEdit
                     ? "Ubah data produk/varian yang dipilih."
                     : variantType === "BARU"
                       ? (variasiOn ? "Variasi aktif: atur sumbu/opsi dan simpan kombinasi." : "Single produk (variasi nonaktif).")
@@ -908,15 +1003,17 @@ export function ProductVariantDialog({ open, onOpenChange, onSuccess, editProduc
           </div>
 
           <div className="flex-1 space-y-4 overflow-y-auto px-6 py-4">
-            <div className="flex flex-wrap items-center gap-3">
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-medium">Tipe</span>
-                <div className="flex gap-1 rounded-lg border p-1">
-                  <button type="button" disabled={isEdit} onClick={() => setVariantType("BARU")} className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${variantType === "BARU" ? "bg-foreground text-background" : "hover:bg-muted"} ${isEdit ? "cursor-not-allowed opacity-60" : ""}`}>Baru</button>
-                  <button type="button" disabled={isEdit} onClick={() => setVariantType("BEKAS")} className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${variantType === "BEKAS" ? "bg-foreground text-background" : "hover:bg-muted"} ${isEdit ? "cursor-not-allowed opacity-60" : ""}`}>Bekas</button>
+            {!isEdit && (
+              <div className="flex flex-wrap items-center gap-3">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-medium">Tipe</span>
+                  <div className="flex gap-1 rounded-lg border p-1">
+                    <button type="button" onClick={() => setVariantType("BARU")} className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${variantType === "BARU" ? "bg-foreground text-background" : "hover:bg-muted"}`}>Baru</button>
+                    <button type="button" onClick={() => setVariantType("BEKAS")} className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${variantType === "BEKAS" ? "bg-foreground text-background" : "hover:bg-muted"}`}>Bekas</button>
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
 
             <div className="grid gap-4 md:grid-cols-2">
               <div className="relative space-y-1.5">
@@ -934,20 +1031,20 @@ export function ProductVariantDialog({ open, onOpenChange, onSuccess, editProduc
               </div>
             </div>
 
-            {!isEdit && (
+            {(!isEdit || isGroupEdit) && (
               <div className="rounded-lg border">
                 <div className="flex items-center gap-2 px-3 py-2">
                   <Label className="text-sm font-semibold">Variasi</Label>
-                  <Switch checked={variasiOn} onCheckedChange={setVariasiOn} />
+                  {!isEdit && <Switch checked={variasiOn} onCheckedChange={setVariasiOn} />}
                 </div>
-                {variasiOn && (
+                {(variasiOn || isGroupEdit) && (
                   <div key={`${variantType}-on`} className="animate-in fade-in-0 slide-in-from-top-1 border-t p-3 duration-200">
                     {variantType === "BARU" ? renderBaruVariasi() : renderBekasVariasi()}
                   </div>
                 )}
               </div>
             )}
-            {(!variasiOn || isEdit) && (
+            {!isGroupEdit && (!variasiOn || isEdit) && (
               <div key={`${variantType}-off`} className="animate-in fade-in-0 slide-in-from-top-1 duration-200">
                 {variantType === "BARU" ? renderBaruSingle() : renderBekasSingle()}
               </div>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, type ReactNode, type UIEvent } from "react";
-import { useRouter, usePathname } from "next/navigation";
+import { usePathname } from "next/navigation";
 import {
   MainNavLink,
   MainNavTransitionOutlet,
@@ -22,8 +22,8 @@ import { LocaleProvider } from "@/lib/localization-context";
 import { StyleWorldProvider, useStyleWorld } from "@/lib/style-world-context";
 import { OvioProvider } from "@/components/shared/world-provider";
 import { normalizeAppRole } from "@/lib/nav/manifest";
-import { OpeningBalanceDialog } from "@/components/cash/opening-balance-dialog";
-import { checkOpenCashSession, type CashSessionRow } from "@/app/app/actions/cash";
+import { CashDialogProvider, useCashDialog } from "@/components/cash/cash-dialog-context";
+import { checkOpenCashSession } from "@/app/app/actions/cash";
 import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
 
@@ -79,7 +79,9 @@ export function CompactShell({ children, actor }: { children: ReactNode; actor: 
                 menampilkan dua header bertumpuk untuk TECHNICIAN dan
                 FRONTLINER. */}
             <ShellChromeProvider value>
-              <CompactShellInner actor={actor}>{children}</CompactShellInner>
+              <CashDialogProvider staffName={actor.fullName ?? undefined}>
+                <CompactShellInner actor={actor}>{children}</CompactShellInner>
+              </CashDialogProvider>
             </ShellChromeProvider>
           </CommandPaletteProvider>
         </BranchProvider>
@@ -106,7 +108,6 @@ function CompactShellInner({
   // 70dvh, membesar linear sampai 95dvh setelah 160px scroll.
   const [menuHeight, setMenuHeight] = useState(MENU_MIN_DVH);
   const pathname = usePathname();
-  const router = useRouter();
   const t = useTranslations("nav");
   const role = normalizeAppRole(actor.role);
 
@@ -149,21 +150,21 @@ function CompactShellInner({
   // Saldo awal hanya untuk role yang menjalankan shift kas. TECHNICIAN punya
   // To-Do sendiri dan tidak pernah membuka laci.
   const needsCashSession = role === "FRONTLINER";
-  const [session, setSession] = useState<CashSessionRow | null>(null);
-  const [cashChecked, setCashChecked] = useState(false);
+  const { openCashDialog } = useCashDialog();
 
   useEffect(() => {
     if (!needsCashSession) return;
     let cancelled = false;
     checkOpenCashSession().then((result) => {
-      if (cancelled || !result.ok) return;
-      setSession(result.data.current);
-      setCashChecked(true);
+      if (cancelled || !result.ok || result.data.current) return;
+      // Auto-open saat awal hari toko belum dibuka. Tombol "Buka Toko" di
+      // dashboard memakai dialog yang sama sebagai cadangan.
+      openCashDialog();
     });
     return () => {
       cancelled = true;
     };
-  }, [needsCashSession]);
+  }, [needsCashSession, openCashDialog]);
 
   return (
     <MainNavTransitionProvider role={actor.role}>
@@ -266,20 +267,6 @@ function CompactShellInner({
         avatarUrl={actor.avatarUrl}
       />
 
-      {/* Saldo awal wajib. Dialog ini yang menentukan boleh tidaknya
-          dashboard dipakai: `cashChecked` menahan render sampai sesi dicek. */}
-      {needsCashSession && cashChecked && !session ? (
-        <OpeningBalanceDialog
-          staffName={actor.fullName ?? undefined}
-          onOpened={(next) => {
-            setSession(next);
-            // Server merender /app sebelum sesi ada. Setelah Buka Shift,
-            // muat ulang payload server supaya dashboard langsung melihat
-            // toko terbuka tanpa refresh manual.
-            router.refresh();
-          }}
-        />
-      ) : null}
       </div>
     </MainNavTransitionProvider>
   );

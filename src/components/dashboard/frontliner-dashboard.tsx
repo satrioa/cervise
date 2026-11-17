@@ -12,6 +12,7 @@ import {
   PlayIcon,
   ScanBarcodeIcon,
   ShoppingCartIcon,
+  StoreIcon,
   WalletIcon,
   WrenchIcon,
 } from "lucide-react";
@@ -54,6 +55,7 @@ import { NewServisDialog } from "@/components/servis/new-servis-dialog";
 import { ServisPaymentDialog } from "@/components/servis/servis-payment-dialog";
 import { AdjustmentDialog } from "@/components/cash/adjustment-dialog";
 import { ClosingDialog } from "@/components/cash/closing-dialog";
+import { useCashDialog } from "@/components/cash/cash-dialog-context";
 import {
   checkOpenCashSession,
   getFrontlinerKpi,
@@ -132,6 +134,7 @@ type FrontlinerState = {
   queue: FrontlinerQueueItem[];
   kpi: FrontlinerKpi | null;
   session: CashSessionRow | null;
+  lastClosingBalance: number | null;
   report: ShiftReport | null;
 };
 
@@ -140,6 +143,7 @@ function frontlinerState(data: FrontlinerHomeData): FrontlinerState {
     queue: data.queue,
     kpi: data.kpi,
     session: data.session,
+    lastClosingBalance: data.lastClosingBalance,
     report: data.report,
   };
 }
@@ -155,6 +159,7 @@ export function FrontlinerDashboard({
   initialAction?: "catat-kas" | "tutup-kas" | null;
 }) {
   const { world } = useStyleWorld();
+  const { openCashDialog } = useCashDialog();
   const { gridProps, cardProps } = useBentoStagger(BENTO_STAGGER);
 
   /**
@@ -178,7 +183,7 @@ export function FrontlinerDashboard({
     setData(frontlinerState(initialData));
   }
 
-  const { queue, kpi, session, report } = data;
+  const { queue, kpi, session, lastClosingBalance, report } = data;
 
   // Shift yang dibuka kemarin dan belum ditutup tetap menjadi `session` aktif:
   // index unik hanya mengizinkan satu sesi terbuka per karyawan. Rekapnya benar
@@ -239,6 +244,7 @@ export function FrontlinerDashboard({
       queue: queueResult.ok ? queueResult.data : prev.queue,
       kpi: kpiResult.ok ? kpiResult.data : prev.kpi,
       session: sessionResult.ok ? sessionResult.data.current : prev.session,
+      lastClosingBalance: sessionResult.ok ? sessionResult.data.lastClosingBalance : prev.lastClosingBalance,
       report: sessionResult.ok && !sessionResult.data.current ? null : prev.report,
     }));
 
@@ -299,15 +305,23 @@ export function FrontlinerDashboard({
                 <PlayIcon className="size-4" />
                 Lanjutkan Shift
               </CossButton>
-            ) : (
+            ) : session ? (
               <CossButton
                 size="sm"
                 onClick={() => setClosingOpen(true)}
-                disabled={!session}
                 className="gap-1.5"
               >
                 <LockIcon className="size-4" />
                 Tutup Toko
+              </CossButton>
+            ) : (
+              <CossButton
+                size="sm"
+                onClick={openCashDialog}
+                className="gap-1.5"
+              >
+                <StoreIcon className="size-4" />
+                {lastClosingBalance !== null ? "Buka kembali" : "Buka Toko"}
               </CossButton>
             )}
           </div>

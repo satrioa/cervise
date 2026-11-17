@@ -78,6 +78,7 @@ export async function getHomeData(): Promise<HomeData> {
         queue: [],
         kpi: null,
         session: null,
+        lastClosingBalance: null,
         report: null,
         error,
       };
@@ -109,6 +110,7 @@ async function loadFrontlinerHome(
     queue: queue.value,
     kpi: kpi.value,
     session: current,
+    lastClosingBalance: cash.value.lastClosingBalance,
     report: report.value,
     error: queue.error ?? kpi.error ?? cash.error ?? report.error,
   };

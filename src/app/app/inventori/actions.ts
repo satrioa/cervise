@@ -102,6 +102,7 @@ export type UpdateProductVariantInput = {
   bh_percent?: number | null;
   kondisi_notes?: string | null;
   garansi_days?: number | null;
+  parent_key?: string | null;
 };
 
 /** Edit varian dari halaman inventori. */
@@ -126,6 +127,7 @@ export async function updateProductVariant(input: UpdateProductVariantInput): Pr
   if (input.bh_percent !== undefined) patch.bh_percent = input.bh_percent;
   if (input.kondisi_notes !== undefined) patch.kondisi_notes = input.kondisi_notes?.trim() || null;
   if (input.garansi_days !== undefined) patch.garansi_days = input.garansi_days;
+  if (input.parent_key !== undefined) patch.parent_key = input.parent_key;
 
   const { error } = await applyBranchScope(
     actor.supabase.from("cervise_products").update(patch).eq("id", input.id),

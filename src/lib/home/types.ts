@@ -66,6 +66,8 @@ export type FrontlinerHomeData = {
   queue: FrontlinerQueueItem[];
   kpi: FrontlinerKpi | null;
   session: ShiftSession | null;
+  /** Saldo akhir shift yang ditutup hari ini; null jika belum ada. */
+  lastClosingBalance: number | null;
   report: ShiftReport | null;
   todos: StaffTodo[];
   mentions: TodoMention[];

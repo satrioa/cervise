@@ -104,7 +104,7 @@ function BekasRow({ variant, onEdit, onPrint }: { variant: InventoryProduct; onE
   );
 }
 
-function CardView({ groups, onEdit, onPrint }: { groups: InventoryGroup[]; onEdit: (p: InventoryProduct) => void; onPrint: (p: InventoryProduct) => void }) {
+function CardView({ groups, onEdit, onEditGroup, onPrint }: { groups: InventoryGroup[]; onEdit: (p: InventoryProduct) => void; onEditGroup: (group: InventoryGroup, type: "BARU" | "BEKAS") => void; onPrint: (p: InventoryProduct) => void }) {
   return (
     <div className="space-y-4">
       {groups.map((group) => (
@@ -123,8 +123,13 @@ function CardView({ groups, onEdit, onPrint }: { groups: InventoryGroup[]; onEdi
           <CardContent className="space-y-4">
             {group.baru.length > 0 ? (
               <div>
-                <div className="mb-2 font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
-                  Baru — Varian warna &amp; storage (stok agregat)
+                <div className="mb-2 flex items-center justify-between gap-2">
+                  <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
+                    Baru — Varian warna &amp; storage (stok agregat)
+                  </span>
+                  <Button size="icon-sm" variant="ghost" aria-label={`Edit varian Baru ${group.name}`} title="Edit varian Baru" onClick={() => onEditGroup(group, "BARU")}>
+                    <PencilIcon className="size-3.5" />
+                  </Button>
                 </div>
                 <div className="grid gap-2 sm:grid-cols-2">
                   {group.baru.map((variant) => (
@@ -155,8 +160,13 @@ function CardView({ groups, onEdit, onPrint }: { groups: InventoryGroup[]; onEdi
             ) : null}
             {group.bekas.length > 0 ? (
               <div>
-                <div className="mb-2 font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
-                  Bekas — Per IMEI (stok 1 per unit)
+                <div className="mb-2 flex items-center justify-between gap-2">
+                  <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
+                    Bekas — Per IMEI (stok 1 per unit)
+                  </span>
+                  <Button size="icon-sm" variant="ghost" aria-label={`Edit unit Bekas ${group.name}`} title="Edit unit Bekas" onClick={() => onEditGroup(group, "BEKAS")}>
+                    <PencilIcon className="size-3.5" />
+                  </Button>
                 </div>
                 <div className="space-y-2">
                   {group.bekas.map((variant) => (
@@ -387,6 +397,7 @@ export function InventoriClient({
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [editTarget, setEditTarget] = useState<InventoryProduct | null>(null);
+  const [editGroupTarget, setEditGroupTarget] = useState<{ group: InventoryGroup; type: "BARU" | "BEKAS" } | null>(null);
   const [labelPreview, setLabelPreview] = useState<SkuLabelInput[] | null>(null);
   const [printingLabels, setPrintingLabels] = useState(false);
   const router = useRouter();
@@ -472,7 +483,12 @@ export function InventoriClient({
           </Button>
         </div>
       ) : view === "kartu" ? (
-        <CardView groups={paginatedGroups} onEdit={setEditTarget} onPrint={(p) => openLabelPreview([p])} />
+        <CardView
+          groups={paginatedGroups}
+          onEdit={setEditTarget}
+          onEditGroup={(group, type) => setEditGroupTarget({ group, type })}
+          onPrint={(p) => openLabelPreview([p])}
+        />
       ) : (
         <TableView groups={paginatedGroups} onEdit={setEditTarget} onPrint={openLabelPreview} />
       )}
@@ -498,10 +514,11 @@ export function InventoriClient({
       ) : null}
 
       <ProductVariantDialog
-        open={editTarget !== null}
+        open={editTarget !== null || editGroupTarget !== null}
         editProduct={editTarget}
+        editGroup={editGroupTarget}
         onOpenChange={(open) => {
-          if (!open) setEditTarget(null);
+          if (!open) { setEditTarget(null); setEditGroupTarget(null); }
         }}
         onSuccess={() => router.refresh()}
       />
