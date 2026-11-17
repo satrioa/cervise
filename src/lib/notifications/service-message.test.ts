@@ -1,8 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
   buildCustomerCreatedMessage,
+  buildCustomerInvoiceParameters,
   buildCustomerStatusMessage,
+  buildCustomerStatusParameters,
   buildTechnicianCreatedMessage,
+  buildTechnicianJobParameters,
   publicLacakUrl,
   type ServiceMessageInput,
 } from "./service-message";
@@ -17,6 +20,9 @@ const base: ServiceMessageInput = {
   trackingCode: "F5FB0DFCB6",
   status: "Masuk",
   siteOrigin: "https://app.cervise.id",
+  priceEstimasi: null,
+  garansiValue: null,
+  garansiUnit: null,
 };
 
 const builders = [
@@ -103,6 +109,9 @@ describe("struktur pesan", () => {
       trackingCode: null,
       status: null,
       siteOrigin: "",
+      priceEstimasi: null,
+      garansiValue: null,
+      garansiUnit: null,
     };
 
     for (const message of [
@@ -158,6 +167,9 @@ describe("pesan ke customer", () => {
       serviceNumber: null,
       complaint: null,
       trackingCode: null,
+      priceEstimasi: null,
+      garansiValue: null,
+      garansiUnit: null,
     };
     for (const message of [
       buildCustomerCreatedMessage(sparse),
@@ -178,5 +190,83 @@ describe("pesan ke teknisi", () => {
     expect(message).toContain("SRV-2026-0012");
     expect(message).toContain("Layar pecah, Baterai drop");
     expect(message).toContain("https://app.cervise.id/app/servis/3f1c2b44-0000-4000-8000-000000000001");
+  });
+});
+
+describe("parameter template invoice customer", () => {
+  it("mengisi tujuh parameter berurutan", () => {
+    expect(
+      buildCustomerInvoiceParameters({
+        ...base,
+        priceEstimasi: 150000,
+        garansiValue: 3,
+        garansiUnit: "bulan",
+      }),
+    ).toEqual([
+      { type: "text", value: "Servisin" },
+      { type: "text", value: "SRV-2026-0012" },
+      { type: "text", value: "Xiaomi Redmi 13C" },
+      { type: "text", value: "Layar pecah, Baterai drop" },
+      { type: "text", value: "Rp 150.000" },
+      { type: "text", value: "3 bulan" },
+      { type: "text", value: "https://app.cervise.id/servisin/lacak/F5FB0DFCB6" },
+    ]);
+  });
+
+  it("memakai fallback saat estimasi dan field lain kosong", () => {
+    const params = buildCustomerInvoiceParameters({
+      ...base,
+      serviceNumber: null,
+      complaint: null,
+      trackingCode: null,
+      siteOrigin: null,
+      priceEstimasi: null,
+    });
+    expect(params.map((p) => p.value)).toEqual([
+      "Servisin",
+      "Xiaomi Redmi 13C",
+      "Xiaomi Redmi 13C",
+      "-",
+      "Menunggu pemeriksaan",
+      "-",
+      "-",
+    ]);
+    for (const param of params) expect(param.value).not.toContain("undefined");
+  });
+
+  it("tidak merender estimasi 0 sebagai Rp 0", () => {
+    const params = buildCustomerInvoiceParameters({ ...base, priceEstimasi: 0 });
+    expect(params[4].value).toBe("Menunggu pemeriksaan");
+  });
+});
+
+describe("parameter template status customer", () => {
+  it("memakai status yang diteruskan, bukan status hardcode", () => {
+    const params = buildCustomerStatusParameters({ ...base, status: "Sudah Diambil" });
+    expect(params.map((p) => p.value)).toEqual([
+      "Servisin",
+      "SRV-2026-0012",
+      "Xiaomi Redmi 13C",
+      "Sudah Diambil",
+      "F5FB0DFCB6",
+      "https://app.cervise.id/servisin/lacak/F5FB0DFCB6",
+    ]);
+  });
+});
+
+describe("parameter template teknisi", () => {
+  it("mengisi lima parameter berurutan", () => {
+    expect(buildTechnicianJobParameters(base)).toEqual([
+      { type: "text", value: "Servisin" },
+      { type: "text", value: "SRV-2026-0012" },
+      { type: "text", value: "Xiaomi Redmi 13C" },
+      { type: "text", value: "Layar pecah, Baterai drop" },
+      { type: "text", value: "https://app.cervise.id/app/servis/3f1c2b44-0000-4000-8000-000000000001" },
+    ]);
+  });
+
+  it("mengganti tautan kosong dengan '-' bukan '/app/servis/' menggantung", () => {
+    const params = buildTechnicianJobParameters({ ...base, siteOrigin: null });
+    expect(params[4].value).toBe("-");
   });
 });

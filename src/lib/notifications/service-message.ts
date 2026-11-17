@@ -6,6 +6,8 @@
 // ada baris "No. Servis: " tanpa isi: baris berlabel hanya dibuat kalau
 // nilainya ada.
 
+import type { TemplateParameter } from "@/lib/meta-wa";
+
 export type ServiceMessageInput = {
   storeName: string;
   tenantSlug: string | null;
@@ -17,6 +19,9 @@ export type ServiceMessageInput = {
   status: string | null;
   /** Bisa null: task berikutnya membacanya dari env yang belum terkonfigurasi. */
   siteOrigin: string | null;
+  priceEstimasi: number | null;
+  garansiValue: number | null;
+  garansiUnit: "hari" | "bulan" | "tahun" | null;
 };
 
 /** Nilai yang siap ditampilkan: null kalau kosong, string kalau isi. */
@@ -130,4 +135,56 @@ export function buildTechnicianCreatedMessage(input: ServiceMessageInput): strin
     field("Keluhan", input.complaint),
     field("Buka", internalServisUrl(input.siteOrigin, input.serviceId)),
   ]);
+}
+
+/**
+ * Parameter template tidak boleh kosong: Meta menolak value "". Field yang
+ * tidak ada diganti "-", bukan teks karangan yang terlihat seperti data.
+ */
+function param(value: string | null | undefined): TemplateParameter {
+  return { type: "text", value: present(value) ?? "-" };
+}
+
+export function buildCustomerInvoiceParameters(input: ServiceMessageInput): TemplateParameter[] {
+  const estimate =
+    input.priceEstimasi !== null &&
+    Number.isFinite(input.priceEstimasi) &&
+    input.priceEstimasi > 0
+      ? `Rp ${new Intl.NumberFormat("id-ID").format(input.priceEstimasi)}`
+      : "Menunggu pemeriksaan";
+  const warranty =
+    input.garansiValue !== null && input.garansiUnit
+      ? `${input.garansiValue} ${input.garansiUnit}`
+      : "-";
+
+  return [
+    param(input.storeName),
+    param(input.serviceNumber ?? input.device),
+    param(input.device),
+    param(input.complaint),
+    { type: "text", value: estimate },
+    { type: "text", value: warranty },
+    param(publicLacakUrl(input.siteOrigin, input.tenantSlug, input.trackingCode)),
+  ];
+}
+
+export function buildCustomerStatusParameters(input: ServiceMessageInput): TemplateParameter[] {
+  return [
+    param(input.storeName),
+    param(serviceRef(input)),
+    param(input.device),
+    param(input.status),
+    param(input.trackingCode),
+    param(publicLacakUrl(input.siteOrigin, input.tenantSlug, input.trackingCode)),
+  ];
+}
+
+export function buildTechnicianJobParameters(input: ServiceMessageInput): TemplateParameter[] {
+  return [
+    param(input.storeName),
+    param(serviceRef(input)),
+    param(input.device),
+    param(input.complaint),
+    param(internalServisUrl(input.siteOrigin, input.serviceId)),
+  ];
 }
