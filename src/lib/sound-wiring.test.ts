@@ -87,4 +87,11 @@ describe("sound wiring", () => {
     expect(soundToggle).toContain("useSoundSettings");
     expect(soundToggle).toContain("writeSoundSettings");
   });
+
+  it("playback memakai Web Audio, bukan elemen media (tanpa notifikasi player)", () => {
+    expect(sound).not.toContain("new window.Audio(");
+    expect(sound).not.toContain("HTMLAudioElement");
+    expect(sound).toContain("AudioContext");
+    expect(sound).toContain("decodeAudioData");
+  });
 });
