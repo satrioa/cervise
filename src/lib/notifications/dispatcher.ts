@@ -1,10 +1,10 @@
-import { FonnteError, sendFonnteWA } from "@/lib/fonnte";
+import { MetaWaError, sendMetaWA, type TemplateParameter } from "@/lib/meta-wa";
 import { toFonnteTarget } from "@/lib/phone";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
-  buildCustomerCreatedMessage,
-  buildCustomerStatusMessage,
-  buildTechnicianCreatedMessage,
+  buildCustomerInvoiceParameters,
+  buildCustomerStatusParameters,
+  buildTechnicianJobParameters,
   type ServiceMessageInput,
 } from "./service-message";
 
@@ -47,7 +47,6 @@ const MAX_ATTEMPTS = 4;
 // melepaskannya, dan dua konstanta jadi berbeda pendapat soal jarak minimum.
 const BACKOFF_MINUTES = [2, 5, 30, 120];
 const DEFAULT_LIMIT = 25;
-const COUNTRY_CODE = "62";
 
 export type DispatchResult = {
   sent: number;
@@ -77,6 +76,9 @@ type ServisRow = {
   complaint: string | null;
   tracking_code: string | null;
   status: string | null;
+  price_estimasi: number | null;
+  garansi_value: number | null;
+  garansi_unit: "hari" | "bulan" | "tahun" | null;
   customer_id: string | null;
   teknisi_id: string | null;
   branches: {
@@ -107,7 +109,9 @@ type CustomerRow = { id: string; phone: string | null };
  * diperbaiki admin (nomor diisi belakangan) berubah jadi kegagalan permanen
  * hanya karena antrean sempat bermasalah.
  */
-type Resolved = { message: string; target: string } | { skip: string };
+type Resolved =
+  | { target: string; template: string; parameters: TemplateParameter[] }
+  | { skip: string };
 
 function backoffIso(attempts: number, from: Date): string {
   const index = Math.min(Math.max(attempts, 1) - 1, BACKOFF_MINUTES.length - 1);
@@ -115,14 +119,14 @@ function backoffIso(attempts: number, from: Date): string {
 }
 
 /**
- * Fonnte membalas `{ detail: { id } }`. Bentuknya bisa berubah, jadi ID dibaca
+ * Meta membalas `{ messages: [{ id }] }`. Bentuknya bisa berubah, jadi ID dibaca
  * secara defensif dan kegagalan membaca TIDAK membatalkan pengiriman: ID hanya
  * berguna untuk rekonsiliasi, sedangkan membatalkan kirim demi ID yang tidak
  * terbaca justru membuang notifikasi yang sudah sampai.
  */
 function providerMessageIdOf(detail: unknown): string | null {
-  const nested = (detail as { detail?: { id?: unknown } } | null)?.detail;
-  const id = nested?.id;
+  const messages = (detail as { messages?: { id?: unknown }[] } | null)?.messages;
+  const id = messages?.[0]?.id;
   if (typeof id === "string" && id.trim() !== "") return id;
   if (typeof id === "number" && Number.isFinite(id)) return String(id);
   return null;
@@ -131,14 +135,14 @@ function providerMessageIdOf(detail: unknown): string | null {
 /**
  * Nilai untuk kolom `last_error`.
  *
- * `FonnteError.reason` dipakai, bukan `Error.message`: message-nya berawalan
- * "Fonnte gagal: " sedangkan `reason` adalah nilai mentahnya -- "invalid target",
- * "HTTP 401" -- yang bisa dicari dan dibandingkan. Kolom ini dibaca operator saat
- * menelusuri antrean, jadi bentuk yang bisa dipetik lebih berharga daripada yang
- * enak dibaca.
+ * `MetaWaError.reason` dipakai, bukan `Error.message`: message-nya berawalan
+ * "Meta WhatsApp gagal: " sedangkan `reason` adalah nilai mentahnya -- "invalid
+ * parameter", "HTTP 401" -- yang bisa dicari dan dibandingkan. Kolom ini dibaca
+ * operator saat menelusuri antrean, jadi bentuk yang bisa dipetik lebih berharga
+ * daripada yang enak dibaca.
  */
 function errorText(error: unknown): string {
-  if (error instanceof FonnteError) return error.reason;
+  if (error instanceof MetaWaError) return error.reason;
   return error instanceof Error ? error.message : String(error);
 }
 
@@ -154,6 +158,7 @@ function resolveRow(
   customer: CustomerRow | undefined,
   technician: TechnicianRow | undefined,
   siteOrigin: string,
+  templates: { invoice: string; technician: string; status: string },
 ): Resolved {
   if (row.to_kind !== "customer" && row.to_kind !== "technician") {
     return { skip: "unsupported_recipient" };
@@ -192,6 +197,9 @@ function resolveRow(
     // diambil adalah informasi yang salah.
     status: row.to_status ?? servis.status,
     siteOrigin,
+    priceEstimasi: servis.price_estimasi,
+    garansiValue: servis.garansi_value,
+    garansiUnit: servis.garansi_unit,
   };
 
   if (row.to_kind === "customer") {
@@ -202,10 +210,11 @@ function resolveRow(
     if (!target) return { skip: "no_phone" };
     return {
       target,
-      message:
+      template: row.event === "servis_created" ? templates.invoice : templates.status,
+      parameters:
         row.event === "servis_created"
-          ? buildCustomerCreatedMessage(input)
-          : buildCustomerStatusMessage(input),
+          ? buildCustomerInvoiceParameters(input)
+          : buildCustomerStatusParameters(input),
     };
   }
 
@@ -227,7 +236,11 @@ function resolveRow(
 
   const target = toFonnteTarget(technician.phone);
   if (!target) return { skip: "no_phone" };
-  return { target, message: buildTechnicianCreatedMessage(input) };
+  return {
+    target,
+    template: templates.technician,
+    parameters: buildTechnicianJobParameters(input),
+  };
 }
 
 export async function dispatchPendingNotifications(
@@ -236,6 +249,11 @@ export async function dispatchPendingNotifications(
   const limit = options.limit ?? DEFAULT_LIMIT;
   const now = options.now ?? new Date();
   const siteOrigin = options.siteOrigin ?? process.env.NEXT_PUBLIC_SITE_URL ?? "";
+  const templates = {
+    invoice: process.env.META_WA_TEMPLATE_INVOICE ?? "",
+    technician: process.env.META_WA_TEMPLATE_TECHNICIAN ?? "",
+    status: process.env.META_WA_TEMPLATE_STATUS ?? "",
+  };
 
   const result: DispatchResult = { sent: 0, skipped: 0, failed: 0 };
   const admin = createAdminClient();
@@ -276,7 +294,7 @@ export async function dispatchPendingNotifications(
     const { data: servisRows, error: servisError } = await admin
       .from("cervise_services")
       .select(
-        "id, service_number, device, complaint, tracking_code, status, customer_id, teknisi_id, branches(organization_id, organizations(name, slug))",
+        "id, service_number, device, complaint, tracking_code, status, price_estimasi, garansi_value, garansi_unit, customer_id, teknisi_id, branches(organization_id, organizations(name, slug))",
       )
       .in("id", servisIds);
     if (servisError) {
@@ -346,6 +364,7 @@ export async function dispatchPendingNotifications(
         customerId ? customersById.get(customerId) : undefined,
         technicianId ? techniciansById.get(technicianId) : undefined,
         siteOrigin,
+        templates,
       );
 
       if ("skip" in resolved) {
@@ -361,20 +380,20 @@ export async function dispatchPendingNotifications(
       }
 
       // Dihitung SEKALI di sini dan dipakai di setiap jalur yang benar-benar
-      // memanggil Fonnte. `row.attempts` masih nilai sebelum percobaan ini,
+      // memanggil Meta WhatsApp. `row.attempts` masih nilai sebelum percobaan ini,
       // karena claim tidak menyentuhnya.
       const attempts = row.attempts + 1;
 
-      let response: Awaited<ReturnType<typeof sendFonnteWA>>;
+      let response: Awaited<ReturnType<typeof sendMetaWA>>;
       try {
-        response = await sendFonnteWA(resolved.target, resolved.message, COUNTRY_CODE);
+        response = await sendMetaWA(resolved.target, resolved.template, resolved.parameters);
       } catch (error) {
         // Hanya kegagalan yang memang soal nomor atau isi pesannya yang
-        // terminal. Token kedaluwarsa atau Fonnte sedang erred scope-nya
+        // terminal. Token kedaluwarsa atau Meta sedang erred scope-nya
         // infrastruktur: pesannya masih layak, jadi dicoba lagi sampai
-        // anggaran habis. Error yang bukan FonnteError diperlakukan sama --
+        // anggaran habis. Error yang bukan MetaWaError diperlakukan sama --
         // bug di kode ini sendiri tidak boleh membuang notifikasi.
-        const terminal = error instanceof FonnteError && error.scope === "message";
+        const terminal = error instanceof MetaWaError && error.scope === "message";
         const lastError = errorText(error);
 
         if (terminal || attempts >= MAX_ATTEMPTS) {
@@ -399,28 +418,30 @@ export async function dispatchPendingNotifications(
         continue;
       }
 
-      // `skip` berarti FONNTE_TOKEN belum diisi: keadaan yang disengaja, bukan
-      // error, dan tidak ada permintaan yang keluar -- jadi `attempts` tidak
-      // bertambah. Kembalikan nol juga akan menutupi antrean yang menumpuk
-      // selama Fonnte mati, jadi tetap dihitung dan terlihat di log cron.
+      // `skip` berarti kredensial Meta (META_WA_* / nama template) belum diisi:
+      // keadaan yang disengaja, bukan error, dan tidak ada permintaan yang
+      // keluar -- jadi `attempts` tidak bertambah. Kembalikan nol juga akan
+      // menutupi antrean yang menumpuk selama Meta mati, jadi tetap dihitung dan
+      // terlihat di log cron.
       if (response.skip) {
-        // Fonnte belum dikonfigurasi. Baris TIDAK boleh jadi 'skipped': state itu
-        // terminal (claim hanya mengambil state = 'pending') dan dedupe_key-nya
-        // sudah terpakai di enqueue dengan on conflict do nothing, jadi tidak ada
-        // jalan lagi untuk memunculkannya. Tick cron pertama di lingkungan yang
-        // lupa memasang FONNTE_TOKEN akan menghapus seluruh antrean secara
-        // permanen, dan memasang token belakangan tidak memulihkan apa pun.
+        // Meta WhatsApp belum dikonfigurasi. Baris TIDAK boleh jadi 'skipped':
+        // state itu terminal (claim hanya mengambil state = 'pending') dan
+        // dedupe_key-nya sudah terpakai di enqueue dengan on conflict do nothing,
+        // jadi tidak ada jalan lagi untuk memunculkannya. Tick cron pertama di
+        // lingkungan yang lupa memasang kredensial Meta akan menghapus seluruh
+        // antrean secara permanen, dan memasangnya belakangan tidak memulihkan
+        // apa pun.
         //
         // Jadi baris tetap pending, dijadwalkan ulang 30 menit, dan tetap
         // dihitung sebagai skipped di hasil run ini. skipped di sini berarti
         // "tidak dikirim pada run ini", bukan "selesai" -- dua makna itu berbeda
-        // dan mencampurkannya yang dulu menghancurkan antrean. Kalau token
+        // dan mencampurkannya yang dulu menghancurkan antrean. Kalau kredensial
         // dipasang, baris ini dikirim sendiri tanpa campur tangan.
         const { error: patchError } = await admin
           .from("cervise_notification_outbox")
           .update({
             state: "pending",
-            last_error: "fonnte_not_configured",
+            last_error: "meta_wa_not_configured",
             next_attempt_at: new Date(now.getTime() + 30 * 60 * 1000).toISOString(),
           })
           .eq("id", row.id);

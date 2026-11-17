@@ -1,0 +1,99 @@
+// Integrasi WhatsApp Cloud API (Meta). Fetch ringan, tanpa dependency.
+// Pesan business-initiated wajib memakai template yang sudah disetujui Meta,
+// jadi pengirim ini hanya menerima nama template + parameter berurutan.
+
+export type TemplateParameter = { type: "text"; value: string };
+
+export type MetaWaResult =
+  | { skip: true }
+  | { skip: false; status: true; detail: Record<string, unknown> };
+
+const MESSAGE_SCOPED_CODES = new Set([100, 131009, 131026, 132001]);
+
+/**
+ * `message` = nomor, parameter, atau template yang salah; mengulangnya tidak
+ * akan berhasil. `infrastructure` = token/akun Meta/jaringan yang bermasalah;
+ * pesannya masih layak dicoba lagi. Token dipakai bersama semua tenant, jadi
+ * 190 tidak boleh terminal.
+ */
+export class MetaWaError extends Error {
+  readonly reason: string;
+  readonly scope: "message" | "infrastructure";
+  readonly retryable: boolean;
+
+  constructor(reason: string, scope: "message" | "infrastructure") {
+    super(`Meta WhatsApp gagal: ${reason}`);
+    this.name = "MetaWaError";
+    this.reason = reason;
+    this.scope = scope;
+    this.retryable = scope !== "message";
+  }
+}
+
+function isMessageScoped(code: unknown, reason: string | null): boolean {
+  const n = Number(code);
+  if (Number.isFinite(n) && MESSAGE_SCOPED_CODES.has(n)) return true;
+  if (!reason) return false;
+  const lower = reason.toLowerCase();
+  return (
+    lower.includes("invalid parameter") ||
+    lower.includes("undeliverable") ||
+    lower.includes("template does not exist")
+  );
+}
+
+export async function sendMetaWA(
+  phone: string,
+  templateName: string,
+  parameters: TemplateParameter[],
+): Promise<MetaWaResult> {
+  const token = process.env.META_WA_ACCESS_TOKEN;
+  const phoneNumberId = process.env.META_WA_PHONE_NUMBER_ID;
+  if (!token || !phoneNumberId || !templateName) return { skip: true };
+
+  let res: Response;
+  try {
+    res = await fetch(
+      `https://graph.facebook.com/v21.0/${encodeURIComponent(phoneNumberId)}/messages`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          messaging_product: "whatsapp",
+          to: phone,
+          type: "template",
+          template: {
+            name: templateName,
+            language: { code: "id" },
+            components: [{ type: "body", parameters }],
+          },
+        }),
+      },
+    );
+  } catch (err) {
+    throw new MetaWaError(err instanceof Error ? err.message : String(err), "infrastructure");
+  }
+
+  let payload: Record<string, unknown> = {};
+  try {
+    payload = (await res.json()) as Record<string, unknown>;
+  } catch {
+    payload = {};
+  }
+
+  const apiError = payload.error as { message?: unknown; code?: unknown } | undefined;
+  if (!res.ok || apiError) {
+    const rawReason =
+      typeof apiError?.message === "string" && apiError.message ? apiError.message : null;
+    const reason = rawReason ?? `HTTP ${res.status}`;
+    throw new MetaWaError(
+      reason,
+      isMessageScoped(apiError?.code, rawReason) ? "message" : "infrastructure",
+    );
+  }
+
+  return { skip: false, status: true, detail: payload };
+}
