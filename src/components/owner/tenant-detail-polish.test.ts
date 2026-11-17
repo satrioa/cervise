@@ -5,6 +5,7 @@ import { join } from "node:path";
 const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8");
 const form = read("src/components/owner/subscription-form.tsx");
 const extend = read("src/components/owner/extend-subscription.tsx");
+const detail = read("src/app/owner/tenants/[id]/page.tsx");
 
 describe("SubscriptionForm", () => {
   it("hanya satu form pengaturan, tanpa status akses manual", () => {
@@ -40,5 +41,29 @@ describe("ExtendSubscription", () => {
     expect(extend).toContain('id="extend-duration"');
     expect(extend).toContain('id="extend-note"');
     expect(extend).toContain("preview.endsAt");
+  });
+});
+
+describe("Tenant detail layout", () => {
+  it("memakai ExtendSubscription tanpa prop packages", () => {
+    const start = detail.indexOf("<ExtendSubscription");
+    const body = detail.slice(start, start + 400);
+    expect(body).toContain("organizationId={organization.id}");
+    expect(body).toContain("subscription={subscription}");
+    expect(body).toContain("monthlyPrice={");
+    expect(body).not.toContain("packages=");
+  });
+
+  it("badge DB mismatch tetap tampil", () => {
+    expect(detail).toContain("isMismatch");
+    expect(detail).toContain("DB: {subscription?.status}");
+  });
+
+  it("tiga metrik utama dan detail sekunder hadir", () => {
+    expect(detail).toContain("Harga / bulan");
+    expect(detail).toContain("Akses s/d");
+    expect(detail).toContain("Periode mulai");
+    expect(detail).toContain("Grace berakhir");
+    expect(detail).toContain("Grace days");
   });
 });

@@ -81,7 +81,7 @@ export default async function TenantDetailPage({ params }: { params: Promise<{ i
             <ExtendSubscription
               organizationId={organization.id}
               subscription={subscription}
-              packages={packages.map((item) => ({ id: item.id, name: item.name, monthly_price: item.monthly_price, branch_limit: item.branch_limit }))}
+              monthlyPrice={subscription?.custom_monthly_price ?? subscription?.package.monthly_price ?? 0}
             />
           </CardHeader>
           <CardContent>
@@ -94,9 +94,11 @@ export default async function TenantDetailPage({ params }: { params: Promise<{ i
               <div><div className="text-xs text-muted-foreground">Paket</div><div className="mt-1 font-medium">{subscription?.package.name ?? "—"}</div></div>
               <div><div className="text-xs text-muted-foreground">Harga / bulan</div><div className="mt-1 font-medium">{formatRupiah(subscription?.custom_monthly_price ?? subscription?.package.monthly_price ?? 0)}</div></div>
               <div><div className="text-xs text-muted-foreground">{subscription?.status === "trial" ? "Trial berakhir" : "Akses s/d"}</div><div className="mt-1 font-medium">{formatDate(subscription?.status === "trial" ? subscription.trial_ends_at : subscription?.current_period_end ?? null)}</div></div>
-              <div><div className="text-xs text-muted-foreground">Periode mulai</div><div className="mt-1 font-medium">{formatDate(subscription?.current_period_start ?? null)}</div></div>
-              <div><div className="text-xs text-muted-foreground">Grace berakhir</div><div className="mt-1 font-medium">{graceEndsAt ? formatDate(graceEndsAt.toISOString()) : "—"}</div></div>
-              <div><div className="text-xs text-muted-foreground">Grace days</div><div className="mt-1 font-medium">{subscription?.grace_days ?? "—"}</div></div>
+            </div>
+            <div className="mt-3 flex flex-wrap gap-x-6 gap-y-1 text-xs text-muted-foreground">
+              <span>Periode mulai: <span className="text-foreground">{formatDate(subscription?.current_period_start ?? null)}</span></span>
+              <span>Grace berakhir: <span className="text-foreground">{graceEndsAt ? formatDate(graceEndsAt.toISOString()) : "—"}</span></span>
+              <span>Grace days: <span className="text-foreground">{subscription?.grace_days ?? "—"}</span></span>
             </div>
             <div className="mt-5 border-t pt-5">
               <SubscriptionForm organizationId={organization.id} subscription={subscription} packages={packages.map((item) => ({ id: item.id, name: item.name, monthly_price: item.monthly_price, branch_limit: item.branch_limit }))} />
