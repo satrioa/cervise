@@ -219,74 +219,71 @@ export function useSoundEnabled(): boolean {
 const LAST_PLAYED = new Map<SoundName, number>();
 
 /**
- * Pool elemen audio per sound.
+ * Playback memakai Web Audio API, BUKAN elemen `<audio>` / media element.
  *
- * Catatan penting dari debugging: `cloneNode(true)` pada elemen media bisa
- * menghasilkan clone yang tidak pernah memuat resource di sebagian browser
- * (clone mewarisi atribut `src` tetapi bukan status load-nya), sehingga
- * `play()` reject dan terdengar hening. Karena itu tiap sound punya beberapa
- * elemen nyata yang dipakai bergiliran: klik cepat tetap bisa tumpang tindih,
- * tetapi elemennya selalu elemen yang benar-benar pernah `play()`.
+ * Elemen media didaftarkan browser ke Media Session sistem, yang memunculkan
+ * kartu "now playing" (notifikasi player) atas nama situs di notification
+ * shade/Action Center. Web Audio tidak masuk Media Session, jadi suara tetap
+ * terdengar tanpa notifikasi player itu.
+ *
+ * Buffer di-decode sekali per sound lalu di-cache. Tiap kali bunyi dipanggil
+ * dibuat `AudioBufferSourceNode` baru, jadi klik cepat tetap bisa tumpang
+ * tindih seperti perilaku pool elemen audio yang lama.
  */
-const POOL_SIZE = 3;
-const AUDIO_POOL = new Map<SoundName, HTMLAudioElement[]>();
-const POOL_CURSOR = new Map<SoundName, number>();
-let audioWarmedUp = false;
+type AudioEngine = {
+  ctx: AudioContext;
+  buffers: Map<SoundName, Promise<AudioBuffer>>;
+};
 
-function getPool(name: SoundName): HTMLAudioElement[] {
-  let pool = AUDIO_POOL.get(name);
-  if (!pool) {
-    pool = [];
-    AUDIO_POOL.set(name, pool);
-  }
-  return pool;
-}
-
-function acquireAudio(name: SoundName): HTMLAudioElement {
-  const pool = getPool(name);
-  if (pool.length < POOL_SIZE) {
-    const el = new window.Audio(SOUND_SRC[name]);
-    el.preload = "auto";
-    pool.push(el);
-    return el;
-  }
-  const cursor = POOL_CURSOR.get(name) ?? 0;
-  POOL_CURSOR.set(name, (cursor + 1) % pool.length);
-  const el = pool[cursor];
-  try {
-    el.pause();
-    el.currentTime = 0;
-  } catch {
-    // elemen belum siap — play() di bawah akan memuat ulang
-  }
-  return el;
-}
+let engine: AudioEngine | null = null;
 
 /**
- * Preload sisa sound di waktu idle setelah interaksi pertama. Tidak dilakukan
- * saat mount supaya tidak ada 13 request audio + ~2 MB di first paint.
+ * iOS menampilkan notifikasi sistem "audio playing" atas nama situs setiap kali
+ * halaman menghasilkan suara, termasuk lewat Web Audio. Tidak ada API web untuk
+ * menyembunyikannya, jadi di perangkat iOS suara UI sengaja dimatikan.
  */
-function warmUpAudio() {
-  if (typeof window === "undefined") return;
-  if (audioWarmedUp) return;
-  audioWarmedUp = true;
-  const load = () => {
-    for (const name of Object.keys(SOUND_SRC) as SoundName[]) {
-      const pool = getPool(name);
-      if (pool.length === 0) {
-        const el = new window.Audio(SOUND_SRC[name]);
-        el.preload = "auto";
-        pool.push(el);
-      }
-    }
-  };
-  const idle = window.requestIdleCallback;
-  if (typeof idle === "function") idle(load, { timeout: 2000 });
-  else window.setTimeout(load, 1200);
+export function isIosDevice(): boolean {
+  if (typeof navigator === "undefined") return false;
+  const ua = navigator.userAgent;
+  if (/iP(hone|ad|od)/.test(ua)) return true;
+  // iPadOS 13+ menyamar sebagai Macintosh desktop.
+  return ua.includes("Macintosh") && navigator.maxTouchPoints > 1;
+}
+
+function getEngine(): AudioEngine | null {
+  if (typeof window === "undefined") return null;
+  if (engine) return engine;
+  try {
+    engine = { ctx: new window.AudioContext(), buffers: new Map() };
+    return engine;
+  } catch {
+    // Browser tanpa Web Audio — tetap hening, jangan ganggu interaksi.
+    return null;
+  }
+}
+
+function loadBuffer(current: AudioEngine, name: SoundName): Promise<AudioBuffer> {
+  let pending = current.buffers.get(name);
+  if (!pending) {
+    pending = fetch(SOUND_SRC[name])
+      .then((res) => {
+        if (!res.ok) throw new Error(`Gagal memuat suara: ${name}`);
+        return res.arrayBuffer();
+      })
+      .then((data) => current.ctx.decodeAudioData(data))
+      .catch((error) => {
+        // Gagal fetch/decode: buang cache supaya klik berikutnya boleh retry.
+        current.buffers.delete(name);
+        throw error;
+      });
+    current.buffers.set(name, pending);
+  }
+  return pending;
 }
 
 export function playSound(name: SoundName, opts?: { volume?: number }): void {
   if (typeof window === "undefined") return;
+  if (isIosDevice()) return;
 
   const settings = getSoundSnapshot();
   if (settings.muted || settings.volume <= 0) return;
@@ -297,17 +294,28 @@ export function playSound(name: SoundName, opts?: { volume?: number }): void {
   LAST_PLAYED.set(name, now);
 
   try {
-    const el = acquireAudio(name);
-    // Master gain: volume per-sound (hasil tuning file) × volume slider user.
-    const base = opts?.volume ?? SOUND_VOLUME[name];
-    el.volume = Math.min(1, Math.max(0, base * (settings.volume / 100)));
-    const played = el.play();
-    if (played && typeof played.catch === "function") {
-      played.catch(() => {
-        // Autoplay/permission error — hening, jangan ganggu interaksi.
-      });
+    const current = getEngine();
+    if (!current) return;
+    // iOS Safari menahan AudioContext sampai ada user gesture. playSound selalu
+    // dipanggil dari handler interaksi, jadi resume di sini aman.
+    if (current.ctx.state === "suspended") {
+      void current.ctx.resume().catch(() => {});
     }
-    warmUpAudio();
+    void loadBuffer(current, name)
+      .then((buffer) => {
+        // Master gain: volume per-sound (hasil tuning file) × volume slider user.
+        const base = opts?.volume ?? SOUND_VOLUME[name];
+        const gain = current.ctx.createGain();
+        gain.gain.value = Math.min(1, Math.max(0, base * (settings.volume / 100)));
+        const source = current.ctx.createBufferSource();
+        source.buffer = buffer;
+        source.connect(gain);
+        gain.connect(current.ctx.destination);
+        source.start();
+      })
+      .catch(() => {
+        // Fetch/decode gagal — hening, jangan ganggu interaksi.
+      });
   } catch {
     // Jangan pernah melempar dari lapisan suara.
   }
