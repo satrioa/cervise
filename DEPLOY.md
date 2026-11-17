@@ -16,6 +16,11 @@ Untuk local, salin ke `.env.local`.
 | `NEXT_PUBLIC_SITE_URL` | ya | dipakai link notifikasi & redirect email |
 | `CRON_SECRET` | ya | header `Authorization: Bearer <secret>` untuk `/api/cron/*` |
 | `FONNTE_TOKEN` | ya | notifikasi WhatsApp |
+| `META_WA_ACCESS_TOKEN` | ya | token Meta; rahasia, jangan di-commit |
+| `META_WA_PHONE_NUMBER_ID` | ya | nomor pengirim Meta |
+| `META_WA_TEMPLATE_INVOICE` | ya | template invoice customer |
+| `META_WA_TEMPLATE_STATUS` | ya | template status customer |
+| `META_WA_TEMPLATE_TECHNICIAN` | ya | template teknisi |
 | `OWNER_WHATSAPP_NUMBER` | ya | nomor owner platform |
 
 ## 2. Migrasi database
@@ -85,11 +90,16 @@ pembersihannya selesai.
 
 ## 5. Cron & notifikasi
 
-Workflow `.github/workflows/service-notifications-cron.yml` saat ini **tanpa jadwal** —
-notifikasi WhatsApp sengaja dimatikan. Yang aktif hanya `workflow_dispatch` (manual).
+Workflow `.github/workflows/service-notifications-cron.yml` sudah **diaktifkan** dengan
+jadwal `*/5 * * * *` via GitHub Actions (selain `workflow_dispatch` manual).
 
 - Secret yang dibutuhkan: `CRON_SECRET` (Settings → Secrets and variables → Actions).
 - URL endpoint masih hardcoded ke `https://cervise.vercel.app`; ganti kalau domain berubah.
-- Sebelum menghidupkan jadwal `*/5 * * * *`, kosongkan/expire baris pending lama di
-  `cervise_notification_outbox` agar notifikasi lama tidak terkirim sekaligus.
-- `FONNTE_TOKEN` baru wajib saat notifikasi diaktifkan kembali.
+- Sebelum mengaktifkan jadwal, expiry baris pending lama agar notifikasi lama tidak
+  terkirim sekaligus:
+
+```sql
+update public.cervise_notification_outbox
+set state = 'failed', last_error = 'expired_before_activation'
+where state = 'pending';
+```
