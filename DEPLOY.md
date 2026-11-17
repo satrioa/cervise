@@ -95,8 +95,19 @@ jadwal `*/5 * * * *` via GitHub Actions (selain `workflow_dispatch` manual).
 
 - Secret yang dibutuhkan: `CRON_SECRET` (Settings → Secrets and variables → Actions).
 - URL endpoint masih hardcoded ke `https://cervise.vercel.app`; ganti kalau domain berubah.
-- Sebelum mengaktifkan jadwal, expiry baris pending lama agar notifikasi lama tidak
-  terkirim sekaligus:
+
+Urutan sebelum cron aktif:
+
+1. Buat 3 template di Meta Business Manager — invoice customer, status customer, teknisi —
+   dan tunggu status **APPROVED**. Jika cron aktif sebelum template disetujui, Meta
+   mengembalikan error 132001 ("Template does not exist"); dispatcher menganggapnya
+   terminal per pesan, sehingga notifikasi yang sudah antre gagal permanen setelah
+   4 percobaan.
+2. Jalankan SQL expiry di bawah.
+3. Deploy / pastikan jadwal `schedule` aktif.
+
+SQL ini adalah **purge seluruh antrean** (`where state = 'pending'`), bukan hanya baris
+lama — baris pending yang baru saja masuk juga ikut di-set `failed`:
 
 ```sql
 update public.cervise_notification_outbox
