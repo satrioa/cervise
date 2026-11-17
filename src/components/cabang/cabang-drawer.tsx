@@ -374,7 +374,10 @@ export function CabangDrawer({ branch, open, onOpenChange }: { branch: BranchIte
                 <div className="font-heading text-sm font-semibold">Target Cabang</div>
                 <p className="text-xs text-muted-foreground">Target bulanan teknisi — tampilan di Home, terpisah dari syarat bonus.</p>
               </div>
-              <Switch checked={showTarget} disabled={savingTarget || !branch.is_active} onCheckedChange={(v) => void saveVisibility({ showTarget: v, showIntensif })} />
+              <label className="flex items-center gap-2 text-[11px] text-muted-foreground">
+                Tampilkan kartu Target ke teknisi
+                <Switch checked={showTarget} disabled={savingTarget || !branch.is_active} onCheckedChange={(v) => void saveVisibility({ showTarget: v, showIntensif })} />
+              </label>
             </div>
             {branch.is_active ? (
               <div className="mt-4 space-y-3">
@@ -390,7 +393,7 @@ export function CabangDrawer({ branch, open, onOpenChange }: { branch: BranchIte
                 </div>
                 <div className="space-y-1.5">
                   <Label className="font-mono text-[10px] uppercase tracking-[0.2em]">Nilai target</Label>
-                  <Input type="number" min={1} value={targetValue} onChange={(e) => setTargetValue(e.target.value)} placeholder={targetType === "penghasilan" ? "mis. 10000000" : "mis. 20"} />
+                  <Input type="number" min={1} step={1} value={targetValue} onChange={(e) => setTargetValue(e.target.value)} placeholder={targetType === "penghasilan" ? "mis. 10000000" : "mis. 20"} />
                 </div>
                 <div className="flex justify-end">
                   <Button size="sm" onClick={() => void saveTarget()} disabled={savingTarget}>{savingTarget ? "Menyimpan..." : "Simpan target"}</Button>

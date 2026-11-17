@@ -130,7 +130,7 @@ export async function updateCabangTarget(
   const { supabase, orgId, role, permissions } = await getActiveTenant();
   requireCabangAccess({ role, permissions });
   if (data.type !== "penghasilan" && data.type !== "jumlah_servis") throw new Error("Tipe target invalid");
-  if (data.value !== null && (!Number.isFinite(data.value) || data.value <= 0)) {
+  if (data.value !== null && (!Number.isInteger(data.value) || data.value <= 0)) {
     throw new Error("Nilai target harus > 0");
   }
   const { error } = await supabase
