@@ -261,6 +261,16 @@ function TargetCabangTile({ kpi, cards }: { kpi: TechnicianKpi; cards: Technicia
     selesai: kpi.selesai,
     penghasilan: kpi.penghasilanBulanIni,
   });
+  // `target_value` bisa null (belum diatur admin). Menampilkan "4 / 0" dan bar
+  // 0% terlihat seperti data rusak, jadi kartu hanya menampilkan keterangan.
+  if (progress.target === 0) {
+    return (
+      <>
+        <p className="text-[15px] font-medium">Target Cabang</p>
+        <p className="mt-auto text-sm text-muted-foreground">Belum diatur</p>
+      </>
+    );
+  }
   return (
     <>
       <p className="text-[15px] font-medium">Target Cabang</p>

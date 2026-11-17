@@ -367,6 +367,35 @@ describe("buildTechnicianKpi", () => {
   });
 });
 
+describe("penghasilanBulanIni", () => {
+  it("menjumlahkan price servis selesai bulan ini milik teknisi yang dipilih", () => {
+    const services = [
+      service({ id: "a", status: "Selesai", price: 100_000 }),
+      service({ id: "b", status: "Sudah Diambil", price: 250_000 }),
+      // Teknisi lain, status belum selesai, dan bulan lain tidak ikut.
+      service({ id: "c", status: "Selesai", teknisi_id: LAIN, price: 999_000 }),
+      service({ id: "d", status: "Dikerjakan", price: 777_000 }),
+      service({ id: "e", status: "Selesai", price: 888_000, completed_at: "2026-08-31T08:00:00Z" }),
+      service({ id: "f", status: "Selesai", price: 666_000, completed_at: "2026-10-01T08:00:00Z" }),
+    ];
+    expect(buildTechnicianKpi(services, TEKNISI, null, NOW).penghasilanBulanIni).toBe(350_000);
+  });
+
+  it("price null dihitung sebagai nol", () => {
+    const services = [
+      service({ id: "a", status: "Selesai", price: 50_000 }),
+      service({ id: "b", status: "Selesai", price: null }),
+      service({ id: "c", status: "Selesai", price: null }),
+    ];
+    expect(buildTechnicianKpi(services, TEKNISI, null, NOW).penghasilanBulanIni).toBe(50_000);
+  });
+
+  it("nol tanpa assignment teknisi", () => {
+    const services = [service({ status: "Selesai", price: 100_000 })];
+    expect(buildTechnicianKpi(services, null, null, NOW).penghasilanBulanIni).toBe(0);
+  });
+});
+
 describe("bucketDueLabel", () => {
   it("tidak ada tenggat berarti null", () => {
     expect(bucketDueLabel(null, NOW)).toBeNull();
