@@ -38,8 +38,8 @@ import {
 } from "@/components/ui/command";
 import {
   GROUP_LABEL_KEY,
-  canAccess,
-  canWrite,
+  canAccessActor,
+  canWriteActor,
   navFor,
   normalizeAppRole,
 } from "@/lib/nav/manifest";
@@ -63,6 +63,7 @@ type Props = {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   role: string;
+  permissions?: readonly string[] | null;
 };
 
 type PaletteAction = {
@@ -91,7 +92,7 @@ const SHORTCUTS: [string, string][] = [
  * produk, dan customer dimuat sekali saat palet pertama dibuka lalu disaring
  * di klien — satu round-trip per sesi, bukan satu query per ketikan.
  */
-export function CerviseCommandPalette({ open, onOpenChange, role }: Props) {
+export function CerviseCommandPalette({ open, onOpenChange, role, permissions }: Props) {
   const router = useRouter();
   const { branch, branches, setBranch } = useBranch();
   const { setTheme } = useTheme();
@@ -105,9 +106,9 @@ export function CerviseCommandPalette({ open, onOpenChange, role }: Props) {
   const [customers, setCustomers] = useState<QuickCustomerRow[] | null>(null);
 
   const appRole = normalizeAppRole(role);
-  const canReadServis = canAccess(role, "/app/servis");
-  const canReadProducts = canAccess(role, "/app/inventori");
-  const canReadCustomers = canAccess(role, "/app/customer");
+  const canReadServis = canAccessActor({ role, permissions }, "/app/servis");
+  const canReadProducts = canAccessActor({ role, permissions }, "/app/inventori");
+  const canReadCustomers = canAccessActor({ role, permissions }, "/app/customer");
 
   // Palet ditutup = kembali ke keadaan bersih.
   if (!open) {
@@ -187,7 +188,7 @@ export function CerviseCommandPalette({ open, onOpenChange, role }: Props) {
   // ---- Aksi cepat -----------------------------------------------------------
   const quickActions = useMemo<PaletteAction[]>(() => {
     const list: PaletteAction[] = [];
-    if (canWrite(role, "/app/servis")) {
+    if (canWriteActor({ role, permissions }, "/app/servis")) {
       list.push({
         id: "tambah-servis",
         label: "Tambah data servis",
@@ -196,7 +197,7 @@ export function CerviseCommandPalette({ open, onOpenChange, role }: Props) {
         run: handleNewServis,
       });
     }
-    if (canWrite(role, "/app/inventori")) {
+    if (canWriteActor({ role, permissions }, "/app/inventori")) {
       list.push({
         id: "tambah-stok",
         label: "Tambah stok produk",
@@ -205,7 +206,7 @@ export function CerviseCommandPalette({ open, onOpenChange, role }: Props) {
         run: () => navigate("/app/inventori"),
       });
     }
-    if (canWrite(role, "/app/karyawan")) {
+    if (canWriteActor({ role, permissions }, "/app/karyawan")) {
       list.push({
         id: "tambah-karyawan",
         label: "Tambah data karyawan",
@@ -214,7 +215,7 @@ export function CerviseCommandPalette({ open, onOpenChange, role }: Props) {
         run: () => navigate("/app/karyawan?new=1"),
       });
     }
-    if (canWrite(role, "/app/customer")) {
+    if (canWriteActor({ role, permissions }, "/app/customer")) {
       list.push({
         id: "tambah-customer",
         label: "Tambah customer",
@@ -223,7 +224,7 @@ export function CerviseCommandPalette({ open, onOpenChange, role }: Props) {
         run: () => navigate("/app/customer?new=1"),
       });
     }
-    if (canWrite(role, "/app/inventori")) {
+    if (canWriteActor({ role, permissions }, "/app/inventori")) {
       list.push({
         id: "tambah-produk",
         label: "Tambah produk / varian",
@@ -232,7 +233,7 @@ export function CerviseCommandPalette({ open, onOpenChange, role }: Props) {
         run: () => navigate("/app/inventori?new=1"),
       });
     }
-    if (canAccess(role, "/app/penjualan")) {
+    if (canAccessActor({ role, permissions }, "/app/penjualan")) {
       list.push({
         id: "buka-kasir",
         label: "Buka kasir",
@@ -295,7 +296,7 @@ export function CerviseCommandPalette({ open, onOpenChange, role }: Props) {
         run: () => navigate(`/app/inventori${q}`),
       });
     }
-    if (canAccess(role, "/app/karyawan")) {
+    if (canAccessActor({ role, permissions }, "/app/karyawan")) {
       list.push({
         id: "cari-karyawan",
         label: `Cari karyawan${suffix}`,
@@ -304,7 +305,7 @@ export function CerviseCommandPalette({ open, onOpenChange, role }: Props) {
         run: () => navigate(`/app/karyawan${q}`),
       });
     }
-    if (canAccess(role, "/app/garansi")) {
+    if (canAccessActor({ role, permissions }, "/app/garansi")) {
       list.push({
         id: "cari-garansi",
         label: `Cari garansi${suffix}`,
@@ -313,7 +314,7 @@ export function CerviseCommandPalette({ open, onOpenChange, role }: Props) {
         run: () => navigate(`/app/garansi${q}`),
       });
     }
-    if (canAccess(role, "/app/keuangan/transaksi")) {
+    if (canAccessActor({ role, permissions }, "/app/keuangan/transaksi")) {
       list.push({
         id: "cari-transaksi",
         label: `Cari transaksi${suffix}`,
@@ -322,7 +323,7 @@ export function CerviseCommandPalette({ open, onOpenChange, role }: Props) {
         run: () => navigate(`/app/keuangan/transaksi${q}`),
       });
     }
-    if (canAccess(role, "/app/keuangan/arus-kas")) {
+    if (canAccessActor({ role, permissions }, "/app/keuangan/arus-kas")) {
       list.push({
         id: "cari-arus-kas",
         label: `Cari arus kas${suffix}`,
@@ -338,7 +339,7 @@ export function CerviseCommandPalette({ open, onOpenChange, role }: Props) {
   // ---- Filter pintar --------------------------------------------------------
   const filters = useMemo<PaletteAction[]>(() => {
     const list: PaletteAction[] = [];
-    if (canAccess(role, "/app/inventori")) {
+    if (canAccessActor({ role, permissions }, "/app/inventori")) {
       list.push(
         {
           id: "stok-menipis",
@@ -363,7 +364,7 @@ export function CerviseCommandPalette({ open, onOpenChange, role }: Props) {
         },
       );
     }
-    if (canAccess(role, "/app/servis")) {
+    if (canAccessActor({ role, permissions }, "/app/servis")) {
       list.push(
         {
           id: "servis-belum-bayar",
@@ -381,7 +382,7 @@ export function CerviseCommandPalette({ open, onOpenChange, role }: Props) {
         },
       );
     }
-    if (canAccess(role, "/app/garansi")) {
+    if (canAccessActor({ role, permissions }, "/app/garansi")) {
       list.push(
         {
           id: "garansi-aktif",
@@ -503,7 +504,7 @@ export function CerviseCommandPalette({ open, onOpenChange, role }: Props) {
 
   // ---- Menu -----------------------------------------------------------------
   const menuBlocks = useMemo(() => {
-    const blocks = navFor(role, "legacy", { includeHidden: true });
+    const blocks = navFor(role, "legacy", { includeHidden: true, permissions });
     if (!hasQuery) return blocks;
     return blocks
       .map((block) => ({
@@ -513,7 +514,7 @@ export function CerviseCommandPalette({ open, onOpenChange, role }: Props) {
         ),
       }))
       .filter((block) => block.entries.length > 0);
-  }, [role, hasQuery, normalized]);
+  }, [role, permissions, hasQuery, normalized]);
 
   const branchOptions = useMemo(() => {
     if (!hasQuery) return branches;

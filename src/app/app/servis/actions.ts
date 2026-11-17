@@ -33,7 +33,7 @@ export type CreateServisPayload = {
 export type UpdateServisPayload = Partial<CreateServisPayload> & { id: string };
 
 import { getActiveTenant } from "@/lib/supabase/actor";
-import { canAccess } from "@/lib/rbac";
+import { canAccessActor } from "@/lib/rbac";
 import { getPendingHandoverBlockMessage } from "@/lib/cash/handover";
 import { isManagerRole } from "@/lib/auth/authorization";
 import { applyBranchScope } from "@/lib/supabase/branch-scope";
@@ -41,7 +41,7 @@ import { applyBranchScope } from "@/lib/supabase/branch-scope";
 async function getBranchAndUser() {
   const actor = await getActiveTenant();
   if (!actor.branchId) throw new Error("Branch not set for tenant");
-  return { supabase: actor.supabase, userId: actor.userId, branchId: actor.branchId, role: actor.role, orgId: actor.orgId };
+  return { supabase: actor.supabase, userId: actor.userId, branchId: actor.branchId, role: actor.role, orgId: actor.orgId, permissions: actor.permissions };
 }
 
 /** Konteks baca: mengizinkan mode "Semua cabang" tanpa cabang tulis. */
@@ -507,8 +507,8 @@ export async function addPembayaran(params: {
   keterangan?: string;
 }): Promise<{ ok: true; total: number } | { ok: false; error: string }> {
   try {
-    const { supabase, branchId, userId, role } = await getBranchAndUser();
-    if (!canAccess(role, "servis_pembayaran")) {
+    const { supabase, branchId, userId, role, permissions } = await getBranchAndUser();
+    if (!canAccessActor({ role, permissions }, "servis_pembayaran")) {
       return { ok: false, error: "Hanya admin/kasir boleh input pembayaran" };
     }
     const handoverBlock = await getPendingHandoverBlockMessage(supabase, branchId);

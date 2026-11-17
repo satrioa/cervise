@@ -4,7 +4,7 @@
 import { revalidatePath } from "next/cache";
 import { getActiveTenant, type Actor } from "@/lib/supabase/actor";
 import { isEmployeeTargetInOrganization, isManagerRole } from "@/lib/auth/authorization";
-import { canAccess } from "@/lib/rbac";
+import { canAccessActor } from "@/lib/rbac";
 import { generateTempPassword } from "@/lib/auth/password";
 import { passwordResetRedirectUrl } from "@/lib/auth/redirect-url";
 import { EMPLOYEE_TO_PROFILE_ROLE, canManageEmployees } from "@/lib/auth/account-input";
@@ -13,7 +13,7 @@ import { validatePhone } from "@/lib/phone";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { findAuthUserByEmail } from "@/lib/supabase/admin-users";
 
-type BranchUser = { supabase: Actor["supabase"]; userId: string; employeeId: string; organizationId: string; branchId: string; role: string };
+type BranchUser = { supabase: Actor["supabase"]; userId: string; employeeId: string; organizationId: string; branchId: string; role: string; permissions?: readonly string[] | null };
 
 async function getBranchUser(): Promise<BranchUser> {
   const actor = await getActiveTenant();
@@ -25,6 +25,7 @@ async function getBranchUser(): Promise<BranchUser> {
     organizationId: actor.orgId,
     branchId: actor.branchId,
     role: actor.role,
+    permissions: actor.permissions,
   };
 }
 
@@ -49,8 +50,8 @@ export type KaryawanRow = {
 };
 
 export async function getKaryawan(): Promise<KaryawanRow[]> {
-  const { supabase, organizationId, role } = await getBranchUser();
-  if (!canAccess(role, "karyawan")) throw new Error("Hanya manager boleh melihat data karyawan");
+  const { supabase, organizationId, role, permissions } = await getBranchUser();
+  if (!canAccessActor({ role, permissions }, "karyawan")) throw new Error("Hanya manager boleh melihat data karyawan");
   const { data: emps, error } = await supabase.from("employees").select("id, profile_id, role, role_key, branch_id, is_active, created_at").eq("organization_id", organizationId).order("created_at", { ascending: true });
   if (error) throw new Error(error.message);
   if (!emps?.length) return [];
@@ -90,8 +91,8 @@ export async function getKaryawan(): Promise<KaryawanRow[]> {
 }
 
 export async function getKaryawanBranches(): Promise<{ id: string; name: string }[]> {
-  const { supabase, organizationId, role } = await getBranchUser();
-  if (!canAccess(role, "karyawan")) throw new Error("Hanya manager boleh melihat data karyawan");
+  const { supabase, organizationId, role, permissions } = await getBranchUser();
+  if (!canAccessActor({ role, permissions }, "karyawan")) throw new Error("Hanya manager boleh melihat data karyawan");
   const { data } = await supabase.from("branches").select("id, name").eq("organization_id", organizationId).eq("is_active", true).order("name");
   return ((data ?? []) as any[]).map((b) => ({ id: b.id as string, name: b.name as string }));
 }

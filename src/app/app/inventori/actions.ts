@@ -1,7 +1,7 @@
 "use server";
 
 import { getActiveTenant } from "@/lib/supabase/actor";
-import { canAccess } from "@/lib/rbac";
+import { canAccessActor } from "@/lib/rbac";
 import { applyBranchScope } from "@/lib/supabase/branch-scope";
 import { revalidatePath } from "next/cache";
 import { groupInventoryProducts, summarizeInventory, type InventoryGroup, type InventoryProduct, type InventorySummary } from "@/lib/operational/inventori";
@@ -25,13 +25,13 @@ export type InventoriData = {
 const COLUMNS =
   "id, name, sku, barcode, category, stock_qty, cost, price, variant_type, storage, warna, bh_percent, kondisi_notes, garansi_days, imei, parent_key, image_url, is_active";
 
-function requireInventoryAccess(role: string) {
-  if (!canAccess(role, "inventory")) throw new Error("Hanya admin yang boleh melihat inventori");
+function requireInventoryAccess(actor: { role: string; permissions?: readonly string[] | null }) {
+  if (!canAccessActor(actor, "inventory")) throw new Error("Hanya admin yang boleh melihat inventori");
 }
 
 export async function getInventori(): Promise<InventoriData> {
   const actor = await getActiveTenant();
-  requireInventoryAccess(actor.role);
+  requireInventoryAccess(actor);
 
   const query = applyBranchScope(
     actor.supabase
@@ -72,7 +72,7 @@ export type QuickProductRow = {
  */
 export async function getProductQuickList(): Promise<QuickProductRow[]> {
   const actor = await getActiveTenant();
-  requireInventoryAccess(actor.role);
+  requireInventoryAccess(actor);
 
   const { data, error } = await applyBranchScope(
     actor.supabase.from("cervise_products").select("id, name, sku"),
@@ -108,8 +108,8 @@ export type UpdateProductVariantInput = {
 /** Edit varian dari halaman inventori. */
 export async function updateProductVariant(input: UpdateProductVariantInput): Promise<void> {
   const actor = await getActiveTenant();
-  requireInventoryAccess(actor.role);
-  if (!canAccess(actor.role, "penjualan")) throw new Error("Hanya admin/frontliner boleh mengubah produk");
+  requireInventoryAccess(actor);
+  if (!canAccessActor(actor, "penjualan")) throw new Error("Hanya admin/frontliner boleh mengubah produk");
   if (!input.id) throw new Error("Produk tidak ditemukan");
   if (!input.name.trim()) throw new Error("Nama produk wajib");
 
@@ -146,10 +146,10 @@ export async function updateProductVariant(input: UpdateProductVariantInput): Pr
  */
 export async function importInventori(rows: InventoriImportRow[]): Promise<{ inserted: number }> {
   const actor = await getActiveTenant();
-  requireInventoryAccess(actor.role);
+  requireInventoryAccess(actor);
   // Sejalan dengan `createProduct`: yang boleh menambah katalog adalah
   // admin/frontliner, bukan teknisi yang hanya perlu melihat stok.
-  if (!canAccess(actor.role, "penjualan")) throw new Error("Hanya admin/frontliner boleh impor produk");
+  if (!canAccessActor(actor, "penjualan")) throw new Error("Hanya admin/frontliner boleh impor produk");
   const branchId = actor.branchId;
   if (!branchId) throw new Error("Cabang aktif belum dipilih");
   if (rows.length === 0) throw new Error("File tidak berisi baris produk");
@@ -166,7 +166,7 @@ export async function importInventori(rows: InventoriImportRow[]): Promise<{ ins
   );
   if (errors.length > 0) {
     const shown = errors.slice(0, 5).join("\n");
-    const rest = errors.length > 5 ? `\n… dan ${errors.length - 5} baris lain` : "";
+    const rest = errors.length > 5 ? `\nÃ¢â‚¬Â¦ dan ${errors.length - 5} baris lain` : "";
     throw new Error(shown + rest);
   }
 

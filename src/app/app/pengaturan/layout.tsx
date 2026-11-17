@@ -1,9 +1,10 @@
 import { getActiveTenant } from "@/lib/supabase/actor";
-import { NAV_ENTRIES, normalizeAppRole, type NavEntry, type NavGroup } from "@/lib/nav/manifest";
+import { NAV_ENTRIES, canAccessActor, normalizeAppRole, type NavEntry, type NavGroup } from "@/lib/nav/manifest";
 import {
   SettingsMobileNav,
   SettingsNav,
   SettingsSectionHeader,
+  SettingsTabs,
   type SettingsNavGroup,
 } from "@/components/layout/settings-nav";
 
@@ -51,21 +52,30 @@ export function buildSettingsGroups(entries: NavEntry[]): SettingsNavGroup[] {
 export default async function PengaturanLayout({ children }: { children: React.ReactNode }) {
   const actor = await getActiveTenant();
   const role = normalizeAppRole(actor.role);
-
-  const entries = role
-    ? NAV_ENTRIES.filter(
-        (entry) =>
-          entry.surface.includes("legacy") &&
-          entry.roles.includes(role) &&
-          entry.href.startsWith("/app/pengaturan"),
-      )
-    : [];
+  const entries = NAV_ENTRIES.filter(
+    (entry) =>
+      entry.surface.includes("legacy") &&
+      canAccessActor(actor, entry.href) &&
+      entry.href.startsWith("/app/pengaturan"),
+  );
 
   const groups = buildSettingsGroups(entries);
 
   // Tidak ada item pengaturan yang boleh dibuka role ini.
   if (groups.length === 0) {
     return <div className="flex-1 min-h-0 overflow-y-auto">{children}</div>;
+  }
+
+  // Master admin (shell legacy) memakai sub-menu horizontal di bawah header.
+  // Teknisi/frontliner tetap memakai sidebar/mobile nav yang lama.
+  const isCompact = role === "TECHNICIAN" || role === "FRONTLINER";
+  if (!isCompact) {
+    return (
+      <div className="flex min-h-0 flex-1 flex-col">
+        <SettingsTabs groups={groups} />
+        <div className="flex-1 min-h-0 overflow-y-auto">{children}</div>
+      </div>
+    );
   }
 
   return (

@@ -6,7 +6,7 @@ import { randomUUID } from "crypto";
 
 import { getActiveTenant } from "@/lib/supabase/actor";
 import { kalenderWIB } from "@/lib/operational/periode-bulan";
-import { canAccess } from "@/lib/rbac";
+import { canAccessActor } from "@/lib/rbac";
 import { applyBranchScope } from "@/lib/supabase/branch-scope";
 import { validateSaleItems } from "@/lib/sales/validation";
 import { sanitizeSearchTerm } from "@/lib/search-term";
@@ -19,7 +19,7 @@ async function getBranchUser() {
   // getActiveTenant already validates is_active and tenant
   if (!actor.branchId) throw new Error("Branch not set for tenant");
   const supabase = actor.supabase;
-  return { supabase, userId: actor.userId, branchId: actor.branchId, organizationId: actor.orgId, role: actor.role, email: "" };
+  return { supabase, userId: actor.userId, branchId: actor.branchId, organizationId: actor.orgId, role: actor.role, permissions: actor.permissions, email: "" };
 }
 
 /** Konteks baca untuk POS/riwayat; mode "Semua cabang" boleh membaca. */
@@ -28,8 +28,8 @@ async function getSalesReadContext() {
   return { supabase: actor.supabase, actor };
 }
 
-function requireSalesAccess(role: string) {
-  if (!canAccess(role, "penjualan")) throw new Error("Hanya frontliner/admin boleh transaksi penjualan");
+function requireSalesAccess(actor: { role: string; permissions?: readonly string[] | null }) {
+  if (!canAccessActor(actor, "penjualan")) throw new Error("Hanya frontliner/admin boleh transaksi penjualan");
 }
 
 function genSku(category: string): string {
@@ -66,8 +66,8 @@ function slugParent(name: string): string {
 
 export async function searchProductsForSale(q: string, opts?: { variant_type?: "BARU" | "BEKAS" | "semua" }): Promise<ProductRow[]> {
   const { supabase, actor } = await getSalesReadContext();
-  const { role } = actor;
-  requireSalesAccess(role);
+  const { role, permissions } = actor;
+  requireSalesAccess({ role, permissions });
   let query = applyBranchScope(
     supabase
       .from("cervise_products")
@@ -111,9 +111,9 @@ export async function createProduct(input: {
   garansi_days?: number | null;
   imei?: string | null;
 }) {
-  const { supabase, branchId, organizationId, role } = await getBranchUser();
+  const { supabase, branchId, organizationId, role, permissions } = await getBranchUser();
   const organization_id = organizationId;
-  requireSalesAccess(role);
+  requireSalesAccess({ role, permissions });
   const name = input.name.trim();
   if (!name) throw new Error("Nama produk wajib");
   if (!Number.isFinite(input.cost) || input.cost < 0) throw new Error("Modal harus valid");
@@ -226,7 +226,7 @@ export async function createProductAction(
 
 export async function getSalesOrders(filters?: { q?: string; metode?: string; status?: string; from?: string; to?: string }) {
   const { supabase, actor } = await getSalesReadContext();
-  requireSalesAccess(actor.role);
+  requireSalesAccess(actor);
   let q = applyBranchScope(
     supabase
       .from("cervise_sales")
@@ -270,7 +270,7 @@ export async function getSalesOrders(filters?: { q?: string; metode?: string; st
 
 export async function getSaleDetail(saleId: string) {
   const { supabase, actor } = await getSalesReadContext();
-  requireSalesAccess(actor.role);
+  requireSalesAccess(actor);
   const saleQuery = applyBranchScope(supabase.from("cervise_sales").select("*"), actor);
   const { data: sale, error } = await saleQuery.eq("id", saleId).maybeSingle();
   if (error || !sale) throw new Error("Sale not found");
@@ -298,8 +298,8 @@ export async function createSale(input: {
   promoCode?: string | null;
   discount_total?: number;
 }) {
-  const { supabase, branchId, role, userId } = await getBranchUser();
-  requireSalesAccess(role);
+  const { supabase, branchId, role, userId, permissions } = await getBranchUser();
+  requireSalesAccess({ role, permissions });
   const handoverBlock = await getPendingHandoverBlockMessage(supabase, branchId);
   if (handoverBlock) throw new Error(handoverBlock);
   if (!input.customerId) throw new Error("Customer wajib");
@@ -313,7 +313,7 @@ export async function createSale(input: {
   const pMap = new Map<string, any>();
   for (const p of (prods as any[]) ?? []) pMap.set(p.id, p);
 
-  const canOverridePrice = canAccess(role, "harga_jual");
+  const canOverridePrice = canAccessActor({ role, permissions }, "harga_jual");
   // Harga TIDAK lagi diganti dengan harga produk di sini. Dulu baris ini
   // menimpanya diam-diam, jadi kasir melihat "Total Rp1" di layar sementara
   // server menyimpan total Rp 100.000. validateSaleItems sekarang menolak
@@ -424,7 +424,7 @@ export type CheckoutSaleResult =
  *
  * `createSale` sengaja tetap melempar error: test dan pemanggil lain
  * mengandalkan kontrak itu. Masalahnya, error yang dilempar server action
- * sampai ke browser sebagai "Minified React error #441" di build produksi —
+ * sampai ke browser sebagai "Minified React error #441" di build produksi Ã¢â‚¬â€
  * pesan aslinya hilang. Fungsi ini menangkapnya dan mengembalikannya sebagai
  * nilai, jadi kasir melihat penyebab sebenarnya.
  */
@@ -432,7 +432,7 @@ export async function checkoutSale(input: CheckoutSaleInput): Promise<CheckoutSa
   try {
     let customerId = input.customerId?.trim() || null;
     if (!customerId) {
-      if (!input.newCustomer) return { ok: false, error: "Customer wajib — cari atau tambah customer baru" };
+      if (!input.newCustomer) return { ok: false, error: "Customer wajib Ã¢â‚¬â€ cari atau tambah customer baru" };
       const found = await findOrCreateCustomer({
         name: input.newCustomer.name,
         phone: input.newCustomer.phone,
@@ -499,8 +499,8 @@ export async function getReceiptContext(): Promise<ReceiptContext> {
 }
 
 export async function returnSaleItems(saleId: string, returns: { item_id: string; qty: number }[]) {
-  const { supabase, branchId, role } = await getBranchUser();
-  requireSalesAccess(role);
+  const { supabase, branchId, role, permissions } = await getBranchUser();
+  requireSalesAccess({ role, permissions });
   const handoverBlock = await getPendingHandoverBlockMessage(supabase, branchId);
   if (handoverBlock) throw new Error(handoverBlock);
   const { data: sale } = await supabase.from("cervise_sales").select("id, branch_id, status").eq("id", saleId).eq("branch_id", branchId).maybeSingle();

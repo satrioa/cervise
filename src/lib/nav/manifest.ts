@@ -587,6 +587,29 @@ export function canWriteWith(
 }
 
 /**
+ * Satu pintu pemeriksaan untuk aktor. Role bawaan memakai role sistem; role
+ * buatan memakai daftar izin yang sudah dipersempit, supaya server action dan
+ * navigasi tidak bisa dilewati lewat role dasar saja.
+ */
+export function canAccessActor(
+  actor: { role: string | null | undefined; permissions?: readonly string[] | null },
+  key: string,
+): boolean {
+  return actor.permissions !== undefined
+    ? canAccessWith(actor.permissions, key)
+    : canAccess(actor.role, key);
+}
+
+export function canWriteActor(
+  actor: { role: string | null | undefined; permissions?: readonly string[] | null },
+  key: string,
+): boolean {
+  return actor.permissions !== undefined
+    ? canWriteWith(actor.permissions, key)
+    : canWrite(actor.role, key);
+}
+
+/**
  * Izin efektif seorang aktor.
  *
  * Actor menyimpan `permissions` hanya kalau ia memakai role buatan pengguna.
@@ -655,7 +678,7 @@ const HIDDEN_GROUPS: Record<Surface, NavGroup[]> = {
 export function navFor(
   role: string | null | undefined,
   surface: Surface,
-  options?: { includeHidden?: boolean; permissions?: readonly string[] },
+  options?: { includeHidden?: boolean; permissions?: readonly string[] | null },
 ): NavGroupBlock[] {
   const normalized = normalizeAppRole(role);
   const granted = options?.permissions ? new Set(options.permissions) : null;

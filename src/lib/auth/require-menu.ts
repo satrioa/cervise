@@ -4,8 +4,7 @@ import {
   getActiveTenantForBilling,
   type Actor,
 } from "@/lib/supabase/actor";
-import { canAccess, canWrite, canAccessWith, canWriteWith } from "@/lib/nav/manifest";
-import { permissionsOf } from "@/lib/nav/manifest";
+import { canAccess, canAccessActor, canWriteActor } from "@/lib/nav/manifest";
 
 /**
  * Route guard per-role. Menyembunyikan menu di sidebar saja tidak cukup:
@@ -17,10 +16,7 @@ import { permissionsOf } from "@/lib/nav/manifest";
  */
 export async function requireMenu(key: string): Promise<Actor> {
   const actor = await getActiveTenant();
-  const ok = actor.permissions
-    ? canAccessWith(actor.permissions, key)
-    : canAccess(actor.role, key);
-  if (!ok) {
+  if (!canAccessActor(actor, key)) {
     redirect("/app?error=forbidden");
   }
   return actor;
@@ -60,19 +56,13 @@ export async function requireMenuForBilling(key: string): Promise<Actor> {
 }
 
 export function assertCanWrite(actor: Actor, key: string): void {
-  const ok = actor.permissions
-    ? canWriteWith(actor.permissions, key)
-    : canWrite(actor.role, key);
-  if (!ok) {
+  if (!canWriteActor(actor, key)) {
     throw new Error("Role tidak diizinkan mengubah data ini");
   }
 }
 
 export function assertCanRead(actor: Actor, key: string): void {
-  const ok = actor.permissions
-    ? canAccessWith(actor.permissions, key)
-    : canAccess(actor.role, key);
-  if (!ok) {
+  if (!canAccessActor(actor, key)) {
     throw new Error("Role tidak diizinkan mengakses data ini");
   }
 }

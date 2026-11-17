@@ -34,8 +34,11 @@ function rank(href: string, primary: readonly string[]): number {
  * Penjualan/Customer/Transaksi sementara teknisi tidak — tanpa daftar terpisah
  * yang bisa lupa diperbarui saat manifest berubah.
  */
-export function operationalEntries(role: string | null | undefined): NavEntry[] {
-  const entries = navFor(role, "compact")
+export function operationalEntries(
+  role: string | null | undefined,
+  permissions?: readonly string[] | null,
+): NavEntry[] {
+  const entries = navFor(role, "compact", { permissions })
     .flatMap((block) => block.entries)
     .filter((entry) => !COMPACT_MENU_HIDDEN_HREFS.includes(entry.href));
 

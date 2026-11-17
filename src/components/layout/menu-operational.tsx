@@ -40,15 +40,17 @@ const FALLBACK_TILE = "bg-neutral-400";
 
 export function MenuOperational({
   role,
+  permissions,
   onNavigate,
 }: {
   role: string;
+  permissions?: readonly string[] | null;
   onNavigate?: () => void;
 }) {
   const t = useTranslations("nav");
   const { world } = useStyleWorld();
   const isScifi = world === "scifi";
-  const entries = operationalEntries(role);
+  const entries = operationalEntries(role, permissions);
 
   if (entries.length === 0) {
     return (

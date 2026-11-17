@@ -19,12 +19,13 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { CommandPaletteProvider } from "@/components/layout/command-palette-provider";
 import { ShellRoleProvider } from "@/components/layout/shell-chrome";
+import { canAccessActor } from "@/lib/nav/manifest";
 import { PageTransition } from "@/components/layout/page-transition";
 import { BranchProvider, useBranch } from "@/lib/branch-context";
 import { TenantProvider, useTenant } from "@/lib/tenant-context";
 import { TrialCard } from "@/components/layout/trial-card";
 import { SoundToggle } from "@/components/layout/sound-toggle";
-import { GROUP_LABEL_KEY, canAccess, navFor } from "@/lib/nav/manifest";
+import { GROUP_LABEL_KEY, navFor } from "@/lib/nav/manifest";
 import { LocaleProvider } from "@/lib/localization-context";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { MultipleAccounts, type AccountOption } from "@/components/uitripled/multiple-accounts-shadcnui";
@@ -175,11 +176,13 @@ function BranchSwitcher({ canSwitch }: { canSwitch: boolean }) {
 function SidebarContent({
   onNavigate,
   role,
+  permissions,
   fullName,
   avatarUrl,
 }: {
   onNavigate?: () => void;
   role: string;
+  permissions?: readonly string[] | null;
   fullName: string | null;
   avatarUrl: string | null;
 }) {
@@ -227,7 +230,7 @@ function SidebarContent({
       </div>
 
       <nav className="mt-3 flex-1 overflow-y-auto scrollbar-none px-2 pb-2">
-        {navFor(role, "legacy").map((block) => {
+        {navFor(role, "legacy", { permissions }).map((block) => {
           const groupKey = GROUP_LABEL_KEY[block.group];
           return (
             <div key={block.group} className="mt-3 first:mt-1">
@@ -271,7 +274,7 @@ function SidebarContent({
       </nav>
 
       {/* Trial card — live dari tenant_subscriptions; sembunyi bila bukan trial */}
-      <TrialCard organizationId={activeOrgId} canManageSubscription={canAccess(role, "pengaturan_subscription")} />
+      <TrialCard organizationId={activeOrgId} canManageSubscription={canAccessActor({ role, permissions }, "pengaturan_subscription")} />
 
       <div className="flex items-center gap-2 border-t border-border/60 px-3 py-2.5">
         <Link
@@ -348,11 +351,11 @@ const BOTTOM_TABS: BottomTab[] = [
  * `/app/servis/baru` adalah halaman anak, bukan entri manifest, jadi
  * kelayakannya mengikuti `/app/servis`.
  */
-function bottomTabsForRole(role: string): BottomTab[] {
+function bottomTabsForRole(role: string, permissions?: readonly string[] | null): BottomTab[] {
   return BOTTOM_TABS.filter((tab) => {
     if (tab.key === "lainnya") return true;
-    if (tab.key === "create") return canAccess(role, "/app/servis");
-    return canAccess(role, tab.href ?? "");
+    if (tab.key === "create") return canAccessActor({ role, permissions }, "/app/servis");
+    return canAccessActor({ role, permissions }, tab.href ?? "");
   });
 }
 
@@ -372,7 +375,7 @@ function bottomTabKey(key: string): string {
       return key;
   }
 }
-function CerviseBottomNav({ pathname, role }: { pathname: string; role: string }) {
+function CerviseBottomNav({ pathname, role, permissions }: { pathname: string; role: string; permissions?: readonly string[] | null }) {
   const [sheetOpen, setSheetOpen] = useState(false);
   const t = useTranslations("nav");
   const tabs = bottomTabsForRole(role);
@@ -442,7 +445,7 @@ function CerviseBottomNav({ pathname, role }: { pathname: string; role: string }
       <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
         <SheetContent side="bottom" className="h-auto">
           <div className="grid grid-cols-3 gap-2 pt-2 pb-6">
-            {navFor(role, "legacy").map((block) =>
+            {navFor(role, "legacy", { permissions }).map((block) =>
               block.entries.map((entry) => {
                 const Icon = entry.icon;
                 return (
@@ -467,6 +470,7 @@ function CerviseBottomNav({ pathname, role }: { pathname: string; role: string }
 
 export type AppShellActor = {
   role: string;
+  permissions?: readonly string[] | null;
   orgId: string;
   branchId: string | null;
   /** Identitas akun untuk sidebar. null = belum diketahui / belum diisi. */
@@ -521,7 +525,7 @@ function AppShellInner({ children, actor }: { children: React.ReactNode; actor: 
     <div className="flex h-svh w-full overflow-hidden bg-background text-foreground lg:grid lg:grid-cols-[260px_1fr]">
       <PageTransition />
       <aside className="hidden h-svh shrink-0 flex-col border-r border-border/60 bg-foreground/[0.02] lg:flex sticky top-0 overflow-hidden">
-        <SidebarContent role={actor.role} fullName={actor.fullName} avatarUrl={actor.avatarUrl} />
+        <SidebarContent role={actor.role} permissions={actor.permissions} fullName={actor.fullName} avatarUrl={actor.avatarUrl} />
       </aside>
 
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden lg:col-start-2">
@@ -536,6 +540,7 @@ function AppShellInner({ children, actor }: { children: React.ReactNode; actor: 
               </SheetHeader>
               <SidebarContent
                 role={actor.role}
+                permissions={actor.permissions}
                 fullName={actor.fullName}
                 avatarUrl={actor.avatarUrl}
                 onNavigate={() => setOpen(false)}
@@ -570,7 +575,7 @@ function AppShellInner({ children, actor }: { children: React.ReactNode; actor: 
           />
         </div>
 
-        <CerviseBottomNav pathname={pathname} role={actor.role} />
+        <CerviseBottomNav pathname={pathname} role={actor.role} permissions={actor.permissions} />
       </div>
     </div>
   );
@@ -586,7 +591,7 @@ export function AppShell({ children, actor }: { children: React.ReactNode; actor
           initialBranches={actor.branches ?? null}
           initialScope={actor.branchScope ?? null}
         >
-          <CommandPaletteProvider role={actor.role}>
+          <CommandPaletteProvider role={actor.role} permissions={actor.permissions}>
             <ShellRoleProvider value={actor.role}>
               <AppShellInner actor={actor}>{children}</AppShellInner>
             </ShellRoleProvider>

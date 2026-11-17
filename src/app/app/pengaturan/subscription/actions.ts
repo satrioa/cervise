@@ -2,10 +2,10 @@
 
 import { revalidatePath } from "next/cache";
 import { getActiveTenantForBilling } from "@/lib/supabase/actor";
-import { canAccess } from "@/lib/rbac";
+import { canAccessActor } from "@/lib/rbac";
 
-function requireSubscriptionAccess(role: string) {
-  if (!canAccess(role, "pengaturan_subscription")) {
+function requireSubscriptionAccess(actor: { role: string; permissions?: readonly string[] | null }) {
+  if (!canAccessActor(actor, "pengaturan_subscription")) {
     throw new Error("Role tidak diizinkan mengakses billing");
   }
 }
@@ -51,7 +51,7 @@ function firstRelation<T>(value: T | T[] | null) {
 
 export async function getTenantBilling() {
   const actor = await getActiveTenantForBilling();
-  requireSubscriptionAccess(actor.role);
+  requireSubscriptionAccess(actor);
   const [subscriptionResult, invoiceResult, packageResult, contactResult] = await Promise.all([
     actor.supabase
       .from("tenant_subscriptions")
@@ -108,7 +108,7 @@ export async function requestPackage(packageId: string) {
   // platform owner lewat `approveInvoice`, yang tidak bergantung pada
   // status langganan tenant sama sekali.
   const actor = await getActiveTenantForBilling();
-  if (!canAccess(actor.role, "pengaturan_subscription")) {
+  if (!canAccessActor(actor, "pengaturan_subscription")) {
     throw new Error("Hanya Master Admin atau Admin yang dapat memilih paket");
   }
   if (!packageId) {

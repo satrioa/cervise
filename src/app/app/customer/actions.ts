@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { getActiveTenant } from "@/lib/supabase/actor";
-import { canAccess } from "@/lib/rbac";
+import { canAccessActor } from "@/lib/rbac";
 import { applyBranchScope } from "@/lib/supabase/branch-scope";
 import { phoneSearchDigits, phoneStoredForms } from "@/lib/phone";
 import { sanitizeSearchTerm } from "@/lib/search-term";
@@ -16,8 +16,8 @@ import { servisPrice } from "@/lib/operational/servis-price";
 
 export type { CustomerListRow };
 
-function requireCustomerAccess(role: string) {
-  if (!canAccess(role, "customer")) throw new Error("Role tidak diizinkan mengakses customer");
+function requireCustomerAccess(actor: { role: string; permissions?: readonly string[] | null }) {
+  if (!canAccessActor(actor, "customer")) throw new Error("Role tidak diizinkan mengakses customer");
 }
 
 // Strict validator for the write paths; the mapper has its own lenient version
@@ -43,8 +43,8 @@ function formatPhoneDisplay(norm62: string): string {
 
 export async function getCustomers(): Promise<CustomerListRow[]> {
   const actor = await getActiveTenant();
-  const { supabase, role } = actor;
-  requireCustomerAccess(role);
+  const { supabase, role, permissions } = actor;
+  requireCustomerAccess({ role, permissions });
 
   const customersQuery = applyBranchScope(
     supabase.from("cervise_customers").select("id, name, phone, created_at"),
@@ -95,7 +95,7 @@ export type QuickCustomerRow = {
 /** Daftar ringkas untuk saran command palette (maks 300 customer per cabang). */
 export async function getCustomerQuickList(): Promise<QuickCustomerRow[]> {
   const actor = await getActiveTenant();
-  requireCustomerAccess(actor.role);
+  requireCustomerAccess(actor);
 
   const { data, error } = await applyBranchScope(
     actor.supabase.from("cervise_customers").select("id, name, phone"),
@@ -118,8 +118,8 @@ export async function getCustomerQuickList(): Promise<QuickCustomerRow[]> {
 }
 
 export async function createCustomer(form: { name: string; phone: string }) {
-  const { supabase, branchId, role } = await getActiveTenant();
-  requireCustomerAccess(role);
+  const { supabase, branchId, role, permissions } = await getActiveTenant();
+  requireCustomerAccess({ role, permissions });
   if (!branchId) throw new Error("Branch not set");
   const name = form.name.trim();
   if (!name) throw new Error("Nama wajib");
@@ -135,8 +135,8 @@ export async function createCustomer(form: { name: string; phone: string }) {
 }
 
 export async function updateCustomer(id: string, form: { name: string; phone: string }) {
-  const { supabase, branchId, role } = await getActiveTenant();
-  requireCustomerAccess(role);
+  const { supabase, branchId, role, permissions } = await getActiveTenant();
+  requireCustomerAccess({ role, permissions });
   if (!branchId) throw new Error("Branch not set");
   if (!id) throw new Error("ID wajib");
   const name = form.name.trim();
@@ -152,8 +152,8 @@ export async function updateCustomer(id: string, form: { name: string; phone: st
 }
 
 export async function deleteCustomer(id: string) {
-  const { supabase, branchId, role } = await getActiveTenant();
-  requireCustomerAccess(role);
+  const { supabase, branchId, role, permissions } = await getActiveTenant();
+  requireCustomerAccess({ role, permissions });
   if (!branchId) throw new Error("Branch not set");
   if (!id) throw new Error("ID wajib");
   const { count, error: cntErr } = await supabase.from("cervise_services").select("id", { count: "exact", head: true }).eq("branch_id", branchId).eq("customer_id", id);
@@ -175,8 +175,8 @@ export type CustomerServisRow = {
 
 export async function getCustomerServis(customerId: string): Promise<CustomerServisRow[]> {
   const actor = await getActiveTenant();
-  const { supabase, role } = actor;
-  requireCustomerAccess(role);
+  const { supabase, role, permissions } = actor;
+  requireCustomerAccess({ role, permissions });
   const query = applyBranchScope(
     supabase
       .from("cervise_services")
@@ -198,8 +198,8 @@ export async function getCustomerServis(customerId: string): Promise<CustomerSer
 }
 export async function searchCustomersByPhone(q: string) {
   const actor = await getActiveTenant();
-  const { supabase, role } = actor;
-  requireCustomerAccess(role);
+  const { supabase, role, permissions } = actor;
+  requireCustomerAccess({ role, permissions });
   // `phone` ditulis kanonik `62...` oleh normalizePhone62, tapi baris lama
   // masih tersimpan `08...`. Ditemukan lewat test end-to-end: pencarian dulu
   // memakai digit mentah, jadi "081277770001" tidak pernah cocok dengan
@@ -233,8 +233,8 @@ export async function searchCustomersByPhone(q: string) {
  */
 export async function searchCustomersForPos(q: string) {
   const actor = await getActiveTenant();
-  const { supabase, role } = actor;
-  requireCustomerAccess(role);
+  const { supabase, role, permissions } = actor;
+  requireCustomerAccess({ role, permissions });
   const term = sanitizeSearchTerm(q);
   const digits = phoneSearchDigits(q);
   if (term.length < 2 && digits.length < 3) return [];
@@ -258,8 +258,8 @@ export async function searchCustomersForPos(q: string) {
 }
 
 export async function findOrCreateCustomer(input: { phone: string; name?: string }) {
-  const { supabase, branchId, role } = await getActiveTenant();
-  requireCustomerAccess(role);
+  const { supabase, branchId, role, permissions } = await getActiveTenant();
+  requireCustomerAccess({ role, permissions });
   if (!branchId) throw new Error("Branch not set");
   const norm = normalizePhone62(input.phone);
   const name = (input.name ?? "").trim() || norm;

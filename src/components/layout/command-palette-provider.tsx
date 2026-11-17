@@ -21,9 +21,11 @@ export function useCommandPalette() {
 export function CommandPaletteProvider({
   children,
   role,
+  permissions,
 }: {
   children: ReactNode;
   role: string;
+  permissions?: readonly string[] | null;
 }) {
   const [open, setOpen] = useState(false);
   const openPalette = useCallback(() => setOpen(true), []);
@@ -42,7 +44,7 @@ export function CommandPaletteProvider({
   return (
     <CommandPaletteContext.Provider value={{ openPalette }}>
       {children}
-      <CerviseCommandPalette open={open} onOpenChange={setOpen} role={role} />
+      <CerviseCommandPalette open={open} onOpenChange={setOpen} role={role} permissions={permissions} />
     </CommandPaletteContext.Provider>
   );
 }

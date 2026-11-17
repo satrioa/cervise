@@ -54,7 +54,8 @@
       "appearance": "Tampilan Store",
       "subscription": "Subscription",
       "usage": "Usage",
-      "receiptAppearance": "Tampilan Nota"
+      "receiptAppearance": "Tampilan Nota",
+      "roles": "Role & Izin"
     },
     "search": {
       "placeholder": "Cari servis, customer..."
@@ -106,5 +107,27 @@
       "title": "Lokalisasi",
       "subtitle": "Pilih bagaimana tanggal, waktu, angka, dan mata uang ditampilkan."
     }
+  },
+  "pengaturan": {
+    "title": "Role & Izin",
+    "subtitle": "Kelola role buatan dan batas izinnya.",
+    "create_role": "Buat Role",
+    "edit_role": "Ubah Role",
+    "empty": "Belum ada role buatan.",
+    "records": "Role",
+    "key_label": "Kunci role",
+    "default_key": "CONTOH_ROLE",
+    "name_label": "Nama role",
+    "name_placeholder": "Contoh: Admin Tanpa Keuangan",
+    "base_role_label": "Dasar role",
+    "permissions_label": "Izin yang diberikan",
+    "delete_confirm": "Hapus role {role}?",
+    "deleted": "Role dihapus",
+    "delete": "Hapus",
+    "saved": "Role disimpan",
+    "failed": "Gagal menyimpan role",
+    "cancel": "Batal",
+    "create": "Buat",
+    "save": "Simpan"
   }
 }

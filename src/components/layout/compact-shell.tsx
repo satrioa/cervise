@@ -43,6 +43,7 @@ import { cn } from "@/lib/utils";
 
 export type CompactShellActor = {
   role: string;
+  permissions?: readonly string[] | null;
   orgId: string;
   branchId: string | null;
   fullName: string | null;
@@ -73,7 +74,7 @@ export function CompactShell({ children, actor }: { children: ReactNode; actor: 
       <OvioBridge>
       <TenantProvider fixedOrganizationId={actor.orgId}>
         <BranchProvider fixedBranchId={actor.branchId ?? "unassigned"}>
-          <CommandPaletteProvider role={actor.role}>
+          <CommandPaletteProvider role={actor.role} permissions={actor.permissions}>
             {/* Header shell Compact sudah membawa search dan tombol layar
                 penuh, jadi PageHeader di dalamnya harus melompat keduanya.
                 Tanpa provider ini, halaman Servis, Customer, dan Inventori
@@ -233,6 +234,7 @@ function CompactShellInner({
             >
               <CompactMenuSheet
                 role={actor.role}
+                permissions={actor.permissions}
                 onNavigate={() => setOpen(false)}
                 onScroll={desktop ? undefined : handleMenuScroll}
               />

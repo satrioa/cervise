@@ -2,10 +2,10 @@
 
 import { revalidatePath } from "next/cache";
 import { getActiveTenant } from "@/lib/supabase/actor";
-import { canAccess } from "@/lib/rbac";
+import { canAccessActor } from "@/lib/rbac";
 
-function requireCabangAccess(role: string) {
-  if (!canAccess(role, "cabang")) throw new Error("Role tidak diizinkan mengelola cabang");
+function requireCabangAccess(actor: { role: string; permissions?: readonly string[] | null }) {
+  if (!canAccessActor(actor, "cabang")) throw new Error("Role tidak diizinkan mengelola cabang");
 }
 
 type IntensifMode = "percent" | "fixed" | "flat";
@@ -26,8 +26,8 @@ function readIntensifMode(value: unknown): IntensifMode {
 }
 
 export async function getCabangList() {
-  const { supabase, orgId, role } = await getActiveTenant();
-  requireCabangAccess(role);
+  const { supabase, orgId, role, permissions } = await getActiveTenant();
+  requireCabangAccess({ role, permissions });
   const { data: branches, error } = await supabase.from("branches").select("id,name,city,phone,is_active,is_intensif_enabled,intensif_mode,intensif_value,intensif_target_count,created_at").eq("organization_id", orgId).order("created_at");
   if (error) throw new Error(error.message);
   const ids = (branches ?? []).map((b: any) => b.id);
@@ -55,8 +55,8 @@ export async function getCabangList() {
 }
 
 export async function createCabang(form: { name: string; alamat: string; telepon: string }) {
-  const { supabase, orgId, role } = await getActiveTenant();
-  requireCabangAccess(role);
+  const { supabase, orgId, role, permissions } = await getActiveTenant();
+  requireCabangAccess({ role, permissions });
   const name = form.name.trim();
   if (!name) throw new Error("Nama cabang wajib");
   if (name.length > 50) throw new Error("Nama maksimal 50 karakter");
@@ -73,8 +73,8 @@ export async function createCabang(form: { name: string; alamat: string; telepon
 }
 
 export async function toggleCabangActive(id: string, enabled: boolean) {
-  const { supabase, orgId, role } = await getActiveTenant();
-  requireCabangAccess(role);
+  const { supabase, orgId, role, permissions } = await getActiveTenant();
+  requireCabangAccess({ role, permissions });
   const { error } = await supabase.from("branches").update({ is_active: enabled }).eq("id", id).eq("organization_id", orgId);
   if (error) throw new Error(error.message);
   revalidatePath("/app/cabang");
@@ -82,8 +82,8 @@ export async function toggleCabangActive(id: string, enabled: boolean) {
 }
 
 export async function toggleCabangIntensif(id: string, enabled: boolean) {
-  const { supabase, orgId, role } = await getActiveTenant();
-  requireCabangAccess(role);
+  const { supabase, orgId, role, permissions } = await getActiveTenant();
+  requireCabangAccess({ role, permissions });
   const { error } = await supabase.from("branches").update({ is_intensif_enabled: enabled }).eq("id", id).eq("organization_id", orgId);
   if (error) throw new Error(error.message);
   revalidatePath("/app/cabang");
@@ -94,8 +94,8 @@ export async function updateCabangIntensif(
   id: string,
   data: { mode: "percent" | "fixed" | "flat"; value: number; targetCount: number | null }
 ) {
-  const { supabase, orgId, role } = await getActiveTenant();
-  requireCabangAccess(role);
+  const { supabase, orgId, role, permissions } = await getActiveTenant();
+  requireCabangAccess({ role, permissions });
   if (!["percent", "fixed", "flat"].includes(data.mode)) throw new Error("Mode invalid");
   if (data.value === null || isNaN(data.value) || data.value < 0) throw new Error("Nilai insentif harus >=0");
   if (data.targetCount !== null && (isNaN(data.targetCount) || data.targetCount <= 0)) throw new Error("Target harus >0");
@@ -120,8 +120,8 @@ export async function updateCabangIntensif(
 }
 
 export async function getCabangMembers(branchId: string) {
-  const { supabase, orgId, role } = await getActiveTenant();
-  requireCabangAccess(role);
+  const { supabase, orgId, role, permissions } = await getActiveTenant();
+  requireCabangAccess({ role, permissions });
   const { data: emps, error } = await supabase
     .from("employees")
     .select("id, profile_id, role, is_active, created_at")
@@ -155,7 +155,7 @@ export async function getCabangMembers(branchId: string) {
       email,
       role,
       status: status as "online" | "away" | "off",
-      customStatus: idx % 2 === 0 ? (status === "online" ? "🛠 Sedang servis" : status === "away" ? "Idle" : undefined) : undefined,
+      customStatus: idx % 2 === 0 ? (status === "online" ? "Ã°Å¸â€ºÂ  Sedang servis" : status === "away" ? "Idle" : undefined) : undefined,
       active: isActive ? (status === "online" ? "active now" : status === "away" ? "idle" : "tidak aktif") : "tidak aktif",
       permission: (e.role === "ADMIN" || e.role === "MASTER_ADMIN" ? "Admin" : e.role === "TECHNICIAN" ? "Member" : "Viewer") as "Owner" | "Admin" | "Member" | "Viewer",
     };
@@ -163,8 +163,8 @@ export async function getCabangMembers(branchId: string) {
 }
 
 export async function updateCabang(id: string, form: { name: string; alamat: string; telepon: string }) {
-  const { supabase, orgId, role } = await getActiveTenant();
-  requireCabangAccess(role);
+  const { supabase, orgId, role, permissions } = await getActiveTenant();
+  requireCabangAccess({ role, permissions });
   const name = form.name.trim();
   if (!name) throw new Error("Nama cabang wajib");
   if (name.length > 50) throw new Error("Nama maksimal 50 karakter");

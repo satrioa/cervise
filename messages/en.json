@@ -54,7 +54,8 @@
       "appearance": "Store Appearance",
       "subscription": "Subscription",
       "usage": "Usage",
-      "receiptAppearance": "Receipt Appearance"
+      "receiptAppearance": "Receipt Appearance",
+      "roles": "Roles & Permissions"
     },
     "search": {
       "placeholder": "Search service, customer..."
@@ -106,5 +107,27 @@
       "title": "Localization",
       "subtitle": "Choose how dates, times, numbers and currencies are displayed."
     }
+  },
+  "pengaturan": {
+    "title": "Roles & Permissions",
+    "subtitle": "Manage custom roles and their permission limits.",
+    "create_role": "Create Role",
+    "edit_role": "Edit Role",
+    "empty": "No custom roles yet.",
+    "records": "Role",
+    "key_label": "Role key",
+    "default_key": "EXAMPLE_ROLE",
+    "name_label": "Role name",
+    "name_placeholder": "e.g. Admin Without Finance",
+    "base_role_label": "Base role",
+    "permissions_label": "Granted permissions",
+    "delete_confirm": "Delete role {role}?",
+    "deleted": "Role deleted",
+    "delete": "Delete",
+    "saved": "Role saved",
+    "failed": "Failed to save role",
+    "cancel": "Cancel",
+    "create": "Create",
+    "save": "Save"
   }
 }

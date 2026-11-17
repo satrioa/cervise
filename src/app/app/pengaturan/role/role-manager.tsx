@@ -5,7 +5,15 @@ import { useTranslations } from "next-intl";
 import { Table, TableHeader, TableRow, TableCell } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectGroup, SelectItem } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Trash2, Pencil, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { getRoles, createRole, updateRole, deleteRole, type RoleRow } from "@/app/app/pengaturan/role/actions";
@@ -36,6 +44,7 @@ export function RoleManager({ roles, baseCatalog, permissionGroups }: Props) {
   const [form, setForm] = useState<FormState | null>(null);
   const [toast, setToast] = useState<{ kind: "ok" | "err"; msg: string } | null>(null);
   const [isBusy, setIsBusy] = useState(false);
+  const [deleteKey, setDeleteKey] = useState<string | null>(null);
 
   const isNew = openKey === "__new__";
   const editing = openKey && !isNew ? roles.find((r) => r.key === openKey) ?? null : null;
@@ -109,13 +118,15 @@ export function RoleManager({ roles, baseCatalog, permissionGroups }: Props) {
     }
   };
 
-  const confirmDelete = async (k: string) => {
-    if (!window.confirm(`${t("delete_confirm", { role: k })}`)) return;
+  const performDelete = async () => {
+    const k = deleteKey;
+    if (!k) return;
     setIsBusy(true);
     try {
       await deleteRole(k);
       playPageTransition();
       setToast({ kind: "ok", msg: t("deleted") });
+      setDeleteKey(null);
     } catch (e) {
       setToast({ kind: "err", msg: e instanceof Error ? e.message : t("failed") });
     } finally {
@@ -165,7 +176,7 @@ export function RoleManager({ roles, baseCatalog, permissionGroups }: Props) {
                         size="icon"
                         variant="destructive"
                         disabled={isBusy}
-                        onClick={() => confirmDelete(r.key)}
+                        onClick={() => setDeleteKey(r.key)}
                       >
                         <Trash2 className="size-4" />
                       </Button>
@@ -216,11 +227,13 @@ export function RoleManager({ roles, baseCatalog, permissionGroups }: Props) {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {baseCatalog.map((bc) => (
-                      <SelectItem key={bc.baseRole} value={bc.baseRole}>
-                        {bc.label}
-                      </SelectItem>
-                    ))}
+                    <SelectGroup>
+                      {baseCatalog.map((bc) => (
+                        <SelectItem key={bc.baseRole} value={bc.baseRole}>
+                          {bc.label}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
                   </SelectContent>
                 </Select>
               </div>
@@ -259,6 +272,23 @@ export function RoleManager({ roles, baseCatalog, permissionGroups }: Props) {
           </form>
         </div>
       )}
+
+      <Dialog open={deleteKey !== null} onOpenChange={(open) => !open && setDeleteKey(null)}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>{t("delete_confirm", { role: deleteKey ?? "" })}</DialogTitle>
+            <DialogDescription>{t("subtitle")}</DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setDeleteKey(null)}>
+              {t("cancel")}
+            </Button>
+            <Button type="button" variant="destructive" loading={isBusy} onClick={() => void performDelete()}>
+              {t("delete")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {toast && (
         <div className="fixed bottom-6 right-6 z-50 bg-white rounded-lg shadow p-2 text-sm text-center">

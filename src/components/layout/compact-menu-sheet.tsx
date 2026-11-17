@@ -29,10 +29,12 @@ import { PrinterSettings } from "@/components/pengaturan/printer-card";
  */
 export function CompactMenuSheet({
   role,
+  permissions,
   onNavigate,
   onScroll,
 }: {
   role: string;
+  permissions?: readonly string[] | null;
   onNavigate?: () => void;
   onScroll?: (event: UIEvent<HTMLDivElement>) => void;
 }) {
@@ -48,7 +50,7 @@ export function CompactMenuSheet({
         className="min-h-0 flex-1 overflow-y-auto overscroll-contain scrollbar-none px-5 pb-2 pt-2"
       >
         <MenuSection icon={LayoutGrid} label={t("operational")} defaultOpen>
-          <MenuOperational role={role} onNavigate={onNavigate} />
+          <MenuOperational role={role} permissions={permissions} onNavigate={onNavigate} />
         </MenuSection>
 
         <MenuSection icon={BarChart3} label={t("analytic")}>
