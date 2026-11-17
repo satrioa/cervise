@@ -1080,12 +1080,12 @@ function PickupDialog({ open, onOpenChange, queue, onSaved }: { open: boolean; o
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-md">
+      <DialogContent className="max-h-[90vh] overflow-x-hidden overflow-y-auto sm:max-w-md">
         {confirmItem ? (
           <>
             <DialogHeader>
               <DialogTitle>Pengambilan Device</DialogTitle>
-              <DialogDescription>
+              <DialogDescription className="min-w-0 break-words">
                 {confirmItem.serviceNumber ?? "Tanpa nomor"} · {confirmItem.device}
                 <span className="block text-xs opacity-60 mt-1">{confirmItem.customerName ?? "-"}</span>
               </DialogDescription>
@@ -1097,7 +1097,7 @@ function PickupDialog({ open, onOpenChange, queue, onSaved }: { open: boolean; o
               </div>
               <div>
                 <label className="text-sm font-medium">Tanda tangan</label>
-                <SignaturePad className="max-w-none" onChange={(svg) => setSignature(svg ?? "")} label="Tanda tangan" />
+                <SignaturePad className="max-w-full" onChange={(svg) => setSignature(svg ?? "")} label="Tanda tangan" />
               </div>
               <div className="flex justify-end gap-2 pt-2">
                 <Button type="button" variant="outline" onClick={() => { setConfirmItem(null); setPickedBy(""); setSignature(""); }}>Batal</Button>
@@ -1121,6 +1121,7 @@ function PickupDialog({ open, onOpenChange, queue, onSaved }: { open: boolean; o
             onChange={(event) => setQuery(event.target.value)}
             placeholder="No. servis / nama customer / no. HP"
             aria-label="Cari device siap diambil"
+            className="min-w-0 flex-1"
           />
           <CandyButton
             type="button"
