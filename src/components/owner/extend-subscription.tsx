@@ -7,13 +7,11 @@ import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
 import { toast } from "sonner";
 import { extendTenantSubscription } from "@/app/owner/actions";
 import { playPageTransition } from "@/components/layout/page-transition";
-import { addCalendarMonths, getEffectiveMonthlyPrice } from "@/lib/billing/renewal";
+import { addCalendarMonths } from "@/lib/billing/renewal";
 import { formatRupiah } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-
-type PackageOption = { id: string; name: string; monthly_price: number; branch_limit: number };
 
 type Subscription = {
   package_id: string;
@@ -30,27 +28,17 @@ const DURATIONS = [1, 3, 6, 12];
 export function ExtendSubscription({
   organizationId,
   subscription,
-  packages,
+  monthlyPrice,
 }: {
   organizationId: string;
   subscription: Subscription;
-  packages: PackageOption[];
+  monthlyPrice: number;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
-  const [packageId, setPackageId] = useState(subscription?.package_id ?? packages[0]?.id ?? "");
-  const [customPrice, setCustomPrice] = useState(
-    subscription?.custom_monthly_price === null || !subscription ? "" : String(subscription.custom_monthly_price),
-  );
   const [months, setMonths] = useState(1);
   const [referenceNote, setReferenceNote] = useState("");
   const [saving, setSaving] = useState(false);
-
-  const selectedPackage = packages.find((item) => item.id === packageId) ?? null;
-  const monthlyPrice = getEffectiveMonthlyPrice(
-    selectedPackage?.monthly_price ?? 0,
-    customPrice === "" ? null : Number(customPrice),
-  );
 
   const now = new Date();
   const currentEnd = subscription?.current_period_end ? new Date(subscription.current_period_end) : null;
@@ -66,9 +54,15 @@ export function ExtendSubscription({
     event.preventDefault();
     setSaving(true);
     try {
-      await extendTenantSubscription({ organizationId, packageId, customPrice, months, referenceNote });
+      await extendTenantSubscription({
+        organizationId,
+        packageId: subscription?.package_id ?? "",
+        customPrice: subscription?.custom_monthly_price ?? null,
+        months,
+        referenceNote,
+      });
       playPageTransition();
-      toast.success(`Diperpanjang s/d ${formatDate(preview.endsAt)} (${selectedPackage?.name ?? "paket"})`);
+      toast.success(`Diperpanjang s/d ${formatDate(preview.endsAt)}`);
       setOpen(false);
       setReferenceNote("");
       router.refresh();
@@ -81,7 +75,7 @@ export function ExtendSubscription({
 
   return (
     <>
-      <Button onClick={() => setOpen(true)} disabled={packages.length === 0}>
+      <Button onClick={() => setOpen(true)} disabled={!subscription}>
         <CalendarPlusIcon className="size-4" /> Perpanjang
       </Button>
       <DialogPrimitive.Root open={open} onOpenChange={setOpen}>
@@ -102,33 +96,7 @@ export function ExtendSubscription({
               </div>
             </div>
             <form className="space-y-4 px-6 py-4" onSubmit={submit}>
-              <div className="space-y-1.5">
-                <Label htmlFor="extend-package">Paket</Label>
-                <select
-                  id="extend-package"
-                  className="h-9 w-full rounded-lg border bg-background px-3 text-sm"
-                  value={packageId}
-                  onChange={(event) => setPackageId(event.target.value)}
-                >
-                  {packages.map((item) => (
-                    <option key={item.id} value={item.id}>
-                      {item.name} · Rp{item.monthly_price.toLocaleString("id-ID")} · {item.branch_limit} branch
-                    </option>
-                  ))}
-                </select>
-              </div>
               <div className="grid gap-2 sm:grid-cols-2">
-                <div className="space-y-1.5">
-                  <Label htmlFor="extend-price">Custom price / bulan</Label>
-                  <Input
-                    id="extend-price"
-                    type="number"
-                    min="0"
-                    value={customPrice}
-                    onChange={(event) => setCustomPrice(event.target.value)}
-                    placeholder="Kosongkan untuk harga paket"
-                  />
-                </div>
                 <div className="space-y-1.5">
                   <Label htmlFor="extend-duration">Durasi</Label>
                   <select
@@ -143,6 +111,12 @@ export function ExtendSubscription({
                       </option>
                     ))}
                   </select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="extend-effective-price">Harga / bulan</Label>
+                  <div id="extend-effective-price" className="flex h-9 items-center rounded-lg border bg-muted/40 px-3 text-sm tabular-nums">
+                    {formatRupiah(monthlyPrice)}
+                  </div>
                 </div>
               </div>
               <div className="space-y-1.5">
@@ -180,7 +154,7 @@ export function ExtendSubscription({
                 <Button type="button" variant="outline" onClick={() => setOpen(false)} disabled={saving}>
                   Batal
                 </Button>
-                <Button type="submit" loading={saving} disabled={!packageId || monthlyPrice < 0}>
+                <Button type="submit" loading={saving} disabled={!subscription || monthlyPrice < 0}>
                   Perpanjang
                 </Button>
               </div>

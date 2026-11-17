@@ -4,6 +4,7 @@ import { join } from "node:path";
 
 const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8");
 const form = read("src/components/owner/subscription-form.tsx");
+const extend = read("src/components/owner/extend-subscription.tsx");
 
 describe("SubscriptionForm", () => {
   it("hanya satu form pengaturan, tanpa status akses manual", () => {
@@ -23,5 +24,21 @@ describe("SubscriptionForm", () => {
     expect(form).toContain('subscription?.package_id ?? packages[0]?.id ?? ""');
     expect(form).toContain("String(subscription?.grace_days ?? 3)");
     expect(form).toContain('subscription?.custom_monthly_price === null || !subscription ? ""');
+  });
+});
+
+describe("ExtendSubscription", () => {
+  it("tidak punya pilihan paket/harga dan mengirim nilai dari subscription", () => {
+    expect(extend).not.toContain('id="extend-package"');
+    expect(extend).not.toContain('id="extend-price"');
+    expect(extend).not.toContain("getEffectiveMonthlyPrice");
+    expect(extend).toContain('packageId: subscription?.package_id ?? ""');
+    expect(extend).toContain("customPrice: subscription?.custom_monthly_price ?? null");
+  });
+
+  it("tetap menampilkan durasi, catatan, dan preview", () => {
+    expect(extend).toContain('id="extend-duration"');
+    expect(extend).toContain('id="extend-note"');
+    expect(extend).toContain("preview.endsAt");
   });
 });
