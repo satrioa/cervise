@@ -88,15 +88,26 @@ export function qr(data: string, moduleSize = 4): number[] {
  * Barcode Code 128 native (GS k 73). Data wajib ASCII. Kalau printer tidak
  * mendukung barcode, perintahnya diabaikan dan nomor servis tetap tercetak.
  */
-export function barcode(data: string, options: { hri?: "none" | "below" } = {}): number[] {
+export function barcode(
+  data: string,
+  options: { hri?: "none" | "below"; moduleWidth?: number; height?: number; quietDots?: number } = {},
+): number[] {
   const payload = Array.from(normalizeAscii(data), (char) => char.charCodeAt(0));
   if (payload.length === 0) return [];
   const hri = options.hri === "none" ? 0x00 : 0x02;
+  const moduleWidth = options.moduleWidth ?? 2;
+  const height = options.height ?? 120;
+  // Quiet zone: scanner HP butuh area putih ~10 modul di tiap sisi. Font A
+  // lebar ~12 dot per spasi, jadi pembulatan ke atas cukup aman.
+  const quietSpaces = Math.ceil((options.quietDots ?? moduleWidth * 10) / 12);
+  const quiet = Array.from({ length: quietSpaces }, () => 0x20);
   return [
-    GS, 0x68, 0x50, // tinggi 80 dot
-    GS, 0x77, 0x02, // lebar modul 2
+    ...quiet,
+    GS, 0x68, height, // tinggi barcode (dot)
+    GS, 0x77, moduleWidth, // lebar modul (dot)
     GS, 0x48, hri, // HRI
     GS, 0x6b, 73, payload.length, ...payload,
+    ...quiet,
   ];
 }
 

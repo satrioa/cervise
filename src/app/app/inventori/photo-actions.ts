@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { getActiveTenant } from "@/lib/supabase/actor";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { canAccess } from "@/lib/rbac";
+import { canAccessActor } from "@/lib/rbac";
 import {
   PHOTO_BUCKET,
   isSafeObjectPath,
@@ -20,7 +20,7 @@ import {
  */
 async function requireProduct(productId: string) {
   const actor = await getActiveTenant();
-  if (!canAccess(actor.role, "inventory")) {
+  if (!canAccessActor(actor, "inventory")) {
     throw new Error("Role tidak diizinkan mengubah foto produk");
   }
   if (!actor.branchId) throw new Error("Cabang aktif belum dipilih");

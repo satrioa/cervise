@@ -32,15 +32,16 @@ export default async function CabangPage() {
 
   return (
     <div className="min-h-svh bg-background">
-      <PageHeader
-        title="Cabang"
-        description={`${total}/${limit} Cabang ● ${aktif} Aktif ● ${nonaktif} Nonaktif`}
-        containerClassName="max-w-2xl"
-        actions={canManage ? <CabangHeaderActions /> : null}
-      />
+      <PageHeader title="Cabang" />
 
       <div className="px-6 py-8">
         <div className="mx-auto max-w-2xl">
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+            <p className="text-xs text-muted-foreground">
+              {total}/{limit} Cabang · {aktif} Aktif · {nonaktif} Nonaktif
+            </p>
+            {canManage ? <CabangHeaderActions /> : null}
+          </div>
           {loadError && <p className="mb-3 text-xs text-destructive">{loadError} — coba refresh</p>}
           {!loadError && display.length === 0 && <p className="mb-3 text-xs text-muted-foreground">Belum ada cabang. Buat cabang pertama di bawah.</p>}
           <CabangClient branches={display} canManage={canManage} />

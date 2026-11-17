@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { PlusIcon } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
@@ -14,37 +15,21 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  Drawer,
-  DrawerClose,
-  DrawerDescription,
-  DrawerFooter,
-  DrawerHeader,
-  DrawerPanel,
-  DrawerPopup,
-  DrawerTitle,
-} from "@/components/ui/drawer";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { BarcodeScannerDialog } from "@/components/scan/barcode-scanner-dialog";
-import { OpnameCountPanel, type CountLine } from "@/components/inventori/opname-count-panel";
-import { OpnameExport } from "@/components/inventori/opname-export";
-import { OpnameReviewDialog } from "@/components/inventori/opname-review-dialog";
+import type { CountLine } from "@/components/inventori/opname-count-panel";
 import {
   cancelSession,
   createSession,
-  getSession,
   listSessions,
-  saveCount,
   type OpnameLine,
   type OpnameSession,
 } from "./actions";
 
 type Domain = "product" | "sparepart";
-type Active = { session: OpnameSession; lines: CountLine[] };
 
-function toCountLine(line: OpnameLine): CountLine {
+export function toCountLine(line: OpnameLine): CountLine {
   return {
     id: line.id,
     refId: line.ref_id,
@@ -127,14 +112,11 @@ export function OpnameClient({
   spareparts: OpnameSession[];
   canPost: boolean;
 }) {
+  const router = useRouter();
   const [domain, setDomain] = useState<Domain>("product");
   const [sessions, setSessions] = useState({ product: products, sparepart: spareparts });
   const [newOpen, setNewOpen] = useState(false);
   const [note, setNote] = useState("");
-  const [active, setActive] = useState<Active | null>(null);
-  const [drawerOpen, setDrawerOpen] = useState(false);
-  const [reviewOpen, setReviewOpen] = useState(false);
-  const [scanOpen, setScanOpen] = useState(false);
   const [busy, setBusy] = useState(false);
 
   const refresh = async () => {
@@ -142,18 +124,7 @@ export function OpnameClient({
     setSessions({ product: p, sparepart: s });
   };
 
-  const openSession = async (id: string) => {
-    setBusy(true);
-    try {
-      const { session, lines } = await getSession(id);
-      setActive({ session, lines: lines.map(toCountLine) });
-      setDrawerOpen(true);
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Gagal membuka sesi");
-    } finally {
-      setBusy(false);
-    }
-  };
+  const openSession = (id: string) => router.push(`/app/inventori/opname/${id}`);
 
   const create = async () => {
     setBusy(true);
@@ -162,44 +133,13 @@ export function OpnameClient({
       setNewOpen(false);
       setNote("");
       await refresh();
-      await openSession(id);
+      router.push(`/app/inventori/opname/${id}`);
       toast.success("Sesi opname dibuat");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Gagal membuat sesi");
     } finally {
       setBusy(false);
     }
-  };
-
-  const setCount = async (line: CountLine, value: number) => {
-    if (!active || active.session.status !== "DRAFT") return;
-    setActive((prev) =>
-      prev
-        ? {
-            ...prev,
-            lines: prev.lines.map((l) => (l.id === line.id ? { ...l, countedQty: value } : l)),
-          }
-        : prev,
-    );
-    try {
-      await saveCount(active.session.id, line.refId, line.imei, value);
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Gagal menyimpan hitungan");
-    }
-  };
-
-  const onScan = (value: string) => {
-    if (!active) return;
-    const term = value.trim();
-    const line =
-      active.lines.find((l) => l.imei && l.imei.toLowerCase() === term.toLowerCase()) ??
-      active.lines.find((l) => l.sku.toLowerCase() === term.toLowerCase());
-    if (!line) {
-      toast.info("Barang tidak ada dalam sesi ini");
-      return;
-    }
-    void setCount(line, line.imei ? 1 : line.snapshotQty);
-    setScanOpen(false);
   };
 
   const cancel = async (id: string) => {
@@ -226,7 +166,7 @@ export function OpnameClient({
           <SessionList
             sessions={sessions.product}
             onCreate={() => setNewOpen(true)}
-            onOpen={(id) => void openSession(id)}
+            onOpen={openSession}
             onCancel={(id) => void cancel(id)}
             canPost={canPost}
           />
@@ -235,7 +175,7 @@ export function OpnameClient({
           <SessionList
             sessions={sessions.sparepart}
             onCreate={() => setNewOpen(true)}
-            onOpen={(id) => void openSession(id)}
+            onOpen={openSession}
             onCancel={(id) => void cancel(id)}
             canPost={canPost}
           />
@@ -269,54 +209,6 @@ export function OpnameClient({
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-      <Drawer open={drawerOpen} onOpenChange={setDrawerOpen}>
-        <DrawerPopup className="max-h-[92dvh] sm:max-w-2xl">
-          <DrawerHeader>
-            <DrawerTitle>Hitung Stok</DrawerTitle>
-            <DrawerDescription>
-              {active?.session.note || "Isi jumlah fisik lalu tinjau selisihnya."}
-            </DrawerDescription>
-          </DrawerHeader>
-          <DrawerPanel className="flex min-h-0 flex-col">
-            {active ? (
-              <OpnameCountPanel
-                lines={active.lines}
-                readOnly={active.session.status !== "DRAFT"}
-                onCount={(line, value) => void setCount(line, value)}
-                onReview={() => setReviewOpen(true)}
-                onScan={() => setScanOpen(true)}
-              />
-            ) : null}
-          </DrawerPanel>
-          <DrawerFooter>
-            <DrawerClose render={<Button type="button" variant="outline" />}>
-              Tutup
-            </DrawerClose>
-          </DrawerFooter>
-        </DrawerPopup>
-      </Drawer>
-
-      {active ? (
-        <>
-          <OpnameReviewDialog
-            open={reviewOpen}
-            onOpenChange={setReviewOpen}
-            sessionId={active.session.id}
-            lines={active.lines}
-            canPost={canPost && active.session.status === "DRAFT"}
-            onPosted={() => void refresh()}
-            exportSlot={<OpnameExport lines={active.lines} session={active.session} />}
-          />
-          <BarcodeScannerDialog
-            open={scanOpen}
-            onOpenChange={setScanOpen}
-            title="Scan barcode / IMEI"
-            description="Arahkan kamera ke barcode produk atau IMEI unit bekas."
-            onDetected={onScan}
-          />
-        </>
-      ) : null}
     </>
   );
 }

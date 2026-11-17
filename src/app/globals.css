@@ -531,6 +531,13 @@
   --chart-marker-badge-foreground: oklch(0.84 0 0);
   --chart-segment-background: oklch(0.756 0 0 / 0.06);
   --chart-segment-line: oklch(0.5 0 0 / 0.25);
+  --destructive-foreground: var(--color-red-700);
+  --info: var(--color-blue-500);
+  --info-foreground: var(--color-blue-700);
+  --success: var(--color-emerald-500);
+  --success-foreground: var(--color-emerald-700);
+  --warning: var(--color-amber-500);
+  --warning-foreground: var(--color-amber-700);
 }
 /*
  ---break---
@@ -566,6 +573,13 @@
   --chart-marker-badge-foreground: oklch(0.15 0 0);
   --chart-segment-background: oklch(0.41 0.0127 248.14 / 0.25);
   --chart-segment-line: oklch(1 0 0 / 0.25);
+  --destructive-foreground: var(--color-red-400);
+  --info: var(--color-blue-500);
+  --info-foreground: var(--color-blue-400);
+  --success: var(--color-emerald-500);
+  --success-foreground: var(--color-emerald-400);
+  --warning: var(--color-amber-500);
+  --warning-foreground: var(--color-amber-400);
 }
 
 /* Style world: Scifi (terminal/HUD) */
@@ -870,6 +884,35 @@ html[data-ui-world="scifi"] body::before {
   html[data-ui-world="scifi"] body::before {
     animation: none;
   }
+}
+
+/* Scifi: scrollbar HUD. `.scrollbar-none` tetap dikecualikan supaya utility
+   bawaan tidak kalah spesifisitasnya dan daftar tanpa scrollbar tetap bersih. */
+html[data-ui-world="scifi"] *:not(.scrollbar-none) {
+  scrollbar-width: thin;
+  scrollbar-color:
+    color-mix(in srgb, var(--scifi-primary) 55%, transparent)
+    color-mix(in srgb, var(--scifi-primary) 8%, var(--scifi-canvas));
+}
+html[data-ui-world="scifi"] *:not(.scrollbar-none)::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+html[data-ui-world="scifi"] *:not(.scrollbar-none)::-webkit-scrollbar-track {
+  background: color-mix(in srgb, var(--scifi-primary) 6%, var(--scifi-canvas));
+  border-radius: 0;
+}
+html[data-ui-world="scifi"] *:not(.scrollbar-none)::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--scifi-primary) 55%, transparent);
+  border-radius: 0;
+  box-shadow: 0 0 6px color-mix(in srgb, var(--scifi-primary) 40%, transparent);
+}
+html[data-ui-world="scifi"] *:not(.scrollbar-none)::-webkit-scrollbar-thumb:hover {
+  background: var(--scifi-primary);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--scifi-primary) 60%, transparent);
+}
+html[data-ui-world="scifi"] *:not(.scrollbar-none)::-webkit-scrollbar-corner {
+  background: transparent;
 }
 
 /* Style world: Toy (playful molded plastic) */

@@ -114,10 +114,21 @@ function garansiHtml(service: PrintData["service"]): string {
 }
 
 /** Barcode Code 128 nomor servis. Kosong bila nomor tidak ada. */
-function barcodeBlock(code: string | undefined, opts: { height?: number; fontSize?: string } = {}): string {
+function barcodeBlock(
+  code: string | undefined,
+  opts: { height?: number; fontSize?: string; moduleWidth?: number; margin?: number; fluid?: boolean } = {},
+): string {
   const value = (code ?? "").trim();
   if (!value) return "";
-  return `<div style="margin-top:4px;"><div style="text-align:center;overflow:hidden;">${code128Svg(value, { height: opts.height ?? 56, moduleWidth: 2 })}</div><div style="text-align:center; font-family:ui-monospace,monospace; font-size:${opts.fontSize ?? "8pt"}; letter-spacing:.12em;">${escapeHtml(value)}</div></div>`;
+  // Untuk kamera HP, barcode tidak boleh menyusut/terpotong: quiet zone dan
+  // lebar modul dijaga eksplisit (terutama untuk cetak thermal 58mm).
+  const svg = code128Svg(value, {
+    height: opts.height ?? 56,
+    moduleWidth: opts.moduleWidth ?? 2,
+    margin: opts.margin,
+    fluid: opts.fluid,
+  });
+  return `<div style="margin-top:4px;"><div style="text-align:center;">${svg}</div><div style="text-align:center; font-family:ui-monospace,monospace; font-size:${opts.fontSize ?? "8pt"}; letter-spacing:.12em;">${escapeHtml(value)}</div></div>`;
 }
 
 function text(value: unknown): string {
@@ -602,7 +613,7 @@ export function renderThermalHtml(data: PrintData): string {
   <hr class="sep">
   <div class="center bold">###CEK SERVICE DAN GARANSI###</div>
   ${service.trackingCode ? `<div class="center bold" style="letter-spacing:.08em;">KODE: ${trackingCodeLine(service.trackingCode)}</div>${trackingPathLine(branch.website, service.tenantSlug, service.trackingCode) ? `<div class="center" style="font-size:9px; margin-top:2px; word-break:break-all;">Cek status: ${escapeHtml(trackingPathLine(branch.website, service.tenantSlug, service.trackingCode))}</div>` : ""}` : ""}
-  ${barcodeBlock(invoiceNo, { height: 30, fontSize: "8px" })}
+  ${barcodeBlock(invoiceNo.replace(/^[A-Za-z]+-/, ""), { height: 48, fontSize: "8px", moduleWidth: 2, margin: 24 })}
   <hr class="sep">
   <div class="row center" style="justify-content:center; gap:16px;"><span>Service</span><span>Cek Garansi</span></div>
   <hr class="sep">

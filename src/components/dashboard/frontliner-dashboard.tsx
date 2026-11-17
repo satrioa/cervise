@@ -1086,17 +1086,17 @@ function PickupDialog({ open, onOpenChange, queue, onSaved }: { open: boolean; o
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] overflow-x-hidden overflow-y-auto sm:max-w-md">
+      <DialogContent className="max-h-[90vh] w-[calc(100vw-2rem)] min-w-0 !max-w-md overflow-y-auto">
         {confirmItem ? (
           <>
-            <DialogHeader>
+            <DialogHeader className="min-w-0">
               <DialogTitle>Pengambilan Device</DialogTitle>
               <DialogDescription className="min-w-0 break-words">
                 {confirmItem.serviceNumber ?? "Tanpa nomor"} · {confirmItem.device}
-                <span className="block text-xs opacity-60 mt-1">{confirmItem.customerName ?? "-"}</span>
+                <span className="mt-1 block break-words text-xs opacity-60">{confirmItem.customerName ?? "-"}</span>
               </DialogDescription>
             </DialogHeader>
-            <div className="space-y-3">
+            <div className="min-w-0 space-y-3">
               <div>
                 <label className="text-sm font-medium">Siapa yang mengambil</label>
                 <Input value={pickedBy} onChange={(e) => setPickedBy(e.target.value)} placeholder="Nama pengambil" />
@@ -1105,7 +1105,7 @@ function PickupDialog({ open, onOpenChange, queue, onSaved }: { open: boolean; o
                 <label className="text-sm font-medium">Tanda tangan</label>
                 <SignaturePad className="max-w-full" onChange={(svg) => setSignature(svg ?? "")} label="Tanda tangan" />
               </div>
-              <div className="flex justify-end gap-2 pt-2">
+              <div className="flex flex-wrap justify-end gap-2 pt-2">
                 <Button type="button" variant="outline" onClick={() => { setConfirmItem(null); setPickedBy(""); setSignature(""); }}>Batal</Button>
                 <Button type="button" onClick={() => void handleSave()} disabled={saving}>{saving ? "Menyimpan..." : "Simpan"}</Button>
               </div>
@@ -1113,14 +1113,14 @@ function PickupDialog({ open, onOpenChange, queue, onSaved }: { open: boolean; o
           </>
         ) : (
           <>
-            <DialogHeader>
+            <DialogHeader className="min-w-0">
               <DialogTitle>Pengambilan Device</DialogTitle>
-              <DialogDescription>
+              <DialogDescription className="break-words">
                 Cari device yang sudah selesai dikerjakan dan siap diambil.
               </DialogDescription>
             </DialogHeader>
 
-        <div className="flex gap-2">
+        <div className="flex min-w-0 gap-2">
           <Input
             ref={inputRef}
             value={query}
@@ -1142,7 +1142,7 @@ function PickupDialog({ open, onOpenChange, queue, onSaved }: { open: boolean; o
           </CandyButton>
         </div>
 
-        <div className="max-h-[280px] overflow-y-auto scrollbar-thin">
+        <div className="min-w-0 max-h-[280px] overflow-y-auto scrollbar-thin">
           {query.trim().length < 2 ? (
             <div className="space-y-1.5">
               <p className="text-sm opacity-60">Ketik minimal 2 karakter atau scan barcode.</p>

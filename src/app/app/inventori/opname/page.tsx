@@ -2,6 +2,7 @@ import { listSessions } from "./actions";
 import { OpnameClient } from "./opname-client";
 import { PageHeader } from "@/components/layout/page-header";
 import { getActiveTenant } from "@/lib/supabase/actor";
+import { OPNAME_POSTER_ROLES } from "@/lib/operational/stock-opname";
 
 export default async function OpnamePage() {
   const [products, spareparts, actor] = await Promise.all([
@@ -9,7 +10,7 @@ export default async function OpnamePage() {
     listSessions("sparepart"),
     getActiveTenant(),
   ]);
-  const canPost = ["MASTER_ADMIN", "ADMIN"].includes(actor.role);
+  const canPost = OPNAME_POSTER_ROLES.includes(actor.role);
 
   return (
     <div className="min-h-svh bg-transparent text-foreground">

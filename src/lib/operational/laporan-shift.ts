@@ -160,6 +160,42 @@ export type ShiftReport = {
   shiftNumber?: number;
 };
 
+/** Metode pembayaran standar yang selalu tampil di rincian shift. */
+export const SHIFT_PAYMENT_METHODS = ["Tunai", "QRIS", "Debit", "E-Wallet", "Transfer"] as const;
+
+/** Status shift untuk struk, memakai penanda yang sama dengan detail shift. */
+export function shiftStatusLabel(report: Pick<ShiftReport, "closingBalance">): string {
+  return report.closingBalance === null ? "Masih terbuka" : "Sudah ditutup";
+}
+
+/**
+ * Pendapatan per metode pembayaran. Metode standar tetap tampil walau tidak
+ * ada transaksinya (nilai 0); metode di luar daftar standar ikut ditampilkan
+ * supaya data lama tidak hilang dari struk.
+ */
+export function shiftPaymentMethodBreakdown(report: ShiftReport): { label: string; value: number }[] {
+  const byMethod = new Map<string, number>();
+  for (const sale of report.sales) {
+    const key = sale.method?.trim() || "Tanpa metode";
+    byMethod.set(key, (byMethod.get(key) ?? 0) + sale.paid);
+  }
+  const rows: { label: string; value: number }[] = SHIFT_PAYMENT_METHODS.map((label) => ({
+    label,
+    value: byMethod.get(label) ?? 0,
+  }));
+  const extras = [...byMethod.entries()]
+    .filter(([label]) => !(SHIFT_PAYMENT_METHODS as readonly string[]).includes(label))
+    .sort((a, b) => a[0].localeCompare(b[0]))
+    .map(([label, value]) => ({ label, value }));
+  rows.push(...extras);
+
+  const serviceCounted = report.services
+    .filter((s) => s.counted)
+    .reduce((sum, s) => sum + s.amount, 0);
+  if (serviceCounted > 0) rows.push({ label: "Servis (tanpa penjualan)", value: serviceCounted });
+  return rows;
+}
+
 function amount(value: number | null | undefined): number {
   const parsed = Number(value ?? 0);
   return Number.isFinite(parsed) ? parsed : 0;

@@ -8,11 +8,17 @@ const actions = readFileSync(
 );
 
 describe("stock opname actions wiring", () => {
-  it("menutup posting untuk non-admin dan memakai RPC atomik", () => {
-    expect(actions).toContain('"MASTER_ADMIN"');
+  it("membuka posting untuk semua peran inventori dan memakai RPC atomik", () => {
+    expect(actions).toContain("OPNAME_POSTER_ROLES");
+    expect(actions).toContain("await poster()");
     expect(actions).toContain('rpc("post_stock_opname"');
-    expect(actions).toContain('Hanya admin yang boleh memposting opname');
+    expect(actions).toContain("Role ini tidak boleh memposting opname");
     expect(actions).toContain('revalidatePath("/app/inventori/opname")');
+  });
+
+  it("pembatalan sesi tetap hanya untuk admin", () => {
+    expect(actions).toContain("Hanya admin yang boleh membatalkan opname");
+    expect(actions).toMatch(/export async function cancelSession[\s\S]*await manager\(\)/);
   });
 
   it("membuat snapshot dari helper murni dan menyimpan baris", () => {

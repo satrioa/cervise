@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { getActiveTenant } from "@/lib/supabase/actor";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { canAccess } from "@/lib/rbac";
+import { canAccessActor } from "@/lib/rbac";
 import {
   PHOTO_BUCKET,
   accountPhotoPath,
@@ -26,7 +26,7 @@ import {
 type Actor = Awaited<ReturnType<typeof getActiveTenant>>;
 
 function requirePhotoAdmin(actor: Actor): void {
-  if (!canAccess(actor.role, "pengaturan_general")) {
+  if (!canAccessActor(actor, "pengaturan_general")) {
     throw new Error("Role tidak diizinkan mengubah pengaturan");
   }
 }

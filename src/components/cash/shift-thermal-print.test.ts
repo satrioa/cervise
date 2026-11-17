@@ -231,4 +231,28 @@ describe("renderShiftThermalHtml", () => {
     expect(html).toContain("Kas manual masuk");
     expect(html).toContain("Tunai");
   });
+
+  it("metode standar tetap tercetak walau nilainya 0", () => {
+    const html = renderShiftThermalHtml(report());
+    for (const method of ["Tunai", "QRIS", "Debit", "E-Wallet", "Transfer"]) {
+      expect(html).toContain(method);
+    }
+  });
+
+  it("status mengikuti saldo akhir di bawah durasi", () => {
+    const closed = renderShiftThermalHtml(report());
+    expect(closed).toContain("Sudah ditutup");
+    expect(closed.indexOf("Total Duration")).toBeLessThan(closed.indexOf("Status"));
+
+    const open = renderShiftThermalHtml(report({ closingBalance: null }));
+    expect(open).toContain("Masih terbuka");
+  });
+
+  it("shift masih berjalan tidak mencetak jam tutup", () => {
+    // computeShiftReport mengisi closingAt dengan "sekarang" saat preview shift
+    // terbuka. Struk tidak boleh menampilkan waktu itu sebagai jam tutup.
+    const html = renderShiftThermalHtml(report({ closingBalance: null }));
+    expect(html).toContain("Close Shift");
+    expect(html).not.toContain("23:59");
+  });
 });

@@ -3,7 +3,12 @@
  * Dipakai sebagai fallback dialog cetak browser bila printer langsung tidak tersedia.
  */
 
-import { rupiah, type ShiftReport } from "@/lib/operational/laporan-shift";
+import {
+  rupiah,
+  shiftPaymentMethodBreakdown,
+  shiftStatusLabel,
+  type ShiftReport,
+} from "@/lib/operational/laporan-shift";
 import { printShiftReceipt } from "@/lib/printer";
 import { getReceiptAppearance } from "@/app/app/pengaturan/tampilan/actions";
 
@@ -41,27 +46,13 @@ function row(label: string, value: string): string {
   return `<div class="row"><span>${escapeHtml(label)}</span><span class="n">${escapeHtml(value)}</span></div>`;
 }
 
-function paymentMethodBreakdown(report: ShiftReport): { label: string; value: number }[] {
-  const byMethod = new Map<string, number>();
-  for (const sale of report.sales) {
-    const key = sale.method?.trim() || "Tanpa metode";
-    byMethod.set(key, (byMethod.get(key) ?? 0) + sale.paid);
-  }
-  const rows = [...byMethod.entries()]
-    .sort((a, b) => a[0].localeCompare(b[0]))
-    .map(([label, value]) => ({ label, value }));
-  const serviceCounted = report.services.filter((s) => s.counted).reduce((sum, s) => sum + s.amount, 0);
-  if (serviceCounted > 0) rows.push({ label: "Servis (tanpa penjualan)", value: serviceCounted });
-  return rows;
-}
-
 /** HTML struk laporan tutup toko (detail). */
 export function renderShiftThermalHtml(report: ShiftReport, appearance: ShiftPrintAppearance = {}): string {
   const { totals } = report;
   const tenantName = appearance.tenantName?.trim() || report.branchName;
   const variance = report.variance === null ? "—" : rupiah(report.variance);
   const closing = report.closingBalance === null ? "—" : rupiah(report.closingBalance);
-  const breakdown = paymentMethodBreakdown(report);
+  const breakdown = shiftPaymentMethodBreakdown(report);
   const stats = report.serviceStats ?? { masuk: report.services.length, selesai: 0, diambil: 0, batal: 0 };
 
   const salesHtml =
@@ -129,9 +120,10 @@ export function renderShiftThermalHtml(report: ShiftReport, appearance: ShiftPri
   <hr class="sep">
   ${row("Open Shift", stampTime(report.openAt))}
   ${row("Open By", report.employeeName)}
-  ${row("Close Shift", stampTime(report.closingAt))}
+  ${row("Close Shift", report.closingBalance === null ? "—" : stampTime(report.closingAt))}
   ${row("Close By", report.closedByName?.trim() || "—")}
   ${row("Total Duration", durationText(report.durationMinutes ?? 0))}
+  ${row("Status", shiftStatusLabel(report))}
   <hr class="sep">
   ${report.spareparts && report.spareparts.length > 0 ? `<div class="bold">Sparepart terpakai</div>${report.spareparts.map((p) => row(p.name, `x${p.qty}`)).join("")}<hr class="sep">` : ""}
   ${row("Servis Masuk", String(stats.masuk))}

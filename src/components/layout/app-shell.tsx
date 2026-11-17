@@ -221,7 +221,7 @@ function SidebarContent({
     pathname.startsWith("/app/pengaturan") && !accountActive;
   return (
     <>
-      <div className="flex h-16 shrink-0 items-center border-b border-border/60 bg-white px-2 dark:bg-card">
+      <div className="flex h-16 shrink-0 items-center border-b border-border/60 bg-white px-2 dark:bg-[#0f0f0f]">
         <TenantSwitcher canSwitchTenant={canSwitchTenantValue} />
       </div>
 

@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { getActiveTenant } from "@/lib/supabase/actor";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { canAccess } from "@/lib/rbac";
+import { canAccessActor } from "@/lib/rbac";
 import { readLacakAppearance } from "@/lib/operational/lacak-appearance";
 import { safeExternalUrl } from "@/lib/public/testimonial";
 import { MAX_BANNERS } from "@/lib/public/landing";
@@ -63,7 +63,7 @@ const TAGLINE_MAX = 120;
 /** Actor yang boleh mengubah Tampilan Store/Lacak, atau lempar. */
 async function requireStoreTampilanAdmin() {
   const actor = await getActiveTenant();
-  if (!canAccess(actor.role, "pengaturan_tampilan")) {
+  if (!canAccessActor(actor, "pengaturan_tampilan")) {
     throw new Error("Role tidak diizinkan mengubah Tampilan Store");
   }
   if (!actor.orgId) throw new Error("Organisasi tidak ditemukan");
@@ -73,7 +73,7 @@ async function requireStoreTampilanAdmin() {
 /** Actor yang boleh mengubah Tampilan Nota, atau lempar. */
 async function requireNotaTampilanAdmin() {
   const actor = await getActiveTenant();
-  if (!canAccess(actor.role, "pengaturan_tampilan_nota")) {
+  if (!canAccessActor(actor, "pengaturan_tampilan_nota")) {
     throw new Error("Role tidak diizinkan mengubah Tampilan Nota");
   }
   if (!actor.orgId) throw new Error("Organisasi tidak ditemukan");

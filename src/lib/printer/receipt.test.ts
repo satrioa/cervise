@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
+import type { ShiftReport } from "@/lib/operational/laporan-shift";
 import type { SalesReceiptInput } from "@/lib/sales/receipt";
 import type { ServiceReceiptInput } from "./types";
-import { buildSaleEscpos, buildSaleReceiptLines, buildServiceEscpos, buildServiceReceiptLines } from "./receipt";
+import { barcodeValueForReceipt, buildSaleEscpos, buildSaleReceiptLines, buildServiceEscpos, buildServiceReceiptLines, buildShiftReceiptLines } from "./receipt";
 import { PAPER_COLS } from "./escpos";
 
 const sale: SalesReceiptInput = {
@@ -185,11 +186,74 @@ describe("nota servis 58mm", () => {
     expect(hasBarcode).toBe(true);
   });
 
+  it("memperpendek nilai barcode thermal dan menambah tinggi + quiet zone", () => {
+    expect(barcodeValueForReceipt("SRV-2026-0003")).toBe("2026-0003");
+    expect(barcodeValueForReceipt("2026-0003")).toBe("2026-0003");
+
+    const bytes = Array.from(buildServiceEscpos(service));
+    const at = bytes.findIndex(
+      (value, index) => value === 0x1d && bytes[index + 1] === 0x6b && bytes[index + 2] === 73,
+    );
+    expect(at).toBeGreaterThan(0);
+    // Susunan: [spasi quiet zone] GS h 120, GS w 2, GS H, GS k 73 ...
+    expect(bytes[at - 10]).toBe(0x20);
+    expect(bytes[at - 9]).toBe(0x1d);
+    expect(bytes[at - 8]).toBe(0x68);
+    expect(bytes[at - 7]).toBe(120);
+    expect(bytes[at - 6]).toBe(0x1d);
+    expect(bytes[at - 5]).toBe(0x77);
+    expect(bytes[at - 4]).toBe(2);
+    const payload = bytes.slice(at + 4, at + 4 + bytes[at + 3]);
+    expect(String.fromCharCode(...payload)).toBe("2026-0042");
+    expect(String.fromCharCode(...payload)).not.toContain("SV-");
+  });
+
   it("memakai Estimasi dan menyembunyikan sparepart saat belum selesai", () => {
     const estimate = { ...service, service: { ...service.service, isEstimate: true } };
     const text = buildServiceReceiptLines(estimate).join("\n");
     expect(text).toContain("ESTIMASI");
     expect(text).not.toContain("TOTAL");
     expect(text).not.toContain("Sparepart:");
+  });
+});
+
+describe("struk rincian shift", () => {
+  const shift: ShiftReport = {
+    schemaVersion: 1,
+    branchName: "Cabang Pusat",
+    employeeName: "Rina",
+    date: "2026-09-18",
+    openAt: "2026-09-18T03:00:00.000Z",
+    closingAt: "2026-09-18T16:59:00.000Z",
+    openingBalance: 500_000,
+    closingBalance: 1_275_000,
+    expectedCash: 1_300_000,
+    variance: -25_000,
+    reason: null,
+    services: [],
+    sales: [],
+    cashTx: [],
+    totals: { services: 0, sales: 0, manualIn: 0, manualOut: 0, manualNet: 0, expected: 500_000 },
+  };
+
+  it("mencetak status di bawah durasi", () => {
+    const text = buildShiftReceiptLines(shift).join("\n");
+    expect(text).toContain("Status");
+    expect(text).toContain("Sudah ditutup");
+    expect(text.indexOf("Total Duration")).toBeLessThan(text.indexOf("Status"));
+  });
+
+  it("metode standar tetap tercetak walau nilainya 0", () => {
+    const text = buildShiftReceiptLines(shift).join("\n");
+    for (const method of ["Tunai", "QRIS", "Debit", "E-Wallet", "Transfer"]) {
+      expect(text).toContain(method);
+    }
+  });
+
+  it("shift terbuka tidak mencetak jam tutup", () => {
+    const text = buildShiftReceiptLines({ ...shift, closingBalance: null }).join("\n");
+    expect(text).toContain("Close Shift");
+    expect(text).toContain("Masih terbuka");
+    expect(text).not.toContain("23:59");
   });
 });

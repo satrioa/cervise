@@ -18,6 +18,8 @@ const readCode = (relative: string) =>
 
 const pageHeader = readCode("src/components/layout/page-header.tsx");
 const shellChrome = readCode("src/components/layout/shell-chrome.tsx");
+const pageBreadcrumb = readCode("src/components/layout/page-breadcrumb.tsx");
+const pageHeaderContainer = readCode("src/components/layout/page-header-container.tsx");
 
 /**
  * `PageHeader` dipanggil dari route server (`/app/inventori`, `/app/servis/baru`,
@@ -39,6 +41,80 @@ describe("PageHeader tetap server component", () => {
   it("memakai komponen ShellChrome sebagai gantinya", () => {
     expect(pageHeader).toMatch(/<ShellChrome\s*\/>/);
     expect(pageHeader).toMatch(/import \{ ShellChrome \} from "\.\/shell-chrome"/);
+  });
+
+  it("nama halaman dirender sebagai breadcrumb, bukan h1 polos", () => {
+    expect(pageHeader).toMatch(/<PageBreadcrumb\s/);
+    expect(pageHeader).not.toMatch(/<h1/);
+  });
+
+  it("tidak merender teks deskripsi di bawah breadcrumb", () => {
+    expect(pageHeader).not.toMatch(/text-muted-foreground/);
+  });
+
+  it("containerClassName hanya membatasi baris filter, bukan baris breadcrumb/chrome", () => {
+    const breadcrumbRow = pageHeader.slice(
+      pageHeader.indexOf("flex min-h-16"),
+      pageHeader.indexOf("<ShellChrome"),
+    );
+    expect(breadcrumbRow).not.toContain("containerClassName");
+  });
+});
+
+describe("gap header mengikuti shell", () => {
+  it("PageHeader memakai PageHeaderContainer untuk kedua baris", () => {
+    expect(pageHeader.match(/<PageHeaderContainer/g) ?? []).toHaveLength(2);
+  });
+
+  it("compact mengikuti konten, master admin memakai penuh", () => {
+    expect(pageHeaderContainer).toMatch(/useShellChrome\(\)/);
+    expect(pageHeaderContainer).toMatch(/mx-auto w-full max-w-6xl px-4 sm:px-6 lg:px-8/);
+    expect(pageHeaderContainer).toMatch(/w-full px-3 sm:px-4 lg:px-5/);
+  });
+});
+
+describe("PageBreadcrumb", () => {
+  it("adalah client component yang membaca pathname", () => {
+    expect(pageBreadcrumb).toMatch(/^\s*["']use client["']/m);
+    expect(pageBreadcrumb).toMatch(/usePathname\(\)/);
+  });
+
+  it("memakai primitive breadcrumb coss dan mengecualikan shell compact", () => {
+    for (const name of [
+      "Breadcrumb",
+      "BreadcrumbList",
+      "BreadcrumbItem",
+      "BreadcrumbLink",
+      "BreadcrumbSeparator",
+      "BreadcrumbPage",
+    ]) {
+      expect(pageBreadcrumb).toContain(name);
+    }
+    expect(pageBreadcrumb).toMatch(/useShellChrome\(\)/);
+  });
+
+  it("beranda bernama Dashboard dan menyisipkan grup menu dari manifest", () => {
+    expect(pageBreadcrumb).toContain('"Dashboard"');
+    expect(pageBreadcrumb).not.toContain('"Beranda"');
+    expect(pageBreadcrumb).toContain("NAV_ENTRIES");
+    expect(pageBreadcrumb).toContain("GROUP_LABEL");
+  });
+
+  it("crumb terakhir dipotong dengan ellipsis tanpa kelas ukuran font", () => {
+    expect(pageBreadcrumb).toMatch(/<BreadcrumbPage className="truncate">/);
+    expect(pageBreadcrumb).not.toMatch(/<BreadcrumbPage[^>]*text-xl/);
+    expect(pageBreadcrumb).not.toMatch(/<BreadcrumbPage[^>]*font-heading/);
+  });
+
+  it("rute bertingkat menyertakan entri induk (Inventori) dan label Stock Opname", () => {
+    expect(pageBreadcrumb).toContain('opname: "Stock Opname"');
+    expect(pageBreadcrumb).toMatch(/label: entry\.label, href: entry\.href, hideOnMobile: true/);
+  });
+
+  it("crumb grup dan induk disembunyikan di mobile", () => {
+    expect(pageBreadcrumb).toContain("hideOnMobile: true");
+    expect(pageBreadcrumb).toContain('crumb.hideOnMobile && "hidden sm:inline-flex"');
+    expect(pageBreadcrumb).toContain('crumb.hideOnMobile && "hidden sm:block"');
   });
 });
 

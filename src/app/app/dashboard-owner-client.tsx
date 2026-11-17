@@ -123,7 +123,7 @@ export default function DashboardOwnerClient() {
     : [];
 
   return (
-    <div className="bg-white text-foreground dark:bg-card">
+    <div className="bg-white text-foreground dark:bg-[#0f0f0f]">
       <PageHeader
         title="Overview"
         titleClassName="font-heading text-2xl"
@@ -132,7 +132,6 @@ export default function DashboardOwnerClient() {
         filterCount={period !== "30d" ? 1 : 0}
         filterSummary={period !== "30d" ? `Periode: ${period}` : undefined}
         onClearFilters={() => setPeriod("30d")}
-        className="bg-white backdrop-blur-none dark:bg-card"
       />
 
       <main className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-8">

@@ -117,7 +117,10 @@ export function TaskNoteCard({
   // penanganannya tetap bertipe `StaffTodo[]` dan tidak perlu narrowing
   // di setiap pembaruan optimistik.
   const [todos, setTodos] = useState<StaffTodo[]>(initialTodos ?? []);
-  const [loaded, setLoaded] = useState(initialTodos !== undefined);
+  // Mulai dari false supaya bentuk skeleton ikut dirender di HTML pertama
+  // (dan terlihat saat halaman dibuka). Setelah mount, effect di bawah
+  // menandai data server sebagai siap tanpa meminta ulang dari jaringan.
+  const [loaded, setLoaded] = useState(false);
   const [draft, setDraft] = useState("");
   const [addOpen, setAddOpen] = useState(false);
   const [editing, setEditing] = useState<string | null>(null);
@@ -190,9 +193,12 @@ export function TaskNoteCard({
   };
 
   useEffect(() => {
-    // Data awal sudah dari server. Meminta ulang di sini hanya menambah satu
-    // round-trip sebelum kartu bisa dipakai.
-    if (initialTodos !== undefined) return;
+    // Data awal sudah dari server. Jangan meminta ulang — cukup tandai
+    // skeleton selesai setelah mount supaya data langsung dipakai.
+    if (initialTodos !== undefined) {
+      setLoaded(true);
+      return;
+    }
 
     let cancelled = false;
     getMyTodos()

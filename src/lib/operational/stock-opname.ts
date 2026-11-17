@@ -1,5 +1,16 @@
 import type { InventoryProduct } from "./inventori";
 
+/**
+ * Semua peran yang punya akses inventori boleh memposting opname. Pemeriksaan
+ * yang sama dipakai UI, server action, dan RPC `post_stock_opname`.
+ */
+export const OPNAME_POSTER_ROLES: readonly string[] = [
+  "MASTER_ADMIN",
+  "ADMIN",
+  "TECHNICIAN",
+  "FRONTLINER",
+];
+
 /** Baris draft opname. Murni, tanpa Supabase/React, supaya bisa diuji langsung. */
 export type OpnameLineDraft = {
   refId: string;
@@ -32,6 +43,26 @@ export function computeVariance(
   line: Pick<OpnameLineDraft, "snapshotQty" | "countedQty">,
 ): number {
   return line.countedQty - line.snapshotQty;
+}
+
+/** Warna progress bar selisih opname. */
+export type OpnameBarTone = "empty" | "short" | "match" | "over";
+
+/**
+ * State progress bar selisih: putih saat belum dihitung, merah saat kurang,
+ * hijau saat pas, kuning saat berlebih.
+ */
+export function opnameVarianceBar(
+  countedQty: number,
+  snapshotQty: number,
+): { percent: number; tone: OpnameBarTone } {
+  if (countedQty <= 0) return { percent: 0, tone: "empty" };
+  if (countedQty === snapshotQty) return { percent: 100, tone: "match" };
+  if (countedQty < snapshotQty) {
+    const percent = snapshotQty > 0 ? Math.max(0, Math.min(100, (countedQty / snapshotQty) * 100)) : 0;
+    return { percent, tone: "short" };
+  }
+  return { percent: 100, tone: "over" };
 }
 
 /**

@@ -55,8 +55,17 @@ describe("kartu To-Do: editor tidak men-toggle, satu tombol edit", () => {
     // tidak perlu satu round-trip lagi sebelum bisa dipakai.
     expect(source).toContain("initialTodos?: StaffTodo[]");
     expect(source).toContain("initialMentions?: TodoMention[]");
-    expect(source).toMatch(/if \(initialTodos !== undefined\) return;/);
+    expect(source).toMatch(/if \(initialTodos !== undefined\) \{[\s\S]*?setLoaded\(true\);[\s\S]*?return;/);
     expect(source).toContain("groupMentions(");
+  });
+
+  it("skeleton TodoList tampil dulu sebelum data server dipakai", () => {
+    // `loaded` harus mulai false supaya bentuk skeleton direktam di HTML
+    // pertama dan terlihat saat halaman dibuka, lalu diganti setelah mount.
+    expect(source).toMatch(/const \[loaded, setLoaded\] = useState\(false\)/);
+    expect(source).toContain("const loading = !loaded");
+    // Jalur data server menandai loaded di effect, bukan fetch ulang.
+    expect(source).toMatch(/if \(initialTodos !== undefined\) \{[\s\S]*?setLoaded\(true\);/);
   });
 
   it("menyamakan daftar lokal dengan payload server yang baru", () => {

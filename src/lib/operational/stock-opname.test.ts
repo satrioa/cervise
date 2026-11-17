@@ -4,9 +4,22 @@ import {
   buildProductSnapshot,
   buildSparepartSnapshot,
   computeVariance,
+  OPNAME_POSTER_ROLES,
+  opnameVarianceBar,
   summarize,
   toXlsxRows,
 } from "./stock-opname";
+
+describe("opname poster roles", () => {
+  it("mencakup semua peran yang punya akses inventori", () => {
+    expect(OPNAME_POSTER_ROLES).toEqual([
+      "MASTER_ADMIN",
+      "ADMIN",
+      "TECHNICIAN",
+      "FRONTLINER",
+    ]);
+  });
+});
 
 function product(overrides: Partial<InventoryProduct>): InventoryProduct {
   return {
@@ -65,5 +78,28 @@ describe("stock opname variance", () => {
     const rows = toXlsxRows(lines, { id: "sesi", domain: "product" } as any);
     expect(rows[0]["Selisih"]).toBe(-2);
     expect(rows[0]["Kode"]).toBe("A");
+  });
+});
+
+describe("opnameVarianceBar", () => {
+  it("belum dihitung = putih 0%", () => {
+    expect(opnameVarianceBar(0, 12)).toEqual({ percent: 0, tone: "empty" });
+  });
+
+  it("kurang = merah dan terisi proporsional", () => {
+    expect(opnameVarianceBar(3, 12)).toEqual({ percent: 25, tone: "short" });
+  });
+
+  it("pas = hijau penuh", () => {
+    expect(opnameVarianceBar(12, 12)).toEqual({ percent: 100, tone: "match" });
+  });
+
+  it("berlebih = kuning penuh", () => {
+    expect(opnameVarianceBar(15, 12)).toEqual({ percent: 100, tone: "over" });
+  });
+
+  it("snapshot 0 tidak dibagi nol", () => {
+    expect(opnameVarianceBar(1, 0)).toEqual({ percent: 100, tone: "over" });
+    expect(opnameVarianceBar(0, 0)).toEqual({ percent: 0, tone: "empty" });
   });
 });

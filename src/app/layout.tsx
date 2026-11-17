@@ -6,6 +6,7 @@ import { SoundLayer } from "@/components/layout/sound-layer";
 import { NextIntlClientProvider } from "next-intl";
 import { getLocale, getMessages } from "next-intl/server";
 import { ThemeProvider } from "next-themes";
+import Script from "next/script";
 
 const geistSans = Geist({
   variable: "--font-sans",
@@ -29,12 +30,15 @@ export const viewport: Viewport = {
 };
 
 /**
- * Script no-flash tema, dijalankan server sebelum paint.
+ * Script no-flash tema, dijalankan sebelum paint lewat `next/script`.
  *
- * next-themes merender script-nya sendiri dari client component; React 19.2
- * memperingatkan setiap `<script>` yang dibuat di client (upstream issue
- * pacocoursey/next-themes#385). Karena script itu hanya berguna sebelum
- * hydration, versi server ini yang dipakai dan salinan milik provider
+ * Tag script React biasa langsung di dalam komponen memicu peringatan
+ * "Encountered a script tag while rendering React component" dan tidak
+ * dijamin dieksekusi saat client rendering. `next/script` dengan
+ * strategy `beforeInteractive` menyuntikkan script ke HTML awal sebelum
+ * hydration, jadi tetap no-flash tanpa peringatan React.
+ *
+ * next-themes juga merender script serupa dari client component; salinan itu
  * dimatikan lewat `scriptProps` bertipe non-JavaScript.
  * Harus sama dengan storageKey + attribute ThemeProvider di bawah.
  */
@@ -50,8 +54,10 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
       suppressHydrationWarning
     >
       <body className="min-h-full flex flex-col">
-        {/* Dijalankan sebelum body selesai di-parse, jadi tidak ada kedip tema. */}
-        <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
+        {/* Disuntikkan sebelum hydration, jadi tidak ada kedip tema. */}
+        <Script id="cervise-theme-no-flash" strategy="beforeInteractive">
+          {THEME_SCRIPT}
+        </Script>
         {/* enableSystem wajib true supaya opsi "Sistem" di ThemeToggle benar-benar
             mengikuti prefers-color-scheme; dengan false, pilihan itu diam-diam
             diabaikan. defaultTheme "system" juga menghormati setelan OS dari

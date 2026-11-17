@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { getActiveTenant } from "@/lib/supabase/actor";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { canAccess } from "@/lib/rbac";
+import { canAccessActor } from "@/lib/rbac";
 import { publicPhotoUrl } from "@/lib/photos";
 
 /**
@@ -18,7 +18,7 @@ function resolveBranchId(actor: { branchId: string | null }, branchId: string): 
 
 export async function updateBrand(input: { name: string }) {
   const actor = await getActiveTenant();
-  if (!canAccess(actor.role, "pengaturan_general")) {
+  if (!canAccessActor(actor, "pengaturan_general")) {
     throw new Error("Role tidak diizinkan mengubah pengaturan cabang");
   }
   if (!actor.orgId) throw new Error("Organisasi tidak ditemukan");
@@ -52,7 +52,7 @@ export async function updateBrand(input: { name: string }) {
 
 export async function getBrand(branchId: string) {
   const actor = await getActiveTenant();
-  if (!canAccess(actor.role, "dashboard")) throw new Error("Role tidak diizinkan");
+  if (!canAccessActor(actor, "dashboard")) throw new Error("Role tidak diizinkan");
   if (!actor.orgId) throw new Error("Organisasi tidak ditemukan");
 
   const targetBranchId = resolveBranchId(actor, branchId);
@@ -97,7 +97,7 @@ export async function getBrand(branchId: string) {
  */
 export async function getShiftSettings() {
   const actor = await getActiveTenant();
-  if (!canAccess(actor.role, "dashboard")) throw new Error("Role tidak diizinkan");
+  if (!canAccessActor(actor, "dashboard")) throw new Error("Role tidak diizinkan");
   if (!actor.orgId) throw new Error("Organisasi tidak ditemukan");
 
   const { data, error } = await actor.supabase
@@ -115,7 +115,7 @@ export async function getShiftSettings() {
 
 export async function updateShiftSettings(input: { enabled: boolean; time: string }) {
   const actor = await getActiveTenant();
-  if (!canAccess(actor.role, "pengaturan_general")) {
+  if (!canAccessActor(actor, "pengaturan_general")) {
     throw new Error("Role tidak diizinkan mengubah pengaturan shift");
   }
   if (!actor.orgId) throw new Error("Organisasi tidak ditemukan");
@@ -143,7 +143,7 @@ export async function updateShiftSettings(input: { enabled: boolean; time: strin
 
 export async function getMasterAdmins(branchId: string) {
   const actor = await getActiveTenant();
-  if (!canAccess(actor.role, "pengaturan_general")) {
+  if (!canAccessActor(actor, "pengaturan_general")) {
     throw new Error("Role tidak diizinkan melihat daftar admin");
   }
 

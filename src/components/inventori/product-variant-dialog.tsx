@@ -650,8 +650,19 @@ export function ProductVariantDialog({ open, onOpenChange, onSuccess, editProduc
       const ex = existing[comboLookupKey(warna, storage)];
       return { ...c, warna, storage, ex };
     });
-    const toCreate = isGroupEdit ? enriched : enriched.filter((c) => !c.ex);
-    if (toCreate.length === 0) { toast.error(isGroupEdit ? "Tidak ada variasi untuk disimpan" : "Semua kombinasi sudah ada, tidak ada yang baru untuk disimpan"); return; }
+    // Edit grup: sumbu Warna × Storage membentuk semua kombinasi kartesius,
+    // termasuk baris "phantom" yang tidak punya baris produk di data. Baris yang
+    // benar-benar kosong dilewati supaya tidak memicu validasi stok yang
+    // membatalkan seluruh simpan (dan tidak dibuat sebagai varian stok 0).
+    // Baris yang diisi tapi belum punya ex.id tetap dibuat sebagai varian baru.
+    const isBlank = (c: (typeof enriched)[number]) => {
+      const v = comboValues[c.key];
+      return !v || (v.stock === "" && v.cost === "" && v.price === "" && v.barcode === "");
+    };
+    const toCreate = isGroupEdit
+      ? enriched.filter((c) => !isBlank(c))
+      : enriched.filter((c) => !c.ex);
+    if (toCreate.length === 0) { toast.error(isGroupEdit ? "Tidak ada perubahan untuk disimpan" : "Semua kombinasi sudah ada, tidak ada yang baru untuk disimpan"); return; }
     for (const c of toCreate) {
       const v = comboValues[c.key];
       const label = [c.warna, c.storage].filter(Boolean).join(" / ") || "Default";

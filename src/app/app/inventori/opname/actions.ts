@@ -6,6 +6,7 @@ import type { InventoryProduct } from "@/lib/operational/inventori";
 import {
   buildProductSnapshot,
   buildSparepartSnapshot,
+  OPNAME_POSTER_ROLES,
   type OpnameLineDraft,
   type OpnameSparepart,
 } from "@/lib/operational/stock-opname";
@@ -44,10 +45,18 @@ async function actor() {
   return a;
 }
 
+async function poster() {
+  const a = await actor();
+  if (!OPNAME_POSTER_ROLES.includes(a.role)) {
+    throw new Error("Role ini tidak boleh memposting opname");
+  }
+  return a;
+}
+
 async function manager() {
   const a = await actor();
   if (!["MASTER_ADMIN", "ADMIN"].includes(a.role)) {
-    throw new Error("Hanya admin yang boleh memposting opname");
+    throw new Error("Hanya admin yang boleh membatalkan opname");
   }
   return a;
 }
@@ -184,11 +193,12 @@ export async function saveCount(
 }
 
 export async function postSession(id: string): Promise<void> {
-  await manager();
+  await poster();
   const a = await actor();
   const { error } = await a.supabase.rpc("post_stock_opname", { p_session_id: id });
   if (error) throw new Error(error.message);
   revalidatePath("/app/inventori/opname");
+  revalidatePath(`/app/inventori/opname/${id}`);
 }
 
 export async function cancelSession(id: string): Promise<void> {
@@ -201,4 +211,5 @@ export async function cancelSession(id: string): Promise<void> {
     .eq("status", "DRAFT");
   if (error) throw new Error(error.message);
   revalidatePath("/app/inventori/opname");
+  revalidatePath(`/app/inventori/opname/${id}`);
 }

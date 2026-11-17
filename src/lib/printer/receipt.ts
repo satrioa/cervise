@@ -1,5 +1,9 @@
 import { formatCurrencyPlain } from "@/lib/format";
-import type { ShiftReport } from "@/lib/operational/laporan-shift";
+import {
+  shiftPaymentMethodBreakdown,
+  shiftStatusLabel,
+  type ShiftReport,
+} from "@/lib/operational/laporan-shift";
 import { receiptStamp } from "@/lib/sales/receipt";
 import type { SalesReceiptInput } from "@/lib/sales/receipt";
 import { parsePaymentNote } from "@/lib/sales/payment-note";
@@ -171,6 +175,18 @@ export function buildSaleEscpos(
   });
 }
 
+/**
+ * Nilai barcode thermal 58mm: buang prefix "SRV-" supaya lebar total muat
+ * dengan quiet zone yang cukup. Pencarian Pengambilan memakai `ilike %…%`,
+ * jadi "2026-0003" tetap cocok ke "SRV-2026-0003". Nomor lengkap tetap
+ * tercetak sebagai teks di badan nota.
+ */
+export function barcodeValueForReceipt(serviceNumber: string | null | undefined): string {
+  return String(serviceNumber ?? "")
+    .trim()
+    .replace(/^[A-Za-z]+-/, "");
+}
+
 export function buildServiceEscpos(
   input: ServiceReceiptInput,
   options: { trackingUrl?: string | null; cut?: boolean; logo?: EscposRaster | null } = {},
@@ -185,7 +201,7 @@ export function buildServiceEscpos(
       ...text(line()),
     );
   }
-  after.push(...align("center"), ...barcode(input.invoiceNo), ...align("left"), ...text(line()));
+  after.push(...align("center"), ...barcode(barcodeValueForReceipt(input.invoiceNo)), ...align("left"), ...text(line()));
   for (const row of buildServiceFooterLines(input)) {
     after.push(...text(row));
   }
@@ -229,22 +245,6 @@ function durationText(minutes: number): string {
   return `${Math.floor(total / 60)}j ${total % 60}m`;
 }
 
-function paymentMethodBreakdown(report: ShiftReport): { label: string; value: number }[] {
-  const byMethod = new Map<string, number>();
-  for (const sale of report.sales) {
-    const key = sale.method?.trim() || "Tanpa metode";
-    byMethod.set(key, (byMethod.get(key) ?? 0) + sale.paid);
-  }
-  const rows = [...byMethod.entries()]
-    .sort((a, b) => a[0].localeCompare(b[0]))
-    .map(([label, value]) => ({ label, value }));
-  const serviceCounted = report.services
-    .filter((s) => s.counted)
-    .reduce((sum, s) => sum + s.amount, 0);
-  if (serviceCounted > 0) rows.push({ label: "Servis (tanpa penjualan)", value: serviceCounted });
-  return rows;
-}
-
 /**
  * Nota tutup toko 58mm: detail penjualan, servis, kas manual, dan pendapatan
  * berdasarkan metode pembayaran.
@@ -258,9 +258,10 @@ export function buildShiftReceiptLines(report: ShiftReport, appearance: ShiftRec
 
   lines.push(columns("Open Shift", wibDateTime(report.openAt)));
   lines.push(columns("Open By", safe(report.employeeName)));
-  lines.push(columns("Close Shift", wibDateTime(report.closingAt)));
+  lines.push(columns("Close Shift", report.closingBalance === null ? EM_DASH : wibDateTime(report.closingAt)));
   lines.push(columns("Close By", safe(report.closedByName)));
   lines.push(columns("Total Duration", durationText(report.durationMinutes ?? 0)));
+  lines.push(columns("Status", shiftStatusLabel(report)));
   lines.push(line());
 
   const spareparts = report.spareparts ?? [];
@@ -329,7 +330,7 @@ export function buildShiftReceiptLines(report: ShiftReport, appearance: ShiftRec
   lines.push(line());
 
   lines.push("PENDAPATAN / METODE");
-  const breakdown = paymentMethodBreakdown(report);
+  const breakdown = shiftPaymentMethodBreakdown(report);
   if (breakdown.length === 0) {
     lines.push("  -");
   } else {

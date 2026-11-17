@@ -143,7 +143,17 @@ const Navbar = ({ isLoggedIn, user, dashboardHref }: { isLoggedIn?: boolean; use
       href="/"
       className="relative flex items-center gap-2 shrink-0 touch-manipulation focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2563eb]"
     >
-      <span className="flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground font-bold text-sm">C</span>
+      <span className="flex size-8 items-center justify-center rounded-lg bg-white shadow-sm dark:bg-white/10">
+        <AppImage
+          src="/Logo/IconLogo.png"
+          alt=""
+          width={32}
+          height={32}
+          crisp
+          className="size-6 object-contain"
+          priority
+        />
+      </span>
       <span className="font-bold text-lg text-[#1d1d1d]">Cervise</span>
       {/* Badge "Multibranch" di navbar dihilang atas permintaan: ruang di rail
           sempit dipakai untuk menu, dan ini bukan informasi yang harus dibawa

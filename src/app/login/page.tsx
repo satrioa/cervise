@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { createClient } from "@/lib/supabase/client";
 import { getPostLoginDestination } from "./actions";
+import { AppImage } from "@/components/ui/app-image";
 import { toast } from "sonner";
 
 export default function LoginPage() {
@@ -130,7 +131,17 @@ function PageBackdrop() {
 
 function BrandMark() {
   return (
-    <div className="flex size-10 items-center justify-center rounded-lg bg-primary text-primary-foreground font-bold">C</div>
+    <span className="flex size-10 items-center justify-center rounded-lg bg-white shadow-sm dark:bg-white/10">
+      <AppImage
+        src="/Logo/IconLogo.png"
+        alt="Cervise"
+        width={40}
+        height={40}
+        crisp
+        className="size-8 object-contain"
+        priority
+      />
+    </span>
   );
 }
 

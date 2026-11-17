@@ -146,7 +146,7 @@ export function OpnameReviewDialog({
             )
           ) : (
             <span className="text-xs text-muted-foreground">
-              Hanya admin yang boleh memposting.
+              Role ini tidak boleh memposting opname.
             </span>
           )}
         </DialogFooter>

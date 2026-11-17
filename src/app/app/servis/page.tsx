@@ -14,7 +14,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Kanban, KanbanBoard, KanbanColumn, KanbanColumnContent, KanbanItem, KanbanItemHandle, KanbanOverlay } from "@/components/reui/kanban";
 import { Card, CardContent } from "@/components/ui/card";
-import JellyRadio from "@/components/ui/jelly-radio";
+import { PTabs10 } from "@/components/p-tabs-10";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
@@ -133,13 +133,14 @@ function ServisTableSkeleton({ view }: { view: "table" | "kanban" }) {
     );
   }
 
-  // Column widths mirror the real table: checkbox, Servis, Device, Status,
-  // Teknisi, Pembayaran, Harga.
+  // Column widths mirror the real table: checkbox, Tanggal Masuk, Servis,
+  // Device, Status, Teknisi, Pembayaran, Harga.
   return (
     <>
       <div className="hidden overflow-hidden rounded-xl border md:block">
         <div className="flex items-center gap-4 border-b bg-muted/30 px-4 py-2.5">
           <Skeleton className="size-4 shrink-0 rounded" />
+          <Skeleton className="h-3 w-20 shrink-0" />
           <Skeleton className="h-3 w-24 shrink-0" />
           <Skeleton className="h-3 w-28 flex-1" />
           <Skeleton className="h-3 w-20 shrink-0" />
@@ -153,10 +154,10 @@ function ServisTableSkeleton({ view }: { view: "table" | "kanban" }) {
             className="flex items-center gap-4 border-b px-4 py-3 last:border-b-0"
           >
             <Skeleton className="size-4 shrink-0 rounded" />
+            <Skeleton className="h-3 w-20 shrink-0" />
             <div className="flex min-w-0 flex-1 flex-col gap-1.5">
               <Skeleton className="h-3 w-28" />
               <Skeleton className="h-3 w-36" />
-              <Skeleton className="h-2.5 w-20" />
             </div>
             <Skeleton className="h-4 w-28 shrink-0" />
             <Skeleton className="h-5 w-20 shrink-0 rounded-full" />
@@ -395,7 +396,17 @@ export default function ServisPage() {
     return "Rentang tanggal";
   })();
 
-  const jellyItems = useMemo(() => [{ value: "Semua", label: "Semua" }, ...STAGES.map((s) => ({ value: s.key, label: s.label, icon: <s.icon className="size-3.5" /> }))], []);
+  const statusTabItems = useMemo(
+    () => [
+      { value: "Semua", label: "Semua", count: filteredByAll.length },
+      ...STAGES.map((s) => ({
+        value: s.key,
+        label: s.label,
+        count: filteredByAll.filter((item) => item.status === s.key).length,
+      })),
+    ],
+    [filteredByAll],
+  );
 
   const handleViewDetails = (s: ServisItem) => { setSelectedServis(s); setViewOpen(true); };
   const applyLocalStatus = (s: ServisItem, next: Stage) => {
@@ -888,8 +899,8 @@ export default function ServisPage() {
         ) : null}
         {view === "table" && (
           <div className="relative -mx-1">
-            <div className="hidden overflow-x-auto scrollbar-none pb-3 px-1 mx-auto w-fit max-w-full [mask-image:linear-gradient(to_right,transparent,black_12px,black_calc(100%-12px),transparent)] md:block">
-              <JellyRadio items={jellyItems} value={filter} onChange={(v: string) => setFilter(v)} chipColor="#e4e4e7" activeColor="#18181b" textColor="#18181b" activeTextColor="#f5f5f5" invertDark size="md" gap={8} radius={18} />
+            <div className="hidden w-full overflow-x-auto scrollbar-none pb-3 md:block">
+              <PTabs10 value={filter} onValueChange={setFilter} items={statusTabItems} />
             </div>
             {/* Di mobile chip gooey terlalu lebar dan menggeser isi; dropdown
                 penuh lebih cepat dipakai dengan satu tangan. */}
@@ -909,7 +920,7 @@ export default function ServisPage() {
           </div>
         )}
         {/* Skeleton dan pesan kosong sengaja ada DI BAWAH filter status.
-            Keduanya dulu dirender sebelum JellyRadio, jadi begitu data masuk
+            Keduanya dulu dirender sebelum filter status, jadi begitu data masuk
             posisinya melompat ke bawah - filter-nya bergeser ke atas saat
             sedang memuat, lalu turun lagi setelah selesai. Di mode kanban
             tidak ada radio, jadi keduanya tetap elemen pertama. */}
@@ -936,7 +947,7 @@ export default function ServisPage() {
                     onCheckedChange={(v) => toggleAll(!!v)}
                   />
                 </TableHead>
-                <TableHead>Servis</TableHead><TableHead>Device</TableHead><TableHead>Status</TableHead><TableHead>Teknisi</TableHead><TableHead>Pembayaran</TableHead><TableHead className="text-right"><button type="button" onClick={() => setPriceSort((prev) => prev === "none" ? "asc" : prev === "asc" ? "desc" : "none")} className="inline-flex items-center gap-1 font-medium hover:text-foreground" aria-label="Urutkan harga">Harga{priceSort === "asc" ? <ArrowUpIcon className="size-3" /> : priceSort === "desc" ? <ArrowDownIcon className="size-3" /> : <ArrowUpDownIcon className="size-3 opacity-40" />}</button></TableHead></TableRow></TableHeader>
+                <TableHead>Tanggal Masuk</TableHead><TableHead>Servis</TableHead><TableHead>Device</TableHead><TableHead>Status</TableHead><TableHead>Teknisi</TableHead><TableHead>Pembayaran</TableHead><TableHead className="text-right"><button type="button" onClick={() => setPriceSort((prev) => prev === "none" ? "asc" : prev === "asc" ? "desc" : "none")} className="inline-flex items-center gap-1 font-medium hover:text-foreground" aria-label="Urutkan harga">Harga{priceSort === "asc" ? <ArrowUpIcon className="size-3" /> : priceSort === "desc" ? <ArrowDownIcon className="size-3" /> : <ArrowUpDownIcon className="size-3 opacity-40" />}</button></TableHead></TableRow></TableHeader>
             <TableBody>
               {pageItems.map((r) => (
                 <ServisContextMenu key={r.id} servis={r} onViewDetails={handleViewDetails} onStatusChange={handleStatusChange} onEdit={handleEdit} onPrint={handlePrint} onInvoice={handleInvoice} onBayar={handleBayar} onDelete={handleDelete}>
@@ -949,7 +960,8 @@ export default function ServisPage() {
                         onClick={(e) => e.stopPropagation()}
                       />
                     </TableCell>
-                    <TableCell><div className="font-mono text-xs">{servisLabel(r)}</div><div className="text-muted-foreground text-xs">{r.customer}</div><div className="text-muted-foreground text-[11px]">{format(new Date(r.date), "d MMM yyyy", { locale: localeId })}</div></TableCell>
+                    <TableCell className="whitespace-nowrap font-mono text-xs text-muted-foreground">{format(new Date(r.date), "d MMM yyyy", { locale: localeId })}</TableCell>
+                    <TableCell><div className="font-mono text-xs">{servisLabel(r)}</div><div className="text-muted-foreground text-xs">{r.customer}</div></TableCell>
                     <TableCell className="font-medium max-w-[220px] truncate">{r.device}</TableCell>
                     <TableCell><StageTrack stage={r.status} /></TableCell>
                     <TableCell className="font-mono text-xs text-muted-foreground">{r.teknisi}</TableCell>
@@ -958,7 +970,7 @@ export default function ServisPage() {
                   </TableRow>
                 </ServisContextMenu>
               ))}
-              {pageItems.length === 0 && (<TableRow><TableCell colSpan={7} className="text-center text-sm text-muted-foreground py-8">Tidak ada data</TableCell></TableRow>)}
+              {pageItems.length === 0 && (<TableRow><TableCell colSpan={8} className="text-center text-sm text-muted-foreground py-8">Tidak ada data</TableCell></TableRow>)}
             </TableBody>
           </Table>
           </div>

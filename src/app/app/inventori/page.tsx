@@ -1,4 +1,5 @@
 import { getInventori } from "@/app/app/inventori/actions";
+import { getActiveTenant } from "@/lib/supabase/actor";
 import { InventoriClient } from "./inventori-client";
 import { InventoriHeaderActions } from "@/components/inventori/inventori-header-actions";
 import { PageHeader } from "@/components/layout/page-header";
@@ -14,6 +15,9 @@ export default async function InventoriPage({
   // POS yang dipangkas 40 baris. Pengelompokan induk/varian ada di
   // lib/operational/inventori.ts supaya bisa diuji, bukan dihitung inline.
   const { groups, summary, truncated } = await getInventori();
+  // Ringkasan ini sudah tampil di toolbar Inventori. Di tampilan master admin
+  // breadcrumb cukup judulnya saja, tanpa baris deskripsi.
+  const actor = await getActiveTenant();
 
   // Filter dibaca dari URL supaya bisa dibagikan dan bertahan saat refresh.
   // Penyaringan tetap terjadi di client: katalognya sudah diambil utuh di atas.
@@ -24,7 +28,11 @@ export default async function InventoriPage({
       <PageHeader
         title="Inventori"
         titleClassName="font-heading text-2xl"
-        description={`${summary.groups} produk induk · ${summary.varian} varian (Baru ${summary.baru} · Bekas ${summary.bekas})`}
+        description={
+          actor.role === "MASTER_ADMIN"
+            ? undefined
+            : `${summary.groups} produk induk · ${summary.varian} varian (Baru ${summary.baru} · Bekas ${summary.bekas})`
+        }
         actions={<InventoriHeaderActions groups={groups} initialNewOpen={newParam === "1"} />}
       />
       <main className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-6">

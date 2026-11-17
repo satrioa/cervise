@@ -6,6 +6,8 @@ import {
   formatShiftRowsForSheet,
   rupiah,
   shiftLabel,
+  shiftPaymentMethodBreakdown,
+  shiftStatusLabel,
   type ShiftCashRow,
   type ShiftSaleRow,
   type ShiftServiceRow,
@@ -594,6 +596,32 @@ describe("formatShiftRowsForSheet", () => {
         expect(["string", "number"]).toContain(typeof cell);
       }
     }
+  });
+});
+
+describe("rincian shift untuk cetak", () => {
+  it("metode standar tetap tampil walaupun nilainya 0", () => {
+    const report = buildLaporanShift({ session: session(), services: [], sales: [], cashTx: [], now: NOW });
+    const rows = shiftPaymentMethodBreakdown(report);
+    for (const method of ["Tunai", "QRIS", "Debit", "E-Wallet", "Transfer"]) {
+      expect(rows.find((row) => row.label === method)?.value).toBe(0);
+    }
+  });
+
+  it("metode di luar daftar standar tetap ikut", () => {
+    const report = buildLaporanShift({
+      session: session(),
+      services: [],
+      sales: [sale({ payment_method: "GoPay", total: 12_000, paid: 12_000 })],
+      cashTx: [],
+      now: NOW,
+    });
+    expect(shiftPaymentMethodBreakdown(report).find((row) => row.label === "GoPay")?.value).toBe(12_000);
+  });
+
+  it("status mengikuti saldo akhir", () => {
+    expect(shiftStatusLabel({ closingBalance: null })).toBe("Masih terbuka");
+    expect(shiftStatusLabel({ closingBalance: 0 })).toBe("Sudah ditutup");
   });
 });
 
