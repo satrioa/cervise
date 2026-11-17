@@ -926,10 +926,10 @@ function PengambilanDeviceCard({ queue, onSaved }: { queue: FrontlinerQueueItem[
 
   return (
     <>
-      <BentoCard candy="blue" onClick={() => setOpen(true)} title="Pengambilan Device" cellClassName="max-sm:order-4">
-        <span className="flex flex-1 flex-col items-start justify-between gap-3">
+      <BentoCard candy="blue" onClick={() => setOpen(true)} title="Pengambilan Device" cellClassName="max-sm:order-4" className="text-left">
+        <span className="flex w-full flex-1 flex-col items-start justify-between gap-3 text-left">
           <PackageCheckIcon className="size-7 drop-shadow-sm" />
-          <span className="text-[15px] font-medium leading-tight">
+          <span className="text-left text-[15px] font-medium leading-tight">
             Pengambilan Device
           </span>
         </span>
@@ -1021,6 +1021,29 @@ function PickupDialog({ open, onOpenChange, queue, onSaved }: { open: boolean; o
       return;
     }
     setConfirmItem(item);
+  };
+
+  // Scan barcode langsung membuka form pengambilan kalau nomornya ketemu.
+  const handleScanDetected = async (value: string) => {
+    const term = value.trim();
+    setQuery(term);
+    if (term.length < 2) return;
+    try {
+      const result = await searchPickupServices(term);
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
+      setResults(result.data);
+      const exact = result.data.find(
+        (item) => item.serviceNumber?.trim().toLowerCase() === term.toLowerCase(),
+      );
+      const target = exact ?? result.data[0] ?? null;
+      if (target) startPickup(target);
+      else toast.info("Device tidak ditemukan. Cari manual dengan nomor servis.");
+    } catch (cause) {
+      toast.error(cause instanceof Error ? cause.message : "Gagal mencari device");
+    }
   };
 
   const finishPayment = () => {
@@ -1186,7 +1209,7 @@ function PickupDialog({ open, onOpenChange, queue, onSaved }: { open: boolean; o
         onOpenChange={setScanOpen}
         title="Scan barcode"
         description="Arahkan kamera ke barcode pada nota servis."
-        onDetected={(value) => setQuery(value)}
+        onDetected={(value) => void handleScanDetected(value)}
       />
 
       <ServisPaymentDialog
