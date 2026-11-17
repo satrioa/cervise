@@ -18,6 +18,10 @@ type BranchItem = {
   intensif_mode?: string;
   intensif_value?: number;
   intensif_target_count?: number;
+  target_type?: "penghasilan" | "jumlah_servis";
+  target_value?: number | null;
+  show_target_to_teknisi?: boolean;
+  show_intensif_to_teknisi?: boolean;
 };
 
 /**

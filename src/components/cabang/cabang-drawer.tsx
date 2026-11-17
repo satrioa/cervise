@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
-import { getCabangMembers, toggleCabangIntensif, updateCabang, updateCabangIntensif } from "@/app/app/cabang/actions";
+import { getCabangMembers, toggleCabangIntensif, updateCabang, updateCabangCardVisibility, updateCabangIntensif, updateCabangTarget } from "@/app/app/cabang/actions";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Switch } from "@/components/ui/switch";
@@ -26,6 +26,10 @@ type BranchItem = {
   intensif_mode?: "percent" | "fixed" | "flat";
   intensif_value?: number;
   intensif_target_count?: number | null;
+  target_type?: "penghasilan" | "jumlah_servis";
+  target_value?: number | null;
+  show_target_to_teknisi?: boolean;
+  show_intensif_to_teknisi?: boolean;
   created_at: string;
   teknisiCount: number;
 };
@@ -95,6 +99,11 @@ export function CabangDrawer({ branch, open, onOpenChange }: { branch: BranchIte
   const [intensifTarget, setIntensifTarget] = useState<string>("");
   const [savingIntensif, setSavingIntensif] = useState(false);
   const [errorIntensif, setErrorIntensif] = useState<string | null>(null);
+  const [targetType, setTargetType] = useState<"penghasilan" | "jumlah_servis">("jumlah_servis");
+  const [targetValue, setTargetValue] = useState<string>("");
+  const [showTarget, setShowTarget] = useState(true);
+  const [showIntensif, setShowIntensif] = useState(true);
+  const [savingTarget, setSavingTarget] = useState(false);
 
   useEffect(() => {
     if (!open || !branch) return;
@@ -108,6 +117,10 @@ export function CabangDrawer({ branch, open, onOpenChange }: { branch: BranchIte
     setIntensifValue(String(branch.intensif_value ?? 5));
     setIntensifTarget(branch.intensif_target_count ? String(branch.intensif_target_count) : "");
     setErrorIntensif(null);
+    setTargetType(branch.target_type === "penghasilan" ? "penghasilan" : "jumlah_servis");
+    setTargetValue(branch.target_value ? String(branch.target_value) : "");
+    setShowTarget(branch.show_target_to_teknisi ?? true);
+    setShowIntensif(branch.show_intensif_to_teknisi ?? true);
     setLoading(true);
     getCabangMembers(branch.id)
       .then((rows) => setMembers(rows as Member[]))
@@ -187,6 +200,43 @@ export function CabangDrawer({ branch, open, onOpenChange }: { branch: BranchIte
     }
   };
 
+  const saveVisibility = async (next: { showTarget: boolean; showIntensif: boolean }) => {
+    if (!branch) return;
+    setSavingTarget(true);
+    try {
+      await updateCabangCardVisibility(branch.id, next);
+      setShowTarget(next.showTarget);
+      setShowIntensif(next.showIntensif);
+      playPageTransition();
+      router.refresh();
+    } catch (e: any) {
+      toast.error(e?.message ?? "Gagal mengubah tampilan kartu");
+    } finally {
+      setSavingTarget(false);
+    }
+  };
+
+  const saveTarget = async () => {
+    if (!branch) return;
+    const raw = targetValue.trim();
+    const value = raw === "" ? null : Number(raw);
+    if (value !== null && (!Number.isFinite(value) || value <= 0)) {
+      toast.error("Nilai target harus lebih dari 0");
+      return;
+    }
+    setSavingTarget(true);
+    try {
+      await updateCabangTarget(branch.id, { type: targetType, value });
+      playPageTransition();
+      toast.success("Target cabang diperbarui");
+      router.refresh();
+    } catch (e: any) {
+      toast.error(e?.message ?? "Gagal menyimpan target");
+    } finally {
+      setSavingTarget(false);
+    }
+  };
+
   if (!branch) return null;
 
   return (
@@ -248,12 +298,21 @@ export function CabangDrawer({ branch, open, onOpenChange }: { branch: BranchIte
 
           {/* Intensif per cabang — Q1 % or fixed, Q3 per cabang, Q4 Selesai+Sudah Diambil */}
           <div className="rounded-xl border bg-card p-4 shadow-xs/5">
-            <div className="flex items-center justify-between gap-3">
+            <div className="flex items-start justify-between gap-3">
               <div>
                 <div className="font-heading text-sm font-semibold">Insentif Teknisi</div>
                 <p className="text-xs text-muted-foreground">Per cabang · dihitung dari servis Selesai + Sudah Diambil pada bulan berjalan</p>
               </div>
-              <Switch checked={intensifEnabled} disabled={savingIntensif || !branch.is_active} onCheckedChange={handleIntensifToggle} />
+              <div className="flex shrink-0 flex-col items-end gap-2.5">
+                <label className="flex items-center gap-2 text-[11px] text-muted-foreground">
+                  Aktif
+                  <Switch checked={intensifEnabled} disabled={savingIntensif || !branch.is_active} onCheckedChange={handleIntensifToggle} />
+                </label>
+                <label className="flex items-center gap-2 text-[11px] text-muted-foreground">
+                  Tampilkan kartu Intensif ke teknisi
+                  <Switch checked={showIntensif} disabled={savingTarget || !branch.is_active} onCheckedChange={(v) => void saveVisibility({ showTarget, showIntensif: v })} />
+                </label>
+              </div>
             </div>
             {!branch.is_active && <p className="mt-2 text-xs text-amber-600">Aktifkan cabang dulu untuk mengatur insentif.</p>}
             {intensifEnabled && branch.is_active && (
@@ -306,6 +365,38 @@ export function CabangDrawer({ branch, open, onOpenChange }: { branch: BranchIte
               </div>
             )}
             {!intensifEnabled && branch.is_active && <p className="mt-3 text-xs text-muted-foreground">Insentif nonaktif — teknisi di cabang ini tidak mendapat insentif.</p>}
+          </div>
+
+          {/* Target Cabang — target Home teknisi, terpisah dari syarat bonus intensif */}
+          <div className="rounded-xl border bg-card p-4 shadow-xs/5">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <div className="font-heading text-sm font-semibold">Target Cabang</div>
+                <p className="text-xs text-muted-foreground">Target bulanan teknisi — tampilan di Home, terpisah dari syarat bonus.</p>
+              </div>
+              <Switch checked={showTarget} disabled={savingTarget || !branch.is_active} onCheckedChange={(v) => void saveVisibility({ showTarget: v, showIntensif })} />
+            </div>
+            {branch.is_active ? (
+              <div className="mt-4 space-y-3">
+                <div className="space-y-1.5">
+                  <Label className="font-mono text-[10px] uppercase tracking-[0.2em]">Jenis target</Label>
+                  <Select value={targetType} onValueChange={(v) => setTargetType(v as "penghasilan" | "jumlah_servis")}>
+                    <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="jumlah_servis">Jumlah Servis</SelectItem>
+                      <SelectItem value="penghasilan">Penghasilan</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="font-mono text-[10px] uppercase tracking-[0.2em]">Nilai target</Label>
+                  <Input type="number" min={1} value={targetValue} onChange={(e) => setTargetValue(e.target.value)} placeholder={targetType === "penghasilan" ? "mis. 10000000" : "mis. 20"} />
+                </div>
+                <div className="flex justify-end">
+                  <Button size="sm" onClick={() => void saveTarget()} disabled={savingTarget}>{savingTarget ? "Menyimpan..." : "Simpan target"}</Button>
+                </div>
+              </div>
+            ) : null}
           </div>
 
           {/* Members compact-card list */}

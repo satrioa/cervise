@@ -28,7 +28,7 @@ function readIntensifMode(value: unknown): IntensifMode {
 export async function getCabangList() {
   const { supabase, orgId, role, permissions } = await getActiveTenant();
   requireCabangAccess({ role, permissions });
-  const { data: branches, error } = await supabase.from("branches").select("id,name,city,phone,is_active,is_intensif_enabled,intensif_mode,intensif_value,intensif_target_count,created_at").eq("organization_id", orgId).order("created_at");
+  const { data: branches, error } = await supabase.from("branches").select("id,name,city,phone,is_active,is_intensif_enabled,intensif_mode,intensif_value,intensif_target_count,target_type,target_value,show_target_to_teknisi,show_intensif_to_teknisi,created_at").eq("organization_id", orgId).order("created_at");
   if (error) throw new Error(error.message);
   const ids = (branches ?? []).map((b: any) => b.id);
   let counts = new Map<string, number>();
@@ -49,6 +49,10 @@ export async function getCabangList() {
     intensif_mode: readIntensifMode(b.intensif_mode),
     intensif_value: b.intensif_value ?? 5,
     intensif_target_count: b.intensif_target_count ?? null,
+    target_type: b.target_type === "penghasilan" ? "penghasilan" : "jumlah_servis",
+    target_value: b.target_value ?? null,
+    show_target_to_teknisi: b.show_target_to_teknisi ?? true,
+    show_intensif_to_teknisi: b.show_intensif_to_teknisi ?? true,
     created_at: b.created_at as string,
     teknisiCount: counts.get(b.id as string) ?? 0,
   }));
@@ -112,6 +116,45 @@ export async function updateCabangIntensif(
   const { error } = await supabase
     .from("branches")
     .update({ intensif_mode: data.mode, intensif_value: data.value, intensif_target_count: targetCount })
+    .eq("id", id)
+    .eq("organization_id", orgId);
+  if (error) throw new Error(error.message);
+  revalidatePath("/app/cabang");
+  return { ok: true };
+}
+
+export async function updateCabangTarget(
+  id: string,
+  data: { type: "penghasilan" | "jumlah_servis"; value: number | null }
+) {
+  const { supabase, orgId, role, permissions } = await getActiveTenant();
+  requireCabangAccess({ role, permissions });
+  if (data.type !== "penghasilan" && data.type !== "jumlah_servis") throw new Error("Tipe target invalid");
+  if (data.value !== null && (!Number.isFinite(data.value) || data.value <= 0)) {
+    throw new Error("Nilai target harus > 0");
+  }
+  const { error } = await supabase
+    .from("branches")
+    .update({ target_type: data.type, target_value: data.value })
+    .eq("id", id)
+    .eq("organization_id", orgId);
+  if (error) throw new Error(error.message);
+  revalidatePath("/app/cabang");
+  return { ok: true };
+}
+
+export async function updateCabangCardVisibility(
+  id: string,
+  data: { showTarget: boolean; showIntensif: boolean }
+) {
+  const { supabase, orgId, role, permissions } = await getActiveTenant();
+  requireCabangAccess({ role, permissions });
+  const { error } = await supabase
+    .from("branches")
+    .update({
+      show_target_to_teknisi: data.showTarget,
+      show_intensif_to_teknisi: data.showIntensif,
+    })
     .eq("id", id)
     .eq("organization_id", orgId);
   if (error) throw new Error(error.message);

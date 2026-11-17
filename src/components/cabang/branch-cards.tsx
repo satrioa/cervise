@@ -30,6 +30,10 @@ type BranchItem = {
   intensif_mode: "percent" | "fixed" | "flat";
   intensif_value: number;
   intensif_target_count: number | null;
+  target_type?: "penghasilan" | "jumlah_servis";
+  target_value?: number | null;
+  show_target_to_teknisi?: boolean;
+  show_intensif_to_teknisi?: boolean;
   created_at: string;
   teknisiCount: number;
 };
