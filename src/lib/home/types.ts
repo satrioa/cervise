@@ -52,9 +52,21 @@ export type TechnicianDashboardData = {
   terbaru: RecentService[];
 };
 
+/** Konfigurasi kartu Target Cabang & Intensif Saya untuk dashboard teknisi. */
+export type TechnicianCards = {
+  showTarget: boolean;
+  showIntensif: boolean;
+  targetType: "penghasilan" | "jumlah_servis";
+  targetValue: number | null;
+  intensifMode: "percent" | "fixed" | "flat";
+  intensifValue: number;
+};
+
 export type TechnicianHomeData = {
   kind: "technician";
   dashboard: TechnicianDashboardData;
+  /** Visibilitas dan setelan dua kartu insentif/target, dihitung di server. */
+  cards: TechnicianCards;
   todos: StaffTodo[];
   mentions: TodoMention[];
   /** Pesan pertama yang gagal, atau null. Data yang gagal memakai nilai kosong. */

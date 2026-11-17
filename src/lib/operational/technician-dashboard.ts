@@ -173,6 +173,8 @@ export type TechnicianKpi = {
   target: number | null;
   /** Servis selesai bulan berjalan. */
   selesai: number;
+  /** Total price servis selesai bulan berjalan (pendapatan teknisi). */
+  penghasilanBulanIni: number;
   /** Persentase 0-100, atau null kalau target belum diatur. */
   targetPct: number | null;
   /**
@@ -214,6 +216,12 @@ export function buildTechnicianKpi(
     ? services.filter((s) => s.teknisi_id === teknisiId && DONE_STATUS.has(s.status) && dalamRentangBulan(s.completed_at, now)).length
     : 0;
 
+  const penghasilanBulanIni = teknisiId
+    ? services
+        .filter((s) => s.teknisi_id === teknisiId && DONE_STATUS.has(s.status) && dalamRentangBulan(s.completed_at, now))
+        .reduce((sum, s) => sum + Number(s.price ?? 0), 0)
+    : 0;
+
   const rawTarget = branchIntensif?.intensif_target_count ?? null;
   const active = branchIntensif?.is_intensif_enabled === true;
   // Target adalah syarat pembayaran mode flat. Di mode lain `intensif_mode`
@@ -237,6 +245,7 @@ export function buildTechnicianKpi(
   return {
     target,
     selesai,
+    penghasilanBulanIni,
     targetPct: target ? Math.min(100, Math.round((selesai / target) * 100)) : null,
     unset: target === null,
     applicable,

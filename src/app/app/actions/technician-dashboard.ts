@@ -25,7 +25,7 @@ const EMPTY: TechnicianDashboardData = {
   // `applicable: false` supaya kartu Target jatuh ke empty state "tidak ada
   // target bulanan", bukan empty state "belum diatur" -- yang menyiratkan ada
   // sesuatu yang bisa dikonfigurasi.
-  kpi: { target: null, selesai: 0, targetPct: null, unset: true, applicable: false, masukHariIni: 0, selesaiHariIni: 0 },
+  kpi: { target: null, selesai: 0, penghasilanBulanIni: 0, targetPct: null, unset: true, applicable: false, masukHariIni: 0, selesaiHariIni: 0 },
   terbaru: [],
 };
 

@@ -27,7 +27,13 @@ import { TaskNoteCard } from "./task-note-card";
 import { NewServisDialog } from "@/components/servis/new-servis-dialog";
 import { toast } from "sonner";
 import { getTechnicianDashboardData } from "@/app/app/actions/technician-dashboard";
+import { formatCurrencyPlain } from "@/lib/format";
 import type { RecentService, TechnicianKpi } from "@/lib/operational/technician-dashboard";
+import {
+  insentifEstimate,
+  targetProgress,
+  technicianCardFlags,
+} from "@/lib/operational/technician-cards";
 import type { TechnicianDashboardData, TechnicianHomeData } from "@/lib/home/types";
 
 /**
@@ -53,7 +59,7 @@ const BENTO_STAGGER = 0.05;
  *     │              │ Servis   │  (2 baris) │
  *     │   TODAY      │ Selesai  ├────────────┤
  *     │  (2x2)       ├─────────┴────────────┤
- *     │              │     Target saya      │
+ *     │              │ Target │ Intensif    │
  *     └──────────────┴──────────────────────┘
  */
 
@@ -104,6 +110,14 @@ export function TechnicianDashboard({
   }, []);
 
   const kpi = data.kpi;
+  // Server sudah menyembunyikan kedua kartu saat insentif nonaktif, jadi di sini
+  // cukup menjalankan aturan yang sama pada mode & toggle yang sudah final.
+  const { showTarget, showIntensif } = technicianCardFlags({
+    insentifEnabled: true,
+    intensifMode: initialData.cards.intensifMode,
+    showTarget: initialData.cards.showTarget,
+    showIntensif: initialData.cards.showIntensif,
+  });
 
   return (
     // Latar halaman memakai kanvas shell (abu-abu di Figma). `h-full`
@@ -182,11 +196,27 @@ export function TechnicianDashboard({
               className="max-sm:order-6"
             />
 
-            {/* 7. Target bulanan, melebar dua kolom. Progress bar datar -
-                bukan gauge busur seperti versi sebelumnya. */}
-            <BentoCard span={2} className="max-sm:order-7 max-sm:col-span-2">
-              <TargetTile kpi={kpi} />
-            </BentoCard>
+            {/* 7. Target Cabang & Intensif Saya. Dua kartu berdampingan saat
+                keduanya tampil; satu kartu melebar dua kolom saat yang lain
+                disembunyikan. */}
+            {showTarget && showIntensif ? (
+              <>
+                <BentoCard span={1} className="max-sm:order-7 max-sm:col-span-2">
+                  <TargetCabangTile kpi={kpi} cards={initialData.cards} />
+                </BentoCard>
+                <BentoCard span={1} className="max-sm:order-7 max-sm:col-span-2">
+                  <IntensifTile kpi={kpi} cards={initialData.cards} />
+                </BentoCard>
+              </>
+            ) : showTarget ? (
+              <BentoCard span={2} className="max-sm:order-7 max-sm:col-span-2">
+                <TargetCabangTile kpi={kpi} cards={initialData.cards} />
+              </BentoCard>
+            ) : showIntensif ? (
+              <BentoCard span={2} className="max-sm:order-7 max-sm:col-span-2">
+                <IntensifTile kpi={kpi} cards={initialData.cards} />
+              </BentoCard>
+            ) : null}
           </motion.div>
         </div>
       </div>
@@ -223,79 +253,56 @@ function StatTile({
   );
 }
 
-/**
- * "Target saya": persentase di kanan atas, `selesai/target` di kiri bawah
- * dengan pil hijau, lalu progress bar.
- */
-function TargetTile({ kpi }: { kpi: TechnicianKpi | null }) {
-  if (!kpi) {
-    return (
-      <>
-        <p className="text-[15px] font-medium">Target saya</p>
-        <p className="font-heading mt-auto text-4xl font-normal">—</p>
-      </>
-    );
-  }
-
-  // Cabang tidak mode flat: tidak ada target yang bisa diatur. Jangan menawarkan
-  // tautan di sini. Link lama menuju `/app/analitik-servis` memang halaman
-  // yang salah (target diatur di `/app/cabang`), dan `/app/cabang` sendiri
-  // `roles: MANAGERS` -- teknisi tidak bisa membukanya. Jadi "Atur sekarang"
-  // tidak pernah jadi jalan keluar untuk teknisi mana pun.
-  if (!kpi.applicable) {
-    return (
-      <>
-        <p className="text-[15px] font-medium">Target saya</p>
-        <p className="mt-auto text-sm text-muted-foreground">
-          Cabang ini memakai insentif per servis, jadi tidak ada target bulanan.
-        </p>
-      </>
-    );
-  }
-
-  if (kpi.unset || kpi.target === null) {
-    return (
-      <>
-        <p className="text-[15px] font-medium">Target saya</p>
-        <p className="mt-auto text-sm text-muted-foreground">
-          Belum diatur oleh admin cabang ini.
-        </p>
-      </>
-    );
-  }
-
-  const percent = kpi.targetPct ?? 0;
-
+/** Target Cabang: jumlah servis atau pendapatan bulan ini terhadap target. */
+function TargetCabangTile({ kpi, cards }: { kpi: TechnicianKpi; cards: TechnicianHomeData["cards"] }) {
+  const progress = targetProgress({
+    type: cards.targetType,
+    value: cards.targetValue,
+    selesai: kpi.selesai,
+    penghasilan: kpi.penghasilanBulanIni,
+  });
   return (
     <>
-      <div className="flex items-baseline justify-between gap-2">
-        <p className="text-[15px] font-medium">Target saya</p>
-        <p className="font-heading text-sm font-medium tabular-nums">{percent}%</p>
-      </div>
-
-      <div className="mt-auto flex flex-wrap items-baseline gap-2">
-        <p className="font-heading text-5xl font-normal leading-none tracking-[-0.04em] tabular-nums">
-          {kpi.selesai}/{kpi.target}
-        </p>
-        <span className="rounded-full border border-emerald-600/40 px-2.5 py-1 text-[10px] font-medium text-emerald-700 dark:text-emerald-300">
-          Servis selesai
+      <p className="text-[15px] font-medium">Target Cabang</p>
+      <div className="mt-auto text-2xl font-medium tabular-nums">
+        {cards.targetType === "penghasilan" ? formatCurrencyPlain(progress.current) : progress.current}
+        <span className="text-sm text-muted-foreground">
+          {" / "}
+          {cards.targetType === "penghasilan" ? formatCurrencyPlain(progress.target) : progress.target}
         </span>
       </div>
-
-      {/* Bar datar, bukan gauge busur. */}
       <div
         role="progressbar"
-        aria-valuenow={percent}
+        aria-valuenow={progress.percent}
         aria-valuemin={0}
         aria-valuemax={100}
-        aria-label="Progres target servis bulan ini"
+        aria-label="Progres target cabang bulan ini"
         className="mt-3 h-2 w-full overflow-hidden rounded-full bg-black/10 dark:bg-white/15"
       >
-        <div
-          className="h-full rounded-full bg-emerald-500"
-          style={{ width: `${percent}%` }}
-        />
+        <div className="h-full rounded-full bg-emerald-500" style={{ width: `${progress.percent}%` }} />
       </div>
+    </>
+  );
+}
+
+/** Intensif Saya: estimasi insentif bulan ini sesuai mode cabang. */
+function IntensifTile({ kpi, cards }: { kpi: TechnicianKpi; cards: TechnicianHomeData["cards"] }) {
+  const estimate = insentifEstimate({
+    mode: cards.intensifMode,
+    value: cards.intensifValue,
+    selesai: kpi.selesai,
+    penghasilan: kpi.penghasilanBulanIni,
+  });
+  return (
+    <>
+      <p className="text-[15px] font-medium">Intensif Saya</p>
+      <p className="font-heading mt-auto text-3xl font-normal tabular-nums">{formatCurrencyPlain(estimate)}</p>
+      <p className="mt-1 text-[11px] text-muted-foreground">
+        Estimasi bulan ini ·{" "}
+        {cards.intensifMode === "fixed"
+          ? `${formatCurrencyPlain(cards.intensifValue)} per servis`
+          : `${cards.intensifValue}% dari pendapatan`}
+      </p>
     </>
   );
 }

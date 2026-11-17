@@ -15,6 +15,7 @@ import {
 import type {
   FrontlinerHomeData,
   HomeData,
+  TechnicianCards,
   TechnicianDashboardData,
   TechnicianHomeData,
 } from "@/lib/home/types";
@@ -83,7 +84,7 @@ export async function getHomeData(): Promise<HomeData> {
         error,
       };
     }
-    return { kind: "technician", ...base, dashboard: EMPTY_TECHNICIAN, error };
+    return { kind: "technician", ...base, dashboard: EMPTY_TECHNICIAN, cards: EMPTY_TECHNICIAN.cards, error };
   }
 
   const home = await homePromise;
@@ -126,7 +127,12 @@ async function loadTechnicianHomeData(
   ctx: HomeContext,
 ): Promise<Omit<TechnicianHomeData, "todos" | "mentions">> {
   const dashboard = await settle(() => loadTechnicianHome(ctx), EMPTY_TECHNICIAN);
-  return { kind: "technician", dashboard: dashboard.value, error: dashboard.error };
+  return {
+    kind: "technician",
+    dashboard: dashboard.value,
+    cards: dashboard.value.cards,
+    error: dashboard.error,
+  };
 }
 
 /**
@@ -149,7 +155,16 @@ async function settle<T>(
   }
 }
 
-const EMPTY_TECHNICIAN: TechnicianDashboardData = {
+const EMPTY_CARDS: TechnicianCards = {
+  showTarget: false,
+  showIntensif: false,
+  targetType: "jumlah_servis",
+  targetValue: null,
+  intensifMode: "percent",
+  intensifValue: 0,
+};
+
+const EMPTY_TECHNICIAN: TechnicianDashboardData & { cards: TechnicianCards } = {
   attention: [],
   // `applicable: false` supaya kartu Target jatuh ke empty state "tidak ada
   // target bulanan", bukan "belum diatur" -- yang menyiratkan ada sesuatu yang
@@ -157,6 +172,7 @@ const EMPTY_TECHNICIAN: TechnicianDashboardData = {
   kpi: {
     target: null,
     selesai: 0,
+    penghasilanBulanIni: 0,
     targetPct: null,
     unset: true,
     applicable: false,
@@ -164,4 +180,5 @@ const EMPTY_TECHNICIAN: TechnicianDashboardData = {
     selesaiHariIni: 0,
   },
   terbaru: [],
+  cards: EMPTY_CARDS,
 };

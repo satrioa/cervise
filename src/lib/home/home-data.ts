@@ -24,11 +24,17 @@ import {
   type ShiftSession,
 } from "@/lib/operational/laporan-shift";
 import { servisBill } from "@/lib/operational/servis-price";
+import { technicianCardFlags } from "@/lib/operational/technician-cards";
 import type { Actor } from "@/lib/supabase/actor";
 import { sanitizeSearchTerm } from "@/lib/search-term";
 import type { StaffTodo } from "@/app/app/actions/todos";
 import type { TodoMention } from "@/app/app/actions/todo-mentions";
-import type { FrontlinerQueueItem, PickupServiceItem, TechnicianDashboardData } from "./types";
+import type {
+  FrontlinerQueueItem,
+  PickupServiceItem,
+  TechnicianCards,
+  TechnicianDashboardData,
+} from "./types";
 
 /**
  * Pengambilan data dashboard `/app`.
@@ -76,6 +82,14 @@ const TECHNICIAN_SERVICE_COLUMNS =
 /** Status yang masih mungkin menggantung di meja teknisi. */
 const ATTENTION_STATUSES = ["Masuk", "Dikerjakan", "Selesai"];
 
+/** Baris `branches` yang dipakai teknisi: insentif + kartu target/intensif. */
+type TechnicianBranch = BranchIntensif & {
+  target_type: string | null;
+  target_value: number | null;
+  show_target_to_teknisi: boolean | null;
+  show_intensif_to_teknisi: boolean | null;
+};
+
 // ---------------------------------------------------------------------------
 // Dashboard teknisi
 // ---------------------------------------------------------------------------
@@ -95,7 +109,9 @@ const ATTENTION_STATUSES = ["Masuk", "Dikerjakan", "Selesai"];
  *
  * Ketiganya berjalan paralel, jadi jumlah query bertambah tapi waktunya tidak.
  */
-export async function loadTechnicianHome(ctx: HomeContext): Promise<TechnicianDashboardData> {
+export async function loadTechnicianHome(
+  ctx: HomeContext,
+): Promise<TechnicianDashboardData & { cards: TechnicianCards }> {
   const { supabase, branchId, userId } = ctx;
   const now = new Date();
   const monthStart = rentangBulanSekarang(now).from.toISOString();
@@ -134,7 +150,9 @@ export async function loadTechnicianHome(ctx: HomeContext): Promise<TechnicianDa
         .limit(TERBARU_LIMIT),
       supabase
         .from("branches")
-        .select("is_intensif_enabled, intensif_mode, intensif_value, intensif_target_count")
+        .select(
+          "is_intensif_enabled, intensif_mode, intensif_value, intensif_target_count, target_type, target_value, show_target_to_teknisi, show_intensif_to_teknisi",
+        )
         .eq("id", branchId)
         .maybeSingle(),
     ]);
@@ -149,12 +167,28 @@ export async function loadTechnicianHome(ctx: HomeContext): Promise<TechnicianDa
     ...((createdResult.data ?? []) as TechnicianServiceInput[]),
     ...((completedResult.data ?? []) as TechnicianServiceInput[]),
   ];
-  const branch = (branchResult.data ?? null) as BranchIntensif | null;
+  const branch = (branchResult.data ?? null) as TechnicianBranch | null;
+  const mode =
+    branch?.intensif_mode === "fixed" || branch?.intensif_mode === "flat"
+      ? branch.intensif_mode
+      : "percent";
 
   return {
     attention: buildAttentionQueue(attentionRows, userId, now),
     kpi: buildTechnicianKpi(kpiRows, userId, branch, now),
     terbaru: buildRecentServices(recentRows, userId, now, TERBARU_LIMIT),
+    cards: {
+      ...technicianCardFlags({
+        insentifEnabled: branch?.is_intensif_enabled === true,
+        intensifMode: mode,
+        showTarget: branch?.show_target_to_teknisi ?? true,
+        showIntensif: branch?.show_intensif_to_teknisi ?? true,
+      }),
+      targetType: branch?.target_type === "penghasilan" ? "penghasilan" : "jumlah_servis",
+      targetValue: branch?.target_value ?? null,
+      intensifMode: mode,
+      intensifValue: Number(branch?.intensif_value ?? 0),
+    },
   };
 }
 
