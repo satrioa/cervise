@@ -1,4 +1,5 @@
 import { dalamRentangBulan } from "./periode-bulan";
+import { insentifEstimate } from "./technician-cards";
 
 export type TechnicianInput = {
   profile_id: string;
@@ -126,8 +127,7 @@ export function buildPerformaTeknisi(input: {
     let insentif = 0;
     if (enabled) {
       if (mode === "flat") insentif = hasTarget && counts.selesai >= (target as number) ? value : 0;
-      else if (mode === "fixed") insentif = counts.selesai * value;
-      else insentif = Math.round((counts.revenue * value) / 100);
+      else insentif = insentifEstimate({ mode, value, selesai: counts.selesai, penghasilan: counts.revenue });
     }
 
     const targetPct = enabled && hasTarget ? Math.min(100, Math.round((counts.selesai / (target as number)) * 100)) : 0;
