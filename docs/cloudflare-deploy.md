@@ -25,6 +25,10 @@ Tombol **Retry build** menjalankan ulang **commit lama** — jangan dipakai untu
 
 Jangan menaruh nilai secret di `wrangler.jsonc` — gunakan `secrets.required` hanya untuk nama, atau simpan di dashboard / `.dev.vars` lokal.
 
+## Troubleshooting: login error "Your project's URL and API key are required"
+
+Error ini muncul dari browser (`createBrowserClient`), bukan dari Worker. Artinya `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` tidak ada **saat build**. Mengisinya hanya di runtime (Settings → Variables & Secrets) tidak cukup: Next.js mengganti `process.env.NEXT_PUBLIC_*` dengan nilai literal di bundle Javascript saat `next build`. Tambahkan ke **Build variables**, lalu lakukan build baru (push) — Retry build memakai bundle lama.
+
 ## Cron
 
 Route `/api/cron/*` tidak berjalan otomatis di Workers. Buat **Cron Trigger** di Cloudflare yang memanggil endpoint tersebut dengan header `Authorization: Bearer $CRON_SECRET`.

@@ -26,6 +26,7 @@ pnpm-workspace.yaml
 /.next/
 /out/
 /.open-next/
+/.wrangler/
 
 # production
 /build
@@ -61,3 +62,6 @@ next-env.d.ts
 
 # Id baris hasil seed demo - regenerated tiap kali seed dijalankan
 supabase/.seed-ids.json
+
+# local cloudflare vars
+.dev.vars
