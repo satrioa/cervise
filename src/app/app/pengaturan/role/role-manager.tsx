@@ -14,7 +14,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Trash2, Pencil, X } from "lucide-react";
+import { Trash2, Pencil } from "lucide-react";
+import { toast } from "sonner";
+import { PageHeader } from "@/components/layout/page-header";
+import { TableBody, TableHead } from "@/components/ui/table";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Field, FieldLabel } from "@/components/ui/field";
 import { Badge } from "@/components/ui/badge";
 import { getRoles, createRole, updateRole, deleteRole, type RoleRow } from "@/app/app/pengaturan/role/actions";
 import {
@@ -42,7 +47,6 @@ export function RoleManager({ roles, baseCatalog, permissionGroups }: Props) {
   const t = useTranslations("pengaturan");
   const [openKey, setOpenKey] = useState<string | null>(null);
   const [form, setForm] = useState<FormState | null>(null);
-  const [toast, setToast] = useState<{ kind: "ok" | "err"; msg: string } | null>(null);
   const [isBusy, setIsBusy] = useState(false);
   const [deleteKey, setDeleteKey] = useState<string | null>(null);
 
@@ -110,9 +114,9 @@ export function RoleManager({ roles, baseCatalog, permissionGroups }: Props) {
       setOpenKey(null);
       setForm(null);
       playPageTransition();
-      setToast({ kind: "ok", msg: t("saved") });
+      toast.success(t("saved"));
     } catch (e) {
-      setToast({ kind: "err", msg: e instanceof Error ? e.message : t("failed") });
+      toast.error(e instanceof Error ? e.message : t("failed"));
     } finally {
       setIsBusy(false);
     }
@@ -125,10 +129,10 @@ export function RoleManager({ roles, baseCatalog, permissionGroups }: Props) {
     try {
       await deleteRole(k);
       playPageTransition();
-      setToast({ kind: "ok", msg: t("deleted") });
+      toast.success(t("deleted"));
       setDeleteKey(null);
     } catch (e) {
-      setToast({ kind: "err", msg: e instanceof Error ? e.message : t("failed") });
+      toast.error(e instanceof Error ? e.message : t("failed"));
     } finally {
       setIsBusy(false);
     }
@@ -136,15 +140,11 @@ export function RoleManager({ roles, baseCatalog, permissionGroups }: Props) {
 
   return (
     <div className="min-h-svh bg-background text-foreground">
-      <div className="px-8 py-4 border-b border-border/60">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-semibold">{t("title")}</h1>
-            <p className="text-sm text-muted-foreground mt-1">{t("subtitle")}</p>
-          </div>
-          <Button onClick={() => openForm("__new__")}>{t("create_role")}</Button>
-        </div>
-      </div>
+      <PageHeader
+        title={t("title")}
+        description={t("subtitle")}
+        actions={<Button onClick={() => openForm("__new__")}>{t("create_role")}</Button>}
+      />
 
       <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-8">
         {roles.length === 0 ? (
@@ -153,10 +153,14 @@ export function RoleManager({ roles, baseCatalog, permissionGroups }: Props) {
           <Table className="w-full">
             <TableHeader>
               <TableRow>
-                <TableCell className="font-medium text-left">{t("records")}</TableCell>
+                <TableHead className="text-left">{t("records")}</TableHead>
+                <TableHead>{t("name_label")}</TableHead>
+                <TableHead>{t("base_role_label")}</TableHead>
+                <TableHead>{t("permissions_label")}</TableHead>
+                <TableHead className="text-right" />
               </TableRow>
             </TableHeader>
-            <tbody>
+            <TableBody>
               {roles.map((r) => (
                 <TableRow key={r.key} className="border-t">
                   <TableCell className="font-mono text-sm">{r.key}</TableCell>
@@ -184,45 +188,43 @@ export function RoleManager({ roles, baseCatalog, permissionGroups }: Props) {
                   </TableCell>
                 </TableRow>
               ))}
-            </tbody>
+            </TableBody>
           </Table>
         )}
       </div>
 
-      {form && (
-        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center">
-          <form onSubmit={onSubmit} className="bg-white rounded-xl p-6 w-full">
-            <div className="flex items-center justify-between border-b p-4">
-              <h2 className="text-lg font-semibold">
-                {isNew ? t("create_role") : t("edit_role")}
-              </h2>
-              <button type="button" onClick={() => setOpenKey(null)} className="text-muted-foreground">
-                <X className="size-5" />
-              </button>
-            </div>
-            <div className="p-4 space-y-4">
-              <div>
-                <label className="block text-sm mb-1">{t("key_label")}</label>
+      <Dialog open={form !== null} onOpenChange={(open) => !open && setOpenKey(null)}>
+        <DialogContent className="flex max-h-[90vh] max-w-lg flex-col gap-0 overflow-hidden p-0">
+          <DialogHeader className="shrink-0 border-b px-5 py-4">
+            <DialogTitle>{isNew ? t("create_role") : t("edit_role")}</DialogTitle>
+            <DialogDescription>{t("subtitle")}</DialogDescription>
+          </DialogHeader>
+          <form onSubmit={onSubmit} className="flex min-h-0 flex-1 flex-col">
+            <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-5 py-4">
+              <Field>
+                <FieldLabel htmlFor="role-key">{t("key_label")}</FieldLabel>
                 <Input
+                  id="role-key"
                   placeholder={isNew ? t("default_key") : editing?.key ?? ""}
-                  value={form.key}
-                  onChange={(e) => setForm({ ...form, key: e.target.value })}
+                  value={form?.key ?? ""}
+                  onChange={(e) => form && setForm({ ...form, key: e.target.value })}
                   disabled={!isNew}
                   required
                 />
-              </div>
-              <div>
-                <label className="block text-sm mb-1">{t("name_label")}</label>
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="role-name">{t("name_label")}</FieldLabel>
                 <Input
+                  id="role-name"
                   placeholder={t("name_placeholder")}
-                  value={form.name}
-                  onChange={(e) => setForm({ ...form, name: e.target.value })}
+                  value={form?.name ?? ""}
+                  onChange={(e) => form && setForm({ ...form, name: e.target.value })}
                   required
                 />
-              </div>
-              <div>
-                <label className="block text-sm mb-1">{t("base_role_label")}</label>
-                <Select value={form.baseRole} onValueChange={(value) => changeBaseRole(value as CustomBaseRole)}>
+              </Field>
+              <Field>
+                <FieldLabel>{t("base_role_label")}</FieldLabel>
+                <Select value={form?.baseRole} onValueChange={(value) => changeBaseRole(value as CustomBaseRole)}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
@@ -236,42 +238,46 @@ export function RoleManager({ roles, baseCatalog, permissionGroups }: Props) {
                     </SelectGroup>
                   </SelectContent>
                 </Select>
-              </div>
+              </Field>
               <div className="space-y-3">
-                <span className="text-sm font-medium block mb-2">{t("permissions_label")}</span>
+                <p className="text-sm font-medium">{t("permissions_label")}</p>
                 {permissionGroups.map((gp) => (
-                  <div key={gp.group} className="space-y-1.5">
-                    <span className="text-xs text-muted-foreground">{gp.label}</span>
-                    {gp.permissions.map((p) => {
-                      const allowed = allowedPermissions.includes(p.key);
-                      return (
-                        <label key={p.key} className={`flex items-center gap-2 text-sm ${allowed ? "" : "opacity-40"}`}>
-                          <input
-                            type="checkbox"
-                            className="h-4 w-4 rounded accent-brand-600"
-                            checked={form.permissions.includes(p.key)}
-                            disabled={!allowed}
-                            onChange={() => togglePermission(p.key)}
-                          />
-                          {p.label}
-                        </label>
-                      );
-                    })}
+                  <div key={gp.group} className="space-y-2 rounded-lg border bg-muted/20 p-3">
+                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{gp.label}</p>
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      {gp.permissions.map((p) => {
+                        const allowed = allowedPermissions.includes(p.key);
+                        return (
+                          <label
+                            key={p.key}
+                            className={`flex items-start gap-2 text-sm ${allowed ? "" : "opacity-50"}`}
+                          >
+                            <Checkbox
+                              checked={form?.permissions.includes(p.key) ?? false}
+                              disabled={!allowed}
+                              onCheckedChange={() => togglePermission(p.key)}
+                              className="mt-0.5"
+                            />
+                            <span>{p.label}</span>
+                          </label>
+                        );
+                      })}
+                    </div>
                   </div>
                 ))}
               </div>
-              <div className="flex justify-end gap-2 pt-2">
-                <Button type="button" variant="outline" onClick={() => setOpenKey(null)}>
-                  {t("cancel")}
-                </Button>
-                <Button type="submit" disabled={isBusy}>
-                  {isNew ? t("create") : t("save")}
-                </Button>
-              </div>
             </div>
+            <DialogFooter className="shrink-0 border-t px-5 py-3">
+              <Button type="button" variant="outline" onClick={() => setOpenKey(null)}>
+                {t("cancel")}
+              </Button>
+              <Button type="submit" disabled={isBusy}>
+                {isNew ? t("create") : t("save")}
+              </Button>
+            </DialogFooter>
           </form>
-        </div>
-      )}
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={deleteKey !== null} onOpenChange={(open) => !open && setDeleteKey(null)}>
         <DialogContent className="sm:max-w-sm">
@@ -290,15 +296,6 @@ export function RoleManager({ roles, baseCatalog, permissionGroups }: Props) {
         </DialogContent>
       </Dialog>
 
-      {toast && (
-        <div className="fixed bottom-6 right-6 z-50 bg-white rounded-lg shadow p-2 text-sm text-center">
-          {toast.kind === "ok" ? (
-            <span className="text-green-600">{toast.msg}</span>
-          ) : (
-            <span className="text-destructive">{toast.msg}</span>
-          )}
-        </div>
-      )}
     </div>
   );
 }
