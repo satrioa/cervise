@@ -76,9 +76,13 @@ export default function SignupPage() {
         <Card className="w-full max-w-md">
           <CardHeader className="items-center text-center">
             <div className="mb-3 flex justify-center">
-              <span className="flex size-10 items-center justify-center rounded-lg bg-white shadow-sm dark:bg-white/10">
-                <AppImage src="/Logo/IconLogo.png?v=2" alt="Kaggo" width={32} height={32} crisp priority className="size-8 object-contain" />
-              </span>
+              <Link
+                href="/"
+                aria-label="Ke beranda Kaggo"
+                className="flex size-10 items-center justify-center rounded-lg bg-white shadow-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2563eb] dark:bg-white/10"
+              >
+                <AppImage src="/Logo/IconLogo.png?v=2" alt="" width={32} height={32} crisp priority className="size-8 object-contain" />
+              </Link>
             </div>
             <CardTitle className="font-heading text-2xl tracking-tight">Buat akun Kaggo</CardTitle>
             <CardDescription>Coba gratis 14 hari</CardDescription>

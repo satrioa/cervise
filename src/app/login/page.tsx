@@ -131,17 +131,21 @@ function PageBackdrop() {
 
 function BrandMark() {
   return (
-    <span className="flex size-10 items-center justify-center rounded-lg bg-white shadow-sm dark:bg-white/10">
+    <Link
+      href="/"
+      aria-label="Ke beranda Kaggo"
+      className="flex size-10 items-center justify-center rounded-lg bg-white shadow-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2563eb] dark:bg-white/10"
+    >
       <AppImage
         src="/Logo/IconLogo.png?v=2"
-        alt="Kaggo"
+        alt=""
         width={40}
         height={40}
         crisp
         className="size-8 object-contain"
         priority
       />
-    </span>
+    </Link>
   );
 }
 

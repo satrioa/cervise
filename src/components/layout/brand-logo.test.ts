@@ -17,6 +17,14 @@ describe("logo Kaggo", () => {
     }
   });
 
+  it("logo di login/signup menuju landing page", () => {
+    for (const file of ["src/app/login/page.tsx", "src/app/signup/page.tsx"]) {
+      const src = read(file);
+      expect(src, file).toMatch(/href="\/"[\s\S]*?aria-label="Ke beranda Kaggo"/);
+      expect(src, file).toContain("/Logo/IconLogo.png?v=2");
+    }
+  });
+
   it("dipakai sebagai ikon aplikasi dan PWA", () => {
     expect(existsSync(join(process.cwd(), "src/app/icon.png"))).toBe(true);
     expect(existsSync(join(process.cwd(), "src/app/apple-icon.png"))).toBe(true);
