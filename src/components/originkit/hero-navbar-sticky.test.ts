@@ -31,6 +31,10 @@ describe("navbar landing", () => {
     expect(source).toContain("upAccumRef");
     expect(source).toContain("lastYRef");
     expect(source).toMatch(/upAccumRef\.current >= 8/);
+    expect(source).toMatch(/const ACTIVATE_Y = 120/);
+    expect(source).toMatch(/lastYRef\.current > ACTIVATE_Y/);
+    expect(source).toMatch(/const RESET_Y = 80/);
+    expect(source).toMatch(/y < RESET_Y/);
     expect(source).toMatch(/delta < -0\.5\) upAccumRef\.current \+= -delta/);
     expect(source).toMatch(/delta > 0\.5\) upAccumRef\.current = 0/);
     expect(source).toMatch(/fixed inset-x-0 top-0 z-50/);

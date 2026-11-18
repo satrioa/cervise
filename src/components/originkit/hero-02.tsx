@@ -835,9 +835,19 @@ const Section11 = ({ isLoggedIn, user, dashboardHref }: { isLoggedIn?: boolean; 
     if (!nav) return;
     let frame = 0;
 
+    // Navbar utama tingginya ~70px + padding 30px, jadi di bawah ~120px
+    // masih berbagi area dengan hero. Zone ini mencegah dua navbar tampil
+    // bersamaan saat scroll ke paling atas.
+    const ACTIVATE_Y = 120;
+    const RESET_Y = 80;
+
     const apply = () => {
       frame = 0;
-      setMiniNavVisible(navOffscreenRef.current && upAccumRef.current >= 8);
+      setMiniNavVisible(
+        navOffscreenRef.current &&
+          lastYRef.current > ACTIVATE_Y &&
+          upAccumRef.current >= 8,
+      );
     };
     const schedule = () => {
       if (!frame) frame = requestAnimationFrame(apply);
@@ -859,6 +869,11 @@ const Section11 = ({ isLoggedIn, user, dashboardHref }: { isLoggedIn?: boolean; 
       const y = window.scrollY;
       const delta = y - lastYRef.current;
       lastYRef.current = y;
+      if (y < RESET_Y) {
+        upAccumRef.current = 0;
+        setMiniNavVisible(false);
+        return;
+      }
       if (!navOffscreenRef.current) return;
       // Scroll ke atas mengumpulkan jarak; scroll ke bawah langsung mereset.
       if (delta < -0.5) upAccumRef.current += -delta;
@@ -894,22 +909,12 @@ const Section11 = ({ isLoggedIn, user, dashboardHref }: { isLoggedIn?: boolean; 
         {}
         <div className="relative overflow-clip rounded-b-[clamp(1.5rem,4vw,3.125rem)] border-b border-solid border-[#dee5ed] bg-[#f8fafc] shadow-[0_0_0_6px_white,0_7px_6px_rgba(140,150,169,0.12),0_22px_30px_rgba(140,150,169,0.1)]">
           {}
-          {/* Pulse biru-putih dari bawah navbar — lapisan paling belakang. */}
           <div
             aria-hidden="true"
-            className="pointer-events-none absolute inset-x-0 top-0 h-[min(70%,34rem)] origin-top animate-hero-pulse rounded-b-[inherit] will-change-[transform,opacity]"
+            className="pointer-events-none absolute inset-x-0 bottom-0 h-[min(68%,34rem)] rounded-b-[inherit]"
             style={{
               backgroundImage:
-                "radial-gradient(ellipse 90% 75% at 50% 0%, #dbeafe 0%, #eff6ff 38%, rgba(255,255,255,0) 78%)",
-            }}
-          />
-          {}
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute inset-x-0 bottom-0 h-[min(52%,28rem)] rounded-b-[inherit] opacity-60"
-            style={{
-              backgroundImage:
-                "linear-gradient(to bottom, rgba(248,250,252,0) 0%, #eff6ff 38%, #dbeafe 72%, #bfdbfe 100%)",
+                "linear-gradient(to bottom, rgba(248,250,252,0) 0%, #eff6ff 25%, #dbeafe 60%, #bfdbfe 100%)",
             }}
           />
           {}
