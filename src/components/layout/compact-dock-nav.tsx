@@ -45,9 +45,8 @@ export function CompactDockNav({
   ];
 
   return (
-    <div className="pointer-events-none fixed inset-x-0 bottom-0 z-30 px-3 pb-[max(0.5rem,env(safe-area-inset-bottom))] sm:px-6 lg:hidden" data-compact-dock="">
-      {/* Dock sengaja dibalik dari tema halaman: gelap di light mode, terang di dark mode. */}
-      <div className="pointer-events-auto flex items-center gap-1 rounded-full bg-neutral-900/95 p-1.5 shadow-[0_16px_38px_-24px_rgba(0,0,0,0.55)] ring-1 ring-white/10 backdrop-blur dark:bg-white/95 dark:ring-black/5">
+    <div className="pointer-events-none fixed inset-x-0 bottom-0 z-30 lg:hidden" data-compact-dock="">
+      <div className="pointer-events-auto flex items-center gap-1 bg-white/95 pt-2 pb-[calc(1rem+env(safe-area-inset-bottom))] shadow-[0_-8px_24px_-20px_rgba(0,0,0,0.45)] ring-1 ring-black/5 backdrop-blur dark:bg-neutral-900/95 dark:ring-white/10">
         <nav
           aria-label="Navigasi utama"
           className="flex min-w-0 flex-1 items-center justify-around gap-0.5"
@@ -63,8 +62,8 @@ export function CompactDockNav({
                 className={cn(
                   "flex min-w-0 flex-1 flex-col items-center gap-0.5 rounded-2xl px-1 py-1.5 text-[10px] font-medium leading-none transition-colors",
                   active
-                    ? "bg-brand/[0.12] text-brand dark:bg-brand/15 dark:text-brand-secondary"
-                    : "text-neutral-400 hover:text-white dark:text-neutral-500 dark:hover:text-neutral-900",
+                    ? "bg-brand/[0.12] text-brand"
+                    : "text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white",
                 )}
               >
                 <Icon className="size-[18px]" />
@@ -80,8 +79,8 @@ export function CompactDockNav({
             className={cn(
               "flex min-w-0 flex-1 flex-col items-center gap-0.5 rounded-2xl px-1 py-1.5 text-[10px] font-medium leading-none transition-colors",
               menuOpen
-                ? "bg-brand/[0.12] text-brand dark:bg-brand/15 dark:text-brand-secondary"
-                : "text-neutral-400 hover:text-white dark:text-neutral-500 dark:hover:text-neutral-900",
+                ? "bg-brand/[0.12] text-brand"
+                : "text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white",
             )}
           >
             <LayoutGrid className="size-[18px]" />

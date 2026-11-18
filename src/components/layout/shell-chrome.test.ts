@@ -68,7 +68,7 @@ describe("shell chrome", () => {
     expect(compactDockNav).toMatch(/t\("menu\.title"\)/);
     // Overlay mengambang di atas isi halaman.
     expect(compactDockNav).toMatch(/z-30/);
-    expect(compactDockNav).toMatch(/pb-\[max/);
+    expect(compactDockNav).toMatch(/pt-2 pb-\[calc\(1rem\+env\(safe-area-inset-bottom\)\)\]/);
   });
 
   it("chrome compact tidak auto-hide lagi", () => {

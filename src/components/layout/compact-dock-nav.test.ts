@@ -7,19 +7,29 @@ const source = readFileSync(
   "utf8",
 );
 
-describe("dock mobile invers tema", () => {
-  it("gelap di light mode dan terang di dark mode", () => {
-    expect(source).toContain("bg-neutral-900/95");
-    expect(source).toContain("dark:bg-white/95");
-    expect(source).toContain("ring-white/10");
-    expect(source).toContain("dark:ring-black/5");
-    // Urutan lama (putih di light, gelap di dark) tidak boleh kembali.
-    expect(source).not.toContain("bg-white/95 p-1.5");
-    expect(source).not.toContain("dark:bg-neutral-900/95");
+describe("dock mobile tema normal", () => {
+  it("terang di light mode dan gelap di dark mode", () => {
+    expect(source).toContain("bg-white/95");
+    expect(source).toContain("dark:bg-neutral-900/95");
+    expect(source).toContain("ring-black/5");
+    expect(source).toContain("dark:ring-white/10");
+    // Urutan invers (gelap di light, terang di dark) tidak boleh kembali.
+    expect(source).not.toMatch(/["' ]bg-neutral-900\/95/);
+    expect(source).not.toContain("dark:bg-white/95");
   });
 
-  it("warna teks mengikuti warna dock", () => {
-    expect(source).toContain("text-neutral-400 hover:text-white");
-    expect(source).toContain("dark:text-neutral-500 dark:hover:text-neutral-900");
+  it("melekat di bawah tanpa radius", () => {
+    expect(source).toContain("fixed inset-x-0 bottom-0 z-30 lg:hidden");
+    expect(source).not.toContain("rounded-full");
+    expect(source).not.toMatch(/px-3 pb-\[max/);
+  });
+
+  it("gap bawah lebih besar dari gap atas", () => {
+    expect(source).toContain("pt-2 pb-[calc(1rem+env(safe-area-inset-bottom))]");
+  });
+
+  it("warna teks mengikuti tema halaman", () => {
+    expect(source).toContain("text-neutral-500 hover:text-neutral-900");
+    expect(source).toContain("dark:text-neutral-400 dark:hover:text-white");
   });
 });
