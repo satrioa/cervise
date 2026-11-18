@@ -259,7 +259,7 @@ function CompactShellInner({
 
       <main
         key={pathname}
-        className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden pt-[calc(5.5rem_+_env(safe-area-inset-top))] pb-[calc(5rem_+_env(safe-area-inset-bottom))] lg:pt-0 lg:pb-32"
+        className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden pt-[calc(3.25rem_+_env(safe-area-inset-top))] pb-[calc(5rem_+_env(safe-area-inset-bottom))] lg:pt-0 lg:pb-32"
       >
         {/* `h-full` menjaga rantai tinggi halaman (POS mengisi sisa `main`).
             Reveal hanya membungkus isi halaman, bukan chrome shell. */}

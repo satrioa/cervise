@@ -45,7 +45,7 @@ export function CompactDockNav({
   ];
 
   return (
-    <div className="pointer-events-none fixed inset-x-0 bottom-0 z-40 px-3 pb-[max(0.5rem,env(safe-area-inset-bottom))] sm:px-6 lg:hidden" data-compact-dock="">
+    <div className="pointer-events-none fixed inset-x-0 bottom-0 z-30 px-3 pb-[max(0.5rem,env(safe-area-inset-bottom))] sm:px-6 lg:hidden" data-compact-dock="">
       {/* Dock sengaja dibalik dari tema halaman: gelap di light mode, terang di dark mode. */}
       <div className="pointer-events-auto flex items-center gap-1 rounded-full bg-neutral-900/95 p-1.5 shadow-[0_16px_38px_-24px_rgba(0,0,0,0.55)] ring-1 ring-white/10 backdrop-blur dark:bg-white/95 dark:ring-black/5">
         <nav

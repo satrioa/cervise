@@ -358,7 +358,7 @@ export function PenjualanCartExpander(props: Omit<CartPanelProps, "riwayatAction
   return (
     /* Tanpa transform: `-translate-x-1/2` membuat containing block baru dan
        `fixed inset-0` milik kartu expand ikut mengecil seukuran dock. */
-    <div className="fixed inset-x-0 bottom-[72px] z-30 mx-auto w-[95vw] max-w-sm lg:hidden">
+    <div className="fixed inset-x-0 bottom-[var(--dock-clearance)] z-30 mx-auto w-[95vw] max-w-sm lg:hidden">
       <ExpandableScreen
         layoutId="penjualan-cart-expander"
         triggerRadius="16px"
@@ -389,7 +389,7 @@ export function PenjualanCartExpander(props: Omit<CartPanelProps, "riwayatAction
 
         <ExpandableScreenContent
           showCloseButton={false}
-          overlayClassName="fixed inset-x-0 top-16 bottom-[72px]"
+          overlayClassName="fixed inset-x-0 top-16 bottom-[var(--dock-clearance)]"
           className="overflow-hidden! bg-background p-0 text-foreground shadow-2xl"
         >
           <ExpandedCart {...props} />

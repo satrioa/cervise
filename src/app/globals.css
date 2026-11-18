@@ -487,6 +487,8 @@
  * jadi nama variabel uiarc dipetakan ke token yang sudah ada.
  */
 :root {
+  /* Jarak aman untuk action bar mengambang di atas dock mobile. */
+  --dock-clearance: calc(4.5rem + env(safe-area-inset-bottom));
   --text-muted: var(--muted-foreground);
   --text-secondary: var(--muted-foreground);
   --accent-strong: var(--foreground);

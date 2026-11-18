@@ -979,16 +979,6 @@ const Section11 = ({ isLoggedIn, user, dashboardHref }: { isLoggedIn?: boolean; 
               <div className="relative">
                 <PhoneMockupBasic images={HERO_PHONE_SCREENS} />
 
-                {/* Fade 64px selebar viewport: putih di bawah, hitam di atas, blend screen. */}
-                <div
-                  aria-hidden="true"
-                  className="pointer-events-none absolute bottom-0 left-1/2 z-30 h-16 w-screen -translate-x-1/2 mix-blend-screen"
-                  style={{
-                    backgroundImage:
-                      "linear-gradient(to top, #ffffff 0%, rgba(0,0,0,0) 100%)",
-                  }}
-                />
-
                 {/* Ilustrasi kartu sistem yang mengapung di sekitar mockup. */}
                 <div className="pointer-events-none absolute inset-0 z-40">
                   <div className="animate-page-reveal absolute left-0 top-2 -rotate-6 will-change-transform [animation-delay:120ms]">

@@ -172,7 +172,7 @@ export function SettingsProfileKaggo({
           tidak ada perubahan berarti tidak ada yang perlu dikonfirmasi, jadi
           tidak ada yang memenuhi layar. */}
       {dirty ? (
-        <div className="fixed bottom-[84px] left-1/2 z-40 flex w-fit max-w-[calc(100vw-16px)] -translate-x-1/2 items-center gap-3 rounded-2xl border bg-background/95 px-3 py-2.5 shadow-2xl shadow-black/15 backdrop-blur-xl supports-[backdrop-filter]:backdrop-blur-xl animate-in slide-in-from-bottom-2 fade-in-0 lg:bottom-6">
+        <div className="fixed bottom-[var(--dock-clearance)] left-1/2 z-40 flex w-fit max-w-[calc(100vw-16px)] -translate-x-1/2 items-center gap-3 rounded-2xl border bg-background/95 px-3 py-2.5 shadow-2xl shadow-black/15 backdrop-blur-xl supports-[backdrop-filter]:backdrop-blur-xl animate-in slide-in-from-bottom-2 fade-in-0 lg:bottom-6">
           <div aria-hidden className="absolute -top-1.5 left-1/2 hidden h-1 w-10 -translate-x-1/2 rounded-full bg-foreground/10 lg:block" />
           <span className="px-1 text-sm font-medium whitespace-nowrap">Ada perubahan</span>
           <span aria-hidden className="hidden h-4 w-px bg-border/60 sm:block" />

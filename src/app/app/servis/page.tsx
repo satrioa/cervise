@@ -1194,7 +1194,7 @@ export default function ServisPage() {
 
       {/* Bulk drawer dock - width fit content (menyesuaikan isi) */}
       {view === "table" && selectedCount > 0 && (
-        <div className="fixed bottom-[72px] lg:bottom-6 left-1/2 -translate-x-1/2 z-40 flex w-fit max-w-[calc(100vw-16px)] items-center gap-2 rounded-2xl border bg-background/95 backdrop-blur-xl px-3 py-2.5 shadow-2xl shadow-black/15 drop-shadow-[0_12px_32px_rgba(0,0,0,0.18)] supports-[backdrop-filter]:backdrop-blur-xl animate-in slide-in-from-bottom-2 fade-in-0">
+        <div className="fixed bottom-[var(--dock-clearance)] lg:bottom-6 left-1/2 -translate-x-1/2 z-40 flex w-fit max-w-[calc(100vw-16px)] items-center gap-2 rounded-2xl border bg-background/95 backdrop-blur-xl px-3 py-2.5 shadow-2xl shadow-black/15 drop-shadow-[0_12px_32px_rgba(0,0,0,0.18)] supports-[backdrop-filter]:backdrop-blur-xl animate-in slide-in-from-bottom-2 fade-in-0">
           {/* handle pill */}
           <div className="absolute -top-1.5 left-1/2 h-1 w-10 -translate-x-1/2 rounded-full bg-foreground/10 hidden lg:block" aria-hidden />
           <span className="text-sm font-medium whitespace-nowrap px-1">{selectedCount} dipilih</span>
