@@ -28,12 +28,16 @@ describe("logo Cervise", () => {
     expect(ico.slice(22, 26)).toEqual(Buffer.from([0x89, 0x50, 0x4e, 0x47]));
   });
 
-  it("dipakai juga sebagai ikon tab browser", () => {
+  it("ikon tab browser berasal dari favicon.png, bukan badgeicon", () => {
     const layout = read("src/app/layout.tsx");
     expect(layout).toMatch(/icons:\s*\{/);
-    expect(layout).toContain('icon: "/Logo/badgeicon.png"');
-    expect(layout).toContain('shortcut: "/Logo/badgeicon.png"');
+    expect(layout).not.toContain('icon: "/Logo/badgeicon.png"');
     expect(layout).toContain('apple: "/Logo/badgeicon.png"');
+    expect(existsSync(join(process.cwd(), "src/app/favicon.png"))).toBe(true);
+    // favicon.ico dan icon.png keduanya dihasilkan dari favicon.png.
+    expect(readFileSync(join(process.cwd(), "src/app/icon.png")).length).toBe(
+      readFileSync(join(process.cwd(), "src/app/favicon.png")).length,
+    );
     expect(read("public/manifest.json")).not.toContain("/favicon.ico");
   });
 });

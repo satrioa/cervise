@@ -23,9 +23,9 @@ export const metadata: Metadata = {
   description:
     "Cervise: aplikasi manajemen servis gadget untuk Frontliner & Teknisi. Multibranch, ringan di HP, kelola servis, customer, keuangan & laporan. Garansi 3 bulan.",
   manifest: "/manifest.json",
+  // Ikon tab browser memakai favicon.ico / icon.png (file-based metadata di folder ini).
+  // Apple touch icon tetap memakai badgeicon untuk ikon home screen PWA.
   icons: {
-    icon: "/Logo/badgeicon.png",
-    shortcut: "/Logo/badgeicon.png",
     apple: "/Logo/badgeicon.png",
   },
 };
