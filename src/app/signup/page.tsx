@@ -16,6 +16,7 @@ import { PasswordStrength, type PasswordRule } from "@/components/interior/passw
 import { meetsPasswordLength, MIN_PASSWORD_LENGTH } from "@/lib/auth/password-policy";
 import { toast } from "sonner";
 import { signupAction } from "./actions";
+import { AppImage } from "@/components/ui/app-image";
 
 /**
  * Aturan dan label didefinisikan di luar komponen, bukan inline di JSX.
@@ -74,7 +75,11 @@ export default function SignupPage() {
         <BenefitPills />
         <Card className="w-full max-w-md">
           <CardHeader className="items-center text-center">
-            <div className="mb-3 flex justify-center"><div className="flex size-10 items-center justify-center rounded-lg bg-primary text-primary-foreground font-bold">C</div></div>
+            <div className="mb-3 flex justify-center">
+              <span className="flex size-10 items-center justify-center rounded-lg bg-white shadow-sm dark:bg-white/10">
+                <AppImage src="/Logo/IconLogo.png" alt="Cervise" width={32} height={32} crisp priority className="size-8 object-contain" />
+              </span>
+            </div>
             <CardTitle className="font-heading text-2xl tracking-tight">Buat akun Cervise</CardTitle>
             <CardDescription>Coba gratis 14 hari</CardDescription>
           </CardHeader>

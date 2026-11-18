@@ -10,6 +10,7 @@ import { MenuAnalytic } from "@/components/layout/menu-analytic";
 import { MenuPreferences } from "@/components/layout/menu-preferences";
 import { MenuSound } from "@/components/layout/menu-sound";
 import { PrinterSettings } from "@/components/pengaturan/printer-card";
+import { AppImage } from "@/components/ui/app-image";
 
 /**
  * Isi drawer menu untuk TECHNICIAN dan FRONTLINER.
@@ -73,9 +74,14 @@ export function CompactMenuSheet({
       </div>
 
       <footer className="shrink-0 px-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-4 text-center">
-        <span className="mx-auto flex size-9 items-center justify-center rounded-full bg-neutral-900 text-[13px] font-semibold text-white dark:bg-white dark:text-neutral-900">
-          C
-        </span>
+        <AppImage
+          src="/Logo/IconLogo.png"
+          alt="Cervise"
+          width={36}
+          height={36}
+          crisp
+          className="mx-auto size-9 object-contain"
+        />
         <p className="mt-2 text-[11px] font-medium text-neutral-800 dark:text-neutral-200">
           Cervise! All rights reserved.
         </p>

@@ -23,6 +23,11 @@ export const metadata: Metadata = {
   description:
     "Cervise: aplikasi manajemen servis gadget untuk Frontliner & Teknisi. Multibranch, ringan di HP, kelola servis, customer, keuangan & laporan. Garansi 3 bulan.",
   manifest: "/manifest.json",
+  icons: {
+    icon: "/Logo/badgeicon.png",
+    shortcut: "/Logo/badgeicon.png",
+    apple: "/Logo/badgeicon.png",
+  },
 };
 
 export const viewport: Viewport = {
