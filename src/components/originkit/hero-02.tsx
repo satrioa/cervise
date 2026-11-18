@@ -977,6 +977,11 @@ const Section11 = ({ isLoggedIn, user, dashboardHref }: { isLoggedIn?: boolean; 
             {}
             <div className="relative z-10 mx-auto mt-[clamp(1.5rem,4vw,2.75rem)] w-full max-w-[1440px]">
               <div className="relative">
+                {/* Fade putih dipindah dari kartu bento: melunakkan tepi atas mockup. */}
+                <div
+                  aria-hidden="true"
+                  className="pointer-events-none absolute inset-x-0 top-0 z-20 h-16 bg-gradient-to-b from-[#f8fafc] via-[#f8fafc]/70 to-transparent"
+                />
                 <PhoneMockupBasic images={HERO_PHONE_SCREENS} />
 
                 {/* Ilustrasi kartu sistem yang mengapung di sekitar mockup. */}

@@ -161,7 +161,7 @@ export function BentoSection() {
             initial="hidden"
             whileInView="show"
             viewport={{ once: true, margin: "-80px" }}
-            className="group relative overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-br from-white/[0.04] to-transparent p-6 md:col-span-1"
+            className="group relative overflow-hidden rounded-2xl border border-white/10 bg-white/[0.04] p-6 md:col-span-1"
           >
             <div className="flex items-center gap-2 text-primary">
               
