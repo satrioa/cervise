@@ -22,6 +22,25 @@ export type ServiceMessageInput = {
   priceEstimasi?: number | null;
   garansiValue?: number | null;
   garansiUnit?: "hari" | "bulan" | "tahun" | null;
+  /** Field untuk template WA kustom; opsional supaya caller lama tetap kompil. */
+  customerName?: string | null;
+  tenantName?: string | null;
+  branchName?: string | null;
+  technicianName?: string | null;
+};
+
+/** Snapshot data shift untuk template buka/tutup shift. */
+export type ShiftMessageInput = {
+  tenant: string;
+  cabang: string;
+  userOpen: string;
+  dateOpen: string;
+  date: string;
+  shiftOpenTime: string;
+  userClose: string;
+  shiftCloseTime: string;
+  saldoAwal: number;
+  saldoAkhir: number;
 };
 
 /** Nilai yang siap ditampilkan: null kalau kosong, string kalau isi. */
@@ -140,9 +159,10 @@ export function buildTechnicianCreatedMessage(input: ServiceMessageInput): strin
 /**
  * Parameter template tidak boleh kosong: Meta menolak value "". Field yang
  * tidak ada diganti "-", bukan teks karangan yang terlihat seperti data.
+ * Nama variabel harus sama dengan `{{nama}}` di template Meta.
  */
-function param(value: string | null | undefined): TemplateParameter {
-  return { type: "text", value: present(value) ?? "-" };
+function param(name: string, value: string | null | undefined): TemplateParameter {
+  return { type: "text", parameter_name: name, value: present(value) ?? "-" };
 }
 
 export function buildCustomerInvoiceParameters(input: ServiceMessageInput): TemplateParameter[] {
@@ -158,33 +178,99 @@ export function buildCustomerInvoiceParameters(input: ServiceMessageInput): Temp
       : "-";
 
   return [
-    param(input.storeName),
-    param(serviceRef(input)),
-    param(input.device),
-    param(input.complaint),
-    { type: "text", value: estimate },
-    { type: "text", value: warranty },
-    param(publicLacakUrl(input.siteOrigin, input.tenantSlug, input.trackingCode)),
+    param("store_name", input.storeName),
+    param("service_number", serviceRef(input)),
+    param("device", input.device),
+    param("complaint", input.complaint),
+    { type: "text", parameter_name: "estimate", value: estimate },
+    { type: "text", parameter_name: "warranty", value: warranty },
+    param("tracking_url", publicLacakUrl(input.siteOrigin, input.tenantSlug, input.trackingCode)),
   ];
 }
 
 export function buildCustomerStatusParameters(input: ServiceMessageInput): TemplateParameter[] {
   return [
-    param(input.storeName),
-    param(serviceRef(input)),
-    param(input.device),
-    param(input.status),
-    param(input.trackingCode),
-    param(publicLacakUrl(input.siteOrigin, input.tenantSlug, input.trackingCode)),
+    param("store_name", input.storeName),
+    param("service_number", serviceRef(input)),
+    param("device", input.device),
+    param("status", input.status),
+    param("tracking_code", input.trackingCode),
+    param("tracking_url", publicLacakUrl(input.siteOrigin, input.tenantSlug, input.trackingCode)),
   ];
 }
 
 export function buildTechnicianJobParameters(input: ServiceMessageInput): TemplateParameter[] {
   return [
-    param(input.storeName),
-    param(serviceRef(input)),
-    param(input.device),
-    param(input.complaint),
-    param(internalServisUrl(input.siteOrigin, input.serviceId)),
+    param("store_name", input.storeName),
+    param("service_number", serviceRef(input)),
+    param("device", input.device),
+    param("complaint", input.complaint),
+    param("service_url", internalServisUrl(input.siteOrigin, input.serviceId)),
+  ];
+}
+
+function rupiahValue(value: number): string {
+  return `Rp ${new Intl.NumberFormat("id-ID").format(value)}`;
+}
+
+/** Template `servis_masuk_v2` (customer, saat servis dibuat). */
+export function buildServisMasukParameters(input: ServiceMessageInput): TemplateParameter[] {
+  const estimate =
+    typeof input.priceEstimasi === "number" && Number.isFinite(input.priceEstimasi) && input.priceEstimasi > 0
+      ? rupiahValue(input.priceEstimasi)
+      : "Menunggu pemeriksaan";
+  return [
+    param("customer", input.customerName),
+    param("device", input.device),
+    param("nomor_servis", serviceRef(input)),
+    param("complaint", input.complaint),
+    { type: "text", parameter_name: "estimated", value: estimate },
+    param("tenant", input.tenantName ?? input.storeName),
+    param("cabang", input.branchName),
+  ];
+}
+
+/** Template status customer: `{{nama_customer}}, {{device}}, {{service_number}}`. */
+export function buildServisStatusParameters(input: ServiceMessageInput): TemplateParameter[] {
+  return [
+    param("nama_customer", input.customerName),
+    param("device", input.device),
+    param("service_number", serviceRef(input)),
+  ];
+}
+
+/** Template `servis_baru_teknisi_v1`. */
+export function buildTechnicianParameters(input: ServiceMessageInput): TemplateParameter[] {
+  return [
+    param("nama_teknisi", input.technicianName),
+    param("device", input.device),
+    param("complaint", input.complaint),
+    param("service_number", serviceRef(input)),
+  ];
+}
+
+/** Template `shift_open_v1`. */
+export function buildShiftOpenParameters(input: ShiftMessageInput): TemplateParameter[] {
+  return [
+    param("tenant", input.tenant),
+    param("cabang", input.cabang),
+    param("user-open", input.userOpen),
+    param("date_open", input.dateOpen),
+    { type: "text", parameter_name: "saldo_awal", value: rupiahValue(input.saldoAwal) },
+  ];
+}
+
+/** Template `shift_close_v1`. */
+export function buildShiftClosedParameters(input: ShiftMessageInput): TemplateParameter[] {
+  return [
+    param("tenant", input.tenant),
+    param("cabang", input.cabang),
+    param("date", input.date),
+    param("user-open", input.userOpen),
+    param("shift_open_time", input.shiftOpenTime),
+    param("user-close", input.userClose),
+    param("shift_close_time", input.shiftCloseTime),
+    { type: "text", parameter_name: "saldo_awal", value: rupiahValue(input.saldoAwal) },
+    { type: "text", parameter_name: "saldo_akhir", value: rupiahValue(input.saldoAkhir) },
   ];
 }

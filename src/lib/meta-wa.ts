@@ -1,8 +1,10 @@
 // Integrasi WhatsApp Cloud API (Meta). Fetch ringan, tanpa dependency.
 // Pesan business-initiated wajib memakai template yang sudah disetujui Meta,
-// jadi pengirim ini hanya menerima nama template + parameter berurutan.
+// jadi pengirim ini hanya menerima nama template + parameter bernama.
 
-export type TemplateParameter = { type: "text"; value: string };
+// Meta mensyaratkan nama variabel huruf kecil/angka/garis bawah, dan payload
+// menyertakan `parameter_name` supaya urutan tidak lagi menentukan.
+export type TemplateParameter = { type: "text"; parameter_name: string; value: string };
 
 export type MetaWaResult =
   | { skip: true }
@@ -49,6 +51,7 @@ export async function sendMetaWA(
   // Nomor tenant dikirim eksplisit oleh dispatcher. Default env dipakai tenant
   // yang belum punya nomor sendiri, supaya perilaku lama tetap berjalan.
   phoneNumberId: string = process.env.META_WA_PHONE_NUMBER_ID ?? "",
+  language: "id" | "en" = "id",
 ): Promise<MetaWaResult> {
   const token = process.env.META_WA_ACCESS_TOKEN;
   const senderId = phoneNumberId.trim();
@@ -70,7 +73,7 @@ export async function sendMetaWA(
           type: "template",
           template: {
             name: templateName,
-            language: { code: "id" },
+            language: { code: language },
             components: [{ type: "body", parameters }],
           },
         }),
