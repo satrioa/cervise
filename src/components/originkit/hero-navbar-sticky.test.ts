@@ -7,39 +7,34 @@ const source = readFileSync(
   "utf8",
 );
 
-describe("navbar landing sticky + morph", () => {
-  it("tinggi, radius, dan padding navbar dijaga saat morph", () => {
-    expect(source).toMatch(/mx-auto flex h-\[70px\] w-full max-w-\[calc\(995px/);
-    expect(source).toMatch(
-      /rounded-\[11px\] border border-solid border-\[#dee5ed\] bg-white p-\[calc\(12px_\+_var\(--nav-morph,0\)\*8px\)\]/,
-    );
-    expect(source).toMatch(/hidden h-9 w-11 shrink-0 .* rounded-\[7px\] bg-\[#2563eb\]/);
+describe("navbar landing", () => {
+  it("tidak memakai morph maupun sticky", () => {
+    expect(source).not.toMatch(/className="relative sticky top-4 z-40 w-full"/);
+    expect(source).not.toContain("--nav-morph");
+    expect(source).not.toContain("badgeRef");
+    expect(source).not.toContain("morphStartRef");
+    expect(source).not.toContain("setMorph");
   });
 
-  it("navbar sticky dengan gap atas dan melebar sampai 100% viewport saat morph", () => {
-    expect(source).toContain('className="relative sticky top-4 z-40 w-full"');
-    expect(source).toContain("morph={morph}");
-    expect(source).toMatch(
-      /max-w-\[calc\(995px_\+_var\(--nav-morph,0\)\*\(100vw_-_995px\)\)\]/,
-    );
-    expect(source).toMatch(/lg:max-w-\[calc\(800px_\+_var\(--nav-morph,0\)\*\(100vw_-_800px\)\)\]/);
+  it("lebar navbar statis", () => {
+    expect(source).toMatch(/mx-auto flex h-\[70px\] w-full max-w-\[995px\]/);
+    expect(source).toMatch(/border-\[#dee5ed\] bg-white p-\[12px\] lg:max-w-\[800px\]/);
   });
 
-  it("fill dan outline navbar tidak memudar, tanpa progressive blur", () => {
-    expect(source).not.toMatch(/backgroundColor: `rgba\(255, 255, 255, \$\{1 - morph\}\)`/);
-    expect(source).not.toMatch(/borderColor: `rgba\(15, 23, 42/);
-    expect(source).not.toContain("ProgressiveBlur");
-    expect(source).toMatch(/style=\{\{ "--nav-morph": morph \} as CSSProperties\}/);
+  it("memiliki menu Home yang menuju atas halaman", () => {
+    expect(source).toContain('{ label: "Home", href: "#top" }');
+    expect(source).toMatch(/id="top"/);
   });
 
-  it("morph selesai saat badge menyentuh atas viewport", () => {
-    expect(source).toContain("badgeRef");
-    expect(source).toMatch(/morphStartRef\.current = Math\.max\(1, top\)/);
-    expect(source).toMatch(/\(start - top\) \/ start/);
-  });
-
-  it("tidak ada ancestor overflow-hidden yang membatasi sticky", () => {
-    expect(source).not.toMatch(/className="relative w-full h-full overflow-hidden bg-white/);
-    expect(source).toContain("overflow-clip rounded-b-");
+  it("navbar kedua muncul saat scroll atas ≥8px setelah navbar utama hilang", () => {
+    expect(source).toContain("navOffscreenRef");
+    expect(source).toContain("upAccumRef");
+    expect(source).toContain("lastYRef");
+    expect(source).toMatch(/upAccumRef\.current >= 8/);
+    expect(source).toMatch(/delta < -0\.5\) upAccumRef\.current \+= -delta/);
+    expect(source).toMatch(/delta > 0\.5\) upAccumRef\.current = 0/);
+    expect(source).toMatch(/fixed inset-x-0 top-0 z-50/);
+    expect(source).toMatch(/<Navbar isLoggedIn=\{isLoggedIn\} user=\{user\} dashboardHref=\{dashboardHref\} \/>/);
+    expect(source).toContain("inert={!miniNavVisible}");
   });
 });

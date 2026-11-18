@@ -23,6 +23,7 @@ import { createClient } from "@/lib/supabase/client";
 const A = "/originkit/hero-02";
 
 const NAV_LINKS = [
+  { label: "Home", href: "#top" },
   { label: "Fitur", href: "#fitur" },
   { label: "Harga", href: "#harga" },
   { label: "FAQ", href: "#faq" },
@@ -122,7 +123,7 @@ const MenuIcon = () => (
   </svg>
 );
 
-const Navbar = ({ isLoggedIn, user, dashboardHref, morph = 0 }: { isLoggedIn?: boolean; user?: { name: string; email: string; avatarUrl?: string | null } | null; dashboardHref?: string; morph?: number }) => {
+const Navbar = ({ isLoggedIn, user, dashboardHref }: { isLoggedIn?: boolean; user?: { name: string; email: string; avatarUrl?: string | null } | null; dashboardHref?: string }) => {
   const router = useRouter();
   const handleSignOut = async () => {
     const supabase = createClient();
@@ -141,8 +142,7 @@ const Navbar = ({ isLoggedIn, user, dashboardHref, morph = 0 }: { isLoggedIn?: b
   return (
   <nav
     aria-label="Primary"
-    className="relative z-30 mx-auto flex h-[70px] w-full max-w-[calc(995px_+_var(--nav-morph,0)*(100vw_-_995px))] items-center justify-between overflow-clip rounded-[11px] border border-solid border-[#dee5ed] bg-white p-[calc(12px_+_var(--nav-morph,0)*8px)] lg:max-w-[calc(800px_+_var(--nav-morph,0)*(100vw_-_800px))]"
-    style={{ "--nav-morph": morph } as CSSProperties}
+    className="relative z-30 mx-auto flex h-[70px] w-full max-w-[995px] items-center justify-between overflow-clip rounded-[11px] border border-solid border-[#dee5ed] bg-white p-[12px] lg:max-w-[800px]"
   >
     <Link
       aria-label="Kaggo home"
@@ -819,42 +819,57 @@ const PhoneShowcase = () => {
 
 const HERO_ORBS = [
   { Icon: FileTextIcon, className: "left-[16%] top-0 -rotate-12", delay: 0.05 },
-  { Icon: ChartNoAxesColumnIcon, className: "right-[14%] top-[14%] rotate-12", delay: 0.15 },
+  { Icon: ChartNoAxesColumnIcon, className: "right-[8%] bottom-[18%] rotate-12", delay: 0.15 },
   { Icon: WalletIcon, className: "bottom-[16%] left-[8%] -rotate-6", delay: 0.25 },
 ] as const;
 
 const Section11 = ({ isLoggedIn, user, dashboardHref }: { isLoggedIn?: boolean; user?: { name: string; email: string; avatarUrl?: string | null } | null; dashboardHref?: string }) => {
-  const badgeRef = useRef<HTMLDivElement>(null);
-  const morphStartRef = useRef<number | null>(null);
-  const [morph, setMorph] = useState(0);
+  const navRef = useRef<HTMLDivElement>(null);
+  const navOffscreenRef = useRef(false);
+  const lastYRef = useRef(0);
+  const upAccumRef = useRef(0);
+  const [miniNavVisible, setMiniNavVisible] = useState(false);
 
   useEffect(() => {
-    const badge = badgeRef.current;
-    if (!badge) return;
+    const nav = navRef.current;
+    if (!nav) return;
     let frame = 0;
-    const update = () => {
+
+    const apply = () => {
       frame = 0;
-      const top = badge.getBoundingClientRect().top;
-      // Jarak awal diukur sekali saat halaman dibuka; morph selesai tepat saat
-      // badge menyentuh atas viewport (top = 0).
-      if (morphStartRef.current === null) morphStartRef.current = Math.max(1, top);
-      const start = morphStartRef.current;
-      // Scroll sudah di-smooth Lenis, jadi transisi CSS yang diulang tiap frame
-      // justru membuat morph terasa tertinggal. ease-out cubic memberi impulse
-      // awal cepat lalu melambat halus di akhir — terasa seperti iOS.
-      const progress = Math.min(1, Math.max(0, (start - top) / start));
-      setMorph(1 - Math.pow(1 - progress, 3));
+      setMiniNavVisible(navOffscreenRef.current && upAccumRef.current >= 8);
     };
+    const schedule = () => {
+      if (!frame) frame = requestAnimationFrame(apply);
+    };
+
+    // Observer hanya menandai apakah navbar utama sudah lewat ke atas.
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        navOffscreenRef.current = !entry.isIntersecting && entry.boundingClientRect.top < 0;
+        lastYRef.current = window.scrollY;
+        upAccumRef.current = 0;
+        setMiniNavVisible(false);
+      },
+      { threshold: 0 },
+    );
+    observer.observe(nav);
+
     const onScroll = () => {
-      if (frame) return;
-      frame = requestAnimationFrame(update);
+      const y = window.scrollY;
+      const delta = y - lastYRef.current;
+      lastYRef.current = y;
+      if (!navOffscreenRef.current) return;
+      // Scroll ke atas mengumpulkan jarak; scroll ke bawah langsung mereset.
+      if (delta < -0.5) upAccumRef.current += -delta;
+      else if (delta > 0.5) upAccumRef.current = 0;
+      schedule();
     };
-    update();
     window.addEventListener("scroll", onScroll, { passive: true });
-    window.addEventListener("resize", onScroll);
+
     return () => {
+      observer.disconnect();
       window.removeEventListener("scroll", onScroll);
-      window.removeEventListener("resize", onScroll);
       if (frame) cancelAnimationFrame(frame);
     };
   }, []);
@@ -865,13 +880,33 @@ const Section11 = ({ isLoggedIn, user, dashboardHref }: { isLoggedIn?: boolean; 
       aria-label="Kaggo hero"
       className="relative w-full h-full overflow-clip bg-white text-[#0d0d0d]"
     >
+      {/* Navbar kedua: tampilan identik dengan navbar utama, hanya mode
+          munculnya yang mengikuti arah scroll. Wrapper fixed full-width. */}
+      <div
+        className={`fixed inset-x-0 top-0 z-50 px-3 py-3 transition-opacity duration-200 sm:px-6 ${miniNavVisible ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0"}`}
+        aria-hidden={!miniNavVisible}
+        inert={!miniNavVisible}
+      >
+        <Navbar isLoggedIn={isLoggedIn} user={user} dashboardHref={dashboardHref} />
+      </div>
+
       <div className="relative mx-auto w-full">
         {}
         <div className="relative overflow-clip rounded-b-[clamp(1.5rem,4vw,3.125rem)] border-b border-solid border-[#dee5ed] bg-[#f8fafc] shadow-[0_0_0_6px_white,0_7px_6px_rgba(140,150,169,0.12),0_22px_30px_rgba(140,150,169,0.1)]">
           {}
+          {/* Pulse biru-putih dari bawah navbar — lapisan paling belakang. */}
           <div
             aria-hidden="true"
-            className="pointer-events-none absolute inset-x-0 bottom-0 h-[min(52%,28rem)] rounded-b-[inherit]"
+            className="pointer-events-none absolute inset-x-0 top-0 h-[min(70%,34rem)] origin-top animate-hero-pulse rounded-b-[inherit] will-change-[transform,opacity]"
+            style={{
+              backgroundImage:
+                "radial-gradient(ellipse 90% 75% at 50% 0%, #dbeafe 0%, #eff6ff 38%, rgba(255,255,255,0) 78%)",
+            }}
+          />
+          {}
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-x-0 bottom-0 h-[min(52%,28rem)] rounded-b-[inherit] opacity-60"
             style={{
               backgroundImage:
                 "linear-gradient(to bottom, rgba(248,250,252,0) 0%, #eff6ff 38%, #dbeafe 72%, #bfdbfe 100%)",
@@ -894,10 +929,8 @@ const Section11 = ({ isLoggedIn, user, dashboardHref }: { isLoggedIn?: boolean; 
           />
 
           <div className="relative z-10 flex flex-col items-center px-4 pt-[30px] ipad:px-10">
-            <div className="relative sticky top-4 z-40 w-full">
-              <div className="relative w-full animate-page-reveal will-change-transform">
-                <Navbar isLoggedIn={isLoggedIn} user={user} dashboardHref={dashboardHref} morph={morph} />
-              </div>
+            <div ref={navRef} className="w-full animate-page-reveal will-change-transform">
+              <Navbar isLoggedIn={isLoggedIn} user={user} dashboardHref={dashboardHref} />
             </div>
 
             {}
@@ -906,7 +939,7 @@ const Section11 = ({ isLoggedIn, user, dashboardHref }: { isLoggedIn?: boolean; 
               className="mt-[clamp(2.75rem,7vw,5.375rem)] flex w-full max-w-[1145px] scroll-mt-8 flex-col items-center gap-10"
             >
               <div className="flex w-full flex-col items-center gap-4">
-                <div ref={badgeRef} className="animate-page-reveal will-change-transform [animation-delay:80ms]">
+                <div className="animate-page-reveal will-change-transform [animation-delay:80ms]">
                   <AnnouncementBadge />
                 </div>
 
@@ -941,8 +974,18 @@ const Section11 = ({ isLoggedIn, user, dashboardHref }: { isLoggedIn?: boolean; 
               <div className="relative">
                 <PhoneMockupBasic images={HERO_PHONE_SCREENS} />
 
+                {/* Fade 64px selebar viewport: putih di bawah, hitam di atas, blend screen. */}
+                <div
+                  aria-hidden="true"
+                  className="pointer-events-none absolute bottom-0 left-1/2 z-30 h-16 w-screen -translate-x-1/2 mix-blend-screen"
+                  style={{
+                    backgroundImage:
+                      "linear-gradient(to top, #ffffff 0%, rgba(0,0,0,0) 100%)",
+                  }}
+                />
+
                 {/* Ilustrasi kartu sistem yang mengapung di sekitar mockup. */}
-                <div className="pointer-events-none absolute inset-0 z-40 hidden lg:block">
+                <div className="pointer-events-none absolute inset-0 z-40">
                   <div className="animate-page-reveal absolute left-0 top-2 -rotate-6 will-change-transform [animation-delay:120ms]">
                     <RevenueCard />
                   </div>
@@ -956,7 +999,7 @@ const Section11 = ({ isLoggedIn, user, dashboardHref }: { isLoggedIn?: boolean; 
                   {HERO_ORBS.map(({ Icon, className, delay }) => (
                     <div
                       key={className}
-                      className={`animate-page-reveal absolute flex size-12 items-center justify-center rounded-full bg-brand text-white ring-4 ring-white shadow-[0_10px_30px_-10px_rgba(0,0,0,0.35)] will-change-transform ${className}`}
+                      className={`animate-page-reveal absolute flex size-12 items-center justify-center rounded-full bg-[#2563eb] text-white ring-4 ring-white shadow-[0_10px_30px_-10px_rgba(0,0,0,0.35)] will-change-transform ${className}`}
                       style={{ animationDelay: `${delay}s` }}
                     >
                       <Icon className="size-5" aria-hidden />

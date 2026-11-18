@@ -46,3 +46,26 @@
     from, to { transform: none; }
   }
 }
+
+/* Pulse biru-putih yang berdenyut dari bawah navbar. Memakai transform/opacity
+   supaya tetap di compositor dan tidak menimpa teks hero. */
+@keyframes hero-pulse-gradient {
+  0%, 100% {
+    opacity: 0.45;
+    transform: scale(1) translate3d(0, 0, 0);
+  }
+  50% {
+    opacity: 0.85;
+    transform: scale(1.1) translate3d(0, 1%, 0);
+  }
+}
+
+@theme {
+  --animate-hero-pulse: hero-pulse-gradient 14s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  @keyframes hero-pulse-gradient {
+    from, to { opacity: 0.55; transform: none; }
+  }
+}
