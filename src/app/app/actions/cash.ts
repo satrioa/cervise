@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { getActiveTenant } from "@/lib/supabase/actor";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { isManagerRole } from "@/lib/auth/authorization";
 import type { FrontlinerKpi } from "@/lib/operational/frontliner-dashboard";
 import {
@@ -53,6 +54,61 @@ async function cashContext() {
 // antara 00:00 dan 07:00 WIB ke hari sebelumnya. Lihat kalenderWIB.
 function toCalendarDate(date: Date): string {
   return kalenderWIB(date);
+}
+
+function wibDate(value: string | Date): string {
+  return new Intl.DateTimeFormat("id-ID", {
+    dateStyle: "medium",
+    timeZone: "Asia/Jakarta",
+  }).format(new Date(value));
+}
+
+function wibTime(value: string | Date): string {
+  return new Intl.DateTimeFormat("id-ID", {
+    timeStyle: "short",
+    hourCycle: "h23",
+    timeZone: "Asia/Jakarta",
+  }).format(new Date(value));
+}
+
+async function shiftWaNames(branchId: string): Promise<{ tenant: string; cabang: string }> {
+  try {
+    const admin = createAdminClient();
+    const { data } = await admin
+      .from("branches")
+      .select("name, organizations(name)")
+      .eq("id", branchId)
+      .maybeSingle();
+    const row = data as unknown as { name: string | null; organizations: { name: string } | null } | null;
+    return { tenant: row?.organizations?.name ?? "", cabang: row?.name ?? "" };
+  } catch {
+    return { tenant: "", cabang: "" };
+  }
+}
+
+/** Antre notifikasi shift ke owner; gagal antre tidak membatalkan sesi kas. */
+async function enqueueShiftWa(
+  event: "shift_opened" | "shift_closed",
+  branchId: string,
+  sessionId: string,
+  payload: Record<string, string | number>,
+): Promise<void> {
+  try {
+    const admin = createAdminClient();
+    await admin.from("cervise_notification_outbox").upsert(
+      {
+        branch_id: branchId,
+        servis_id: null,
+        event,
+        to_kind: "owner",
+        dedupe_key: `${event}:${sessionId}`,
+        payload,
+      },
+      { onConflict: "dedupe_key", ignoreDuplicates: true },
+    );
+  } catch (error) {
+    console.warn("[wa] gagal mengantre notifikasi shift", error);
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -124,6 +180,14 @@ export async function openCashSession(input: { openingBalance: number }): Promis
     }
 
     const [session] = await hydrateSessions(supabase, [data as CashSessionRecord]);
+    const names = await shiftWaNames(branchId);
+    await enqueueShiftWa("shift_opened", branchId, session.id, {
+      ...names,
+      userOpen: session.employeeName ?? "",
+      dateOpen: wibDate(session.openAt),
+      shiftOpenTime: wibTime(session.openAt),
+      saldoAwal: session.openingBalance,
+    });
     revalidatePath("/app");
     return { ok: true, data: session };
   } catch (cause) {
@@ -214,6 +278,18 @@ export async function closeCashSession(input: {
       .update({ resumed_at: new Date().toISOString(), resumed_by: userId })
       .eq("session_id", input.sessionId)
       .is("resumed_at", null);
+
+    const closeNames = await shiftWaNames(branchId);
+    await enqueueShiftWa("shift_closed", branchId, input.sessionId, {
+      ...closeNames,
+      userOpen: report.employeeName ?? "",
+      userClose: closedByName ?? "",
+      date: toCalendarDate(new Date(report.date)),
+      shiftOpenTime: wibTime(report.openAt),
+      shiftCloseTime: wibTime(report.closingAt),
+      saldoAwal: report.openingBalance,
+      saldoAkhir: closing,
+    });
 
     revalidatePath("/app");
     revalidatePath("/app/laporan/shift");

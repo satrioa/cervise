@@ -1,12 +1,8 @@
 import { MetaWaError, sendMetaWA, type TemplateParameter } from "@/lib/meta-wa";
 import { toFonnteTarget } from "@/lib/phone";
 import { createAdminClient } from "@/lib/supabase/admin";
-import {
-  buildCustomerInvoiceParameters,
-  buildCustomerStatusParameters,
-  buildTechnicianJobParameters,
-  type ServiceMessageInput,
-} from "./service-message";
+import type { ServiceMessageInput, ShiftMessageInput } from "./service-message";
+import { getWaTemplate, type WaTemplateKey } from "./wa-templates";
 
 /**
  * Dispatcher notifikasi WhatsApp untuk servis.
@@ -62,10 +58,12 @@ export type DispatchOptions = {
 
 type OutboxRow = {
   id: string;
+  branch_id: string;
   servis_id: string | null;
   event: string;
   to_kind: string;
   to_status: string | null;
+  payload: Record<string, string | number> | null;
   attempts: number;
 };
 
@@ -82,6 +80,7 @@ type ServisRow = {
   customer_id: string | null;
   teknisi_id: string | null;
   branches: {
+    name: string | null;
     organization_id: string | null;
     organizations: { name: string; slug: string; meta_phone_number_id: string | null } | null;
   } | null;
@@ -90,10 +89,17 @@ type ServisRow = {
 type EmployeeRef = { organization_id: string; is_active: boolean };
 type TechnicianRow = {
   id: string;
+  full_name: string | null;
   phone: string | null;
   employees: EmployeeRef[] | null;
 };
-type CustomerRow = { id: string; phone: string | null };
+type CustomerRow = { id: string; name: string | null; phone: string | null };
+type OwnerOrg = {
+  name: string;
+  owner_phone: string | null;
+  contact_phone: string | null;
+  meta_phone_number_id: string | null;
+};
 
 /**
  * Hasil resolusi satu baris: pesan siap kirim, atau alasan terminal kenapa
@@ -110,7 +116,13 @@ type CustomerRow = { id: string; phone: string | null };
  * hanya karena antrean sempat bermasalah.
  */
 type Resolved =
-  | { target: string; template: string; parameters: TemplateParameter[]; phoneNumberId: string }
+  | {
+      target: string;
+      template: string;
+      language: "id" | "en";
+      parameters: TemplateParameter[];
+      phoneNumberId: string;
+    }
   | { skip: string };
 
 function backoffIso(attempts: number, from: Date): string {
@@ -157,35 +169,41 @@ function resolveRow(
   servis: ServisRow | undefined,
   customer: CustomerRow | undefined,
   technician: TechnicianRow | undefined,
+  ownerOrg: OwnerOrg | undefined,
   siteOrigin: string,
-  templates: { invoice: string; technician: string; status: string },
 ): Resolved {
+  // Notifikasi shift ditujukan ke owner tenant, bukan ke customer/teknisi.
+  if (row.to_kind === "owner") {
+    if (row.event !== "shift_opened" && row.event !== "shift_closed") {
+      return { skip: "unsupported_owner_event" };
+    }
+    if (!ownerOrg) return { skip: "organization_not_found" };
+    const target = toFonnteTarget(ownerOrg.owner_phone ?? ownerOrg.contact_phone);
+    if (!target) return { skip: "no_phone" };
+    const template = getWaTemplate(row.event === "shift_opened" ? "shift_open" : "shift_closed");
+    if (!template.name) return { skip: "template_not_configured" };
+    return {
+      target,
+      template: template.name,
+      language: template.language,
+      parameters: template.build((row.payload ?? {}) as ServiceMessageInput & Partial<ShiftMessageInput>),
+      phoneNumberId: ownerOrg.meta_phone_number_id?.trim() || process.env.META_WA_PHONE_NUMBER_ID || "",
+    };
+  }
+
   if (row.to_kind !== "customer" && row.to_kind !== "technician") {
     return { skip: "unsupported_recipient" };
   }
 
   // `servis_id` sengaja tidak punya foreign key supaya riwayat pengiriman
-  // bertahan setelah servis dihapus. Konsekuensinya baris yatim itu keadaan
-  // yang wajar, bukan-error: servis yang hilang tidak akan pernah kembali, dan
-  // pesannya tidak bisa disusun tanpa data yang sudah tidak ada. Jadi terminal,
-  // bukan dibiarkan menggantung.
+  // bertahan setelah servis dihapus. Baris yatim tidak bisa disusun lagi.
   if (!servis) return { skip: "servis_not_found" };
 
-  // Trigger hanya membuat baris teknisi untuk `servis_created`, dan tidak ada
-  // builder status untuk teknisi. Kalau kombinasi ini diteruskan, teknisi
-  // menerima "Servis baru masuk" untuk perubahan status.
   if (row.to_kind === "technician" && row.event !== "servis_created") {
     return { skip: "unsupported_technician_event" };
   }
 
-  // `branches.organization_id` nullable, jadi `organizations` bisa null. Nama
-  // toko TIDAK dikarang di sini: `heading()` di service-message.ts sudah
-  // menangani nama kosong dengan menghapus pemisah " - "-nya, dan mengarang
-  // nama akan mengarang fakta.
   const org = servis.branches?.organizations ?? null;
-  // Nomor tenant dibaca saat kirim, bukan saat enqueue, supaya perubahan oleh
-  // platform owner langsung dipakai oleh baris yang masih retry. Kosong → env
-  // global, sehingga tenant lama tetap terkirim seperti sebelum ada kolom ini.
   const phoneNumberId = org?.meta_phone_number_id?.trim() || process.env.META_WA_PHONE_NUMBER_ID || "";
   const input: ServiceMessageInput = {
     storeName: org?.name ?? "",
@@ -195,43 +213,36 @@ function resolveRow(
     device: servis.device,
     complaint: servis.complaint,
     trackingCode: servis.tracking_code,
-    // `to_status` dibaca lebih dulu: itu status saat peristiwa diantrekan.
-    // Servis bisa sudah lanjut ke tahap berikutnya sebelum pesannya benar-benar
-    // terkirim, dan memberitahu pelanggan "Selesai" untuk servis yang sudah
-    // diambil adalah informasi yang salah.
     status: row.to_status ?? servis.status,
     siteOrigin,
     priceEstimasi: servis.price_estimasi,
     garansiValue: servis.garansi_value,
     garansiUnit: servis.garansi_unit,
+    customerName: customer?.name ?? "",
+    tenantName: org?.name ?? "",
+    branchName: servis.branches?.name ?? "",
+    technicianName: technician?.full_name ?? "",
   };
 
   if (row.to_kind === "customer") {
     if (!customer) return { skip: "customer_not_found" };
     const target = toFonnteTarget(customer.phone);
-    // Nomor yang tidak bisa jadi `62...` tidak akan pernah bisa dikirim, dan
-    // tidak ada yang berubah antara sekarang dan percobaan berikutnya.
     if (!target) return { skip: "no_phone" };
+    const key: WaTemplateKey =
+      row.event === "servis_created" ? "servis_created_customer" : "servis_status_customer";
+    const template = getWaTemplate(key);
+    if (!template.name) return { skip: "template_not_configured" };
     return {
       target,
-      template: row.event === "servis_created" ? templates.invoice : templates.status,
-      parameters:
-        row.event === "servis_created"
-          ? buildCustomerInvoiceParameters(input)
-          : buildCustomerStatusParameters(input),
+      template: template.name,
+      language: template.language,
+      parameters: template.build(input),
       phoneNumberId,
     };
   }
 
-  // Servis yang baru dibuat hampir selalu belum punya teknisi, jadi "belum ada
-  // teknisi" adalah keadaan normal, bukan error.
   if (!technician) return { skip: "technician_not_found" };
 
-  // Karyawan bisa punya baris employees di beberapa organisasi. Yang dicek hanya
-  // `is_active` berarti teknisi yang sudah dinonaktifkan di tenant pemilik servis
-  // ini tetap menerima detail servis tenant lain -- dan nomor teleponnya pun.
-  // Karena itu baris employees-nya dibatasi ke organisasi cabangnya; kalau
-  // cabangnya tidak punya organisasi, yang aktif di organisasi mana pun cukup.
   const branchOrganizationId = servis.branches?.organization_id ?? null;
   const activeCount = (technician.employees ?? []).filter((employee) => {
     if (!employee.is_active) return false;
@@ -241,10 +252,13 @@ function resolveRow(
 
   const target = toFonnteTarget(technician.phone);
   if (!target) return { skip: "no_phone" };
+  const template = getWaTemplate("servis_created_technician");
+  if (!template.name) return { skip: "template_not_configured" };
   return {
     target,
-    template: templates.technician,
-    parameters: buildTechnicianJobParameters(input),
+    template: template.name,
+    language: template.language,
+    parameters: template.build(input),
     phoneNumberId,
   };
 }
@@ -255,12 +269,6 @@ export async function dispatchPendingNotifications(
   const limit = options.limit ?? DEFAULT_LIMIT;
   const now = options.now ?? new Date();
   const siteOrigin = options.siteOrigin ?? process.env.NEXT_PUBLIC_SITE_URL ?? "";
-  const templates = {
-    invoice: process.env.META_WA_TEMPLATE_INVOICE ?? "",
-    technician: process.env.META_WA_TEMPLATE_TECHNICIAN ?? "",
-    status: process.env.META_WA_TEMPLATE_STATUS ?? "",
-  };
-
   const result: DispatchResult = { sent: 0, skipped: 0, failed: 0 };
   const admin = createAdminClient();
 
@@ -300,7 +308,7 @@ export async function dispatchPendingNotifications(
     const { data: servisRows, error: servisError } = await admin
       .from("cervise_services")
       .select(
-        "id, service_number, device, complaint, tracking_code, status, price_estimasi, garansi_value, garansi_unit, customer_id, teknisi_id, branches(organization_id, organizations(name, slug, meta_phone_number_id))",
+        "id, service_number, device, complaint, tracking_code, status, price_estimasi, garansi_value, garansi_unit, customer_id, teknisi_id, branches(name, organization_id, organizations(name, slug, meta_phone_number_id))",
       )
       .in("id", servisIds);
     if (servisError) {
@@ -326,7 +334,7 @@ export async function dispatchPendingNotifications(
   if (neededCustomerIds.length) {
     const { data: customerRows, error: customerError } = await admin
       .from("cervise_customers")
-      .select("id, phone")
+      .select("id, name, phone")
       .in("id", neededCustomerIds);
     if (customerError) {
       throw new Error(`Pengambilan data pelanggan gagal: ${customerError.message}`);
@@ -347,12 +355,32 @@ export async function dispatchPendingNotifications(
   if (technicianIds.length) {
     const { data: techRows, error: techError } = await admin
       .from("profiles")
-      .select("id, phone, employees(organization_id, is_active)")
+      .select("id, full_name, phone, employees(organization_id, is_active)")
       .in("id", technicianIds);
     if (techError) {
       throw new Error(`Pengambilan data teknisi gagal: ${techError.message}`);
     }
     for (const row of (techRows ?? []) as TechnicianRow[]) techniciansById.set(row.id, row);
+  }
+
+  const ownerBranchIds = [
+    ...new Set(rows.filter((row) => row.to_kind === "owner").map((row) => row.branch_id)),
+  ];
+  const ownerOrgsById = new Map<string, OwnerOrg>();
+  if (ownerBranchIds.length) {
+    const { data: branchRows, error: branchError } = await admin
+      .from("branches")
+      .select("id, organizations(name, owner_phone, contact_phone, meta_phone_number_id)")
+      .in("id", ownerBranchIds);
+    if (branchError) {
+      throw new Error(`Pengambilan data tenant gagal: ${branchError.message}`);
+    }
+    for (const row of (branchRows ?? []) as unknown as {
+      id: string;
+      organizations: OwnerOrg | null;
+    }[]) {
+      if (row.organizations) ownerOrgsById.set(row.id, row.organizations);
+    }
   }
 
   for (const row of rows) {
@@ -369,8 +397,8 @@ export async function dispatchPendingNotifications(
         servis,
         customerId ? customersById.get(customerId) : undefined,
         technicianId ? techniciansById.get(technicianId) : undefined,
+        ownerOrgsById.get(row.branch_id),
         siteOrigin,
-        templates,
       );
 
       if ("skip" in resolved) {
@@ -397,6 +425,7 @@ export async function dispatchPendingNotifications(
           resolved.template,
           resolved.parameters,
           resolved.phoneNumberId,
+          resolved.language,
         );
       } catch (error) {
         // Hanya kegagalan yang memang soal nomor atau isi pesannya yang

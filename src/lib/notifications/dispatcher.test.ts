@@ -112,7 +112,7 @@ const SERVIS = {
   },
 };
 
-const ORIGIN = "https://app.cervise.id";
+const ORIGIN = "https://app.kaggo.id";
 
 /**
  * `.eq()` mengembalikan objek yang bisa di-await, seperti PostgrestFilterBuilder
@@ -267,9 +267,10 @@ describe("dispatchPendingNotifications", () => {
         "6281234567890",
         "invoice-template",
         expect.arrayContaining([
-          expect.objectContaining({ value: expect.stringContaining("F5FB0DFCB6") }),
+          expect.objectContaining({ value: "SRV-2026-0012" }),
         ]),
         "global-phone-id",
+        "id",
       );
       expect(patchFor("o1")).toMatchObject({ state: "sent", last_error: null });
     });
@@ -297,6 +298,7 @@ describe("dispatchPendingNotifications", () => {
         "invoice-template",
         expect.any(Array),
         "tenant-phone-id",
+        "id",
       );
     });
 
@@ -312,6 +314,7 @@ describe("dispatchPendingNotifications", () => {
         "invoice-template",
         expect.any(Array),
         "global-phone-id",
+        "id",
       );
     });
 
@@ -383,8 +386,9 @@ describe("dispatchPendingNotifications", () => {
       expect(mocks.sendMetaWA).toHaveBeenCalledWith(
         "628123456789",
         "status-template",
-        expect.arrayContaining([expect.objectContaining({ value: "Selesai" })]),
+        expect.arrayContaining([expect.objectContaining({ value: "SRV-2026-0012" })]),
         "global-phone-id",
+        "id",
       );
     });
 
@@ -413,9 +417,9 @@ describe("dispatchPendingNotifications", () => {
         "invoice-template",
         expect.arrayContaining([
           expect.objectContaining({ value: "Rp 150.000" }),
-          expect.objectContaining({ value: "3 bulan" }),
         ]),
         "global-phone-id",
+        "id",
       );
     });
   });
@@ -536,6 +540,7 @@ describe("dispatchPendingNotifications", () => {
         "technician-template",
         expect.arrayContaining([expect.objectContaining({ value: "SRV-2026-0012" })]),
         "global-phone-id",
+        "en",
       );
     });
 
