@@ -882,7 +882,6 @@ const Section11 = ({ isLoggedIn, user, dashboardHref }: { isLoggedIn?: boolean; 
                     Lihat Harga
                   </Button>
                 </div>
-                <p className="text-xs text-muted-foreground">PWA ringan di HP kentang â€¢ Isolasi per cabang</p>
               </div>
             </div>
 
