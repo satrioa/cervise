@@ -71,8 +71,8 @@ describe("sendMetaWA", () => {
     const fetchMock = vi.fn().mockResolvedValue(ok());
     vi.stubGlobal("fetch", fetchMock);
     const parameters = [
-      { type: "text" as const, value: "Servisin" },
-      { type: "text" as const, value: "SRV-2026-0012" },
+      { type: "text" as const, parameter_name: "store_name", value: "Servisin" },
+      { type: "text" as const, parameter_name: "service_number", value: "SRV-2026-0012" },
     ];
 
     await expect(sendMetaWA("628123456789", "invoice", parameters)).resolves.toEqual({
