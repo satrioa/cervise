@@ -1,6 +1,10 @@
 "use client";
 
 import "./hero-02.css";
+import ipadScene from "@/lib/mockup/[PS] iPad Pro Free Scene.png";
+import ipadShadow from "@/lib/mockup/[PS] iPad Pro Free Scene-shadow.png";
+import iphoneScene from "@/lib/mockup/[PS] iPhone Pro Free Scene.png";
+import iphoneShadow from "@/lib/mockup/[PS] iPhone Pro Free Scene-shadow.png";
 import Link from "next/link";
 import { AppImage } from "@/components/ui/app-image";
 import { motion, useReducedMotion } from "motion/react";
@@ -139,13 +143,13 @@ const Navbar = ({ isLoggedIn, user, dashboardHref }: { isLoggedIn?: boolean; use
     className="relative z-30 h-[81px] lg:h-[85px] mx-auto flex w-full max-w-[995px] items-center justify-between overflow-clip rounded-full border border-solid border-[#dee5ed] bg-white py-3.5 pr-3.5 pl-5 lg:max-w-[800px]"
   >
     <Link
-      aria-label="Cervise home"
+      aria-label="Kaggo home"
       href="/"
       className="relative flex items-center gap-2 shrink-0 touch-manipulation focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2563eb]"
     >
       <span className="flex size-8 items-center justify-center rounded-lg bg-white shadow-sm dark:bg-white/10">
         <AppImage
-          src="/Logo/IconLogo.png"
+          src="/Logo/IconLogo.png?v=2"
           alt=""
           width={32}
           height={32}
@@ -154,7 +158,7 @@ const Navbar = ({ isLoggedIn, user, dashboardHref }: { isLoggedIn?: boolean; use
           priority
         />
       </span>
-      <span className="font-bold text-lg text-[#1d1d1d]">Cervise</span>
+      <span className="font-bold text-lg text-[#1d1d1d]">Kaggo</span>
       {/* Badge "Multibranch" di navbar dihilang atas permintaan: ruang di rail
           sempit dipakai untuk menu, dan ini bukan informasi yang harus dibawa
           setiap kali. Badge "Multibranch · PWA" di hero tetap ada -- itu
@@ -260,14 +264,11 @@ const Navbar = ({ isLoggedIn, user, dashboardHref }: { isLoggedIn?: boolean; use
 const AnnouncementBadge = () => (
   <Link
     href="#fitur"
-    className="inline-flex touch-manipulation items-center gap-1 overflow-clip rounded-full border border-solid border-[#dee5ed] bg-[#f1f4f8] py-1.5 pr-3 pl-1.5 shadow-[0_0_0_3px_white,0_4px_2px_rgba(140,150,169,0.25),0_8px_17.2px_rgba(140,150,169,0.1)] transition-[background-color,border-color,transform] duration-200 ease focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2563eb] motion-reduce:transition-none [@media(hover:hover)_and_(pointer:fine)]:hover:border-[#c9d3e0] [@media(hover:hover)_and_(pointer:fine)]:hover:bg-[#e8edf4] [@media(hover:hover)_and_(pointer:fine)]:hover:scale-[1.02]"
+    className="inline-flex touch-manipulation items-center gap-2 overflow-clip rounded-full border border-solid border-[#dee5ed] bg-[#f1f4f8] py-1.5 pr-3 pl-4 shadow-[0_0_0_3px_white,0_4px_2px_rgba(140,150,169,0.25),0_8px_17.2px_rgba(140,150,169,0.1)] transition-[background-color,border-color,transform] duration-200 ease focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2563eb] motion-reduce:transition-none [@media(hover:hover)_and_(pointer:fine)]:hover:border-[#c9d3e0] [@media(hover:hover)_and_(pointer:fine)]:hover:bg-[#e8edf4] [@media(hover:hover)_and_(pointer:fine)]:hover:scale-[1.02]"
   >
     <span className="inline-flex items-center gap-2">
-      <span className="inline-flex items-center justify-center overflow-clip rounded-full bg-[#2563eb] px-3 py-[5px] text-[16px] font-semibold leading-normal text-white">
-        Baru
-      </span>
       <span className="text-center text-[17px] font-medium leading-normal whitespace-nowrap text-[#262626]">
-        PWA Ringan untuk Teknisi di HP
+        SuperApp Toko Servis Gadget
       </span>
     </span>
     <span className="relative size-[18px] shrink-0 overflow-clip">
@@ -346,7 +347,7 @@ const PhoneScreenPlaceholder = () => (
       <Smartphone className="size-5 text-muted-foreground/70" />
     </span>
     <p className="text-[11px] font-semibold text-foreground">Mockup HP — coming soon</p>
-    <p className="max-w-[140px] text-[9px] leading-snug text-muted-foreground">Placeholder untuk screenshot Cervise. Ganti dengan image real di future.</p>
+    <p className="max-w-[140px] text-[9px] leading-snug text-muted-foreground">Placeholder untuk screenshot Kaggo. Ganti dengan image real di future.</p>
     <Badge variant="secondary" className="mt-1 text-[8px]">Multibranch • PWA</Badge>
   </div>
 );
@@ -368,7 +369,7 @@ const LaptopScreenPlaceholder = () => (
         <span className="size-1.5 rounded-full bg-[#dee5ed]" />
         <span className="size-1.5 rounded-full bg-[#dee5ed]" />
       </div>
-      <span className="ml-1 text-[7px] font-semibold text-[#0d0d0d]">Cervise</span>
+      <span className="ml-1 text-[7px] font-semibold text-[#0d0d0d]">Kaggo</span>
       <span className="ml-auto h-2.5 w-12 rounded-full bg-white ring-1 ring-[#dee5ed]" />
     </div>
 
@@ -814,11 +815,60 @@ const PhoneShowcase = () => {
   );
 };
 
+/**
+ * Mockup hero: empat layer PNG berukuran identik ditumpuk pada satu "canvas"
+ * absolut. Bayangan berada di bawah device, dan setiap pasangan
+ * device+bayangan memakai keyframe + delay yang sama supaya geraknya linked.
+ *
+ * Urutan z-index (bawah -> atas):
+ *   iPad shadow, iPhone shadow, iPad scene, iPhone scene.
+ */
+const MockupScene = () => (
+  <div
+    className="relative aspect-[6465/4426] w-full select-none"
+    role="img"
+    aria-label="Tampilan aplikasi Kaggo di iPad dan iPhone"
+  >
+    {/* eslint-disable-next-line @next/next/no-img-element -- layer mockup butuh posisi absolut yang presisi */}
+    <img
+      src={ipadShadow.src}
+      alt=""
+      aria-hidden
+      draggable={false}
+      className="animate-mockup-ipad absolute inset-0 h-full w-full object-contain will-change-transform [animation-delay:-1.2s]"
+    />
+    {/* eslint-disable-next-line @next/next/no-img-element -- layer mockup butuh posisi absolut yang presisi */}
+    <img
+      src={iphoneShadow.src}
+      alt=""
+      aria-hidden
+      draggable={false}
+      className="animate-mockup-iphone absolute inset-0 z-10 h-full w-full object-contain will-change-transform [animation-delay:-0.6s]"
+    />
+    {/* eslint-disable-next-line @next/next/no-img-element -- layer mockup butuh posisi absolut yang presisi */}
+    <img
+      src={ipadScene.src}
+      alt=""
+      aria-hidden
+      draggable={false}
+      className="animate-mockup-ipad absolute inset-0 z-20 h-full w-full object-contain will-change-transform [animation-delay:-1.2s]"
+    />
+    {/* eslint-disable-next-line @next/next/no-img-element -- layer mockup butuh posisi absolut yang presisi */}
+    <img
+      src={iphoneScene.src}
+      alt=""
+      aria-hidden
+      draggable={false}
+      className="animate-mockup-iphone absolute inset-0 z-30 h-full w-full object-contain will-change-transform [animation-delay:-0.6s]"
+    />
+  </div>
+);
+
 const Section11 = ({ isLoggedIn, user, dashboardHref }: { isLoggedIn?: boolean; user?: { name: string; email: string; avatarUrl?: string | null } | null; dashboardHref?: string }) => {
   return (
     <section
       id="top"
-      aria-label="Cervise hero"
+      aria-label="Kaggo hero"
       className="relative w-full h-full overflow-hidden bg-white text-[#0d0d0d]"
     >
       <div className="relative mx-auto w-full">
@@ -849,7 +899,7 @@ const Section11 = ({ isLoggedIn, user, dashboardHref }: { isLoggedIn?: boolean; 
             }}
           />
 
-          <div className="relative z-10 flex flex-col items-center px-4 pt-[30px] ipad:px-10">
+          <div className="relative z-10 flex flex-col items-center px-4 pt-[30px] pb-[clamp(2rem,4vw,3.5rem)] ipad:px-10">
             <div className="w-full animate-page-reveal will-change-transform">
               <Navbar isLoggedIn={isLoggedIn} user={user} dashboardHref={dashboardHref} />
             </div>
@@ -857,39 +907,38 @@ const Section11 = ({ isLoggedIn, user, dashboardHref }: { isLoggedIn?: boolean; 
             {}
             <div
               id="download"
-              className="mt-[clamp(2.75rem,7vw,5.375rem)] flex w-full max-w-[1145px] scroll-mt-8 flex-col items-center gap-10"
+              className="mt-[clamp(2.75rem,7vw,5.375rem)] grid w-full max-w-[1240px] scroll-mt-8 grid-cols-1 items-center gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)]"
             >
-              <div className="flex w-full flex-col items-center gap-4">
+              <div className="flex w-full flex-col items-center gap-4 lg:items-start">
                 <div className="animate-page-reveal will-change-transform [animation-delay:80ms]">
                   <AnnouncementBadge />
                 </div>
 
-                <div className="flex w-full animate-page-reveal flex-col items-center justify-center gap-5 px-0 text-center will-change-transform ipad:px-[clamp(1rem,6vw,6.25rem)] [animation-delay:140ms]">
-                  <h1 className="font-urbanist text-wrap md:mx-auto md:max-w-[450px] lg:max-w-[750px] xl:max-w-[945px] text-[38px] lg:text-[58px] xl:text-[68px] font-bold leading-[46px] lg:leading-[120%] text-[#0d0d0d] text-center">
-                    Kelola servis gadget <span className="text-[#666]">multi-cabang</span> tanpa ribet.
+                <div className="flex w-full animate-page-reveal flex-col items-center justify-center gap-5 px-0 text-center will-change-transform lg:items-start lg:text-left [animation-delay:140ms]">
+                  <h1 className="font-urbanist text-wrap text-[38px] leading-[46px] font-bold text-[#0d0d0d] lg:text-[58px] lg:leading-[120%] xl:text-[68px]">
+                    Kelola toko servis gadget <span className="text-[#666]">multi-cabang</span> tanpa ribet.
                   </h1>
-                  <p className="max-w-md text-[18px] xl:text-[20px] lg:max-w-[550px] mx-auto font-medium leading-normal text-[#666] text-pretty">
-                    Cervise bantu Frontliner catat servis, Teknisi update status, Admin pantau keuangan & laporan — 1 user 1 cabang, aman tidak bocor antar cabang. Garansi 3 bulan otomatis.
+                  <p className="mx-auto max-w-md font-medium leading-normal text-pretty text-[#666] lg:mx-0 lg:max-w-[550px] xl:text-[20px]">
+                    Pantau semua aktivitas toko dalam genggaman secara realtime
                   </p>
                 </div>
-              </div>
 
-              <div className="flex w-full max-w-[556px] animate-page-reveal flex-col items-center gap-3 will-change-transform [animation-delay:200ms]">
-                <div className="flex flex-wrap items-center justify-center gap-3">
-                  <Button variant="candy" color="blue" size="lg" render={<Link href={isLoggedIn ? dashboardHref ?? "/app" : "/signup"}>Mulai Trial Gratis</Link>}>
-                    Mulai Trial Gratis
-                  </Button>
-                  <Button variant="outline" color="neutral" size="lg" render={<Link href="#harga">Lihat Harga</Link>}>
-                    Lihat Harga
-                  </Button>
+                <div className="flex w-full max-w-[556px] animate-page-reveal flex-col items-center gap-3 will-change-transform lg:items-start [animation-delay:200ms]">
+                  <div className="flex flex-wrap items-center justify-center gap-3 lg:justify-start">
+                    <Button variant="candy" color="blue" size="lg" render={<Link href={isLoggedIn ? dashboardHref ?? "/app" : "/signup"}>Mulai Trial Gratis</Link>}>
+                      Mulai Trial Gratis
+                    </Button>
+                    <Button variant="outline" color="neutral" size="lg" render={<Link href="#harga">Lihat Harga</Link>}>
+                      Lihat Harga
+                    </Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground">PWA ringan di HP kentang • Isolasi per cabang</p>
                 </div>
-                <p className="text-xs text-muted-foreground">PWA ringan di HP kentang • Isolasi per cabang</p>
               </div>
-            </div>
 
-            {}
-            <div className="relative z-10 mx-auto mt-[clamp(1.5rem,4vw,2.75rem)] w-full max-w-[1440px]">
-              <PhoneShowcase />
+              <div className="relative z-10 w-full animate-page-reveal will-change-transform [animation-delay:260ms]">
+                <MockupScene />
+              </div>
             </div>
           </div>
         </div>
