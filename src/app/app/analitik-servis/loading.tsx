@@ -5,7 +5,7 @@ import { RouteHeaderSkeleton } from "@/components/ui/route-skeleton";
 /**
  * Kerangka route Analitik Servis.
  *
- * Mirip `CerviseAnalyticsSection`: grafik tren, lalu dua kartu breakdown
+ * Mirip `KaggoAnalyticsSection`: grafik tren, lalu dua kartu breakdown
  * (Top teknisi, Top masalah), lalu kartu performa cabang.
  */
 export default function Loading() {

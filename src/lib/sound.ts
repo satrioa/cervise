@@ -4,7 +4,7 @@ import { useSyncExternalStore } from "react";
 import { toast } from "sonner";
 
 /**
- * UI sound system (Cervise).
+ * UI sound system (Kaggo).
  *
  * Seluruh suara UI lewat modul ini. Analoginya seperti `cn()` untuk styling:
  * komponen cukup memanggil `sfx.semantik()`, dan pemetaan nama semantik → file
@@ -444,9 +444,9 @@ type PromiseCallbacks = {
 
 export function installToastSoundBridge(): void {
   if (typeof window === "undefined") return;
-  const globalWindow = window as typeof window & { __cerviseToastSfx?: boolean };
-  if (globalWindow.__cerviseToastSfx) return;
-  globalWindow.__cerviseToastSfx = true;
+  const globalWindow = window as typeof window & { __kaggoToastSfx?: boolean };
+  if (globalWindow.__kaggoToastSfx) return;
+  globalWindow.__kaggoToastSfx = true;
 
   const api = toast as unknown as ToastApi;
 
@@ -510,12 +510,12 @@ export function installToastSoundBridge(): void {
 }
 
 // Helper debug (hanya development). Dari console browser:
-//   __cerviseSfx.sfx.success()      → tes chime
-//   __cerviseSfx.sfx.tab()          → tes undo
-//   __cerviseSfx.playCue("notify")  → tes cue versi shell baru
-//   __cerviseSfx.getSoundSnapshot() → cek mute + volume
+//   __kaggoSfx.sfx.success()      → tes chime
+//   __kaggoSfx.sfx.tab()          → tes undo
+//   __kaggoSfx.playCue("notify")  → tes cue versi shell baru
+//   __kaggoSfx.getSoundSnapshot() → cek mute + volume
 if (typeof window !== "undefined" && process.env.NODE_ENV !== "production") {
-  (window as typeof window & { __cerviseSfx?: unknown }).__cerviseSfx = {
+  (window as typeof window & { __kaggoSfx?: unknown }).__kaggoSfx = {
     playSound,
     playCue,
     sfx,

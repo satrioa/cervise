@@ -5,7 +5,7 @@ Status: disetujui untuk diimplementasikan
 
 ## 1. Konteks dan tujuan
 
-Setiap servis yang dibuat di Cervise harus memberi tahu dua pihak lewat WhatsApp:
+Setiap servis yang dibuat di Kaggo harus memberi tahu dua pihak lewat WhatsApp:
 **customer** (konfirmasi penerimaan + cara melacak) dan **teknisi** (ada pekerjaan baru).
 Perubahan status ke arah "Selesai" atau "Sudah Diambil" juga memberi tahu customer.
 

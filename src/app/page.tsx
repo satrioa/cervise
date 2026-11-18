@@ -87,7 +87,7 @@ export default async function LandingPage() {
       </section>
 
       <footer className="border-t px-4 py-6 text-center text-sm text-muted-foreground lg:px-8">
-        © 2026 Cervise • Manajemen Servis Gadget Multibranch • Dibuat ringan untuk Frontliner & Teknisi di HP
+        © 2026 Kaggo • Manajemen Servis Gadget Multibranch • Dibuat ringan untuk Frontliner & Teknisi di HP
       </footer>
     </div>
   );

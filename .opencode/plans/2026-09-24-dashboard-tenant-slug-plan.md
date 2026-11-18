@@ -6,7 +6,7 @@
 
 ## Decision
 
-- **Route canonical:** `/dashboard/tenant/{slug}` dimana `slug = slugify(name)` lower, hyphen, `a-z0-9-`. Contoh `Cervise Pusat` → `cervise-pusat`.
+- **Route canonical:** `/dashboard/tenant/{slug}` dimana `slug = slugify(name)` lower, hyphen, `a-z0-9-`. Contoh `Kaggo Pusat` → `cervise-pusat`.
 - **No encrypt.** Lookup `organizations where slug = param and id IN (select organization_id from employees where profile_id=auth.uid() and is_active)`. Jika 0 → 404/redirect `/owner?error=unauthorized`.
 - **Masuk ke dashboard** link = URL yang sama (`/dashboard/tenant/cervise-pusat`) — dipakai owner & employee (shareable). Tidak perlu `id:slug` di URL, tapi tetap simpan `id` di cookie `cervise_org` setelah decrypt-lookup.
 - **Stability:** Slug **lock saat create**, rename tenant tidak ubah slug (atau simpan old_slugs untuk redirect 308). Unique per `created_by` + slug (suffix `-2` jika duplikat).
@@ -49,20 +49,20 @@ Employee (sudah di-invite via karyawan/actions) klik link yang dibagikan → mid
 ## UI
 
 - **Owner dashboard tenant list** (`/dashboard/tenant`): `Card` daftar tenant `name` + `paket` badge + `cabangCount` + `Trial Ends` → `Button Masuk ke dashboard` → `href="/dashboard/tenant/${org.slug}"` (shareable, mudah ingat).
-- **Tenant dashboard** (`/dashboard/tenant/[tenant]`): header `Tenant: Cervise Pusat · Paket Pro` + `BranchSwitcher` (Project) + `DashboardOverview` (servis/penjualan) + `Masuk ke dashboard` link yang sama dipakai employee (tidak perlu login ulang, sudah `employees` row).
+- **Tenant dashboard** (`/dashboard/tenant/[tenant]`): header `Tenant: Kaggo Pusat · Paket Pro` + `BranchSwitcher` (Project) + `DashboardOverview` (servis/penjualan) + `Masuk ke dashboard` link yang sama dipakai employee (tidak perlu login ulang, sudah `employees` row).
 - **Share:** owner copy URL `https://.../dashboard/tenant/cervise-pusat` → employee klik → jika belum login → `/login?next=...` → login → `getActiveTenant` → dashboard.
 
 ## Verification
 
 - Unauthenticated `Dashboard` → `/login`, login tanpa tenant → `/owner` (buat tenant).
-- Buat tenant `Cervise Pusat` + `Cervise Pusat` lagi → slug `cervise-pusat` & `cervise-pusat-2` (unique per user).
+- Buat tenant `Kaggo Pusat` + `Kaggo Pusat` lagi → slug `cervise-pusat` & `cervise-pusat-2` (unique per user).
 - Klik tenant → URL `cervise-pusat` → decrypt (lookup) → cookie `cervise_org` set → `AppShell` menampilkan cabang tenant itu.
 - Share `cervise-pusat` ke employee (sudah `employees` insert) → employee buka → langsung dashboard tanpa 404.
 - Rename tenant tidak ubah URL (slug lock) → old slug redirect 308 ke new slug (opsional future).
 
 ## Risks
 
-- Nama duplikat global (2 user buat `Cervise Pusat`) → tidak tabrakan karena unique per `created_by`, tapi slug `cervise-pusat` bisa sama antar user — lookup harus `where slug AND organization_id IN (employees orgs)` jadi aman.
+- Nama duplikat global (2 user buat `Kaggo Pusat`) → tidak tabrakan karena unique per `created_by`, tapi slug `cervise-pusat` bisa sama antar user — lookup harus `where slug AND organization_id IN (employees orgs)` jadi aman.
 - Slug collision race → handle `23505` → retry suffix `-2`.
 - Rename → bookmark lama 404 → mitigasi lock slug.
 

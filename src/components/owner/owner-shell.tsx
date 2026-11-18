@@ -53,7 +53,7 @@ function OwnerSidebarContent({ onNavigate }: { onNavigate?: () => void }) {
         <div className="flex items-center gap-2.5">
           <div className="flex size-8 items-center justify-center rounded-lg bg-foreground text-sm font-semibold text-background">C</div>
           <div className="min-w-0">
-            <div className="truncate text-sm font-semibold">Cervise</div>
+            <div className="truncate text-sm font-semibold">Kaggo</div>
             <div className="font-mono text-[9px] uppercase tracking-[0.22em] text-muted-foreground">Platform owner</div>
           </div>
         </div>
@@ -188,7 +188,7 @@ function OwnerShellInner({ children, email }: { children: React.ReactNode; email
               <OwnerAccountFooter email={email} />
             </SheetContent>
           </Sheet>
-          <div className="flex items-center gap-2 text-sm font-semibold"><span className="flex size-7 items-center justify-center rounded-md bg-primary text-primary-foreground">C</span>Cervise Owner</div>
+          <div className="flex items-center gap-2 text-sm font-semibold"><span className="flex size-7 items-center justify-center rounded-md bg-primary text-primary-foreground">C</span>Kaggo Owner</div>
           <div className="size-8" />
         </div>
 

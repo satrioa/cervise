@@ -46,7 +46,7 @@ describe("sound wiring", () => {
 
   it("Button menandai event-nya agar tidak dobel dengan SoundLayer", () => {
     expect(button).toContain("data-sfx-managed");
-    expect(button).toContain("__cerviseSfx");
+    expect(button).toContain("__kaggoSfx");
   });
 
   it("overlayer memakai playedRecently agar satu klik satu suara", () => {

@@ -57,27 +57,32 @@ Dibuat di Meta Business Manager, category **Utility**, bahasa **`id`**. Nama
 template disimpan di environment variable supaya perubahan nama tidak perlu
 mengubah kode.
 
+Variabel ditulis **bernama** (`{{store_name}}`), bukan posisional (`{{1}}`):
+form Meta menolak variabel angka, dan variabel juga tidak boleh berada di awal
+atau akhir body. Nama di template harus sama dengan `parameter_name` yang
+dikirim `service-message.ts`.
+
 ### Customer — nilai `META_WA_TEMPLATE_INVOICE`
 
 ```
-Invoice servis {{1}}
-No. Servis: {{2}}
-Perangkat: {{3}}
-Keluhan: {{4}}
-Estimasi biaya: {{5}}
-Garansi: {{6}}
-Cek status: {{7}}
+Invoice servis {{store_name}}
+No. Servis: {{service_number}}
+Perangkat: {{device}}
+Keluhan: {{complaint}}
+Estimasi biaya: {{estimate}}
+Garansi: {{warranty}}
+Cek status: {{tracking_url}}.
 ```
 
 | Variabel | Sumber |
 |---|---|
-| `{{1}}` | `organizations.name` |
-| `{{2}}` | `service_number` |
-| `{{3}}` | `device` |
-| `{{4}}` | `complaint` |
-| `{{5}}` | `price_estimasi` diformat Rupiah; fallback "Menunggu pemeriksaan" |
-| `{{6}}` | `garansi_value` + `garansi_unit`, mis. "3 bulan" |
-| `{{7}}` | URL lacak publik dari `publicLacakUrl()` |
+| `{{store_name}}` | `organizations.name` |
+| `{{service_number}}` | `service_number` |
+| `{{device}}` | `device` |
+| `{{complaint}}` | `complaint` |
+| `{{estimate}}` | `price_estimasi` diformat Rupiah; fallback "Menunggu pemeriksaan" |
+| `{{warranty}}` | `garansi_value` + `garansi_unit`, mis. "3 bulan" |
+| `{{tracking_url}}` | URL lacak publik dari `publicLacakUrl()` |
 
 `price` bernilai 0 saat servis dibuat, jadi yang ditampilkan adalah
 `price_estimasi`. Field kosong memakai fallback teks, bukan string kosong atau
@@ -86,20 +91,20 @@ Cek status: {{7}}
 ### Teknisi — nilai `META_WA_TEMPLATE_TECHNICIAN`
 
 ```
-Servis baru masuk - {{1}}
-No. Servis: {{2}}
-Perangkat: {{3}}
-Keluhan: {{4}}
-Buka: {{5}}
+Servis baru masuk - {{store_name}}
+No. Servis: {{service_number}}
+Perangkat: {{device}}
+Keluhan: {{complaint}}
+Buka: {{service_url}}.
 ```
 
 | Variabel | Sumber |
 |---|---|
-| `{{1}}` | `organizations.name` |
-| `{{2}}` | `service_number` |
-| `{{3}}` | `device` |
-| `{{4}}` | `complaint` |
-| `{{5}}` | URL internal `/app/servis/{id}` |
+| `{{store_name}}` | `organizations.name` |
+| `{{service_number}}` | `service_number` |
+| `{{device}}` | `device` |
+| `{{complaint}}` | `complaint` |
+| `{{service_url}}` | URL internal `/app/servis/{id}` |
 
 ### Customer status — nilai `META_WA_TEMPLATE_STATUS`
 
@@ -107,20 +112,22 @@ Event `servis_status` (`Selesai` / `Sudah Diambil`) tetap dikirim ke customer.
 Tanpa template ini dispatcher akan merendernya dengan template invoice.
 
 ```
-{{1}} - Status servis {{2}}
-Perangkat: {{3}}
-Status: {{4}}
-Kode cek: {{5}}
-Cek status: {{6}}
+Status servis {{service_number}}
+Toko: {{store_name}}
+Perangkat: {{device}}
+Status: {{status}}
+Kode cek: {{tracking_code}}
+Cek status: {{tracking_url}}.
 ```
 
-`{{1}}` nama toko · `{{2}}` `service_number` atau `device` · `{{3}}` device ·
-`{{4}}` status yang diantrekan (`to_status`) · `{{5}}` kode cek · `{{6}}` link lacak.
+`{{store_name}}` nama toko · `{{service_number}}` nomor servis (fallback nama perangkat) ·
+`{{device}}` device · `{{status}}` status yang diantrekan (`to_status`) ·
+`{{tracking_code}}` kode cek · `{{tracking_url}}` link lacak.
 
 Payload yang dikirim: `messaging_product: "whatsapp"`, `to`, `type: "template"`,
 `template: { name, language: { code: "id" }, components: [{ type: "body",
-parameters: [{ type: "text", value }] }] }`. Parameter dikirim **berurutan**
-tanpa `parameter_name`, supaya tidak ada dua sumber urutan yang bisa bertentangan.
+parameters: [{ type: "text", parameter_name, value }] }] }`. Urutan tidak lagi
+menentukan karena setiap parameter membawa `parameter_name`.
 
 ## 5. Environment
 

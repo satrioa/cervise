@@ -15,7 +15,7 @@
 - Pengirim Meta: `POST https://graph.facebook.com/v21.0/{phone_number_id}/messages`, `Authorization: Bearer <META_WA_ACCESS_TOKEN>`.
 - `META_WA_PHONE_NUMBER_ID = 1443653698834770` disimpan di env, **bukan** di kode.
 - Token `EAA…` tidak boleh muncul di file mana pun; hanya env var.
-- Template Meta category `Utility`, bahasa `id`, parameter **berurutan** tanpa `parameter_name`.
+- Template Meta category `Utility`, bahasa `id`, variabel **bernama** (`{{store_name}}`) dan payload memakai `parameter_name`; urutan tidak menentukan.
 - Nama template dibaca dari env: `META_WA_TEMPLATE_INVOICE`, `META_WA_TEMPLATE_STATUS`, `META_WA_TEMPLATE_TECHNICIAN`.
 - Env kosong ⇒ `skip: true`, baris outbox tetap `pending` dan dijadwalkan ulang (tidak boleh jadi terminal).
 - Error `scope: "message"` ⇒ terminal; `scope: "infrastructure"` ⇒ retry sesuai backoff dispatcher yang ada.
@@ -364,7 +364,7 @@ const base: ServiceMessageInput = {
   complaint: "Layar pecah, Baterai drop",
   trackingCode: "F5FB0DFCB6",
   status: "Masuk",
-  siteOrigin: "https://app.cervise.id",
+  siteOrigin: "https://app.kaggo.id",
   priceEstimasi: null,
   garansiValue: null,
   garansiUnit: null,
@@ -390,7 +390,7 @@ describe("parameter template invoice customer", () => {
       { type: "text", value: "Layar pecah, Baterai drop" },
       { type: "text", value: "Rp 150.000" },
       { type: "text", value: "3 bulan" },
-      { type: "text", value: "https://app.cervise.id/servisin/lacak/F5FB0DFCB6" },
+      { type: "text", value: "https://app.kaggo.id/servisin/lacak/F5FB0DFCB6" },
     ]);
   });
 
@@ -430,7 +430,7 @@ describe("parameter template status customer", () => {
       "Xiaomi Redmi 13C",
       "Sudah Diambil",
       "F5FB0DFCB6",
-      "https://app.cervise.id/servisin/lacak/F5FB0DFCB6",
+      "https://app.kaggo.id/servisin/lacak/F5FB0DFCB6",
     ]);
   });
 });
@@ -442,7 +442,7 @@ describe("parameter template teknisi", () => {
       { type: "text", value: "SRV-2026-0012" },
       { type: "text", value: "Xiaomi Redmi 13C" },
       { type: "text", value: "Layar pecah, Baterai drop" },
-      { type: "text", value: "https://app.cervise.id/app/servis/3f1c2b44-0000-4000-8000-000000000001" },
+      { type: "text", value: "https://app.kaggo.id/app/servis/3f1c2b44-0000-4000-8000-000000000001" },
     ]);
   });
 
@@ -707,7 +707,7 @@ const parameters = mocks.sendMetaWA.mock.calls[0][2] as { value: string }[];
 expect(parameters.map((p) => p.value)).toContain("Servis diterima");
 ```
 
-**Catatan penting:** teks lama "Servis diterima" tidak lagi dipakai template invoice. Test ini memakai servis tanpa organisasi, jadi nama tokonya kosong dan parameter pertama harus `"-"` — bukan nama karangan "Cervise". Ganti assertion itu menjadi:
+**Catatan penting:** teks lama "Servis diterima" tidak lagi dipakai template invoice. Test ini memakai servis tanpa organisasi, jadi nama tokonya kosong dan parameter pertama harus `"-"` — bukan nama karangan "Kaggo". Ganti assertion itu menjadi:
 
 ```ts
 expect(parameters[0].value).toBe("-");

@@ -43,9 +43,9 @@ describe("photo url migration", () => {
   // would become reachable straight from the browser, bypassing the ownership
   // checks in the server actions. This test is the guard for that.
   it("leaves no storage.objects policy for direct client writes", () => {
-    expect(sql).toContain('drop policy if exists "cervise photos insert" on storage.objects;');
-    expect(sql).toContain('drop policy if exists "cervise photos update" on storage.objects;');
-    expect(sql).toContain('drop policy if exists "cervise photos delete" on storage.objects;');
+    expect(sql).toContain('drop policy if exists "kaggo photos insert" on storage.objects;');
+    expect(sql).toContain('drop policy if exists "kaggo photos update" on storage.objects;');
+    expect(sql).toContain('drop policy if exists "kaggo photos delete" on storage.objects;');
 
     expect(sqlOnly).not.toMatch(/create policy[^;]*on storage\.objects/i);
   });

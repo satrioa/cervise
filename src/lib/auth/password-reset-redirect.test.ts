@@ -7,7 +7,7 @@ import { describe, expect, it } from "vitest";
  *
  * 1. karyawan/actions.ts mengirim redirectTo ke `${SUPABASE_URL}/auth/callback`
  *    - domain Supabase, bukan aplikasi. User klik link-nya dan mendarat di
- *    Supabase, tidak pernah sampai ke Cervise.
+ *    Supabase, tidak pernah sampai ke Kaggo.
  * 2. pengaturan/profil/actions.ts memakai `${NEXT_PUBLIC_SITE_URL ?? ""}/login`
  *    - env itu tidak pernah didefinisikan, jadi targetnya URL relatif
  *    "/login" yang ditolak Supabase.

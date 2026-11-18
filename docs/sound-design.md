@@ -1,6 +1,6 @@
-# Sound Design — Cervise UI
+# Sound Design — Kaggo UI
 
-Sistem suara UI untuk seluruh aplikasi Cervise (desktop + mobile). Sumber file:
+Sistem suara UI untuk seluruh aplikasi Kaggo (desktop + mobile). Sumber file:
 `docs/Music/*.wav` (di-replikasi ke `public/sounds/`). Seluruh pemutarannya
 diatur oleh satu modul: **`src/lib/sound.ts`**, dan komponen cukup memanggil
 API semantik `sfx.*`.
@@ -235,10 +235,10 @@ bukan Button, langsung panggil `playSound(name)` / `sfx.*`.
 - Kalau hening padahal ikon speaker aktif: pastikan build yang dijalankan
   memang memuat folder `public/sounds/` (cek `/sounds/notch.wav` → HTTP 200
   `audio/wav`) dan tab browser tidak di-mute.
-- Debug dari console browser (development): `__cerviseSfx.sfx.success()`,
-  `__cerviseSfx.sfx.tab()`, `__cerviseSfx.sfx.click()`,
-  `__cerviseSfx.isSoundEnabled()`, `__cerviseSfx.playedRecently("notch", 500)`,
-  `__cerviseSfx.playCue("notify")`, `__cerviseSfx.getSoundSnapshot()`.
+- Debug dari console browser (development): `__kaggoSfx.sfx.success()`,
+  `__kaggoSfx.sfx.tab()`, `__kaggoSfx.sfx.click()`,
+  `__kaggoSfx.isSoundEnabled()`, `__kaggoSfx.playedRecently("notch", 500)`,
+  `__kaggoSfx.playCue("notify")`, `__kaggoSfx.getSoundSnapshot()`.
 
 ---
 

@@ -71,7 +71,7 @@ export function TransaksiExportButton({ rows }: { rows: Tx[] }) {
         fileNamePrefix="transaksi"
         sheetName="Transaksi"
         rowUnit="transaksi"
-        pdfTitle="Transaksi Cervise"
+        pdfTitle="Transaksi Kaggo"
         pdfNote={branchNote}
       />
     </>

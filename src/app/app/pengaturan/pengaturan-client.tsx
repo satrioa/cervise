@@ -139,7 +139,7 @@ export default function GeneralPage() {
           <div className="space-y-3">
             <div className="space-y-1.5">
               <Label htmlFor="brand-name">Nama Brand</Label>
-              <Input id="brand-name" value={brandName} onChange={(e) => setBrandName(e.target.value)} placeholder="Cervise Pusat" />
+              <Input id="brand-name" value={brandName} onChange={(e) => setBrandName(e.target.value)} placeholder="Kaggo Pusat" />
             </div>
           </div>
           <div className="flex justify-end">

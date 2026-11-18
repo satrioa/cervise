@@ -102,7 +102,7 @@ export function Button({
       }
       // Tandai event asli supaya SoundLayer (delegasi global) tidak menambah
       // suara generik — termasuk untuk tombol yang sengaja hening.
-      (event.nativeEvent as MouseEvent & { __cerviseSfx?: boolean }).__cerviseSfx = true;
+      (event.nativeEvent as MouseEvent & { __kaggoSfx?: boolean }).__kaggoSfx = true;
     }
     userOnClick?.(event);
   };

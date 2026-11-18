@@ -134,7 +134,7 @@ export default function TransaksiPage({ initialQuery = "" }: { initialQuery?: st
       <PageHeader
         title="Transaksi"
         titleClassName="font-heading text-2xl"
-        description={`Cervise · ${branchMap.size || 1} cabang · ${filteredRaw.length} transaksi (limit 100, order kas_date)`}
+        description={`Kaggo · ${branchMap.size || 1} cabang · ${filteredRaw.length} transaksi (limit 100, order kas_date)`}
         actions={
           <>
             <Button size="sm" variant="ghost" onClick={fetchData}>

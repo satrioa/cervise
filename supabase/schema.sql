@@ -1,4 +1,4 @@
--- Cervise Supabase Schema - Multibranch RLS
+-- Kaggo Supabase Schema - Multibranch RLS
 -- Jalankan di Supabase SQL Editor atau via migration
 
 -- branches

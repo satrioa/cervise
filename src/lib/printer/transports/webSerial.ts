@@ -77,7 +77,7 @@ export function serialOpenError(cause: unknown): string {
   const detail = [error?.name, error?.message].filter(Boolean).join(": ");
   switch (error?.name) {
     case "InvalidStateError":
-      return "Port serial masih terbuka di tab/jendela lain. Tutup tab CERVISE yang lain, lalu klik Hubungkan Printer lagi.";
+      return "Port serial masih terbuka di tab/jendela lain. Tutup tab KAGGO yang lain, lalu klik Hubungkan Printer lagi.";
     case "NotFoundError":
       return "Port serial tidak ditemukan — kabel/printer terputus. Sambungkan ulang lalu coba lagi.";
     case "SecurityError":

@@ -589,7 +589,7 @@ export default function ServisPage() {
       return;
     }
     const tracking = publicTrackingUrl(printContext.tenantSlug, s.trackingCode);
-    const msg = `Halo, invoice servis *${servisLabel(s)}* Cervise\nDevice: ${s.device}\nNominal: ${formatCurrencyPlain(s.price)}\nStatus: ${s.status}\nTeknisi: ${s.teknisi}${tracking ? `\nLacak progres: ${tracking}` : ""}\nTerima kasih — Garansi 3 bulan`;
+    const msg = `Halo, invoice servis *${servisLabel(s)}* Kaggo\nDevice: ${s.device}\nNominal: ${formatCurrencyPlain(s.price)}\nStatus: ${s.status}\nTeknisi: ${s.teknisi}${tracking ? `\nLacak progres: ${tracking}` : ""}\nTerima kasih — Garansi 3 bulan`;
     window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`, "_blank");
   };
 
@@ -771,7 +771,7 @@ export default function ServisPage() {
       groups.get(phone)!.push(s);
     }
     for (const [phone, items] of groups) {
-      const msg = `Halo, invoice servis Cervise:\n` + items.map((s) => {
+      const msg = `Halo, invoice servis Kaggo:\n` + items.map((s) => {
         const tracking = publicTrackingUrl(printContext.tenantSlug, s.trackingCode);
         return `• ${servisLabel(s)} ${s.device} ${formatCurrencyPlain(s.price)} (${s.status})${tracking ? `\n  Lacak: ${tracking}` : ""}`;
       }).join("\n") + `\nTerima kasih — Garansi 3 bulan`;

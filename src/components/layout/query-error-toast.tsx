@@ -17,7 +17,7 @@ import { toast } from "sonner";
  */
 const MESSAGES: Record<string, string> = {
   "platform-admin-required":
-    "Halaman itu hanya untuk staff Cervise. Akun kamu tetap bisa dipakai seperti biasa di tenant kamu.",
+    "Halaman itu hanya untuk staff Kaggo. Akun kamu tetap bisa dipakai seperti biasa di tenant kamu.",
   "tenant-access-denied": "Akses ke tenant ini ditolak. Hubungi admin tenant kalau ini tidak sesuai.",
   "tenant-access-check-failed": "Gagal memverifikasi akses tenant. Muat ulang sekali lagi.",
   "subscription-blocked": "Langganan tenant ini sedang tidak aktif.",

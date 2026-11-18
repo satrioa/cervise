@@ -19,7 +19,7 @@ const base: ServiceMessageInput = {
   complaint: "Layar pecah, Baterai drop",
   trackingCode: "F5FB0DFCB6",
   status: "Masuk",
-  siteOrigin: "https://app.cervise.id",
+  siteOrigin: "https://app.kaggo.id",
   priceEstimasi: null,
   garansiValue: null,
   garansiUnit: null,
@@ -44,24 +44,24 @@ function expectCleanLines(message: string): void {
 
 describe("publicLacakUrl", () => {
   it("menyusun tautan halaman lacak tanpa garis miring ganda", () => {
-    expect(publicLacakUrl("https://app.cervise.id", "servisin", "F5FB0DFCB6")).toBe(
-      "https://app.cervise.id/servisin/lacak/F5FB0DFCB6",
+    expect(publicLacakUrl("https://app.kaggo.id", "servisin", "F5FB0DFCB6")).toBe(
+      "https://app.kaggo.id/servisin/lacak/F5FB0DFCB6",
     );
   });
 
   it("mengembalikan string kosong kalau ada bagian yang tidak ada", () => {
-    expect(publicLacakUrl("https://app.cervise.id", "servisin", null)).toBe("");
-    expect(publicLacakUrl("https://app.cervise.id", null, "F5FB0DFCB6")).toBe("");
+    expect(publicLacakUrl("https://app.kaggo.id", "servisin", null)).toBe("");
+    expect(publicLacakUrl("https://app.kaggo.id", null, "F5FB0DFCB6")).toBe("");
   });
 
   it("tetap benar kalau origin berakhir dengan garis miring", () => {
     // Tanpa kasus ini, penyusunan tautan polos dengan interpolasi string
     // lolos semua test sambil menghasilkan `//`.
-    expect(publicLacakUrl("https://app.cervise.id/", "servisin", "F5FB0DFCB6")).toBe(
-      "https://app.cervise.id/servisin/lacak/F5FB0DFCB6",
+    expect(publicLacakUrl("https://app.kaggo.id/", "servisin", "F5FB0DFCB6")).toBe(
+      "https://app.kaggo.id/servisin/lacak/F5FB0DFCB6",
     );
-    expect(publicLacakUrl("https://app.cervise.id///", "servisin", "F5FB0DFCB6")).toBe(
-      "https://app.cervise.id/servisin/lacak/F5FB0DFCB6",
+    expect(publicLacakUrl("https://app.kaggo.id///", "servisin", "F5FB0DFCB6")).toBe(
+      "https://app.kaggo.id/servisin/lacak/F5FB0DFCB6",
     );
   });
 
@@ -152,7 +152,7 @@ describe("pesan ke customer", () => {
     expect(message).toContain("SRV-2026-0012");
     expect(message).toContain("Xiaomi Redmi 13C");
     expect(message).toContain("F5FB0DFCB6");
-    expect(message).toContain("https://app.cervise.id/servisin/lacak/F5FB0DFCB6");
+    expect(message).toContain("https://app.kaggo.id/servisin/lacak/F5FB0DFCB6");
   });
 
   it("menyebutkan status baru saat status berubah", () => {
@@ -189,7 +189,7 @@ describe("pesan ke teknisi", () => {
     expect(message).toContain("Servisin");
     expect(message).toContain("SRV-2026-0012");
     expect(message).toContain("Layar pecah, Baterai drop");
-    expect(message).toContain("https://app.cervise.id/app/servis/3f1c2b44-0000-4000-8000-000000000001");
+    expect(message).toContain("https://app.kaggo.id/app/servis/3f1c2b44-0000-4000-8000-000000000001");
   });
 });
 
@@ -203,13 +203,17 @@ describe("parameter template invoice customer", () => {
         garansiUnit: "bulan",
       }),
     ).toEqual([
-      { type: "text", value: "Servisin" },
-      { type: "text", value: "SRV-2026-0012" },
-      { type: "text", value: "Xiaomi Redmi 13C" },
-      { type: "text", value: "Layar pecah, Baterai drop" },
-      { type: "text", value: "Rp 150.000" },
-      { type: "text", value: "3 bulan" },
-      { type: "text", value: "https://app.cervise.id/servisin/lacak/F5FB0DFCB6" },
+      { type: "text", parameter_name: "store_name", value: "Servisin" },
+      { type: "text", parameter_name: "service_number", value: "SRV-2026-0012" },
+      { type: "text", parameter_name: "device", value: "Xiaomi Redmi 13C" },
+      { type: "text", parameter_name: "complaint", value: "Layar pecah, Baterai drop" },
+      { type: "text", parameter_name: "estimate", value: "Rp 150.000" },
+      { type: "text", parameter_name: "warranty", value: "3 bulan" },
+      {
+        type: "text",
+        parameter_name: "tracking_url",
+        value: "https://app.kaggo.id/servisin/lacak/F5FB0DFCB6",
+      },
     ]);
   });
 
@@ -275,7 +279,7 @@ describe("parameter template status customer", () => {
       "Xiaomi Redmi 13C",
       "Sudah Diambil",
       "F5FB0DFCB6",
-      "https://app.cervise.id/servisin/lacak/F5FB0DFCB6",
+      "https://app.kaggo.id/servisin/lacak/F5FB0DFCB6",
     ]);
   });
 });
@@ -283,11 +287,15 @@ describe("parameter template status customer", () => {
 describe("parameter template teknisi", () => {
   it("mengisi lima parameter berurutan", () => {
     expect(buildTechnicianJobParameters(base)).toEqual([
-      { type: "text", value: "Servisin" },
-      { type: "text", value: "SRV-2026-0012" },
-      { type: "text", value: "Xiaomi Redmi 13C" },
-      { type: "text", value: "Layar pecah, Baterai drop" },
-      { type: "text", value: "https://app.cervise.id/app/servis/3f1c2b44-0000-4000-8000-000000000001" },
+      { type: "text", parameter_name: "store_name", value: "Servisin" },
+      { type: "text", parameter_name: "service_number", value: "SRV-2026-0012" },
+      { type: "text", parameter_name: "device", value: "Xiaomi Redmi 13C" },
+      { type: "text", parameter_name: "complaint", value: "Layar pecah, Baterai drop" },
+      {
+        type: "text",
+        parameter_name: "service_url",
+        value: "https://app.kaggo.id/app/servis/3f1c2b44-0000-4000-8000-000000000001",
+      },
     ]);
   });
 

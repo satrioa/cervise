@@ -30,7 +30,7 @@ describe("ESC/POS dasar", () => {
   });
 
   it("menulis panjang data QR di header perintah", () => {
-    const url = "https://app.cervise.id/toko/lacak/ABC123";
+    const url = "https://app.kaggo.id/toko/lacak/ABC123";
     const bytes = qr(url);
     // GS ( k pL pH 31 50 30 <data>
     const start = bytes.findIndex(

@@ -34,7 +34,7 @@ export default async function OwnerDashboard({ searchParams }: { searchParams?: 
         <div>
           <div className="font-mono text-[10px] uppercase tracking-[0.3em] text-muted-foreground">Platform control center</div>
           <h1 className="mt-1 font-heading text-3xl">Owner overview</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Kelola tenant Cervise, paket, renewal, dan akses staff dari satu tempat.</p>
+          <p className="mt-1 text-sm text-muted-foreground">Kelola tenant Kaggo, paket, renewal, dan akses staff dari satu tempat.</p>
         </div>
         <CreateTenantDialog />
       </div>

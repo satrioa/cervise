@@ -48,7 +48,7 @@ describe("LaptopMockupCard", () => {
 
   it("isi layar berasal dari children, bukan gambar tetap", () => {
     // Kalau layar digambar sebagai SVG, isinya tidak bisa diganti dari luar
-    // dan placeholder Cervise tidak bisa masuk.
+    // dan placeholder Kaggo tidak bisa masuk.
     expect(component).toMatch(/\{children\}/);
   });
 });

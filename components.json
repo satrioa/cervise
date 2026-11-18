@@ -35,6 +35,7 @@
     "@bklit": "https://ui.bklit.com/r/{name}.json",
     "@kokonutui": "https://kokonutui.com/r/{name}.json",
     "@paceui": "https://paceui.com/r/{name}.json",
+    "@solaceui": "https://solaceui.com/r/{name}.json",
     "@aceternity": "https://ui.aceternity.com/registry/{name}.json"
   }
 }

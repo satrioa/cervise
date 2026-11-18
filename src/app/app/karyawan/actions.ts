@@ -436,7 +436,7 @@ export async function resetKaryawanPassword(profileId: string) {
   const { error } = await supabase.auth.resetPasswordForEmail(email, {
     // Absolute URL ke route milik app ini. Versi lama menulis
     // `${NEXT_PUBLIC_SUPABASE_URL}/auth/callback`, yang mengarah ke domain
-    // Supabase, bukan ke Cervise - user klik link-nya dan mendarat di Supabase.
+    // Supabase, bukan ke Kaggo - user klik link-nya dan mendarat di Supabase.
     redirectTo: await passwordResetRedirectUrl(),
   });
 

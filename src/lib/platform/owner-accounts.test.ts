@@ -77,7 +77,7 @@ describe("buildOwnerAccountRows", () => {
           lastSignInAt: null,
         },
       ],
-      profiles: [{ id: "staff-1", fullName: "Staff Cervise", phone: null, active: true }],
+      profiles: [{ id: "staff-1", fullName: "Staff Kaggo", phone: null, active: true }],
       employees: [
         {
           id: "employee-1",
@@ -88,7 +88,7 @@ describe("buildOwnerAccountRows", () => {
           active: true,
         },
       ],
-      organizations: [{ id: "org-1", name: "Cervise Retail" }],
+      organizations: [{ id: "org-1", name: "Kaggo Retail" }],
       branches: [{ id: "branch-1", name: "Cabang Pusat" }],
       subscriptions: [
         {
@@ -101,8 +101,8 @@ describe("buildOwnerAccountRows", () => {
     });
 
     expect(rows[0]).toMatchObject({
-      fullName: "Staff Cervise",
-      tenantName: "Cervise Retail",
+      fullName: "Staff Kaggo",
+      tenantName: "Kaggo Retail",
       branchName: "Cabang Pusat",
       role: "ADMIN",
       packageName: "Pro",

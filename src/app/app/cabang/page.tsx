@@ -21,7 +21,7 @@ export default async function CabangPage() {
   const canManage = actor.role.toUpperCase() !== "ADMIN";
 
   // Tidak ada fallback demo. Dulu daftar kosong diganti dua cabang palsu
-  // ("Cervise Pusat", "Cervise Cabang 2") supaya halaman tidak terlihat
+  // ("Kaggo Pusat", "Kaggo Cabang 2") supaya halaman tidak terlihat
   // kosong, padahal data itu fiktif dan bisa disalin ke cabang sungguhan.
   // Daftar kosong yang jujur lebih berguna daripada isian palsu.
   const display = branches;

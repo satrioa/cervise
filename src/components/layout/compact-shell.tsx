@@ -30,7 +30,7 @@ import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
 
 /**
- * Shell kedua untuk Cervise, dipakai TECHNICIAN dan FRONTLINER.
+ * Shell kedua untuk Kaggo, dipakai TECHNICIAN dan FRONTLINER.
  *
  * Struktur provider-nya sama persis dengan `AppShell` — hanya isi yang
  * berbeda. Itu disengaja: `TenantProvider` dan `BranchProvider` sudah

@@ -1,4 +1,4 @@
--- Pendekatan berbasis role untuk Cervise.
+-- Pendekatan berbasis role untuk Kaggo.
 --
 -- Spec: docs/superpowers/specs/2026-09-28-role-scoped-access-admin-design.md
 --

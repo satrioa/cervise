@@ -11,14 +11,14 @@ web
 - **Frontliner** at the repair-shop counter: receives devices, opens service tickets, takes payments, runs the daily cash shift, and keeps customers informed. Works on a phone, often while standing at the counter.
 - **Teknisi** at the bench: sees assigned jobs, records diagnosis and spare parts used, and moves tickets through the repair stages.
 - **Admin / shop owner (master-admin)**: monitors revenue, per-branch performance, employees, inventory, and reports; can switch between branches.
-- **Cervise operator team**: runs the SaaS side — tenants, packages, subscriptions, and account provisioning.
+- **Kaggo operator team**: runs the SaaS side — tenants, packages, subscriptions, and account provisioning.
 - **End customers of the repair shop**: never log in; they open the public tracking page with a service code.
 
 All three shop roles (frontliner, technician, admin/owner) are equally daily users; no single role outranks the others in product decisions.
 
 ## Product Purpose
 
-Cervise is a multibranch service-management app for gadget repair shops. It replaces paper notebooks and spreadsheets with one operational record: service tickets and their lifecycle, customers, spare parts, sales, daily cash, reports, and automatic WhatsApp status updates. Success means a counter worker can run the whole day — intake, repair status, payment, shift close — without leaving the app, and the owner can see every branch from one place.
+Kaggo is a multibranch service-management app for gadget repair shops. It replaces paper notebooks and spreadsheets with one operational record: service tickets and their lifecycle, customers, spare parts, sales, daily cash, reports, and automatic WhatsApp status updates. Success means a counter worker can run the whole day — intake, repair status, payment, shift close — without leaving the app, and the owner can see every branch from one place.
 
 ## Positioning
 
@@ -46,7 +46,7 @@ Deep repair-shop operations, not generic retail POS: a seven-stage service lifec
 
 ## Brand Commitments
 
-- Name: **Cervise** — “Manajemen Servis Gadget Multibranch”.
+- Name: **Kaggo** — “Manajemen Servis Gadget Multibranch”.
 - Voice: plain, practical Indonesian for shop staff; short labels, no corporate jargon.
 - Promise: light on the phone, built for frontliners and technicians.
 

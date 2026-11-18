@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useTheme } from "next-themes";
 import CascadePageTransition from "@/components/ui/CascadePageTransition";
 
-const TENANT_REVEAL_KEY = "cervise:tenant-reveal";
+const TENANT_REVEAL_KEY = "kaggo:tenant-reveal";
 
 /**
  * Cascade setelah data berubah (mutasi, `router.refresh()`, reload daftar).
@@ -41,11 +41,11 @@ export function PageTransition() {
       setHold(true);
       setTrigger((value) => value + 1);
     };
-    window.addEventListener("cervise:transition", play);
-    window.addEventListener("cervise:transition-hold", playHold);
+    window.addEventListener("kaggo:transition", play);
+    window.addEventListener("kaggo:transition-hold", playHold);
     return () => {
-      window.removeEventListener("cervise:transition", play);
-      window.removeEventListener("cervise:transition-hold", playHold);
+      window.removeEventListener("kaggo:transition", play);
+      window.removeEventListener("kaggo:transition-hold", playHold);
     };
   }, []);
 
@@ -60,12 +60,12 @@ export function PageTransition() {
 /** Putar transisi penuh (IN lalu OUT) setelah data berubah. */
 export function playPageTransition() {
   if (typeof window === "undefined") return;
-  window.dispatchEvent(new Event("cervise:transition"));
+  window.dispatchEvent(new Event("kaggo:transition"));
 }
 
 /** Transisi IN dan tahan; OUT diputar saat halaman tujuan selesai render. */
 export function beginTenantTransition() {
   if (typeof window === "undefined") return;
   sessionStorage.setItem(TENANT_REVEAL_KEY, "1");
-  window.dispatchEvent(new Event("cervise:transition-hold"));
+  window.dispatchEvent(new Event("kaggo:transition-hold"));
 }

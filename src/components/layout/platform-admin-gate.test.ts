@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 /**
  * Tombol "Buat Tenant Baru" di tenant switcher dulu selalu dirender, untuk
  * semua user tenant. MASTER_ADMIN yang kebetulan pemilik tenant pun -
- * bukan staff Cervise - mengkliknya, lalu requirePlatformAdmin menghantarkan
+ * bukan staff Kaggo - mengkliknya, lalu requirePlatformAdmin menghantarkan
  * dia ke layar login, padahal session-nya masih hidup. Pengalaman itu dilaporkan
  * sebagai "kenapa perlu login", padahal masalahnya otorisasi.
  *

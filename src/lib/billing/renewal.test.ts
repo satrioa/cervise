@@ -231,7 +231,7 @@ describe("calculateApprovedSubscriptionPeriod", () => {
 describe("buildRenewalWhatsAppMessage", () => {
   it("contains the tenant, package, invoice, amount, and period", () => {
     const message = buildRenewalWhatsAppMessage({
-      tenantName: "Cervise Retail",
+      tenantName: "Kaggo Retail",
       tenantId: "11111111-1111-1111-1111-111111111111",
       packageName: "Pro",
       invoiceId: "INV-2026-001",
@@ -240,7 +240,7 @@ describe("buildRenewalWhatsAppMessage", () => {
       periodEnd: iso("2026-11-30T00:00:00.000Z"),
     });
 
-    expect(message).toContain("Cervise Retail");
+    expect(message).toContain("Kaggo Retail");
     expect(message).toContain("11111111-1111-1111-1111-111111111111");
     expect(message).toContain("Pro");
     expect(message).toContain("INV-2026-001");

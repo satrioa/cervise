@@ -1,6 +1,6 @@
 -- Foto akun (profiles.avatar_url) + logo tenant (organizations.logo_url).
 --
--- Bucket Cervise sengaja TIDAK diberi policy storage.objects untuk
+-- Bucket Kaggo sengaja TIDAK diberi policy storage.objects untuk
 -- authenticated/anon. Konsekuensinya:
 --   - browser tidak bisa menulis ke bucket ini secara langsung
 --   - seluruh upload/remove harus lewat server action yang memeriksa
@@ -37,7 +37,7 @@ set public = excluded.public,
 
 -- 3. Hapus policy storage.objects yang mungkin pernah dibuat untuk bucket ini.
 --    Efeknya: upload hanya boleh lewat server action, bukan dari browser.
-drop policy if exists "cervise photos select" on storage.objects;
-drop policy if exists "cervise photos insert" on storage.objects;
-drop policy if exists "cervise photos update" on storage.objects;
-drop policy if exists "cervise photos delete" on storage.objects;
+drop policy if exists "kaggo photos select" on storage.objects;
+drop policy if exists "kaggo photos insert" on storage.objects;
+drop policy if exists "kaggo photos update" on storage.objects;
+drop policy if exists "kaggo photos delete" on storage.objects;

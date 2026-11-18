@@ -2,7 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
 import { Search } from "lucide-react";
-import { CerviseCommandPalette } from "./command-palette";
+import { KaggoCommandPalette } from "./command-palette";
 import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
 
@@ -44,7 +44,7 @@ export function CommandPaletteProvider({
   return (
     <CommandPaletteContext.Provider value={{ openPalette }}>
       {children}
-      <CerviseCommandPalette open={open} onOpenChange={setOpen} role={role} permissions={permissions} />
+      <KaggoCommandPalette open={open} onOpenChange={setOpen} role={role} permissions={permissions} />
     </CommandPaletteContext.Provider>
   );
 }

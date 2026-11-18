@@ -98,7 +98,7 @@ export function KaryawanFormDialog({ open, onOpenChange, editing, onDone }: { op
         </DialogHeader>
         <div className="grid gap-4 py-2">
           <div className="grid gap-1.5"><Label>Nama lengkap *</Label><Input value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="Budi Santoso" /></div>
-          <div className="grid gap-1.5"><Label>Email *</Label><Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="budi@cervise.id" /></div>
+          <div className="grid gap-1.5"><Label>Email *</Label><Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="budi@kaggo.id" /></div>
           <div className="grid gap-1.5"><Label>Telepon{role === "TECHNICIAN" ? " *" : ""}</Label><Input value={phone} onChange={(e) => setPhone(e.target.value)} inputMode="tel" autoComplete="tel" placeholder={role === "TECHNICIAN" ? "0812xxxx (wajib)" : "0812xxxx (opsional)"} /></div>
           <div className="grid grid-cols-2 gap-3">
             <div className="grid gap-1.5"><Label>Role</Label><Select items={ROLES} value={role} onValueChange={(v) => setRole(v ?? "TECHNICIAN")}><SelectTrigger><SelectValue /></SelectTrigger><SelectPopup>{ROLES.map((r) => <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>)}</SelectPopup></Select></div>

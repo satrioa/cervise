@@ -40,7 +40,7 @@ export default async function UpdatePasswordPage({
         <div className="space-y-1 text-center">
           <h1 className="font-heading text-2xl font-semibold">Password baru</h1>
           <p className="text-sm text-muted-foreground">
-            Masukkan password baru untuk akun Cervise Anda.
+            Masukkan password baru untuk akun Kaggo Anda.
           </p>
         </div>
         <UpdatePasswordForm exchangeFailed={exchangeFailed} />

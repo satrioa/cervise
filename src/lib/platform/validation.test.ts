@@ -9,14 +9,14 @@ describe("parseCreateTenantInput", () => {
   it("normalizes a valid tenant and Indonesian phone number", () => {
     expect(
       parseCreateTenantInput({
-        name: "  Cervise Retail  ",
+        name: "  Kaggo Retail  ",
         slug: "",
         ownerEmail: "owner@example.com",
         ownerPhone: "+62 812-3456-7890",
       }),
     ).toEqual({
-      name: "Cervise Retail",
-      slug: "cervise-retail",
+      name: "Kaggo Retail",
+      slug: "kaggo-retail",
       ownerEmail: "owner@example.com",
       ownerPhone: "6281234567890",
     });

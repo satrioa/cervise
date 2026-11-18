@@ -6,7 +6,7 @@ import { playSound, sfx, type SoundName } from "@/lib/sound";
 /**
  * SoundLayer — lapisan suara untuk interaksi yang TIDAK punya primitif sendiri.
  *
- * Kenapa perlu: sebagian besar UI Cervise memakai primitif (Button, Tabs,
+ * Kenapa perlu: sebagian besar UI Kaggo memakai primitif (Button, Tabs,
  * Dialog, Menu, Select…), tetapi masih banyak elemen interaktif "telanjang":
  * tautan sidebar, item menu, opsi autocomplete, tombol ikon mentah, dsb.
  * Daripada menempelkan `onClick` di ratusan call site, satu listener global
@@ -14,7 +14,7 @@ import { playSound, sfx, type SoundName } from "@/lib/sound";
  * sesuai.
  *
  * Aturan:
- * - Satu klik = satu suara. Button menandai event-nya (`__cerviseSfx`) supaya
+ * - Satu klik = satu suara. Button menandai event-nya (`__kaggoSfx`) supaya
  *   lapisan ini tidak menambah suara kedua.
  * - Elemen dengan `data-sfx="<nama>"` memutar sound tersebut (escape hatch
  *   manual), `data-sfx-silent` mematikan suara untuk subtree-nya.
@@ -40,7 +40,7 @@ const INTERACTIVE_SELECTOR = [
 const SELECTION_ROLES =
   '[role="menuitem"],[role="menuitemcheckbox"],[role="menuitemradio"],[role="option"],[role="radio"]';
 
-type SfxEvent = MouseEvent & { __cerviseSfx?: boolean };
+type SfxEvent = MouseEvent & { __kaggoSfx?: boolean };
 
 function isDisabled(el: Element): boolean {
   if (el.hasAttribute("disabled")) return true;
@@ -75,7 +75,7 @@ export function SoundLayer() {
       if (event.button !== 0) return;
       if (event.defaultPrevented) return;
       // Sudah bersuara dari primitif (Button).
-      if (event.__cerviseSfx) return;
+      if (event.__kaggoSfx) return;
       // Jangan bersuara saat pengguna sedang menyeleksi teks.
       const selection = window.getSelection();
       if (selection && selection.toString().length > 0) return;
@@ -83,7 +83,7 @@ export function SoundLayer() {
       const target = event.target;
       if (!(target instanceof Element)) return;
       if (target.closest("[data-sfx-silent]")) return;
-      // Tombol primitif Cervise (Button) mengurus suaranya sendiri — jangan
+      // Tombol primitif Kaggo (Button) mengurus suaranya sendiri — jangan
       // ditambah suara generik.
       if (target.closest("[data-sfx-managed]")) return;
 

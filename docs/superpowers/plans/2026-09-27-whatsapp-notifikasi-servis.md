@@ -1224,29 +1224,29 @@ const base: ServiceMessageInput = {
   complaint: "Layar pecah, Baterai drop",
   trackingCode: "F5FB0DFCB6",
   status: "Masuk",
-  siteOrigin: "https://app.cervise.id",
+  siteOrigin: "https://app.kaggo.id",
 };
 
 describe("publicLacakUrl", () => {
   it("menyusun tautan halaman lacak tanpa garis miring ganda", () => {
-    expect(publicLacakUrl("https://app.cervise.id", "servisin", "F5FB0DFCB6")).toBe(
-      "https://app.cervise.id/servisin/lacak/F5FB0DFCB6",
+    expect(publicLacakUrl("https://app.kaggo.id", "servisin", "F5FB0DFCB6")).toBe(
+      "https://app.kaggo.id/servisin/lacak/F5FB0DFCB6",
     );
   });
 
   it("mengembalikan string kosong kalau ada bagian yang tidak ada", () => {
-    expect(publicLacakUrl("https://app.cervise.id", "servisin", null)).toBe("");
-    expect(publicLacakUrl("https://app.cervise.id", null, "F5FB0DFCB6")).toBe("");
+    expect(publicLacakUrl("https://app.kaggo.id", "servisin", null)).toBe("");
+    expect(publicLacakUrl("https://app.kaggo.id", null, "F5FB0DFCB6")).toBe("");
   });
 
   it("tetap benar kalau origin berakhir dengan garis miring", () => {
     // Tanpa kasus ini, penyusunan tautan polos dengan interpolasi string
     // lolos semua test sambil menghasilkan `//`.
-    expect(publicLacakUrl("https://app.cervise.id/", "servisin", "F5FB0DFCB6")).toBe(
-      "https://app.cervise.id/servisin/lacak/F5FB0DFCB6",
+    expect(publicLacakUrl("https://app.kaggo.id/", "servisin", "F5FB0DFCB6")).toBe(
+      "https://app.kaggo.id/servisin/lacak/F5FB0DFCB6",
     );
-    expect(publicLacakUrl("https://app.cervise.id///", "servisin", "F5FB0DFCB6")).toBe(
-      "https://app.cervise.id/servisin/lacak/F5FB0DFCB6",
+    expect(publicLacakUrl("https://app.kaggo.id///", "servisin", "F5FB0DFCB6")).toBe(
+      "https://app.kaggo.id/servisin/lacak/F5FB0DFCB6",
     );
   });
 
@@ -1314,7 +1314,7 @@ describe("pesan ke customer", () => {
     expect(message).toContain("SRV-2026-0012");
     expect(message).toContain("Xiaomi Redmi 13C");
     expect(message).toContain("F5FB0DFCB6");
-    expect(message).toContain("https://app.cervise.id/servisin/lacak/F5FB0DFCB6");
+    expect(message).toContain("https://app.kaggo.id/servisin/lacak/F5FB0DFCB6");
   });
 
   it("menyebutkan status baru saat status berubah", () => {
@@ -1348,7 +1348,7 @@ describe("pesan ke teknisi", () => {
     expect(message).toContain("Servisin");
     expect(message).toContain("SRV-2026-0012");
     expect(message).toContain("Layar pecah, Baterai drop");
-    expect(message).toContain("https://app.cervise.id/app/servis/3f1c2b44-0000-4000-8000-000000000001");
+    expect(message).toContain("https://app.kaggo.id/app/servis/3f1c2b44-0000-4000-8000-000000000001");
   });
 });
 ```
@@ -2059,7 +2059,7 @@ describe("dispatchPendingNotifications", () => {
     state.servis = [SERVIS];
     state.customers = [{ id: "c1", phone: "081234567890" }];
 
-    const result = await dispatchPendingNotifications({ siteOrigin: "https://app.cervise.id" });
+    const result = await dispatchPendingNotifications({ siteOrigin: "https://app.kaggo.id" });
 
     expect(result.sent).toBe(1);
     expect(mocks.sendFonnteWA).toHaveBeenCalledWith(
@@ -2077,7 +2077,7 @@ expect(state.patches[0].patch).toHaveProperty("provider_message_id");
     state.servis = [{ ...SERVIS, status: "Selesai" }];
     state.customers = [{ id: "c1", phone: "628123456789" }];
 
-    const result = await dispatchPendingNotifications({ siteOrigin: "https://app.cervise.id" });
+    const result = await dispatchPendingNotifications({ siteOrigin: "https://app.kaggo.id" });
 
     expect(result.sent).toBe(1);
     expect(mocks.sendFonnteWA).toHaveBeenCalledWith(
@@ -2092,7 +2092,7 @@ expect(state.patches[0].patch).toHaveProperty("provider_message_id");
     state.servis = [SERVIS];
     state.customers = [{ id: "c1", phone: "0812" }];
 
-    const result = await dispatchPendingNotifications({ siteOrigin: "https://app.cervise.id" });
+    const result = await dispatchPendingNotifications({ siteOrigin: "https://app.kaggo.id" });
 
     expect(result.skipped).toBe(1);
     expect(mocks.sendFonnteWA).not.toHaveBeenCalled();
@@ -2104,7 +2104,7 @@ expect(state.patches[0].patch).toHaveProperty("provider_message_id");
     state.servis = [SERVIS];
     state.customers = [];
 
-    const result = await dispatchPendingNotifications({ siteOrigin: "https://app.cervise.id" });
+    const result = await dispatchPendingNotifications({ siteOrigin: "https://app.kaggo.id" });
 
     expect(result.skipped).toBe(1);
     expect(state.patches[0].patch).toMatchObject({
@@ -2117,7 +2117,7 @@ expect(state.patches[0].patch).toHaveProperty("provider_message_id");
     state.claimed = [row()];
     state.servis = [];
 
-    const result = await dispatchPendingNotifications({ siteOrigin: "https://app.cervise.id" });
+    const result = await dispatchPendingNotifications({ siteOrigin: "https://app.kaggo.id" });
 
     expect(result.skipped).toBe(1);
     expect(state.patches[0].patch).toMatchObject({
@@ -2133,7 +2133,7 @@ expect(state.patches[0].patch).toHaveProperty("provider_message_id");
       { id: "p1", phone: "628999999999", employees: [{ organization_id: "o1", is_active: true }] },
     ];
 
-    const result = await dispatchPendingNotifications({ siteOrigin: "https://app.cervise.id" });
+    const result = await dispatchPendingNotifications({ siteOrigin: "https://app.kaggo.id" });
 
     expect(result.sent).toBe(1);
     expect(mocks.sendFonnteWA).toHaveBeenCalledWith(
@@ -2150,7 +2150,7 @@ expect(state.patches[0].patch).toHaveProperty("provider_message_id");
       { id: "p1", phone: "628999999999", employees: [{ organization_id: "o1", is_active: false }] },
     ];
 
-    const result = await dispatchPendingNotifications({ siteOrigin: "https://app.cervise.id" });
+    const result = await dispatchPendingNotifications({ siteOrigin: "https://app.kaggo.id" });
 
     expect(result.skipped).toBe(1);
     expect(mocks.sendFonnteWA).not.toHaveBeenCalled();
@@ -2165,7 +2165,7 @@ expect(state.patches[0].patch).toHaveProperty("provider_message_id");
     state.servis = [{ ...SERVIS, teknisi_id: "p1" }];
     state.profiles = [{ id: "p1", phone: "628999999999", employees: [] }];
 
-    const result = await dispatchPendingNotifications({ siteOrigin: "https://app.cervise.id" });
+    const result = await dispatchPendingNotifications({ siteOrigin: "https://app.kaggo.id" });
 
     expect(result.skipped).toBe(1);
     expect(state.patches[0].patch).toMatchObject({
@@ -2183,7 +2183,7 @@ expect(state.patches[0].patch).toHaveProperty("provider_message_id");
     );
 
     const now = new Date("2026-09-27T10:00:00.000Z");
-    const result = await dispatchPendingNotifications({ siteOrigin: "https://app.cervise.id", now });
+    const result = await dispatchPendingNotifications({ siteOrigin: "https://app.kaggo.id", now });
 
     expect(result.failed).toBe(1);
     const patch = state.patches[0].patch;
@@ -2203,7 +2203,7 @@ expect(state.patches[0].patch).toHaveProperty("provider_message_id");
       new FakeFonnteError("HTTP 401", "infrastructure"),
     );
 
-    const result = await dispatchPendingNotifications({ siteOrigin: "https://app.cervise.id" });
+    const result = await dispatchPendingNotifications({ siteOrigin: "https://app.kaggo.id" });
 
     expect(result.failed).toBe(1);
     expect(state.patches[0].patch.state).toBe("pending");
@@ -2218,7 +2218,7 @@ expect(state.patches[0].patch).toHaveProperty("provider_message_id");
       new FakeFonnteError("insufficient quota", "infrastructure"),
     );
 
-    const result = await dispatchPendingNotifications({ siteOrigin: "https://app.cervise.id" });
+    const result = await dispatchPendingNotifications({ siteOrigin: "https://app.kaggo.id" });
 
     expect(result.failed).toBe(1);
     expect(state.patches[0].patch).toMatchObject({ state: "failed" });
@@ -2232,7 +2232,7 @@ expect(state.patches[0].patch).toHaveProperty("provider_message_id");
       new FakeFonnteError("invalid target", "message"),
     );
 
-    const result = await dispatchPendingNotifications({ siteOrigin: "https://app.cervise.id" });
+    const result = await dispatchPendingNotifications({ siteOrigin: "https://app.kaggo.id" });
 
     expect(result.failed).toBe(1);
     expect(state.patches[0].patch).toMatchObject({
@@ -2247,7 +2247,7 @@ expect(state.patches[0].patch).toHaveProperty("provider_message_id");
     state.customers = [{ id: "c1", phone: "628123456789" }];
     mocks.sendFonnteWA.mockResolvedValue({ skip: true });
 
-    const result = await dispatchPendingNotifications({ siteOrigin: "https://app.cervise.id" });
+    const result = await dispatchPendingNotifications({ siteOrigin: "https://app.kaggo.id" });
 
     expect(result.skipped).toBe(1);
     expect(state.patches[0].patch).toMatchObject({
@@ -2353,7 +2353,7 @@ function resolveRow(
 
   const org = servis.branches?.organizations ?? null;
   const input: ServiceMessageInput = {
-    storeName: org?.name ?? "Cervise",
+    storeName: org?.name ?? "Kaggo",
     tenantSlug: org?.slug ?? null,
     serviceId: servis.id,
     serviceNumber: servis.service_number,
@@ -2600,7 +2600,7 @@ import { GET } from "./route";
 const SECRET = "test-cron-secret";
 
 function request(token?: string) {
-  return new Request("https://app.cervise.id/api/cron/service-notifications", {
+  return new Request("https://app.kaggo.id/api/cron/service-notifications", {
     headers: token ? { authorization: `Bearer ${token}` } : {},
   });
 }

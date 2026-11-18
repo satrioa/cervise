@@ -24,7 +24,7 @@ type TenantContextValue = {
    *
    * Dipakai untuk menyembunyikan entry point ke /owner. Sebelumnya tombol
    * "Buat Tenant Baru" dirender untuk semua user tenant, jadi MASTER_ADMIN
-   * biasa (= owner tenant, bukan staff Cervise) mengkliknya lalu dihantarkan
+   * biasa (= owner tenant, bukan staff Kaggo) mengkliknya lalu dihantarkan
    * ke layar login oleh requirePlatformAdmin - padahal dia sedang login.
    *
    * False sampai query selesai, supaya tombol tidak berkedip muncul untuk

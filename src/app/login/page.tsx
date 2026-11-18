@@ -29,7 +29,7 @@ export default function LoginPage() {
             <BrandMark />
             {/* Subtitle dihapus, jadi wrapper flex-col yang tadinya
                 membungkus judul + subtitle sudah tidak ada gunanya. */}
-            <h1 className="font-heading text-2xl tracking-tight">Masuk ke Cervise</h1>
+            <h1 className="font-heading text-2xl tracking-tight">Masuk ke Kaggo</h1>
           </CardHeader>
           {notice ? (
             <p
@@ -133,8 +133,8 @@ function BrandMark() {
   return (
     <span className="flex size-10 items-center justify-center rounded-lg bg-white shadow-sm dark:bg-white/10">
       <AppImage
-        src="/Logo/IconLogo.png"
-        alt="Cervise"
+        src="/Logo/IconLogo.png?v=2"
+        alt="Kaggo"
         width={40}
         height={40}
         crisp
@@ -182,7 +182,7 @@ function SignInForm() {
     <form onSubmit={onSubmit} className="flex flex-col gap-4">
       <Field>
         <FieldLabel htmlFor="centered-email">Email</FieldLabel>
-        <Input id="centered-email" type="email" required placeholder="master@cervise.id" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} nativeInput />
+        <Input id="centered-email" type="email" required placeholder="master@kaggo.id" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} nativeInput />
       </Field>
       <Field>
         <FieldLabel htmlFor="centered-password">Password</FieldLabel>

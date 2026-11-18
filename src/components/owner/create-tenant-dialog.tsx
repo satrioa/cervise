@@ -79,7 +79,7 @@ export function CreateTenantDialog() {
             <div className="space-y-4 px-6 py-4">
               <div className="space-y-1.5">
                 <Label htmlFor="tenant-name">Nama Tenant *</Label>
-                <Input id="tenant-name" value={name} onChange={(event) => setName(event.target.value)} placeholder="Cervise Toko Baru" maxLength={120} />
+                <Input id="tenant-name" value={name} onChange={(event) => setName(event.target.value)} placeholder="Kaggo Toko Baru" maxLength={120} />
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="owner-email">Email Owner *</Label>

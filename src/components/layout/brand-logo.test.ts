@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 
 const read = (relative: string) => readFileSync(join(process.cwd(), relative), "utf8");
 
-describe("logo Cervise", () => {
+describe("logo Kaggo", () => {
   it("dipakai pada brand mark login, signup, navbar landing, dan footer menu compact", () => {
     for (const file of [
       "src/app/login/page.tsx",
@@ -12,7 +12,8 @@ describe("logo Cervise", () => {
       "src/components/originkit/hero-02.tsx",
       "src/components/layout/compact-menu-sheet.tsx",
     ]) {
-      expect(read(file)).toContain('src="/Logo/IconLogo.png"');
+      // Query `?v=2` membuka cache next/image setelah file logo diganti.
+      expect(read(file)).toContain('src="/Logo/IconLogo.png?v=2"');
     }
   });
 

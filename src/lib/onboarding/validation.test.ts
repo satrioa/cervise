@@ -11,7 +11,7 @@ import {
 
 describe("validateTenantName", () => {
   it("accepts an ordinary business name", () => {
-    expect(validateTenantName("Cervise RBM")).toBeNull();
+    expect(validateTenantName("Kaggo RBM")).toBeNull();
   });
 
   it("accepts a name that slugs to exactly the minimum length", () => {
@@ -41,7 +41,7 @@ describe("validateTenantName", () => {
   });
 
   it("ignores surrounding whitespace when measuring", () => {
-    expect(validateTenantName("   Cervise RBM   ")).toBeNull();
+    expect(validateTenantName("   Kaggo RBM   ")).toBeNull();
   });
 
   it("rejects a single repeated character only when the slug is too short", () => {
@@ -58,7 +58,7 @@ describe("validateRequiredTenantName", () => {
 
   it("delegates to the non-required rules once something is typed", () => {
     expect(validateRequiredTenantName("!")).toMatch(/slug/i);
-    expect(validateRequiredTenantName("Cervise")).toBeNull();
+    expect(validateRequiredTenantName("Kaggo")).toBeNull();
   });
 });
 
@@ -66,7 +66,7 @@ describe("isTenantNameSubmittable", () => {
   it("gates the step button on the same rule the server enforces", () => {
     expect(isTenantNameSubmittable("")).toBe(false);
     expect(isTenantNameSubmittable("AB")).toBe(false);
-    expect(isTenantNameSubmittable("Cervise RBM")).toBe(true);
+    expect(isTenantNameSubmittable("Kaggo RBM")).toBe(true);
   });
 });
 

@@ -9,7 +9,7 @@ import {
 import { cn } from "@/lib/utils";
 
 /**
- * Satu pintu untuk efek ASCII di Cervise.
+ * Satu pintu untuk efek ASCII di Kaggo.
  *
  * Preset dikunci di sini supaya seluruh app memakai bahasa visual yang sama:
  * - `AsciiSkeleton` → varian **Dither** (blok `░▒▓█`, shimmer).

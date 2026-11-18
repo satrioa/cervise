@@ -1,6 +1,6 @@
 "use client";
 
-import { CerviseAuditLogTable } from "@/components/table-audit-log";
+import { KaggoAuditLogTable } from "@/components/table-audit-log";
 import { useBranch } from "@/lib/branch-context";
 import { PageHeader } from "@/components/layout/page-header";
 
@@ -22,7 +22,7 @@ export default function AuditLogPage() {
       />
 
       <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-6 lg:py-8">
-        <CerviseAuditLogTable cabangFilter={branch.label} />
+        <KaggoAuditLogTable cabangFilter={branch.label} />
       </div>
     </div>
   );

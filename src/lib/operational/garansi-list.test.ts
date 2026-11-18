@@ -113,7 +113,7 @@ describe("formatServisInvoiceNo", () => {
 
 describe("mapGaransiListRows", () => {
   const customers = [{ id: "cust-1", name: "Citra", phone: "0812" }];
-  const branches = [{ id: "branch-1", name: "Cervise Pusat" }];
+  const branches = [{ id: "branch-1", name: "Kaggo Pusat" }];
 
   it("joins customer and branch and derives the expiry", () => {
     const rows = mapGaransiListRows({ services: [service()], customers, branches });
@@ -122,7 +122,7 @@ describe("mapGaransiListRows", () => {
     expect(rows[0]).toMatchObject({
       device: "iPhone 13",
       customer: { name: "Citra", phone: "0812" },
-      cabang: "Cervise Pusat",
+      cabang: "Kaggo Pusat",
       garansiValue: 30,
       garansiUnit: "hari",
     });

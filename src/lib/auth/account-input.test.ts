@@ -46,7 +46,7 @@ describe("validateMasterAdminInput", () => {
   });
 
   it("rejects malformed emails", () => {
-    for (const email of ["bukan-email", "a@b", "a b@c.com", "@cervise.id", "a@.id", ""]) {
+    for (const email of ["bukan-email", "a@b", "a b@c.com", "@kaggo.id", "a@.id", ""]) {
       const result = validateMasterAdminInput({ ...valid, email });
       expect(result.ok).toBe(false);
     }

@@ -108,7 +108,7 @@ function TenantSwitcher({ canSwitchTenant: canSwitchTenantValue }: { canSwitchTe
       onValueChange={setActiveOrg}
       // Hanya staff platform yang boleh membuat tenant dari sini. Tombol ini
       // dulu selalu dirender, jadi MASTER_ADMIN biasa (pemilik tenant, bukan
-      // staff Cervise) mengkliknya dan dihantarkan ke layar login - padahal
+      // staff Kaggo) mengkliknya dan dihantarkan ke layar login - padahal
       // session-nya masih hidup. onManage opsional di MultipleAccounts, jadi
       // tidak meneruskannya sudah cukup untuk menyembunyikan tombol.
       {...(isPlatformAdmin
@@ -375,7 +375,7 @@ function bottomTabKey(key: string): string {
       return key;
   }
 }
-function CerviseBottomNav({ pathname, role, permissions }: { pathname: string; role: string; permissions?: readonly string[] | null }) {
+function KaggoBottomNav({ pathname, role, permissions }: { pathname: string; role: string; permissions?: readonly string[] | null }) {
   const [sheetOpen, setSheetOpen] = useState(false);
   const t = useTranslations("nav");
   const tabs = bottomTabsForRole(role);
@@ -536,7 +536,7 @@ function AppShellInner({ children, actor }: { children: React.ReactNode; actor: 
             </SheetTrigger>
             <SheetContent side="left" className="w-[280px] p-0 flex flex-col">
               <SheetHeader className="sr-only">
-                <SheetTitle>Menu Cervise</SheetTitle>
+                <SheetTitle>Menu Kaggo</SheetTitle>
               </SheetHeader>
               <SidebarContent
                 role={actor.role}
@@ -549,7 +549,7 @@ function AppShellInner({ children, actor }: { children: React.ReactNode; actor: 
           </Sheet>
           <div className="flex items-center gap-2 font-semibold text-sm">
             <span className="flex size-7 items-center justify-center rounded-md bg-primary text-primary-foreground">C</span>
-            Cervise
+            Kaggo
           </div>
         </div>
 
@@ -575,7 +575,7 @@ function AppShellInner({ children, actor }: { children: React.ReactNode; actor: 
           />
         </div>
 
-        <CerviseBottomNav pathname={pathname} role={actor.role} permissions={actor.permissions} />
+        <KaggoBottomNav pathname={pathname} role={actor.role} permissions={actor.permissions} />
       </div>
     </div>
   );

@@ -61,14 +61,14 @@ export function CreateCabangDialog({ open, onOpenChange, onCreated }: { open: bo
           <div className="space-y-5 px-5 py-5">
             <div>
               <label className="mb-1.5 block font-mono text-[10px] text-muted-foreground uppercase tracking-[0.25em]">Nama cabang</label>
-              <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Cervise Cabang 3" maxLength={50} />
+              <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Kaggo Cabang 3" maxLength={50} />
               <div className="mt-1.5 text-muted-foreground text-xs">{name.length} / 50</div>
             </div>
 
             <div>
               <label className="mb-1.5 block font-mono text-[10px] text-muted-foreground uppercase tracking-[0.25em]">Slug URL</label>
               <div className="flex h-10 items-center rounded-md border bg-background pl-3 transition-colors focus-within:border-foreground/40">
-                <span className="text-muted-foreground text-sm">cervise/</span>
+                <span className="text-muted-foreground text-sm">kaggo/</span>
                 <code className="flex-1 bg-transparent font-mono text-foreground text-sm outline-none truncate">{slug || "nama-cabang"}</code>
                 <span className="mr-3 inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2 py-0.5 font-mono text-[10px] text-emerald-700 dark:text-emerald-400">
                   <span className="size-1 rounded-full bg-emerald-500" /> tersedia

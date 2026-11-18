@@ -51,7 +51,7 @@ const ROLE_LABEL: Record<string, string> = {
   TEKNISI: "Teknisi",
 };
 
-export function CerviseAuditLogTable({ cabangFilter }: { cabangFilter?: string } = {}) {
+export function KaggoAuditLogTable({ cabangFilter }: { cabangFilter?: string } = {}) {
   const router = useRouter();
 
   const [rows, setRows] = useState<AuditRow[]>([]);

@@ -185,7 +185,7 @@ export async function printTest(): Promise<PrintResult> {
   await ensureConnected(transport);
   const bytes = renderLines(
     [
-      centerLine("CERVISE", 16),
+      centerLine("KAGGO", 16),
       line(),
       centerLine("Printer siap dipakai"),
       centerLine(new Date().toLocaleString("id-ID")),

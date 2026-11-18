@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { CerviseAnalyticsSection } from "@/components/dashboards-analytics";
+import { KaggoAnalyticsSection } from "@/components/dashboards-analytics";
 import { getDashboardData, type DashboardData } from "@/app/app/actions";
 import type { DashboardPeriod } from "@/lib/operational/dashboard";
 import { PageHeader } from "@/components/layout/page-header";
@@ -18,7 +18,7 @@ const PERIOD_LABEL: Record<DashboardPeriod, string> = {
 /**
  * Route analitik servis.
  *
- * `CerviseAnalyticsSection` sudah komponen terpisah dengan props lengkap, jadi
+ * `KaggoAnalyticsSection` sudah komponen terpisah dengan props lengkap, jadi
  * halaman ini tidak menyalin apa pun — dia hanya memanggil `getDashboardData()`
  * yang sama dengan dashboard utama dan meneruskannya. Dashboard `MASTER_ADMIN`
  * dan `ADMIN` tetap menampilkan section-nya di `/app` seperti sebelumnya.
@@ -90,7 +90,7 @@ export default function AnalitikServisPage() {
         <p className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 pt-6 text-sm text-destructive">{error}</p>
       ) : null}
 
-      <CerviseAnalyticsSection
+      <KaggoAnalyticsSection
         period={period}
         buckets={data?.summary.buckets ?? []}
         technicians={data?.technicians ?? []}

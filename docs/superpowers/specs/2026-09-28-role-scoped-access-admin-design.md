@@ -12,7 +12,7 @@ mengubah shell TEKNICIAN/FRONTLINER maupun menambah tabel apa pun.
 
 ## 1. Konteks dan tujuan
 
-Aplikasi Cervise punya empat role dalam `employees.role` (constraint di
+Aplikasi Kaggo punya empat role dalam `employees.role` (constraint di
 `20260925090000_cervise_owner_platform_additive.sql:102`):
 
 ```

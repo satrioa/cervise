@@ -4,7 +4,7 @@ Tanggal: 2026-09-28
 Status: disetujui untuk diimplementasikan
 Bergantung pada: `2026-09-28-role-scoped-access-admin-design.md` (Spec 1)
 
-Spec ini membangun shell kedua untuk aplikasi Cervise: shell `compact` yang
+Spec ini membangun shell kedua untuk aplikasi Kaggo: shell `compact` yang
 khusus untuk `TEKNICIAN` (dan dipakai `FRONTLINER` juga di Spec 3). Dashboard
 dan sidebar untuk `MASTER_ADMIN`, `ADMIN`, dan `FRONTLINER` **tidak** berubah.
 
@@ -21,7 +21,7 @@ Tujuan spec ini, tiga hal:
    ukuran icon lebih besar, nama tenant dengan baris informasi cabang
    underneath, tanpa branch switcher.
 2. **Dashboard TEKNICIAN** — adaptasi dari blok `dashboards/home.json`, dengan
-   konten Cervise: To-Do personal, antrean servis yang butuh perhatian, dan KPI
+   konten Kaggo: To-Do personal, antrean servis yang butuh perhatian, dan KPI
    target.
 3. **To-Do personal** — disimpan per akun teknisi, tidak terlihat oleh akun lain.
 
@@ -36,7 +36,7 @@ dengan konten berbeda), dan perubahan dashboard `ADMIN`/`MASTER_ADMIN`.
 | Sumber komponen | Adaptasi `layouts/app-shell.json` dari devl.sh | Design yang diminta; diadaptasi ke `@/components/ui/*` |
 | Ikon sidebar | `size-[18px]`, item `px-3 py-2.5` | Diminta lebih besar dari `size-4` + `px-2.5 py-1.5` yang dipakai shell lama |
 | Orientasi | Vertikal: icon di atas label | Diminta |
-| Mobile | Tetap pola `h-svh` + `CerviseBottomNav` | Shell lama sudah punya bottom-nav 72px + FAB; pola `grid-cols-[256px_1fr]` dari devl tidak cocok untuk mobile Cervise |
+| Mobile | Tetap pola `h-svh` + `KaggoBottomNav` | Shell lama sudah punya bottom-nav 72px + FAB; pola `grid-cols-[256px_1fr]` dari devl tidak cocok untuk mobile Kaggo |
 | To-Do | Milik teknisi sendiri | Diminta "data disimpan tiap akun teknisi" |
 | KPI Target | Pakai `branches.intensif_target_count` yang sudah ada | Kolom sudah ada + sudah dipakai `src/lib/operational/performa-teknisi.ts`; tidak perlu kolom baru |
 | To-Do FRONTLINER | Tidak ada | Today Schedule-nya diganti antrean servis (Spec 3) |
@@ -88,9 +88,9 @@ LocaleProvider
 
 ```
 <h-svh flex lg:grid lg:grid-cols-[256px_1fr]>
-  header  h-14        (lg:hidden)  ← logo Cervise + notifikasi + avatar
+  header  h-14        (lg:hidden)  ← logo Kaggo + notifikasi + avatar
   CompactSidebar       (lg:flex)   ← 256px
-  <main>  scroll        + <CerviseBottomNav>  (lg:hidden)
+  <main>  scroll        + <KaggoBottomNav>  (lg:hidden)
 ```
 
 Header desktop mengikuti referensi: search `⌘K` di tengah (memakai
@@ -104,7 +104,7 @@ trial subscription, dan teknisi tidak punya aksi terhadapnya.
 
 ```
 ┌─ header ─────────────────┐
-│  Cervise                 │   ← logo mark (bg gradient) + wordmark
+│  Kaggo                 │   ← logo mark (bg gradient) + wordmark
 │  {tenant.name}           │   ← nama tenant
 │  {branch.name}           │   ← baris informasi cabang  ← TAMBAHAN
 ├─ navigasi ───────────────┤
@@ -143,7 +143,7 @@ Perubahan dari shell lama, sesuai permintaan:
    </Link>
    ```
 5. **Tanpa pengelompokan PROJECTS/TEAMS.** Group referensi dari devl
-   (`PROJECTS`, `TEAMS` dengan titik warna dan angka) tidak relevan di Cervise.
+   (`PROJECTS`, `TEAMS` dengan titik warna dan angka) tidak relevan di Kaggo.
    Hanya dua group: `Operasi` dan `Laporan`.
 
 `activeItem` pakai `usePathname()` langsung, bukan state, supaya active-state
@@ -227,7 +227,7 @@ Daftar tugas, `{ id, title, dueAt, doneAt }`.
 - Baris selesai ditampilkan dengan `line-through text-muted-foreground`, tetap
   terlihat (bukan hilang) supaya teknisi bisa membatalkan centang.
 - Badge kanan: `Hari ini` / `Besok` / tanggal. Kolom badge project dari referensi
-  **dihapus** — To-Do personal Cervise tidak punya konsep project, dan tabel
+  **dihapus** — To-Do personal Kaggo tidak punya konsep project, dan tabel
   `cervise_staff_todos` tidak punya kolom untuk itu. Kolom kedua di baris menjadi
   lebar tetap untuk tanggal.
 
@@ -353,9 +353,9 @@ dipakai action lain di repo (bukan `throw`).
 
 ## 7. Analitik Servis sebagai route
 
-`CerviseAnalyticsSection` sudah diekspor dari
+`KaggoAnalyticsSection` sudah diekspor dari
 `src/components/dashboards-analytics.tsx:47` (dengan
-`CerviseAnalyticsSectionProps` di line 38) dan di-render di
+`KaggoAnalyticsSectionProps` di line 38) dan di-render di
 `src/app/app/page.tsx:13,138`. Section itu tidak pernah menjadi route sendiri,
 padahal sidebar sudah punya `/app/laporan/servis` yang berbeda isi.
 
@@ -363,11 +363,11 @@ Spec ini **membuat route baru** tanpa memindahkan komponen:
 
 - `src/app/app/analitik-servis/page.tsx` (server) → `getDashboardData()` dari
   `src/app/app/actions.ts` (sudah ada, sudah dipakai `src/app/app/page.tsx:19`),
-  lalu merender `<CerviseAnalyticsSection>`
+  lalu merender `<KaggoAnalyticsSection>`
 - `src/app/app/page.tsx` **tidak berubah** — dashboard `MASTER_ADMIN`/`ADMIN`
   tetap menampilkan section-nya di tempat yang sama
 
-Alasan tidak memindahkan: `CerviseAnalyticsSection` sudah berupa komponen
+Alasan tidak memindahkan: `KaggoAnalyticsSection` sudah berupa komponen
 terpisah yang menerima props. Menjalinya dari `dashboards-analytics.tsx` hanya
 mengubah lokasi file tanpa mengubah apa pun yang terlihat, sementara Spec 1
 sudah menyatakan dashboard `ADMIN` tidak boleh berubah.

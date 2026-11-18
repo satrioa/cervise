@@ -35,7 +35,7 @@ function row(overrides: Partial<AuditRow> = {}): AuditRow {
     actorName: "Rina",
     actorRole: "FRONTLINER",
     resource: "iPhone 13 Pro",
-    branchName: "Cervise Pusat",
+    branchName: "Kaggo Pusat",
     ...overrides,
   };
 }
@@ -61,7 +61,7 @@ describe("auditActionLabel", () => {
 
 describe("mapAuditRows", () => {
   const actors = [{ id: "user-1", full_name: "Rina", role: "FRONTLINER" }];
-  const branches = [{ id: "branch-1", name: "Cervise Pusat" }];
+  const branches = [{ id: "branch-1", name: "Kaggo Pusat" }];
 
   it("joins the actor and branch onto each log", () => {
     const result = mapAuditRows({ logs: [log()], actors, branches });
@@ -69,7 +69,7 @@ describe("mapAuditRows", () => {
     expect(result[0]).toMatchObject({
       actorName: "Rina",
       actorRole: "FRONTLINER",
-      branchName: "Cervise Pusat",
+      branchName: "Kaggo Pusat",
       actionLabel: "Servis dibuat",
       resource: "iPhone 13 Pro",
     });

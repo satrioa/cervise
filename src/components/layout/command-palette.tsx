@@ -92,7 +92,7 @@ const SHORTCUTS: [string, string][] = [
  * produk, dan customer dimuat sekali saat palet pertama dibuka lalu disaring
  * di klien — satu round-trip per sesi, bukan satu query per ketikan.
  */
-export function CerviseCommandPalette({ open, onOpenChange, role, permissions }: Props) {
+export function KaggoCommandPalette({ open, onOpenChange, role, permissions }: Props) {
   const router = useRouter();
   const { branch, branches, setBranch } = useBranch();
   const { setTheme } = useTheme();

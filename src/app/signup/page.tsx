@@ -77,10 +77,10 @@ export default function SignupPage() {
           <CardHeader className="items-center text-center">
             <div className="mb-3 flex justify-center">
               <span className="flex size-10 items-center justify-center rounded-lg bg-white shadow-sm dark:bg-white/10">
-                <AppImage src="/Logo/IconLogo.png" alt="Cervise" width={32} height={32} crisp priority className="size-8 object-contain" />
+                <AppImage src="/Logo/IconLogo.png?v=2" alt="Kaggo" width={32} height={32} crisp priority className="size-8 object-contain" />
               </span>
             </div>
-            <CardTitle className="font-heading text-2xl tracking-tight">Buat akun Cervise</CardTitle>
+            <CardTitle className="font-heading text-2xl tracking-tight">Buat akun Kaggo</CardTitle>
             <CardDescription>Coba gratis 14 hari</CardDescription>
           </CardHeader>
           <CardPanel className="flex flex-col gap-5">
@@ -96,7 +96,7 @@ export default function SignupPage() {
               </Field>
               <Field>
                 <FieldLabel htmlFor="signup-email">Email</FieldLabel>
-                <Input id="signup-email" type="email" required placeholder="budi@cervise.id" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} nativeInput />
+                <Input id="signup-email" type="email" required placeholder="budi@kaggo.id" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} nativeInput />
               </Field>
               <Field>
                 <FieldLabel htmlFor="signup-password">Password</FieldLabel>

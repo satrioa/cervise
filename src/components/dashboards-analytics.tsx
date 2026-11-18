@@ -65,7 +65,7 @@ function formatRpShort(value: number): string {
   return `${sign}Rp${Math.round(abs)}`;
 }
 
-export type CerviseAnalyticsSectionProps = {
+export type KaggoAnalyticsSectionProps = {
   period: DashboardPeriod;
   buckets: DashboardBucket[];
   technicians: DashboardTechnician[];
@@ -77,7 +77,7 @@ export type CerviseAnalyticsSectionProps = {
   loading?: boolean;
 };
 
-export function CerviseAnalyticsSection({
+export function KaggoAnalyticsSection({
   period,
   buckets,
   technicians,
@@ -87,7 +87,7 @@ export function CerviseAnalyticsSection({
   branchTrend,
   technicianRace,
   loading = false,
-}: CerviseAnalyticsSectionProps) {
+}: KaggoAnalyticsSectionProps) {
   const title =
     period === "hari ini"
       ? "Hari ini"
@@ -137,7 +137,7 @@ function AnalyticsContent({
   branchTrend,
   technicianRace,
   loading,
-}: CerviseAnalyticsSectionProps) {
+}: KaggoAnalyticsSectionProps) {
   const data = buckets.map((bucket) => ({
     day: bucket.key,
     masuk: bucket.masuk,

@@ -40,7 +40,7 @@ export function CompactBottomBar({
   const tenant =
     tenants.find((item) => item.id === activeOrgId) ??
     (tenants.length === 1 ? tenants[0] : null);
-  const tenantName = tenant?.name ?? "Cervise";
+  const tenantName = tenant?.name ?? "Kaggo";
   const branchLabel = branch?.label ?? null;
   const normalized = normalizeAppRole(role);
   // Label dari map bersama, bukan rantai `if` lokal: role yang belum punya

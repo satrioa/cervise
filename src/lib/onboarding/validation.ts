@@ -37,7 +37,7 @@ export function validateTenantName(raw: string): string | null {
 
   const slug = slugify(name);
   if (!SLUG_PATTERN.test(slug) || slug.length < TENANT_SLUG_MIN) {
-    return `Nama tenant harus menghasilkan slug minimal ${TENANT_SLUG_MIN} karakter. Pakai huruf dan angka, misalnya "Cervise RBM".`;
+    return `Nama tenant harus menghasilkan slug minimal ${TENANT_SLUG_MIN} karakter. Pakai huruf dan angka, misalnya "Kaggo RBM".`;
   }
   return null;
 }

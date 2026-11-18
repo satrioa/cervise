@@ -169,7 +169,7 @@ describe("nota servis 58mm", () => {
     expect(text).toContain("Sisa");
   });
 
-  it("menyertakan QR tracking hanya kalau URL tersedia", () => {    const withQr = Array.from(buildServiceEscpos(service, { trackingUrl: "https://app.cervise.id/servisin/lacak/ABC123" }));
+  it("menyertakan QR tracking hanya kalau URL tersedia", () => {    const withQr = Array.from(buildServiceEscpos(service, { trackingUrl: "https://app.kaggo.id/servisin/lacak/ABC123" }));
     const withoutQr = Array.from(buildServiceEscpos(service));
 
     const hasQr = (bytes: number[]) =>

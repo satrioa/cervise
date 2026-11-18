@@ -25,7 +25,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ChartAxis, ChartContainer, ChartGrid, ChartTooltip, chartColor } from "@/components/chart";
 import { EvilComposedChart } from "@/components/evilcharts/charts/recharts-composed-chart";
 import type { ChartConfig } from "@/components/evilcharts/ui/recharts-chart";
-import { CerviseAnalyticsSection } from "@/components/dashboards-analytics";
+import { KaggoAnalyticsSection } from "@/components/dashboards-analytics";
 import { PageHeader } from "@/components/layout/page-header";
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
 import { Tooltip } from "@base-ui/react/tooltip";
@@ -171,7 +171,7 @@ export default function DashboardOwnerClient() {
         </div>
       </main>
 
-      <CerviseAnalyticsSection
+      <KaggoAnalyticsSection
         period={period}
         buckets={summary?.buckets ?? []}
         technicians={data?.technicians ?? []}

@@ -1,4 +1,4 @@
-# Deploy Cervise
+# Deploy Kaggo
 
 Ringkasan gate dan langkah publish. Jalankan berurutan; jangan lewati gate DB.
 
@@ -95,7 +95,7 @@ Workflow `.github/workflows/service-notifications-cron.yml` sudah **diaktifkan**
 jadwal `*/5 * * * *` via GitHub Actions (selain `workflow_dispatch` manual).
 
 - Secret yang dibutuhkan: `CRON_SECRET` (Settings → Secrets and variables → Actions).
-- URL endpoint masih hardcoded ke `https://cervise.vercel.app`; ganti kalau domain berubah.
+- URL endpoint masih hardcoded ke `https://kaggo.vercel.app`; ganti kalau domain berubah.
 - Nomor pengirim bisa diatur per tenant di `/owner/tenants/[id]` (field "Nomor pengirim WhatsApp").
   ID harus terdaftar di WABA yang sama dan divalidasi ke Graph API saat disimpan.
   Kosong = pakai `META_WA_PHONE_NUMBER_ID` global.

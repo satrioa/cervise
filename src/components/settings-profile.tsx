@@ -28,7 +28,7 @@ export type SettingsProfileInitial = {
   avatarUrl?: string | null;
 };
 
-export function SettingsProfileCervise({
+export function SettingsProfileKaggo({
   initial,
   onSave,
   onResetPassword,
@@ -100,7 +100,7 @@ export function SettingsProfileCervise({
       <PageHeader
         title="Profil Anda"
         titleClassName="font-heading text-2xl"
-        description="Kelola identitas akun Cervise. Perubahan cabang hanya untuk Master Admin."
+        description="Kelola identitas akun Kaggo. Perubahan cabang hanya untuk Master Admin."
         containerClassName="max-w-3xl"
       />
       <div className="mx-auto max-w-3xl px-8 py-8 pb-32">
@@ -223,8 +223,8 @@ function SecurityRow({ icon, title, description, cta, onAction }: { icon: React.
 // Keep showcase export for shadcn registry compatibility
 export function SettingsProfileShowcasePage() {
   return (
-    <SettingsProfileCervise
-      initial={{ fullName: "Master Admin", email: "admin@cervise.local", phone: "0812000000", branchId: null, role: "MASTER_ADMIN", cabangOptions: [{ id: "1", name: "Cervise Pusat" }], isMasterAdmin: true }}
+    <SettingsProfileKaggo
+      initial={{ fullName: "Master Admin", email: "admin@kaggo.local", phone: "0812000000", branchId: null, role: "MASTER_ADMIN", cabangOptions: [{ id: "1", name: "Kaggo Pusat" }], isMasterAdmin: true }}
       onSave={async () => {}}
       onResetPassword={async () => {}}
     />

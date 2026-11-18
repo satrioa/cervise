@@ -57,7 +57,7 @@ serial. Setelah port muncul di Device Manager:
 ### PC — Printer Bluetooth Classic → Web Serial
 
 Kalau printer sudah di-pair di Windows (Classic, SPP), ia membuat COM port
-(**More Bluetooth options → COM Ports**). Jalur cetaknya dari Cervise melalui
+(**More Bluetooth options → COM Ports**). Jalur cetaknya dari Kaggo melalui
 Web Serial: **Device Manager** → port COM printer → **Pilih baudRate**
 (**Standard Serial over Bluetooth link**). Web Serial bekerja di Chrome/Edge
 desktop dan tidak memerlukan driver printer.
@@ -69,7 +69,7 @@ Untuk printer Bluetooth Classic (SPP) di Android yang tidak mendukung BLE:
 1. Pasang aplikasi **RawBT** (atau serupa) dari Play Store.
 2. Pair printer di **Setelan → Bluetooth** Android.
 3. Di pengaturan RawBT, aktifkan **auto-print** dan **tanpa konfirmasi** (no-confirmation).
-4. Buka aplikasi di Chrome dan cetak; Cervise bergantung pada aplikasi pihak ketiga (RawBT) untuk meneruskan data SPP.
+4. Buka aplikasi di Chrome dan cetak; Kaggo bergantung pada aplikasi pihak ketiga (RawBT) untuk meneruskan data SPP.
 
 ### Android — Bluetooth
 

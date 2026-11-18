@@ -75,15 +75,15 @@ export function CompactMenuSheet({
 
       <footer className="shrink-0 px-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-4 text-center">
         <AppImage
-          src="/Logo/IconLogo.png"
-          alt="Cervise"
+          src="/Logo/IconLogo.png?v=2"
+          alt="Kaggo"
           width={36}
           height={36}
           crisp
           className="mx-auto size-9 object-contain"
         />
         <p className="mt-2 text-[11px] font-medium text-neutral-800 dark:text-neutral-200">
-          Cervise! All rights reserved.
+          Kaggo! All rights reserved.
         </p>
         <p className="mt-0.5 text-[10px] text-neutral-500 dark:text-neutral-400">
           V0.1.0 / Made by Sat.

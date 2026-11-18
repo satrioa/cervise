@@ -91,11 +91,11 @@ describe("navbar landing page: badge Multibranch", () => {
     expect(codeOnly(heroSource)).toMatch(/Multibranch\s*[^\w\s]?\s*PWA/);
   });
 
-  it("logo dan nama Cervise di navbar tidak ikut terhapus", () => {
+  it("logo dan nama Kaggo di navbar tidak ikut terhapus", () => {
     // Penjelasan soal kenapa badge dihapus ada di dalam <Link>, jadi mudah
     // dibaca sebagai "kok ada komentar aneh di sini" kalau suatu saat dihapus
     // lagi tanpa alasan.
     const nav = heroSource.match(/<nav\b[\s\S]*?<\/nav>/)?.[0] ?? "";
-    expect(nav).toContain("Cervise");
+    expect(nav).toContain("Kaggo");
   });
 });

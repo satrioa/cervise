@@ -7,7 +7,7 @@ Project ini di-deploy sebagai Worker via **Workers Builds** (Git integration), b
 - **Build command:** `npm run build`
 - **Deploy command:** `npm run deploy`
 - **Root directory:** kosong (root repo)
-- Worker name harus `cervise` (sama dengan `name` di `wrangler.jsonc`).
+- Worker name harus `cervise` (nama teknis di `wrangler.jsonc` sengaja tidak ikut direname).
 
 `npm run deploy` menjalankan `opennextjs-cloudflare build && opennextjs-cloudflare deploy`.
 Versi adapter di-pin ke `@opennextjs/cloudflare@1.20.7` karena mendukung Next.js 16.3.6.

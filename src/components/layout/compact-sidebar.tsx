@@ -150,7 +150,7 @@ export function CompactSidebar({
         <TenantLogo
           logoUrl={tenantLogo}
           name={tenantName}
-          title={[tenantName, branch.label].filter(Boolean).join(" · ") || "Cervise"}
+          title={[tenantName, branch.label].filter(Boolean).join(" · ") || "Kaggo"}
         />
       </div>
 

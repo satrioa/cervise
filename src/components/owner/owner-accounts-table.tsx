@@ -170,6 +170,6 @@ export function OwnerAccountsTable({ accounts }: { accounts: OwnerAccountRow[] }
         <Pagination page={safePage} pageCount={totalPages} onPageChange={setPage} />
       </div>
     ) : null}
-    <div className="text-xs text-muted-foreground">Menampilkan {filteredAccounts.length} dari {accounts.length} akun terdaftar Cervise.</div>
+    <div className="text-xs text-muted-foreground">Menampilkan {filteredAccounts.length} dari {accounts.length} akun terdaftar Kaggo.</div>
   </div>;
 }

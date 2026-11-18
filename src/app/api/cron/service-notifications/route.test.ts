@@ -27,9 +27,9 @@ const SECRET = "test-cron-secret";
  * pemanggil yang butuh.
  */
 function request(headers: Record<string, string> = {}) {
-  return new Request("https://app.cervise.id/api/cron/service-notifications", {
+  return new Request("https://app.kaggo.id/api/cron/service-notifications", {
     headers: {
-      host: "app.cervise.id",
+      host: "app.kaggo.id",
       "x-forwarded-proto": "https",
       ...headers,
     },
@@ -165,7 +165,7 @@ describe("GET /api/cron/service-notifications", () => {
     await GET(authorized());
 
     expect(mocks.dispatchPendingNotifications).toHaveBeenCalledWith(
-      expect.objectContaining({ siteOrigin: "https://app.cervise.id" }),
+      expect.objectContaining({ siteOrigin: "https://app.kaggo.id" }),
     );
   });
 
@@ -173,13 +173,13 @@ describe("GET /api/cron/service-notifications", () => {
     await GET(
       authorized({
         host: "internal.local",
-        "x-forwarded-host": "app.cervise.id",
+        "x-forwarded-host": "app.kaggo.id",
         "x-forwarded-proto": "https",
       }),
     );
 
     expect(mocks.dispatchPendingNotifications).toHaveBeenCalledWith(
-      expect.objectContaining({ siteOrigin: "https://app.cervise.id" }),
+      expect.objectContaining({ siteOrigin: "https://app.kaggo.id" }),
     );
   });
 
@@ -199,12 +199,12 @@ describe("GET /api/cron/service-notifications", () => {
   it("mendahulukan NEXT_PUBLIC_SITE_URL atas host deployment", async () => {
     // Tanpa ini, setiap preview deployment mengirim tautan ke domain preview-nya
     // sendiri, dan URL-nya mati begitu preview dihapus.
-    process.env.NEXT_PUBLIC_SITE_URL = "https://app.cervise.id/";
+    process.env.NEXT_PUBLIC_SITE_URL = "https://app.kaggo.id/";
 
     await GET(authorized({ host: "cervise-abc123.vercel.app" }));
 
     expect(mocks.dispatchPendingNotifications).toHaveBeenCalledWith(
-      expect.objectContaining({ siteOrigin: "https://app.cervise.id" }),
+      expect.objectContaining({ siteOrigin: "https://app.kaggo.id" }),
     );
   });
 

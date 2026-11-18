@@ -19,9 +19,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Cervise — Manajemen Servis Gadget Multibranch",
+  title: "Kaggo — Manajemen Servis Gadget Multibranch",
   description:
-    "Cervise: aplikasi manajemen servis gadget untuk Frontliner & Teknisi. Multibranch, ringan di HP, kelola servis, customer, keuangan & laporan. Garansi 3 bulan.",
+    "Kaggo: aplikasi manajemen servis gadget untuk Frontliner & Teknisi. Multibranch, ringan di HP, kelola servis, customer, keuangan & laporan. Garansi 3 bulan.",
   manifest: "/manifest.json",
   // Ikon tab browser memakai favicon.ico / icon.png (file-based metadata di folder ini).
   // Apple touch icon tetap memakai badgeicon untuk ikon home screen PWA.
