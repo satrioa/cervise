@@ -37,6 +37,7 @@
     "@paceui": "https://paceui.com/r/{name}.json",
     "@solaceui": "https://solaceui.com/r/{name}.json",
     "@aceternity": "https://ui.aceternity.com/registry/{name}.json",
-    "@componentry": "https://componentry.fun/r/{name}.json"
+    "@componentry": "https://componentry.fun/r/{name}.json",
+    "@skiper-ui": "https://skiper-ui.com/registry/{name}.json"
   }
 }
