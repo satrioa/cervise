@@ -139,7 +139,7 @@ const Navbar = ({ isLoggedIn, user, dashboardHref, morph = 0 }: { isLoggedIn?: b
   return (
   <nav
     aria-label="Primary"
-    className="relative z-30 h-[81px] lg:h-[85px] mx-auto flex w-full max-w-[calc(995px_-_var(--nav-morph,0)*395px)] items-center justify-between overflow-clip rounded-full border border-solid border-[#dee5ed] bg-white py-3.5 pr-3.5 pl-5 transition-[max-width] duration-150 ease-out lg:max-w-[calc(800px_-_var(--nav-morph,0)*280px)]"
+    className="relative z-30 mx-auto flex h-[46px] w-full max-w-[calc(995px_+_var(--nav-morph,0)*(95vw_-_995px))] items-center justify-between overflow-clip rounded-[11px] border border-solid border-[#dee5ed] bg-white p-[5px] transition-[max-width] duration-150 ease-out lg:max-w-[calc(800px_+_var(--nav-morph,0)*(95vw_-_800px))]"
     style={{ "--nav-morph": morph } as CSSProperties}
   >
     <Link
@@ -253,7 +253,7 @@ const Navbar = ({ isLoggedIn, user, dashboardHref, morph = 0 }: { isLoggedIn?: b
     <button
       type="button"
       aria-label="Open menu"
-      className="hidden h-[53px] w-[64px] shrink-0 touch-manipulation items-center justify-center overflow-clip rounded-full bg-[#2563eb] transition-[background-color,transform] duration-200 ease focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2563eb] motion-reduce:transition-none [@media(hover:hover)_and_(pointer:fine)]:hover:bg-[#1d4ed8] [@media(hover:hover)_and_(pointer:fine)]:hover:scale-[1.02]"
+      className="hidden h-9 w-11 shrink-0 touch-manipulation items-center justify-center overflow-clip rounded-[7px] bg-[#2563eb] transition-[background-color,transform] duration-200 ease focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2563eb] motion-reduce:transition-none [@media(hover:hover)_and_(pointer:fine)]:hover:bg-[#1d4ed8] [@media(hover:hover)_and_(pointer:fine)]:hover:scale-[1.02]"
     >
       <MenuIcon />
     </button>

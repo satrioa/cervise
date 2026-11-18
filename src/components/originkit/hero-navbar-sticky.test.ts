@@ -8,10 +8,19 @@ const source = readFileSync(
 );
 
 describe("navbar landing sticky + morph", () => {
-  it("navbar menempel di atas dan lebar menyusut sesuai morph", () => {
+  it("tinggi dan radius navbar mengikuti tombol login dengan gap 5px", () => {
+    expect(source).toMatch(/mx-auto flex h-\[46px\] w-full max-w-\[calc\(995px/);
+    expect(source).toMatch(/rounded-\[11px\] border border-solid border-\[#dee5ed\] bg-white p-\[5px\]/);
+    expect(source).toMatch(/hidden h-9 w-11 shrink-0 .* rounded-\[7px\] bg-\[#2563eb\]/);
+  });
+
+  it("navbar menempel di atas dan melebar sampai 95% viewport saat morph", () => {
     expect(source).toContain('className="sticky top-0 z-40 w-full"');
     expect(source).toContain("morph={morph}");
-    expect(source).toMatch(/max-w-\[calc\(995px_-_var\(--nav-morph,0\)\*395px\)\]/);
+    expect(source).toMatch(
+      /max-w-\[calc\(995px_\+_var\(--nav-morph,0\)\*\(95vw_-_995px\)\)\]/,
+    );
+    expect(source).toMatch(/lg:max-w-\[calc\(800px_\+_var\(--nav-morph,0\)\*\(95vw_-_800px\)\)\]/);
   });
 
   it("morph selesai saat badge menyentuh atas viewport", () => {

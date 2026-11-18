@@ -1135,3 +1135,39 @@ html[data-ui-world="toy"] [data-shell="compact"] .bg-card {
 html[data-ui-world="toy"] [data-shell="compact"] .bg-background {
   background-color: var(--toy-surface-2);
 }
+
+/* Dock mobile selalu terbalik dari tema halaman, termasuk di style world
+   scifi/toy yang punya warna sendiri. Letakkan di akhir supaya menang. */
+html:not(.dark) [data-compact-dock] > div {
+  background: #171717 !important;
+  border-color: rgba(255, 255, 255, 0.12) !important;
+  box-shadow: 0 16px 38px -24px rgba(0, 0, 0, 0.55) !important;
+}
+
+html.dark [data-compact-dock] > div {
+  background: #f5f5f5 !important;
+  border-color: rgba(0, 0, 0, 0.1) !important;
+  box-shadow: 0 16px 38px -24px rgba(0, 0, 0, 0.25) !important;
+}
+
+html:not(.dark) [data-compact-dock] a,
+html:not(.dark) [data-compact-dock] button {
+  color: #a3a3a3 !important;
+}
+
+html.dark [data-compact-dock] a,
+html.dark [data-compact-dock] button {
+  color: #525252 !important;
+}
+
+html:not(.dark) [data-compact-dock] [aria-current="page"],
+html:not(.dark) [data-compact-dock] button[aria-expanded="true"] {
+  color: #ffffff !important;
+  background: rgba(255, 255, 255, 0.12) !important;
+}
+
+html.dark [data-compact-dock] [aria-current="page"],
+html.dark [data-compact-dock] button[aria-expanded="true"] {
+  color: #111111 !important;
+  background: rgba(0, 0, 0, 0.08) !important;
+}
