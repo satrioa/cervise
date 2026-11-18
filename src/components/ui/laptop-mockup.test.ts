@@ -64,7 +64,7 @@ describe("pemasangan di hero", () => {
     // tidak yang diminta.
     expect(hero).toMatch(/rotate-\[-18\.77deg\]/);
     expect(hero).toMatch(/rotate-\[18\.77deg\]/);
-    const phoneCount = (hero.match(/<PhoneMockup/g) ?? []).length;
+    const phoneCount = (hero.match(/<PhoneMockup\s/g) ?? []).length;
     expect(phoneCount).toBe(2);
   });
 

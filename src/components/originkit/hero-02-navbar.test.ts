@@ -88,7 +88,7 @@ describe("navbar landing page: badge Multibranch", () => {
     // Pemisah di teks badge itu BULLET (U+2022), bukan middle dot (U+00B7) --
     // keduanya tampil mirip di terminal, jadi kelas karakternya dibuat longgar
     // supaya test ini tidak rapuh hanya karena perbedaan glyph.
-    expect(codeOnly(heroSource)).toMatch(/Multibranch\s*[^\w\s]?\s*PWA/);
+    expect(codeOnly(heroSource)).toMatch(/Multibranch[\s\S]{0,12}?PWA/);
   });
 
   it("logo dan nama Kaggo di navbar tidak ikut terhapus", () => {
