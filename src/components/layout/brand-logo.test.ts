@@ -22,6 +22,12 @@ describe("logo Cervise", () => {
     expect(read("public/manifest.json")).toContain('"/Logo/badgeicon.png"');
   });
 
+  it("favicon.ico berisi logo baru, bukan favicon default Next", () => {
+    const ico = readFileSync(join(process.cwd(), "src/app/favicon.ico"));
+    // ICO dengan payload PNG diawali header 22 byte lalu tanda tangan PNG.
+    expect(ico.slice(22, 26)).toEqual(Buffer.from([0x89, 0x50, 0x4e, 0x47]));
+  });
+
   it("dipakai juga sebagai ikon tab browser", () => {
     const layout = read("src/app/layout.tsx");
     expect(layout).toMatch(/icons:\s*\{/);
