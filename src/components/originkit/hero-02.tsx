@@ -3,6 +3,7 @@
 import "./hero-02.css";
 import Link from "next/link";
 import { AppImage } from "@/components/ui/app-image";
+import { AnnotatedText } from "@/components/ui/annotated-text";
 import { motion, useReducedMotion } from "motion/react";
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { Button } from "@/components/ui/button";
@@ -119,7 +120,7 @@ const MenuIcon = () => (
   </svg>
 );
 
-const Navbar = ({ isLoggedIn, user, dashboardHref }: { isLoggedIn?: boolean; user?: { name: string; email: string; avatarUrl?: string | null } | null; dashboardHref?: string }) => {
+const Navbar = ({ isLoggedIn, user, dashboardHref, morph = 0 }: { isLoggedIn?: boolean; user?: { name: string; email: string; avatarUrl?: string | null } | null; dashboardHref?: string; morph?: number }) => {
   const router = useRouter();
   const handleSignOut = async () => {
     const supabase = createClient();
@@ -138,7 +139,8 @@ const Navbar = ({ isLoggedIn, user, dashboardHref }: { isLoggedIn?: boolean; use
   return (
   <nav
     aria-label="Primary"
-    className="relative z-30 h-[81px] lg:h-[85px] mx-auto flex w-full max-w-[995px] items-center justify-between overflow-clip rounded-full border border-solid border-[#dee5ed] bg-white py-3.5 pr-3.5 pl-5 lg:max-w-[800px]"
+    className="relative z-30 h-[81px] lg:h-[85px] mx-auto flex w-full max-w-[calc(995px_-_var(--nav-morph,0)*395px)] items-center justify-between overflow-clip rounded-full border border-solid border-[#dee5ed] bg-white py-3.5 pr-3.5 pl-5 transition-[max-width] duration-150 ease-out lg:max-w-[calc(800px_-_var(--nav-morph,0)*280px)]"
+    style={{ "--nav-morph": morph } as CSSProperties}
   >
     <Link
       aria-label="Kaggo home"
@@ -814,15 +816,46 @@ const PhoneShowcase = () => {
 };
 
 const Section11 = ({ isLoggedIn, user, dashboardHref }: { isLoggedIn?: boolean; user?: { name: string; email: string; avatarUrl?: string | null } | null; dashboardHref?: string }) => {
+  const badgeRef = useRef<HTMLDivElement>(null);
+  const morphStartRef = useRef<number | null>(null);
+  const [morph, setMorph] = useState(0);
+
+  useEffect(() => {
+    const badge = badgeRef.current;
+    if (!badge) return;
+    let frame = 0;
+    const update = () => {
+      frame = 0;
+      const top = badge.getBoundingClientRect().top;
+      // Jarak awal diukur sekali saat halaman dibuka; morph selesai tepat saat
+      // badge menyentuh atas viewport (top = 0).
+      if (morphStartRef.current === null) morphStartRef.current = Math.max(1, top);
+      const start = morphStartRef.current;
+      setMorph(Math.min(1, Math.max(0, (start - top) / start)));
+    };
+    const onScroll = () => {
+      if (frame) return;
+      frame = requestAnimationFrame(update);
+    };
+    update();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onScroll);
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onScroll);
+      if (frame) cancelAnimationFrame(frame);
+    };
+  }, []);
+
   return (
     <section
       id="top"
       aria-label="Kaggo hero"
-      className="relative w-full h-full overflow-hidden bg-white text-[#0d0d0d]"
+      className="relative w-full h-full overflow-clip bg-white text-[#0d0d0d]"
     >
       <div className="relative mx-auto w-full">
         {}
-        <div className="relative overflow-hidden rounded-b-[clamp(1.5rem,4vw,3.125rem)] border-b border-solid border-[#dee5ed] bg-[#f8fafc] shadow-[0_0_0_6px_white,0_7px_6px_rgba(140,150,169,0.12),0_22px_30px_rgba(140,150,169,0.1)]">
+        <div className="relative overflow-clip rounded-b-[clamp(1.5rem,4vw,3.125rem)] border-b border-solid border-[#dee5ed] bg-[#f8fafc] shadow-[0_0_0_6px_white,0_7px_6px_rgba(140,150,169,0.12),0_22px_30px_rgba(140,150,169,0.1)]">
           {}
           <div
             aria-hidden="true"
@@ -849,8 +882,10 @@ const Section11 = ({ isLoggedIn, user, dashboardHref }: { isLoggedIn?: boolean; 
           />
 
           <div className="relative z-10 flex flex-col items-center px-4 pt-[30px] ipad:px-10">
-            <div className="w-full animate-page-reveal will-change-transform">
-              <Navbar isLoggedIn={isLoggedIn} user={user} dashboardHref={dashboardHref} />
+            <div className="sticky top-0 z-40 w-full">
+              <div className="w-full animate-page-reveal will-change-transform">
+                <Navbar isLoggedIn={isLoggedIn} user={user} dashboardHref={dashboardHref} morph={morph} />
+              </div>
             </div>
 
             {}
@@ -859,13 +894,17 @@ const Section11 = ({ isLoggedIn, user, dashboardHref }: { isLoggedIn?: boolean; 
               className="mt-[clamp(2.75rem,7vw,5.375rem)] flex w-full max-w-[1145px] scroll-mt-8 flex-col items-center gap-10"
             >
               <div className="flex w-full flex-col items-center gap-4">
-                <div className="animate-page-reveal will-change-transform [animation-delay:80ms]">
+                <div ref={badgeRef} className="animate-page-reveal will-change-transform [animation-delay:80ms]">
                   <AnnouncementBadge />
                 </div>
 
                 <div className="flex w-full animate-page-reveal flex-col items-center justify-center gap-5 px-0 text-center will-change-transform ipad:px-[clamp(1rem,6vw,6.25rem)] [animation-delay:140ms]">
                   <h1 className="font-urbanist text-wrap md:mx-auto md:max-w-[450px] lg:max-w-[750px] xl:max-w-[945px] text-[38px] lg:text-[58px] xl:text-[68px] font-bold leading-[46px] lg:leading-[120%] text-[#0d0d0d] text-center">
-                    Kelola toko servis gadget <span className="text-[#666]">multi-cabang</span> tanpa ribet.
+                    Kelola toko servis gadget{" "}
+                    <AnnotatedText variant="underline" color="text-[#2563eb]" className="text-[#666]">
+                      multi-cabang
+                    </AnnotatedText>{" "}
+                    tanpa ribet.
                   </h1>
                   <p className="max-w-md text-[18px] xl:text-[20px] lg:max-w-[550px] mx-auto font-medium leading-normal text-[#666] text-pretty">
                     Pantau semua aktivitas toko dalam genggaman secara realtime

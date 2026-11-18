@@ -1,9 +1,7 @@
 "use client";
 import type React from "react";
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState } from "react";
 import Image from "next/image";
-import { ChevronLeft, ChevronRight, Pause, Play } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
 
@@ -151,27 +149,12 @@ export const PhoneCarousel: React.FC<PhoneCarouselProps> = ({
     activeFeatureIndex = 0,
 }) => {
     const [isClient, setIsClient] = useState<boolean>(false);
-    const [currentIndex, setCurrentIndex] = useState<number>(0);
-    const [isPaused, setIsPaused] = useState<boolean>(false);
-    const [isHovering, setIsHovering] = useState<boolean>(false);
-    const carouselRef = useRef<HTMLDivElement>(null);
+    const currentIndex = 0;
     const isMobile = useIsMobile();
 
     useEffect(() => {
         setIsClient(true);
     }, []);
-
-    useEffect(() => {
-        if (featureMode) return;
-
-        let interval: NodeJS.Timeout;
-        if (!isPaused && !isHovering) {
-            interval = setInterval(() => {
-                setCurrentIndex((prevIndex) => (prevIndex + 1) % images.length);
-            }, 3000);
-        }
-        return () => clearInterval(interval);
-    }, [isPaused, isHovering, images.length, featureMode]);
 
     if (!isClient) {
         return (
@@ -206,14 +189,14 @@ export const PhoneCarousel: React.FC<PhoneCarouselProps> = ({
                     <div className="absolute top-0 left-1/2 transform -translate-x-1/2">
                         {/* 1) Back phone (prev) */}
                         <div
-                            className="absolute opacity-60"
+                            className="absolute opacity-100"
                             style={{
                                 transform: "translateY(-20px) scale(0.92)",
                                 zIndex: 10,
                             }}
                         >
                             <Iphone15Pro
-                                width={isMobile ? 280 : 350}
+                                width={isMobile ? 320 : 400}
                                 height="auto"
                                 src={prevImage.src}
                                 alt={prevImage.alt}
@@ -222,14 +205,14 @@ export const PhoneCarousel: React.FC<PhoneCarouselProps> = ({
 
                         {/* 2) Middle phone (next) */}
                         <div
-                            className="absolute opacity-80"
+                            className="absolute opacity-100"
                             style={{
                                 transform: "translateY(25px) scale(0.96)",
                                 zIndex: 20,
                             }}
                         >
                             <Iphone15Pro
-                                width={isMobile ? 280 : 350}
+                                width={isMobile ? 320 : 400}
                                 height="auto"
                                 src={nextImage.src}
                                 alt={nextImage.alt}
@@ -245,7 +228,7 @@ export const PhoneCarousel: React.FC<PhoneCarouselProps> = ({
                             }}
                         >
                             <Iphone15Pro
-                                width={isMobile ? 280 : 350}
+                                width={isMobile ? 320 : 400}
                                 height="auto"
                                 src={activeImage.src}
                                 alt={activeImage.alt}
@@ -258,20 +241,6 @@ export const PhoneCarousel: React.FC<PhoneCarouselProps> = ({
     }
 
     // NORMAL MODE
-    const handlePrevious = () => {
-        setCurrentIndex((prevIndex) =>
-            prevIndex === 0 ? images.length - 1 : prevIndex - 1
-        );
-    };
-
-    const handleNext = () => {
-        setCurrentIndex((prevIndex) => (prevIndex + 1) % images.length);
-    };
-
-    const togglePause = () => {
-        setIsPaused((prev) => !prev);
-    };
-
     return (
         <section
             className="relative w-full py-6 md:py-10 overflow-hidden"
@@ -280,12 +249,7 @@ export const PhoneCarousel: React.FC<PhoneCarouselProps> = ({
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div className="relative">
                     {/* Main carousel container */}
-                    <div
-                        ref={carouselRef}
-                        className="flex justify-center items-start h-[410px] md:h-[510px] lg:h-[520px]"
-                        onMouseEnter={() => setIsHovering(true)}
-                        onMouseLeave={() => setIsHovering(false)}
-                    >
+                    <div className="flex justify-center items-start h-[470px] md:h-[560px] lg:h-[590px]">
                         <div className="relative flex justify-center w-full">
                             {images.map((image, index) => {
                                 const isActive = index === currentIndex;
@@ -300,30 +264,34 @@ export const PhoneCarousel: React.FC<PhoneCarouselProps> = ({
                                     <div
                                         key={index}
                                         className={cn(
-                                            "absolute transition-all duration-700 ease-in-out transform",
-                                            isActive ? "z-20 scale-100" : "opacity-0 scale-90",
-                                            isPrevious ? "-translate-x-[10%] opacity-30 z-10" : "",
-                                            isNext ? "translate-x-[10%] opacity-30 z-10" : "",
-                                            !isActive && !isPrevious && !isNext ? "opacity-0" : ""
+                                            "absolute opacity-100 transition-all duration-700 ease-in-out will-change-transform",
+                                            isActive ? "z-20" : "z-10",
                                         )}
                                         style={{
                                             top: "0",
-                                            transform: `translateY(0px) ${isPrevious
-                                                    ? "translateX(-60%)"
+                                            transform: `translateY(${isActive ? 0 : 26}px) ${
+                                                isPrevious
+                                                    ? "translateX(-72%)"
                                                     : isNext
-                                                        ? "translateX(60%)"
+                                                        ? "translateX(72%)"
                                                         : "translateX(0)"
-                                                } ${isActive ? "scale(1)" : "scale(0.9)"}`,
+                                            } ${isActive ? "scale(1)" : "scale(0.9)"} ${
+                                                isPrevious
+                                                    ? "rotate(-24deg)"
+                                                    : isNext
+                                                        ? "rotate(24deg)"
+                                                        : "rotate(0deg)"
+                                            }`,
                                         }}
-                                        aria-hidden={!isActive}
+                                        aria-hidden={false}
                                     >
                                         <div className="group">
                                             <Iphone15Pro
-                                                width={isMobile ? 280 : 350}
+                                                width={isMobile ? 320 : 400}
                                                 height="auto"
                                                 src={image.src}
                                                 alt={image.alt}
-                                                className="transition-all duration-100 hover:scale-105 hover:-rotate-6"
+                                                className="transition-transform duration-300 ease-out hover:scale-[1.03]"
                                             />
                                         </div>
                                     </div>
@@ -332,40 +300,6 @@ export const PhoneCarousel: React.FC<PhoneCarouselProps> = ({
                         </div>
                     </div>
 
-                    {/* Controls */}
-                    <div className="absolute bottom-8 left-0 right-0 flex justify-center items-center gap-4 z-30">
-                        <Button
-                            variant="outline"
-                            size="icon"
-                            onClick={handlePrevious}
-                            className="rounded-full bg-black/60 backdrop-blur-sm border-white/20 hover:bg-black/80 shadow-md"
-                            aria-label="Previous image"
-                        >
-                            <ChevronLeft className="h-5 w-5 text-white" />
-                        </Button>
-                        <Button
-                            variant="outline"
-                            size="icon"
-                            onClick={togglePause}
-                            className="rounded-full bg-black/60 backdrop-blur-sm border-white/20 hover:bg-black/80 shadow-md"
-                            aria-label={isPaused ? "Play slideshow" : "Pause slideshow"}
-                        >
-                            {isPaused ? (
-                                <Play className="h-5 w-5 text-white" />
-                            ) : (
-                                <Pause className="h-5 w-5 text-white" />
-                            )}
-                        </Button>
-                        <Button
-                            variant="outline"
-                            size="icon"
-                            onClick={handleNext}
-                            className="rounded-full bg-black/60 backdrop-blur-sm border-white/20 hover:bg-black/80 shadow-md"
-                            aria-label="Next image"
-                        >
-                            <ChevronRight className="h-5 w-5 text-white" />
-                        </Button>
-                    </div>
                 </div>
             </div>
         </section>
