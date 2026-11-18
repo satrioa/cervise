@@ -14,7 +14,9 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Smartphone, BellIcon, LogOutIcon, StoreIcon, UserIcon } from "lucide-react";
 import { LaptopMockupCard } from "@/components/ui/laptop-mockup";
 import PhoneMockupBasic from "@/components/phone-mockups-1";
-import { HERO_PHONE_SCREENS } from "./hero-screens";
+import ActivityCard from "@/components/dashboard/activity-card";
+import { ChartNoAxesColumnIcon, FileTextIcon, WalletIcon } from "lucide-react";
+import { HERO_ACTIVITY_FEED, HERO_PHONE_SCREENS } from "./hero-screens";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
@@ -139,7 +141,7 @@ const Navbar = ({ isLoggedIn, user, dashboardHref, morph = 0 }: { isLoggedIn?: b
   return (
   <nav
     aria-label="Primary"
-    className="relative z-30 mx-auto flex h-[46px] w-full max-w-[calc(995px_+_var(--nav-morph,0)*(95vw_-_995px))] items-center justify-between overflow-clip rounded-[11px] border border-solid border-[#dee5ed] bg-white p-[5px] transition-[max-width] duration-150 ease-out lg:max-w-[calc(800px_+_var(--nav-morph,0)*(95vw_-_800px))]"
+    className="relative z-30 mx-auto flex h-[70px] w-full max-w-[calc(995px_+_var(--nav-morph,0)*(100vw_-_995px))] items-center justify-between overflow-clip rounded-[11px] border border-solid border-[#dee5ed] bg-white p-[calc(12px_+_var(--nav-morph,0)*8px)] lg:max-w-[calc(800px_+_var(--nav-morph,0)*(100vw_-_800px))]"
     style={{ "--nav-morph": morph } as CSSProperties}
   >
     <Link
@@ -267,7 +269,7 @@ const AnnouncementBadge = () => (
     className="inline-flex touch-manipulation items-center gap-2 overflow-clip rounded-full border border-solid border-[#dee5ed] bg-[#f1f4f8] py-1.5 pr-3 pl-4 shadow-[0_0_0_3px_white,0_4px_2px_rgba(140,150,169,0.25),0_8px_17.2px_rgba(140,150,169,0.1)] transition-[background-color,border-color,transform] duration-200 ease focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2563eb] motion-reduce:transition-none [@media(hover:hover)_and_(pointer:fine)]:hover:border-[#c9d3e0] [@media(hover:hover)_and_(pointer:fine)]:hover:bg-[#e8edf4] [@media(hover:hover)_and_(pointer:fine)]:hover:scale-[1.02]"
   >
     <span className="inline-flex items-center gap-2">
-      <span className="text-center text-[17px] font-medium leading-normal whitespace-nowrap text-[#262626]">
+      <span className="text-center text-[17px] font-semibold leading-normal whitespace-nowrap text-[#2563eb]">
         SuperApp Toko Servis Gadget
       </span>
     </span>
@@ -815,6 +817,12 @@ const PhoneShowcase = () => {
   );
 };
 
+const HERO_ORBS = [
+  { Icon: FileTextIcon, className: "left-[16%] top-0 -rotate-12", delay: 0.05 },
+  { Icon: ChartNoAxesColumnIcon, className: "right-[14%] top-[14%] rotate-12", delay: 0.15 },
+  { Icon: WalletIcon, className: "bottom-[16%] left-[8%] -rotate-6", delay: 0.25 },
+] as const;
+
 const Section11 = ({ isLoggedIn, user, dashboardHref }: { isLoggedIn?: boolean; user?: { name: string; email: string; avatarUrl?: string | null } | null; dashboardHref?: string }) => {
   const badgeRef = useRef<HTMLDivElement>(null);
   const morphStartRef = useRef<number | null>(null);
@@ -831,7 +839,11 @@ const Section11 = ({ isLoggedIn, user, dashboardHref }: { isLoggedIn?: boolean; 
       // badge menyentuh atas viewport (top = 0).
       if (morphStartRef.current === null) morphStartRef.current = Math.max(1, top);
       const start = morphStartRef.current;
-      setMorph(Math.min(1, Math.max(0, (start - top) / start)));
+      // Scroll sudah di-smooth Lenis, jadi transisi CSS yang diulang tiap frame
+      // justru membuat morph terasa tertinggal. ease-out cubic memberi impulse
+      // awal cepat lalu melambat halus di akhir — terasa seperti iOS.
+      const progress = Math.min(1, Math.max(0, (start - top) / start));
+      setMorph(1 - Math.pow(1 - progress, 3));
     };
     const onScroll = () => {
       if (frame) return;
@@ -882,8 +894,8 @@ const Section11 = ({ isLoggedIn, user, dashboardHref }: { isLoggedIn?: boolean; 
           />
 
           <div className="relative z-10 flex flex-col items-center px-4 pt-[30px] ipad:px-10">
-            <div className="sticky top-0 z-40 w-full">
-              <div className="w-full animate-page-reveal will-change-transform">
+            <div className="relative sticky top-4 z-40 w-full">
+              <div className="relative w-full animate-page-reveal will-change-transform">
                 <Navbar isLoggedIn={isLoggedIn} user={user} dashboardHref={dashboardHref} morph={morph} />
               </div>
             </div>
@@ -926,7 +938,32 @@ const Section11 = ({ isLoggedIn, user, dashboardHref }: { isLoggedIn?: boolean; 
 
             {}
             <div className="relative z-10 mx-auto mt-[clamp(1.5rem,4vw,2.75rem)] w-full max-w-[1440px]">
-              <PhoneMockupBasic images={HERO_PHONE_SCREENS} />
+              <div className="relative">
+                <PhoneMockupBasic images={HERO_PHONE_SCREENS} />
+
+                {/* Ilustrasi kartu sistem yang mengapung di sekitar mockup. */}
+                <div className="pointer-events-none absolute inset-0 z-40 hidden lg:block">
+                  <div className="animate-page-reveal absolute left-0 top-2 -rotate-6 will-change-transform [animation-delay:120ms]">
+                    <RevenueCard />
+                  </div>
+                  <div className="animate-page-reveal absolute bottom-3 left-2 rotate-3 will-change-transform [animation-delay:200ms]">
+                    <StatsCard />
+                  </div>
+                  <div className="animate-page-reveal absolute right-0 top-6 origin-top-right rotate-3 scale-[0.82] will-change-transform [animation-delay:280ms]">
+                    <ActivityCard items={HERO_ACTIVITY_FEED} loading={false} className="w-[340px] bg-white shadow-[0_18px_45px_-20px_rgba(0,0,0,0.35)]" />
+                  </div>
+
+                  {HERO_ORBS.map(({ Icon, className, delay }) => (
+                    <div
+                      key={className}
+                      className={`animate-page-reveal absolute flex size-12 items-center justify-center rounded-full bg-brand text-white ring-4 ring-white shadow-[0_10px_30px_-10px_rgba(0,0,0,0.35)] will-change-transform ${className}`}
+                      style={{ animationDelay: `${delay}s` }}
+                    >
+                      <Icon className="size-5" aria-hidden />
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
           </div>
         </div>
