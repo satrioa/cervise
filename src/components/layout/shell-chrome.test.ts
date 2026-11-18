@@ -67,7 +67,7 @@ describe("shell chrome", () => {
     expect(compactDockNav).toMatch(/TECHNICIAN/);
     expect(compactDockNav).toMatch(/t\("menu\.title"\)/);
     // Overlay mengambang di atas isi halaman.
-    expect(compactDockNav).toMatch(/z-40/);
+    expect(compactDockNav).toMatch(/z-30/);
     expect(compactDockNav).toMatch(/pb-\[max/);
   });
 
