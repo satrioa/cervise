@@ -24,38 +24,54 @@ export type WaTemplate = {
   build: (input: TemplateInput) => TemplateParameter[];
 };
 
+type RegistryEntry = {
+  envKey: string;
+  fallbackKey?: string;
+  language: "id" | "en";
+  build: (input: TemplateInput) => TemplateParameter[];
+};
+
 /**
- * Nama template dari env global; tiga env lama tetap jadi fallback supaya
- * deploy lama tidak langsung berhenti mengirim sebelum env baru diset.
+ * Nama template dibaca SAAT PAKAI, bukan saat modul dimuat, supaya test dan
+ * proses yang mengubah env setelah import tetap memakai nilai terbaru.
+ * Env lama tetap jadi fallback untuk tiga template servis.
  */
-const REGISTRY: Record<WaTemplateKey, WaTemplate> = {
+const REGISTRY: Record<WaTemplateKey, RegistryEntry> = {
   servis_created_customer: {
-    name: process.env.META_WA_TEMPLATE_SERVIS_MASUK ?? process.env.META_WA_TEMPLATE_INVOICE ?? "",
+    envKey: "META_WA_TEMPLATE_SERVIS_MASUK",
+    fallbackKey: "META_WA_TEMPLATE_INVOICE",
     language: "id",
     build: (input) => buildServisMasukParameters(input),
   },
   servis_status_customer: {
-    name: process.env.META_WA_TEMPLATE_SERVIS_SIAP ?? process.env.META_WA_TEMPLATE_STATUS ?? "",
+    envKey: "META_WA_TEMPLATE_SERVIS_SIAP",
+    fallbackKey: "META_WA_TEMPLATE_STATUS",
     language: "id",
     build: (input) => buildServisStatusParameters(input),
   },
   servis_created_technician: {
-    name: process.env.META_WA_TEMPLATE_TEKNISI ?? process.env.META_WA_TEMPLATE_TECHNICIAN ?? "",
+    envKey: "META_WA_TEMPLATE_TEKNISI",
+    fallbackKey: "META_WA_TEMPLATE_TECHNICIAN",
     language: "en",
     build: (input) => buildTechnicianParameters(input),
   },
   shift_open: {
-    name: process.env.META_WA_TEMPLATE_SHIFT_OPEN ?? "",
+    envKey: "META_WA_TEMPLATE_SHIFT_OPEN",
     language: "id",
     build: (input) => buildShiftOpenParameters(input as ShiftMessageInput),
   },
   shift_closed: {
-    name: process.env.META_WA_TEMPLATE_SHIFT_CLOSE ?? "",
+    envKey: "META_WA_TEMPLATE_SHIFT_CLOSE",
     language: "en",
     build: (input) => buildShiftClosedParameters(input as ShiftMessageInput),
   },
 };
 
 export function getWaTemplate(key: WaTemplateKey): WaTemplate {
-  return REGISTRY[key];
+  const entry = REGISTRY[key];
+  return {
+    name: process.env[entry.envKey] ?? (entry.fallbackKey ? process.env[entry.fallbackKey] ?? "" : ""),
+    language: entry.language,
+    build: entry.build,
+  };
 }
