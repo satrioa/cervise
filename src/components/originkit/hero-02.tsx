@@ -15,6 +15,7 @@ import { Smartphone, BellIcon, LogOutIcon, StoreIcon, UserIcon } from "lucide-re
 import { LaptopMockupCard } from "@/components/ui/laptop-mockup";
 import PhoneMockupBasic from "@/components/phone-mockups-1";
 import ActivityCard from "@/components/dashboard/activity-card";
+import BrandMarquee from "@/components/originkit/brand-marquee";
 import { ChartNoAxesColumnIcon, FileTextIcon, WalletIcon } from "lucide-react";
 import { HERO_ACTIVITY_FEED, HERO_PHONE_SCREENS } from "./hero-screens";
 import { useRouter } from "next/navigation";
@@ -284,52 +285,13 @@ const AnnouncementBadge = () => (
   </Link>
 );
 
-const BrandLogoItem = ({
-  brand,
-  duplicate = false,
-}: {
-  brand: (typeof BRAND_LOGOS)[number];
-  duplicate?: boolean;
-}) => (
-  <li
-    className="relative h-[42px] w-[126px] shrink-0 overflow-clip"
-    aria-hidden={duplicate || undefined}
-  >
-    <AppImage
-      src={brand.src}
-      alt={duplicate ? "" : brand.name}
-      width={126}
-      height={42}
-      className="size-full object-contain"
-      aria-hidden={duplicate}
-    />
-  </li>
-);
-
 const TrustedBy = () => (
   <div className="mx-auto flex w-full max-w-[1200px] flex-col items-center gap-7.5 px-0 md:px-5">
     <p className="text-center text-[16px] lg:text-[18px] font-medium leading-normal text-[#1d1d1d]">
       Dipercaya 100+ tempat servis di Indonesia
     </p>
 
-    <div
-      className="relative w-full max-w-[820px] overflow-hidden mask-[linear-gradient(to_right,transparent,black_12%,black_88%,transparent)] [-webkit-mask-image:linear-gradient(to_right,transparent,black_12%,black_88%,transparent)]"
-      aria-label="Trusted brands"
-      role="region"
-    >
-      <ul className="flex w-max items-center gap-x-2 iphone:gap-x-3.5 animate-trusted-marquee motion-reduce:animate-none will-change-transform">
-        {BRAND_LOGOS.map((brand) => (
-          <BrandLogoItem key={brand.name} brand={brand} />
-        ))}
-        {BRAND_LOGOS.map((brand) => (
-          <BrandLogoItem
-            key={`${brand.name}-duplicate`}
-            brand={brand}
-            duplicate
-          />
-        ))}
-      </ul>
-    </div>
+    <BrandMarquee logos={BRAND_LOGOS} className="max-w-[820px]" />
   </div>
 );
 
