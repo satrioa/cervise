@@ -1,7 +1,7 @@
 import { MetaWaError, sendMetaWA, type TemplateParameter } from "@/lib/meta-wa";
 import { toFonnteTarget } from "@/lib/phone";
 import { createAdminClient } from "@/lib/supabase/admin";
-import type { ServiceMessageInput, ShiftMessageInput } from "./service-message";
+import { publicLacakUrl, type ServiceMessageInput, type ShiftMessageInput } from "./service-message";
 import { getWaTemplate, type WaTemplateKey } from "./wa-templates";
 
 /**
@@ -59,6 +59,7 @@ export type DispatchOptions = {
 type OutboxRow = {
   id: string;
   branch_id: string;
+  organization_id: string | null;
   servis_id: string | null;
   event: string;
   to_kind: string;
@@ -122,6 +123,7 @@ type Resolved =
       language: "id" | "en";
       parameters: TemplateParameter[];
       phoneNumberId: string;
+      buttonUrl?: string;
     }
   | { skip: string };
 
@@ -238,6 +240,12 @@ function resolveRow(
       language: template.language,
       parameters: template.build(input),
       phoneNumberId,
+      // servis_masuk_v2 punya URL button; isi dengan tautan lacak yang sama
+      // seperti yang dipakai pesan teks.
+      buttonUrl:
+        key === "servis_created_customer"
+          ? publicLacakUrl(input.siteOrigin, input.tenantSlug, input.trackingCode)
+          : undefined,
     };
   }
 
@@ -418,6 +426,28 @@ export async function dispatchPendingNotifications(
       // karena claim tidak menyentuhnya.
       const attempts = row.attempts + 1;
 
+      // Kuota lokal tenant: cek sebelum kirim. Pesan yang habis kuotanya
+      // diparkir sebagai pending (bukan terminal) dan tidak memanggil Meta.
+      if (row.organization_id) {
+        const { data: hasQuota, error: quotaError } = await admin.rpc("check_wa_quota", {
+          p_organization_id: row.organization_id,
+          p_count: 1,
+        });
+        if (!quotaError && hasQuota === false) {
+          const { error: patchError } = await admin
+            .from("cervise_notification_outbox")
+            .update({
+              state: "pending",
+              last_error: "wa_quota_exhausted",
+              next_attempt_at: new Date(now.getTime() + 60 * 60 * 1000).toISOString(),
+            })
+            .eq("id", row.id);
+          if (patchError) throw new Error(`Patch baris ${row.id} gagal: ${patchError.message}`);
+          result.skipped += 1;
+          continue;
+        }
+      }
+
       let response: Awaited<ReturnType<typeof sendMetaWA>>;
       try {
         response = await sendMetaWA(
@@ -426,6 +456,7 @@ export async function dispatchPendingNotifications(
           resolved.parameters,
           resolved.phoneNumberId,
           resolved.language,
+          resolved.buttonUrl,
         );
       } catch (error) {
         // Hanya kegagalan yang memang soal nomor atau isi pesannya yang
@@ -509,6 +540,16 @@ export async function dispatchPendingNotifications(
         // pending, pesannya akan dikirim lagi. Hitung `failed` supaya log cron
         // menunjukkan ada yang perlu dilihat.
         throw new Error(`Patch baris ${row.id} gagal: ${patchError.message}`);
+      }
+      // Hanya pesan yang benar-benar terkirim yang mengurangi kuota.
+      if (row.organization_id) {
+        const { error: consumeError } = await admin.rpc("consume_wa_quota", {
+          p_organization_id: row.organization_id,
+          p_count: 1,
+        });
+        if (consumeError) {
+          console.error(`Gagal mencatat kuota WA untuk ${row.organization_id}: ${consumeError.message}`);
+        }
       }
       result.sent += 1;
     } catch (error) {
