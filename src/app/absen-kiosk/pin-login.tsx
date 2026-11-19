@@ -24,8 +24,8 @@ export function PinLogin() {
         onSubmit={(e) => {
           e.preventDefault();
           startTransition(async () => {
-            const form = new FormData();
-            form.append("email", email);
+            // OTPField menyimpan PIN di input hidden bernama "pin" di dalam form.
+            const form = new FormData(e.currentTarget);
             try {
               await loginWithPin(form);
               window.location.reload();
