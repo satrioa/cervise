@@ -1,7 +1,9 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { MessageCircleIcon } from "lucide-react";
+import { WhatsappLogoIcon } from "@phosphor-icons/react";
+import { Button } from "@/components/ui/button";
+import { Magnetic } from "@/components/ui/magnetic";
 import { buildCustomPackageWhatsAppUrl } from "@/lib/custom-package-whatsapp";
 
 // Gradient memakai Math.random() saat render, jadi hanya dipasang di client
@@ -33,15 +35,20 @@ export function CustomPackageCta() {
               dikembangkan khusus untuk toko servis dan jual beli gadget untuk operasional yang terstruktur dan mempunyai laporan yang rapi.
             </p>
           </div>
-          <a
-            href={href}
-            target={external ? "_blank" : undefined}
-            rel={external ? "noopener noreferrer" : undefined}
-            className="inline-flex shrink-0 items-center gap-2 whitespace-nowrap rounded-full border border-white bg-white/10 px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-white hover:text-blue-700"
-          >
-            Chat Admin WhatsApp
-            <MessageCircleIcon className="size-4" aria-hidden />
-          </a>
+          <Magnetic>
+            <Button
+              variant="candy"
+              size="lg"
+              shape="pill"
+              className="shrink-0 [--btn:#ffffff] [--btn-fg:#1d4ed8] [--btn-hover:#dbeafe] shadow-lg"
+              render={
+                <a href={href} target={external ? "_blank" : undefined} rel={external ? "noopener noreferrer" : undefined}>
+                  Chat Admin WhatsApp
+                  <WhatsappLogoIcon weight="fill" aria-hidden />
+                </a>
+              }
+            />
+          </Magnetic>
         </div>
       </section>
     </div>
