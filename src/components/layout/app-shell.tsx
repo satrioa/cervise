@@ -51,6 +51,21 @@ function roleLabel(role: string) {
   return ROLE_LABEL[role.toUpperCase()] ?? role;
 }
 
+/** Kode paket lama masih tersimpan di organizations.paket; tampilkan nama saat ini. */
+const PAKET_LABEL: Record<string, string> = {
+  trial: "Trial",
+  starter: "Starter",
+  business: "Business",
+  custom: "Custom",
+  basic: "Starter",
+  pro: "Business",
+};
+
+function paketLabel(paket: string | null | undefined): string {
+  const key = (paket ?? "").trim().toLowerCase();
+  return PAKET_LABEL[key] ?? (key ? paket! : "Trial");
+}
+
 function TenantSwitcher({ canSwitchTenant: canSwitchTenantValue }: { canSwitchTenant: boolean }) {
   const router = useRouter();
   const { tenants, activeOrgId, setActiveOrg, loading, isPlatformAdmin } = useTenant();
@@ -96,7 +111,7 @@ function TenantSwitcher({ canSwitchTenant: canSwitchTenantValue }: { canSwitchTe
     id: tenant.id,
     name: tenant.name,
     description: `${tenant.paket ?? "tenant"} · Organization`,
-    plan: tenant.paket ?? "trial",
+    plan: paketLabel(tenant.paket),
     // Dipakai MultipleAccounts untuk merender AvatarImage. Sebelumnya field ini
     // ada di tipe tapi tidak pernah diisi, jadi Logo tenant tidak pernah tampil.
     avatarUrl: tenant.logoUrl ?? undefined,

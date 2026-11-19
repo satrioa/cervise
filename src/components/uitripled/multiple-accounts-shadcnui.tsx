@@ -88,11 +88,13 @@ export function MultipleAccounts({
         onClick={() => setIsOpen((previous) => !previous)}
       >
         <AccountAvatar account={activeAccount} />
-        <div className="flex min-w-0 flex-1 flex-col items-start gap-0.5">
-          <span className="w-full truncate text-sm font-medium">{activeAccount.name}</span>
-          <span className="inline-flex items-center rounded-full border border-primary/30 bg-primary/10 px-1.5 py-px text-[10px] font-semibold uppercase tracking-wide text-primary">
-            {activeAccount.plan ?? "Trial"}
-          </span>
+        <div className="flex min-w-0 flex-1 items-center gap-2">
+          <span className="min-w-0 truncate text-sm font-medium">{activeAccount.name}</span>
+          {activeAccount.plan ? (
+            <span className="inline-flex shrink-0 items-center rounded-full border border-primary/30 bg-primary/10 px-1.5 py-px text-[10px] font-semibold uppercase tracking-wide text-primary">
+              {activeAccount.plan}
+            </span>
+          ) : null}
         </div>
         <motion.span
           aria-hidden="true"
