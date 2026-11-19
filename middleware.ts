@@ -1,5 +1,6 @@
 import { resolveLoginAccess, fetchLoginAccess } from "./src/lib/auth/login-access";
 import { getProtectedPathKind } from "./src/lib/auth/authorization";
+import { isAbsenHost } from "./src/lib/attendance/host";
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
@@ -12,6 +13,12 @@ export default async function middleware(request: NextRequest) {
   // halaman itu untuk membayar. `next-intl` menambah prefiks locale, jadi
   // path yang dibandingkan di layout adalah path SETELAH locale dihapus.
   request.headers.set("x-pathname", request.nextUrl.pathname);
+
+  // Kiosk absensi memakai sesi PIN sendiri, bukan Supabase Auth. Rewrite host
+  // ini harus terjadi sebelum session refresh & protected-path check.
+  if (isAbsenHost(request.nextUrl.hostname)) {
+    return NextResponse.rewrite(new URL("/absen-kiosk", request.url));
+  }
 
   // Supabase session refresh.
   //
