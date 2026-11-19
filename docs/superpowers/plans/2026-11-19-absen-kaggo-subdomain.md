@@ -576,7 +576,7 @@ describe("loginWithPin", () => {
   });
   it("membuat cookie httpOnly setelah PIN valid", async () => {
     await loginWithPin(loginForm());
-    expect(cookiesSet).toHaveBeenCalledWith("kaggo_absen_session", "token", expect.objectContaining({ httpOnly: true, secure: true }));
+    expect(cookiesSet).toHaveBeenCalledWith("kaggo_absen_session", "token", expect.objectContaining({ httpOnly: true, sameSite: "lax", path: "/" }));
   });
 });
 
@@ -651,7 +651,7 @@ export async function loginWithPin(formData: FormData): Promise<void> {
   const store = await cookies();
   store.set(COOKIE_NAME, token, {
     httpOnly: true,
-    secure: true,
+    secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
     path: "/",
     maxAge: TWELVE_HOURS,
@@ -898,11 +898,15 @@ export function KioskClient({ name, today, rows }: { name: string; today: string
     );
   }
 
-  function mintaLokasi(cb: () => void) {
-    if (!navigator.geolocation) { cb(); return; }
+  function mintaLokasi(cb: (koordinat: { lat: number; lng: number } | null) => void) {
+    if (!navigator.geolocation) { cb(null); return; }
     navigator.geolocation.getCurrentPosition(
-      (pos) => { setLokasi({ lat: pos.coords.latitude, lng: pos.coords.longitude }); cb(); },
-      () => { toast.info("Lokasi tidak tersedia. Absen tetap disimpan."); cb(); },
+      (pos) => {
+        const koordinat = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+        setLokasi(koordinat);
+        cb(koordinat);
+      },
+      () => { toast.info("Lokasi tidak tersedia. Absen tetap disimpan."); cb(lokasi); },
       { timeout: 8000 },
     );
   }
@@ -910,11 +914,11 @@ export function KioskClient({ name, today, rows }: { name: string; today: string
   function absen(kind: "check_in" | "check_out") {
     void capture().then((file) => {
       if (!file) { toast.error("Selfie belum siap. Coba lagi."); return; }
-      mintaLokasi(() => startTransition(async () => {
+      mintaLokasi((koordinat) => startTransition(async () => {
         const form = new FormData();
         form.append("kind", kind);
         form.append("selfie", file);
-        if (lokasi) { form.append("lat", String(lokasi.lat)); form.append("lng", String(lokasi.lng)); }
+        if (koordinat) { form.append("lat", String(koordinat.lat)); form.append("lng", String(koordinat.lng)); }
         try {
           await submitKioskAttendance(form);
           toast.success(kind === "check_in" ? "Absen masuk tercatat" : "Absen pulang tercatat");
