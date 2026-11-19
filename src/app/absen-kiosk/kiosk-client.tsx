@@ -168,7 +168,7 @@ export function KioskClient({ name, today, rows }: { name: string; today: string
               variant="outline"
               size="sm"
               disabled={pending}
-              onClick={() => router.refresh()}
+              onClick={() => window.location.reload()}
             >
               <RefreshCwIcon />
               Segarkan
