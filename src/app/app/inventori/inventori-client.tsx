@@ -108,8 +108,11 @@ function CardView({ groups, onEdit, onEditGroup, onPrint }: { groups: InventoryG
   return (
     <div className="space-y-4">
       {groups.map((group) => (
-        <Card key={group.key} className="overflow-hidden">
-          <CardHeader className="pb-3">
+        <Card
+          key={group.key}
+          className="overflow-hidden rounded-[22px] border-black/5 bg-white text-neutral-900 shadow-none transition-colors hover:bg-[#FAFAFA] before:hidden dark:border-white/10 dark:bg-neutral-900 dark:text-neutral-100 dark:hover:bg-neutral-800"
+        >
+          <CardHeader className="p-4 pb-3 sm:p-5 sm:pb-3">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <CardTitle className="text-base">{group.name}</CardTitle>
@@ -120,7 +123,7 @@ function CardView({ groups, onEdit, onEditGroup, onPrint }: { groups: InventoryG
               </Badge>
             </div>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-4 p-4 pt-0 sm:p-5 sm:pt-0">
             {group.baru.length > 0 ? (
               <div>
                 <div className="mb-2 flex items-center justify-between gap-2">
