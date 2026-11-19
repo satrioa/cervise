@@ -10,8 +10,8 @@ import {
   isSafeObjectPath,
   publicPhotoUrl,
   tenantLogoPath,
-  validatePhotoFile,
 } from "@/lib/photos";
+import { COMPRESSED_PHOTO_EXTENSION, preparePhoto } from "@/lib/photo-compress";
 
 /**
  * Bucket cervise-photos tidak punya policy storage.objects untuk
@@ -59,8 +59,7 @@ export async function uploadAccountPhoto(formData: FormData) {
   const actor = await getActiveTenant();
   const file = readUpload(formData);
 
-  const validation = validatePhotoFile(file);
-  if (!validation.ok) throw new Error(validation.error);
+  const photo = await preparePhoto(file);
 
   const admin = createAdminClient();
   const { data: current, error: readError } = await admin
@@ -71,11 +70,11 @@ export async function uploadAccountPhoto(formData: FormData) {
   if (readError) throw new Error(readError.message);
 
   const previousPath = current?.avatar_url ?? null;
-  const path = accountPhotoPath(actor.userId, validation.extension);
+  const path = accountPhotoPath(actor.userId, COMPRESSED_PHOTO_EXTENSION);
 
   const { error: uploadError } = await admin.storage
     .from(PHOTO_BUCKET)
-    .upload(path, file, { contentType: file.type, upsert: false });
+    .upload(path, photo, { contentType: photo.type, upsert: false });
   if (uploadError) throw new Error(`Gagal mengunggah foto: ${uploadError.message}`);
 
   const { error: writeError } = await admin
@@ -119,8 +118,7 @@ export async function uploadTenantLogo(formData: FormData) {
   requirePhotoAdmin(actor);
   const file = readUpload(formData);
 
-  const validation = validatePhotoFile(file);
-  if (!validation.ok) throw new Error(validation.error);
+  const photo = await preparePhoto(file);
 
   const admin = createAdminClient();
   const { data: current, error: readError } = await admin
@@ -131,11 +129,11 @@ export async function uploadTenantLogo(formData: FormData) {
   if (readError) throw new Error(readError.message);
 
   const previousPath = current?.logo_url ?? null;
-  const path = tenantLogoPath(actor.orgId, validation.extension);
+  const path = tenantLogoPath(actor.orgId, COMPRESSED_PHOTO_EXTENSION);
 
   const { error: uploadError } = await admin.storage
     .from(PHOTO_BUCKET)
-    .upload(path, file, { contentType: file.type, upsert: false });
+    .upload(path, photo, { contentType: photo.type, upsert: false });
   if (uploadError) throw new Error(`Gagal mengunggah logo: ${uploadError.message}`);
 
   const { error: writeError } = await admin

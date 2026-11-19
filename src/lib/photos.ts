@@ -13,6 +13,9 @@ export const PHOTO_BUCKET = "cervise-photos";
 /** Batas ini juga dikunci di level bucket (file_size_limit), bukan hanya di sini. */
 export const MAX_PHOTO_BYTES = 2 * 1024 * 1024;
 
+/** File mentah boleh lebih besar karena akan dikompres sebelum masuk Storage. */
+export const MAX_RAW_PHOTO_BYTES = 10 * 1024 * 1024;
+
 export const ALLOWED_PHOTO_TYPES = ["image/jpeg", "image/png", "image/webp"] as const;
 
 export type PhotoKind = "avatar" | "tenant-logo" | "attendance";
@@ -45,7 +48,10 @@ export function formatBytes(bytes: number): string {
  * sebenarnya tetap relies on bucket: Supabase menolak berkas yang tipe-nya di
  * luar allowed_mime_types.
  */
-export function validatePhotoFile(file: PhotoFileLike): PhotoValidation {
+export function validatePhotoFile(
+  file: PhotoFileLike,
+  maxBytes = MAX_PHOTO_BYTES,
+): PhotoValidation {
   const extension = EXTENSION_BY_MIME[file.type?.trim().toLowerCase() ?? ""];
   if (!extension) {
     return {
@@ -56,10 +62,10 @@ export function validatePhotoFile(file: PhotoFileLike): PhotoValidation {
   if (file.size <= 0) {
     return { ok: false, error: "File kosong." };
   }
-  if (file.size > MAX_PHOTO_BYTES) {
+  if (file.size > maxBytes) {
     return {
       ok: false,
-      error: `Ukuran maksimal ${formatBytes(MAX_PHOTO_BYTES)}. File ini ${formatBytes(file.size)}.`,
+      error: `Ukuran maksimal ${formatBytes(maxBytes)}. File ini ${formatBytes(file.size)}.`,
     };
   }
   return { ok: true, extension };

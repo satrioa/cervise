@@ -1,7 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { update, upload, remove, selectEq, from, storageFrom, getActiveTenant, createAdminClient, revalidatePath } =
+const { update, upload, remove, selectEq, from, storageFrom, getActiveTenant, createAdminClient, revalidatePath, preparePhoto } =
   vi.hoisted(() => {
+    const preparePhoto = vi.fn(async (file: File) =>
+      new File([new Uint8Array(512)], `${file.name.replace(/\.[^.]+$/, "")}.webp`, { type: "image/webp" }),
+    );
     const update = vi.fn();
     const upload = vi.fn();
     const remove = vi.fn();
@@ -18,9 +21,11 @@ const { update, upload, remove, selectEq, from, storageFrom, getActiveTenant, cr
       getActiveTenant: vi.fn(),
       createAdminClient: vi.fn(() => ({ from, storage: { from: storageFrom } })),
       revalidatePath: vi.fn(),
+      preparePhoto,
     };
   });
 
+vi.mock("@/lib/photo-compress", () => ({ preparePhoto, COMPRESSED_PHOTO_EXTENSION: "webp" }));
 vi.mock("@/lib/supabase/actor", () => ({ getActiveTenant }));
 vi.mock("@/lib/supabase/admin", () => ({ createAdminClient }));
 vi.mock("next/cache", () => ({ revalidatePath }));
@@ -130,7 +135,7 @@ describe("uploadLacakBanner", () => {
 
     const dikirim = update.mock.calls[0][0] as { banner_urls: string[] };
     expect(dikirim.banner_urls).toHaveLength(1);
-    expect(dikirim.banner_urls[0]).toMatch(/^tenant-logos\/org-1\/[a-z0-9]+\.png$/);
+    expect(dikirim.banner_urls[0]).toMatch(/^tenant-logos\/org-1\/[a-z0-9]+\.webp$/);
   });
 
   it("menolak slot yang melompati slot sebelumnya", async () => {
