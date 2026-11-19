@@ -39,6 +39,7 @@ export function PinLogin() {
           <Label htmlFor="email">Email</Label>
           <Input
             id="email"
+            name="email"
             type="email"
             autoComplete="username"
             value={email}
