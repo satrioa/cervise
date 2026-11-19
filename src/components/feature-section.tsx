@@ -1,5 +1,8 @@
+"use client";
+
 import { cn } from "@/lib/utils";
 import type React from "react";
+import { motion } from "motion/react";
 import { GridPattern } from "@/components/ui/grid-pattern";
 import {
   BarChart3,
@@ -16,6 +19,18 @@ type FeatureType = {
 	description: string;
 };
 
+const EASE = [0.22, 1, 0.36, 1] as const;
+
+const gridVariants = {
+	hidden: {},
+	show: { transition: { staggerChildren: 0.08 } },
+};
+
+const cardVariants = {
+	hidden: { opacity: 0, y: 24 },
+	show: { opacity: 1, y: 0, transition: { duration: 0.5, ease: EASE } },
+};
+
 export function FeatureSection() {
 	return (
 		<div className="mx-auto w-full max-w-5xl space-y-8">
@@ -29,11 +44,17 @@ export function FeatureSection() {
 			</div>
 
 			<div className="overflow-hidden rounded-lg border">
-				<div className="grid grid-cols-1 gap-px bg-border sm:grid-cols-2 md:grid-cols-3">
+				<motion.div
+					variants={gridVariants}
+					initial="hidden"
+					whileInView="show"
+					viewport={{ once: true, margin: "-80px" }}
+					className="grid grid-cols-1 gap-px bg-border sm:grid-cols-2 md:grid-cols-3"
+				>
 					{features.map((feature) => (
 						<FeatureCard feature={feature} key={feature.title} />
 					))}
-				</div>
+				</motion.div>
 			</div>
 		</div>
 	);
@@ -43,11 +64,12 @@ export function FeatureCard({
 	feature,
 	className,
 	...props
-}: React.ComponentProps<"div"> & {
+}: React.ComponentProps<typeof motion.div> & {
 	feature: FeatureType;
 }) {
 	return (
-		<div
+		<motion.div
+			variants={cardVariants}
 			className={cn("relative overflow-hidden bg-background p-6", className)}
 			{...props}
 		>
@@ -66,7 +88,7 @@ export function FeatureCard({
 			<p className="relative z-20 mt-2 font-light text-muted-foreground text-xs">
 				{feature.description}
 			</p>
-		</div>
+		</motion.div>
 	);
 }
 
