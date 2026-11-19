@@ -4,6 +4,7 @@ import Hero02 from "@/components/originkit/hero-02";
 import BentoSection from "@/components/landing/bento-section";
 import { FeatureSection } from "@/components/feature-section";
 import FeatureShowcase from "@/components/landing/feature-showcase";
+import FooterSimple from "@/components/ui/smoothui/footer-1";
 import { LandingSmoothScroll } from "@/components/layout/landing-smooth-scroll";
 import { publicPhotoUrl } from "@/lib/photos";
 import { PricingThreeTier } from "@/components/pricing-three-tier";
@@ -56,7 +57,7 @@ export default async function LandingPage() {
   }
 
   return (
-    <div className="flex min-h-svh flex-col bg-background">
+    <div className="flex min-h-svh flex-col bg-background text-foreground landing-light">
       <LandingSmoothScroll />
       <Hero02 isLoggedIn={isLoggedIn} user={heroUser} dashboardHref={dashboardHref} />
 
@@ -72,9 +73,23 @@ export default async function LandingPage() {
         <PricingThreeTier />
       </section>
 
-      <footer className="border-t px-4 py-6 text-center text-sm text-muted-foreground lg:px-8">
-        © 2026 Kaggo • Manajemen Servis Gadget Multibranch • Dibuat ringan untuk Frontliner & Teknisi di HP
-      </footer>
+      <FooterSimple
+        companyName="Kaggo"
+        description="Manajemen servis gadget multibranch. Dibuat ringan untuk Frontliner & Teknisi di HP."
+        social={{}}
+        links={{
+          product: [
+            { name: "Fitur", url: "#fitur" },
+            { name: "Harga", url: "#harga" },
+            { name: "Mulai Trial", url: "/signup" },
+          ],
+          company: [
+            { name: "Masuk", url: "/login" },
+            { name: "Dashboard", url: "/app" },
+          ],
+        }}
+        copyright="© 2026 Kaggo • Manajemen Servis Gadget Multibranch"
+      />
     </div>
   );
 }

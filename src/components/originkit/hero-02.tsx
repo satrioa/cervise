@@ -30,12 +30,10 @@ const NAV_LINKS = [
 ] as const;
 
 const BRAND_LOGOS = [
-  { name: "Lumina", src: `${A}/brand-lumina.svg` },
-  { name: "Vortex", src: `${A}/brand-vortex.svg` },
-  { name: "Velocity", src: `${A}/brand-velocity.svg` },
-  { name: "Synergy", src: `${A}/brand-synergy.svg` },
-  { name: "Enigma", src: `${A}/brand-enigma.svg` },
-  { name: "Spectrum", src: `${A}/brand-spectrum.svg` },
+  { name: "Kasservice", src: `${A}/brand-kasservice.svg` },
+  { name: "Jcell", src: `${A}/brand-jcellular.svg` },
+  { name: "Roxie", src: `${A}/brand-roxie.svg` },
+
 ] as const;
 
 /**
@@ -149,7 +147,7 @@ const Navbar = ({ isLoggedIn, user, dashboardHref }: { isLoggedIn?: boolean; use
       href="/"
       className="relative flex items-center gap-2 shrink-0 touch-manipulation focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2563eb]"
     >
-      <span className="flex size-8 items-center justify-center rounded-lg bg-white shadow-sm dark:bg-white/10">
+      <span className="flex size-8 items-center justify-center rounded-lg bg-white shadow-sm">
         <AppImage
           src="/Logo/IconLogo.png?v=2"
           alt=""
@@ -311,7 +309,7 @@ const BrandLogoItem = ({
 const TrustedBy = () => (
   <div className="mx-auto flex w-full max-w-[1200px] flex-col items-center gap-7.5 px-0 md:px-5">
     <p className="text-center text-[16px] lg:text-[18px] font-medium leading-normal text-[#1d1d1d]">
-      Trusted by 1000+ businesses across the world
+      Dipercaya 100+ tempat servis di Indonesia
     </p>
 
     <div
@@ -967,7 +965,7 @@ const Section11 = ({ isLoggedIn, user, dashboardHref }: { isLoggedIn?: boolean; 
                   <Button variant="candy" color="blue" size="lg" render={<Link href={isLoggedIn ? dashboardHref ?? "/app" : "/signup"}>Mulai Trial Gratis</Link>}>
                     Mulai Trial Gratis
                   </Button>
-                  <Button variant="outline" color="neutral" size="lg" render={<Link href="#harga">Lihat Harga</Link>}>
+                  <Button variant="outline" color="neutral" size="lg" className="text-black hover:text-blue-600" render={<Link href="#harga">Lihat Harga</Link>}>
                     Lihat Harga
                   </Button>
                 </div>
