@@ -117,7 +117,10 @@ function CardView({ groups, onEdit, onEditGroup, onPrint }: { groups: InventoryG
       {groups.map((group) => (
         <CardFrame key={group.key}>
           <CardFrameHeader>
-            <CardFrameTitle>{group.name}</CardFrameTitle>
+            <CardFrameTitle>
+              {group.name}
+              <span className="ml-1 font-normal italic text-muted-foreground">({group.totalStok})</span>
+            </CardFrameTitle>
             <CardFrameAction>
               <Button
                 variant="outline"
