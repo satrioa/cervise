@@ -12,8 +12,8 @@ import {
   isSafeObjectPath,
   publicPhotoUrl,
   tenantLogoPath,
-  validatePhotoFile,
 } from "@/lib/photos";
+import { COMPRESSED_PHOTO_EXTENSION, preparePhoto } from "@/lib/photo-compress";
 
 /**
  * Menyimpan tampilan halaman Lacak publik untuk seluruh toko.
@@ -189,8 +189,7 @@ export async function uploadLacakBanner(formData: FormData) {
     throw new Error("Slot banner tidak valid");
   }
 
-  const validation = validatePhotoFile(entry);
-  if (!validation.ok) throw new Error(validation.error);
+  const photo = await preparePhoto(entry);
 
   const admin = createAdminClient();
   const { data: current, error: readError } = await admin
@@ -207,11 +206,11 @@ export async function uploadLacakBanner(formData: FormData) {
   }
 
   const previous = existing[index] ?? null;
-  const path = tenantLogoPath(actor.orgId!, validation.extension);
+  const path = tenantLogoPath(actor.orgId!, COMPRESSED_PHOTO_EXTENSION);
 
   const { error: uploadError } = await admin.storage
     .from(PHOTO_BUCKET)
-    .upload(path, entry, { contentType: entry.type, upsert: false });
+    .upload(path, photo, { contentType: photo.type, upsert: false });
   if (uploadError) throw new Error(`Gagal mengunggah banner: ${uploadError.message}`);
 
   const next = [...existing];
@@ -280,8 +279,7 @@ export async function uploadLacakLogo(formData: FormData) {
   if (!(entry instanceof File)) throw new Error("File tidak ditemukan");
   if (entry.size === 0) throw new Error("File kosong");
 
-  const validation = validatePhotoFile(entry);
-  if (!validation.ok) throw new Error(validation.error);
+  const photo = await preparePhoto(entry);
 
   const admin = createAdminClient();
   const { data: current, error: readError } = await admin
@@ -292,11 +290,11 @@ export async function uploadLacakLogo(formData: FormData) {
   if (readError) throw new Error(readError.message);
 
   const previous = current?.logo_url ?? null;
-  const path = tenantLogoPath(actor.orgId!, validation.extension);
+  const path = tenantLogoPath(actor.orgId!, COMPRESSED_PHOTO_EXTENSION);
 
   const { error: uploadError } = await admin.storage
     .from(PHOTO_BUCKET)
-    .upload(path, entry, { contentType: entry.type, upsert: false });
+    .upload(path, photo, { contentType: photo.type, upsert: false });
   if (uploadError) throw new Error(`Gagal mengunggah logo: ${uploadError.message}`);
 
   const { error: writeError } = await admin
@@ -348,8 +346,7 @@ export async function uploadReceiptLogo(formData: FormData) {
   if (!(entry instanceof File)) throw new Error("File tidak ditemukan");
   if (entry.size === 0) throw new Error("File kosong");
 
-  const validation = validatePhotoFile(entry);
-  if (!validation.ok) throw new Error(validation.error);
+  const photo = await preparePhoto(entry);
 
   const admin = createAdminClient();
   const { data: current, error: readError } = await admin
@@ -360,11 +357,11 @@ export async function uploadReceiptLogo(formData: FormData) {
   if (readError) throw new Error(readError.message);
 
   const previous = isSafeObjectPath(current?.receipt_logo_url) ? (current!.receipt_logo_url as string) : null;
-  const path = tenantLogoPath(actor.orgId!, validation.extension);
+  const path = tenantLogoPath(actor.orgId!, COMPRESSED_PHOTO_EXTENSION);
 
   const { error: uploadError } = await admin.storage
     .from(PHOTO_BUCKET)
-    .upload(path, entry, { contentType: entry.type, upsert: false });
+    .upload(path, photo, { contentType: photo.type, upsert: false });
   if (uploadError) throw new Error(`Gagal mengunggah logo nota: ${uploadError.message}`);
 
   const { error: writeError } = await admin
