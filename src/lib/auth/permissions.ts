@@ -69,6 +69,7 @@ export const PERMISSION_CATALOG = [
       { key: "reports.sales", label: "Laporan penjualan" },
       { key: "reports.performance", label: "Performa teknisi" },
       { key: "reports.shift", label: "Laporan shift" },
+      { key: "reports.attendance", label: "Laporan absensi" },
     ],
   },
   {
