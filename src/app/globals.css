@@ -133,6 +133,26 @@
   --color-chart-background: var(--chart-background);
   --color-chart-negative: var(--chart-negative);
   --color-chart-positive: var(--chart-positive);
+  --animate-background-gradient: background-gradient;
+  @keyframes background-gradient {
+    0%,
+    100% {
+      transform: translate(0, 0);
+      animation-delay: var(--background-gradient-delay, 0s);
+    }
+    20% {
+      transform: translate(calc(100% * var(--tx-1, 1)), calc(100% * var(--ty-1, 1)));
+    }
+    40% {
+      transform: translate(calc(100% * var(--tx-2, -1)), calc(100% * var(--ty-2, 1)));
+    }
+    60% {
+      transform: translate(calc(100% * var(--tx-3, 1)), calc(100% * var(--ty-3, -1)));
+    }
+    80% {
+      transform: translate(calc(100% * var(--tx-4, -1)), calc(100% * var(--ty-4, -1)));
+    }
+  }
 }
 
 /*
@@ -140,9 +160,15 @@
  * supaya halaman publik Lacak bisa memilih mode sendiri di elemennya, tanpa
  * menyentuh `class="dark"` milik `next-themes` pada `<html>`. Tanpa
  * `.lacak-light`, tidak ada cara memaksa terang saat aplikasi sedang gelap.
+ *
+ * `.landing-light` memakai trik yang sama untuk landing page: desainnya memang
+ * terang (warna di-hardcode), jadi token di dalamnya tidak boleh ikut berubah
+ * saat pengguna menyetel dark di aplikasi. Deklarasi langsung di elemen
+ * mengalahkan nilai yang diwariskan dari `<html class="dark">`.
  */
 :root,
-.lacak-light {
+.lacak-light,
+.landing-light {
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
   --canvas: #EFEFEF;
