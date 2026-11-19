@@ -22,13 +22,14 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty";
 import { submitKioskAttendance } from "./actions";
-import { jam, logStatus, logStatusLabel, type LogRow } from "./kiosk-data";
+import { jam, logStatus, logStatusLabel, type LogRow, workDuration } from "./kiosk-data";
 
 export function KioskClient({ name, today, rows }: { name: string; today: string; rows: LogRow[] }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [lokasi, setLokasi] = useState<{ lat: number; lng: number } | null>(null);
   const [pending, startTransition] = useTransition();
+  const [now, setNow] = useState(0);
 
   useEffect(() => {
     let stream: MediaStream | null = null;
@@ -48,6 +49,13 @@ export function KioskClient({ name, today, rows }: { name: string; today: string
       cancelled = true;
       stream?.getTracks().forEach((t) => t.stop());
     };
+  }, []);
+
+  useEffect(() => {
+    const tick = () => setNow(Date.now());
+    tick();
+    const id = setInterval(tick, 30_000);
+    return () => clearInterval(id);
   }, []);
 
   async function capture(): Promise<File | null> {
@@ -161,6 +169,12 @@ export function KioskClient({ name, today, rows }: { name: string; today: string
           Absen Pulang
         </Button>
       </div>
+      <p className="text-center text-sm text-muted-foreground">
+        Durasi kerja:{" "}
+        <span className="font-mono tabular-nums text-foreground">
+          {workDuration(todayRow, now) ?? "—"}
+        </span>
+      </p>
       {sudahPulang ? <p className="text-center text-sm text-muted-foreground">Absen hari ini selesai.</p> : null}
 
       <CardFrame className="w-full">

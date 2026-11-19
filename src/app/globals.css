@@ -153,7 +153,13 @@
       transform: translate(calc(100% * var(--tx-4, -1)), calc(100% * var(--ty-4, -1)));
     }
   }
-}
+  --animate-caret-blink: 1s ease-out infinite caret-blink
+;
+  @keyframes caret-blink {
+  0%, 70%, to {
+    opacity: 1;}
+  20%, 50% {
+    opacity: 0;}}}
 
 /*
  * `.lacak-light` dan `.lacak-dark` di baris pertama mengikuti blok di bawah
@@ -1163,4 +1169,3 @@ html[data-ui-world="toy"] [data-shell="compact"] .bg-card {
 html[data-ui-world="toy"] [data-shell="compact"] .bg-background {
   background-color: var(--toy-surface-2);
 }
-

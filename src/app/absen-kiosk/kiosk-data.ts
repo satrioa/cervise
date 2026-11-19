@@ -3,6 +3,7 @@ import {
   ATTENDANCE_STATUS_LABEL,
   type AttendanceStatus,
 } from "@/lib/attendance/status";
+import { shiftDuration } from "@/lib/operational/shift-detail";
 
 export type LogRow = {
   tanggal: string;
@@ -45,3 +46,11 @@ export const jam = (value: string | null) =>
         timeZone: "Asia/Jakarta", hour: "2-digit", minute: "2-digit",
       }).format(new Date(value))
     : "-";
+
+/** Durasi kerja hari ini: sampai jam pulang, atau sampai `now` kalau belum pulang. */
+export function workDuration(row: LogRow | undefined, now: number): string | null {
+  if (!row?.jamMasuk) return null;
+  const selesai = row.jamPulang ? new Date(row.jamPulang).getTime() : now;
+  if (!selesai) return null;
+  return shiftDuration((selesai - new Date(row.jamMasuk).getTime()) / 60_000);
+}

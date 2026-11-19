@@ -5,11 +5,11 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { PinField } from "@/components/p-otp-field-2";
 import { loginWithPin } from "./actions";
 
 export function PinLogin() {
   const [email, setEmail] = useState("");
-  const [pin, setPin] = useState("");
   const [pending, startTransition] = useTransition();
 
   return (
@@ -26,7 +26,6 @@ export function PinLogin() {
           startTransition(async () => {
             const form = new FormData();
             form.append("email", email);
-            form.append("pin", pin);
             try {
               await loginWithPin(form);
               window.location.reload();
@@ -47,19 +46,7 @@ export function PinLogin() {
             required
           />
         </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="pin">PIN</Label>
-          <Input
-            id="pin"
-            type="password"
-            inputMode="numeric"
-            autoComplete="off"
-            maxLength={6}
-            value={pin}
-            onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 6))}
-            required
-          />
-        </div>
+        <PinField />
         <Button className="w-full" disabled={pending} type="submit">
           {pending ? "Memeriksa..." : "Masuk"}
         </Button>

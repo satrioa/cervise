@@ -19,7 +19,9 @@ function secret(): string {
 
 export async function readSession(): Promise<SessionPayload | null> {
   const store = await cookies();
-  return verifySession(store.get(COOKIE_NAME)?.value, secret());
+  const token = store.get(COOKIE_NAME)?.value;
+  if (!token) return null;
+  return verifySession(token, secret());
 }
 
 export async function loginWithPin(formData: FormData): Promise<void> {
