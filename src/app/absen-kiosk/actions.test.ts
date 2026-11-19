@@ -20,7 +20,13 @@ vi.mock("next/cache", () => ({ revalidatePath }));
 vi.mock("@/lib/attendance/session", () => ({ verifySession: verifySessionMock, signSession: vi.fn(() => "token") }));
 vi.mock("@/lib/attendance/pin", () => ({ validPin: (v: string) => /^\d{6}$/.test(v) }));
 
-import { loginWithPin, submitKioskAttendance } from "./actions";
+import { loginWithPin, readSession, submitKioskAttendance } from "./actions";
+
+it("readSession returns null without a cookie even if the secret is not configured", async () => {
+  delete process.env.ABSEN_SESSION_SECRET;
+  cookiesGet.mockReturnValueOnce(undefined);
+  await expect(readSession()).resolves.toBeNull();
+});
 
 function loginForm(email = "budi@kaggo.id", pin = "123456") {
   const f = new FormData();
@@ -38,6 +44,7 @@ function absenForm(kind = "check_in") {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  cookiesGet.mockReturnValue({ value: "token" });
   process.env.ABSEN_SESSION_SECRET = "secret-tes";
   rpc.mockResolvedValue({ data: [{ employee_id: "emp-1", organization_id: "org-1", branch_id: "b-1", full_name: "Budi" }], error: null });
   upload.mockResolvedValue({ error: null });
@@ -72,9 +79,14 @@ describe("submitKioskAttendance", () => {
     await expect(submitKioskAttendance(absenForm())).rejects.toThrow("Sesi berakhir");
     expect(rpc).not.toHaveBeenCalled();
   });
-  it("menghapus foto yang terunggah saat RPC gagal", async () => {
+  it("menganggap duplikat absen sebagai sukses (idempotent)", async () => {
     rpc.mockResolvedValue({ data: null, error: { message: "Sudah absen masuk hari ini" } });
-    await expect(submitKioskAttendance(absenForm())).rejects.toThrow("Sudah absen masuk hari ini");
+    await expect(submitKioskAttendance(absenForm())).resolves.toEqual({ ok: true });
+    expect(remove).not.toHaveBeenCalled();
+  });
+  it("menghapus foto yang terunggah saat RPC gagal dengan error lain", async () => {
+    rpc.mockResolvedValue({ data: null, error: { message: "Gagal menyimpan absen" } });
+    await expect(submitKioskAttendance(absenForm())).rejects.toThrow("Gagal menyimpan absen");
     expect(remove).toHaveBeenCalledWith([expect.stringMatching(/^attendance\//)]);
   });
 });

@@ -27,6 +27,8 @@ type RawRow = {
   check_in_at: string | null;
   check_out_at: string | null;
   check_in_selfie_path: string | null;
+  check_in_lat: number | null;
+  check_in_lng: number | null;
   check_out_lat: number | null;
   check_out_lng: number | null;
   note: string | null;
@@ -42,6 +44,12 @@ const time = (value: string | null) =>
         timeZone: "Asia/Jakarta", hour: "2-digit", minute: "2-digit",
       }).format(new Date(value))
     : "-";
+
+function formatLokasi(r: RawRow): string {
+  const lat = r.check_out_lat ?? r.check_in_lat;
+  const lng = r.check_out_lng ?? r.check_in_lng;
+  return lat === null || lng === null ? "Tidak tersedia" : `${lat}, ${lng}`;
+}
 
 export function toRekapRow(r: RawRow): RekapRow {
   const status = attendanceStatus({
@@ -60,7 +68,7 @@ export function toRekapRow(r: RawRow): RekapRow {
     status,
     statusLabel: ATTENDANCE_STATUS_LABEL[status],
     selfieUrl: publicPhotoUrl(process.env.NEXT_PUBLIC_SUPABASE_URL ?? "", r.check_in_selfie_path),
-    lokasi: r.check_out_lat === null ? "Tidak tersedia" : `${r.check_out_lat}, ${r.check_out_lng}`,
+    lokasi: formatLokasi(r),
     catatan: r.note ?? "",
   };
 }

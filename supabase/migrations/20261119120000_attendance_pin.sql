@@ -18,7 +18,7 @@ create or replace function public.set_employee_pin(
 ) returns void
 language plpgsql
 security definer
-set search_path = public
+set search_path = public, extensions
 as $$
 begin
   if p_pin is null or p_pin !~ '^[0-9]{6}$' then
@@ -45,7 +45,7 @@ create or replace function public.verify_employee_pin(
 )
 language plpgsql
 security definer
-set search_path = public
+set search_path = public, extensions
 as $$
 declare
   v_key text := lower(trim(coalesce(p_email, '')));
@@ -107,7 +107,7 @@ create or replace function public.submit_attendance_pin(
 ) returns public.attendance_records
 language plpgsql
 security definer
-set search_path = public
+set search_path = public, extensions
 as $$
 declare
   v_employee public.employees%rowtype;

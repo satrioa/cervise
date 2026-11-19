@@ -21,4 +21,7 @@ describe("migrasi PIN absen", () => {
     expect(sql).toContain("grant execute on function public.verify_employee_pin");
     expect(sql).toContain("to service_role");
   });
+  it("RPC memakai search_path yang mencakup schema extensions untuk crypt", () => {
+    expect(sql.match(/set search_path = public, extensions/g)?.length).toBe(3);
+  });
 });
