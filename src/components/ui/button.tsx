@@ -113,8 +113,13 @@ export function Button({
     const renderClass = cn(smoothButtonVariants({ variant: resolvedVariant, size: resolvedSize, color: resolvedColor, shape, className }));
     // <Link href="..." /> tanpa children dulu menghasilkan kotak kosong:
     // children milik Button tidak pernah diteruskan ke elemen render.
-    const renderChildren = (render.props as { children?: React.ReactNode }).children;
-    const target = renderChildren == null && children != null ? cloneElement(render, undefined, children) : render;
+    // Elemen render dari Server Component bisa tiba sebagai lazy wrapper tanpa
+    // `.props` — jangan dibaca atau di-clone kalau props-nya tidak ada.
+    const renderProps = (render as React.ReactElement).props as { children?: React.ReactNode } | undefined;
+    const renderChildren = renderProps?.children;
+    const target = renderProps != null && renderChildren == null && children != null
+      ? cloneElement(render, undefined, children)
+      : render;
     return (
       <Slot className={renderClass} data-sfx-managed="" data-ascii="fade" onClick={handleClick} {...(restProps as any)}>
         {target}
