@@ -23,6 +23,7 @@
   "menuAccent": "subtle",
   "registries": {
     "@coss": "https://coss.com/ui/r/{name}.json",
+    "@efferd": "https://efferd.com/r/{style}/{name}.json",
     "@cult-ui": "https://cult-ui.com/r/{name}.json",
     "@evilcharts": "https://evilcharts.com/r/{name}.json",
     "@reui": "https://reui.io/r/{style}/{name}.json",
@@ -38,6 +39,7 @@
     "@solaceui": "https://solaceui.com/r/{name}.json",
     "@aceternity": "https://ui.aceternity.com/registry/{name}.json",
     "@componentry": "https://componentry.fun/r/{name}.json",
-    "@skiper-ui": "https://skiper-ui.com/registry/{name}.json"
+    "@skiper-ui": "https://skiper-ui.com/registry/{name}.json",
+    "@magicui": "https://magicui.design/r/{name}"
   }
 }

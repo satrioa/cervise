@@ -1,9 +1,8 @@
-import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Wrench, Users, BarChart3, Wallet, UserCog, LayoutDashboard } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { fetchLoginAccess } from "@/lib/auth/login-access";
 import Hero02 from "@/components/originkit/hero-02";
 import BentoSection from "@/components/landing/bento-section";
+import { FeatureSection } from "@/components/feature-section";
 import { LandingSmoothScroll } from "@/components/layout/landing-smooth-scroll";
 import { publicPhotoUrl } from "@/lib/photos";
 import { PricingThreeTier } from "@/components/pricing-three-tier";
@@ -62,29 +61,8 @@ export default async function LandingPage() {
 
       <BentoSection />
 
-      <section id="fitur" className="border-t bg-muted/20 px-4 py-12 lg:px-8">
-        <div className="mx-auto max-w-6xl">
-          <h2 className="text-2xl font-bold">6 Menu Utama</h2>
-          <p className="text-muted-foreground">Semua operasional toko gadget dalam satu aplikasi.</p>
-          <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {[
-              { icon: LayoutDashboard, title: "Dashboard Overview", desc: "Omzet, servis pending, workload teknisi per cabang." },
-              { icon: Wrench, title: "Servis", desc: "7 status: Masuk → Diagnosa → Menunggu Konfirmasi → Sparepart → Dikerjakan → Selesai → Diambil. Garansi 3 bulan." },
-              { icon: Users, title: "Data Customer", desc: "Riwayat servis per customer, notifikasi WA Fonnte otomatis." },
-              { icon: UserCog, title: "Data Karyawan", desc: "Master-admin, Admin, Frontliner, Teknisi - 1 user 1 cabang." },
-              { icon: Wallet, title: "Keuangan", desc: "Kas harian, tutup kas, pemasukan & pengeluaran terpisah per cabang." },
-              { icon: BarChart3, title: "Laporan", desc: "Export Excel/PDF rentang tanggal, filter per teknisi & cabang." },
-            ].map((f) => (
-              <Card key={f.title}>
-                <CardHeader>
-                  <f.icon className="size-5" />
-                  <CardTitle className="text-base">{f.title}</CardTitle>
-                  <CardDescription>{f.desc}</CardDescription>
-                </CardHeader>
-              </Card>
-            ))}
-          </div>
-        </div>
+      <section id="fitur" className="border-t bg-muted/20 px-4 py-16 lg:px-8">
+        <FeatureSection />
       </section>
 
       <section id="harga">
