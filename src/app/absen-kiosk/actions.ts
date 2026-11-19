@@ -97,8 +97,15 @@ export async function submitKioskAttendance(formData: FormData): Promise<{ ok: t
     p_note: typeof note === "string" ? note : null,
   });
   if (error) {
-    if (isSafeObjectPath(path)) await admin.storage.from(PHOTO_BUCKET).remove([path]);
-    throw new Error(error.message);
+    // Klik dua kali / refresh saat baris sudah ada bukan kegagalan: kondisi
+    // akhir yang diinginkan sudah tercapai, jadi jangan lempar React error.
+    const sudahTercatat =
+      error.message === "Sudah absen masuk hari ini" ||
+      error.message === "Belum absen masuk atau sudah absen pulang hari ini";
+    if (!sudahTercatat) {
+      if (isSafeObjectPath(path)) await admin.storage.from(PHOTO_BUCKET).remove([path]);
+      throw new Error(error.message);
+    }
   }
 
   revalidatePath("/absen-kiosk");

@@ -1,14 +1,30 @@
 "use client";
 
 import { useEffect, useRef, useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { ClipboardListIcon, RefreshCwIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Button as CossButton } from "@/components/ui/coss-button";
+import {
+  Card,
+  CardFrame,
+  CardFrameAction,
+  CardFrameDescription,
+  CardFrameHeader,
+  CardFrameTitle,
+  CardPanel,
+} from "@/components/ui/card";
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
 import { submitKioskAttendance } from "./actions";
 import { jam, logStatus, logStatusLabel, type LogRow } from "./kiosk-data";
 
 export function KioskClient({ name, today, rows }: { name: string; today: string; rows: LogRow[] }) {
-  const router = useRouter();
   const videoRef = useRef<HTMLVideoElement>(null);
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [lokasi, setLokasi] = useState<{ lat: number; lng: number } | null>(null);
@@ -100,7 +116,7 @@ export function KioskClient({ name, today, rows }: { name: string; today: string
           try {
             await submitKioskAttendance(form);
             toast.success(kind === "check_in" ? "Absen masuk tercatat" : "Absen pulang tercatat");
-            router.refresh();
+            window.location.reload();
           } catch (err) {
             toast.error(err instanceof Error ? err.message : "Gagal menyimpan absen");
           }
@@ -143,35 +159,65 @@ export function KioskClient({ name, today, rows }: { name: string; today: string
       </div>
       {sudahPulang ? <p className="text-center text-sm text-muted-foreground">Absen hari ini selesai.</p> : null}
 
-      <section className="space-y-2">
-        <h2 className="font-heading text-lg font-semibold">Log harian</h2>
-        <div className="overflow-x-auto rounded-xl border">
-          <table className="w-full text-sm">
-            <thead className="bg-muted/50 text-left">
-              <tr>
-                {["Tanggal", "Masuk", "Pulang", "Status"].map((h) => (
-                  <th key={h} className="px-3 py-2 font-medium">
-                    {h}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((row) => {
-                const status = logStatus(row);
-                return (
-                  <tr key={row.tanggal} className="border-t">
-                    <td className="px-3 py-2">{row.tanggal}</td>
-                    <td className="px-3 py-2">{jam(row.jamMasuk)}</td>
-                    <td className="px-3 py-2">{jam(row.jamPulang)}</td>
-                    <td className="px-3 py-2">{logStatusLabel(status)}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </section>
+      <CardFrame className="w-full">
+        <CardFrameHeader className="grid-rows-1 gap-2 px-4 py-3">
+          <CardFrameTitle>Log harian</CardFrameTitle>
+          <CardFrameDescription>Riwayat absensi Anda</CardFrameDescription>
+          <CardFrameAction>
+            <CossButton
+              variant="outline"
+              size="sm"
+              disabled={pending}
+              onClick={() => router.refresh()}
+            >
+              <RefreshCwIcon />
+              Segarkan
+            </CossButton>
+          </CardFrameAction>
+        </CardFrameHeader>
+        <Card>
+          <CardPanel className="p-0">
+            {rows.length === 0 ? (
+              <Empty>
+                <EmptyHeader>
+                  <EmptyMedia variant="icon">
+                    <ClipboardListIcon />
+                  </EmptyMedia>
+                  <EmptyTitle>Belum ada log</EmptyTitle>
+                  <EmptyDescription>Absen pertama Anda akan muncul di sini.</EmptyDescription>
+                </EmptyHeader>
+              </Empty>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-muted/50 text-left">
+                    <tr>
+                      {["Tanggal", "Masuk", "Pulang", "Status"].map((h) => (
+                        <th key={h} className="px-3 py-2 font-medium">
+                          {h}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rows.map((row) => {
+                      const status = logStatus(row);
+                      return (
+                        <tr key={row.tanggal} className="border-t">
+                          <td className="px-3 py-2">{row.tanggal}</td>
+                          <td className="px-3 py-2">{jam(row.jamMasuk)}</td>
+                          <td className="px-3 py-2">{jam(row.jamPulang)}</td>
+                          <td className="px-3 py-2">{logStatusLabel(status)}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </CardPanel>
+        </Card>
+      </CardFrame>
     </main>
   );
 }
