@@ -74,7 +74,17 @@ export async function sendMetaWA(
           template: {
             name: templateName,
             language: { code: language },
-            components: [{ type: "body", parameters }],
+            components: [
+              {
+                type: "body",
+                // Builder internal memakai `value`; Graph API Meta mensyaratkan `text`.
+                parameters: parameters.map(({ type, parameter_name, value }) => ({
+                  type,
+                  parameter_name,
+                  text: value,
+                })),
+              },
+            ],
           },
         }),
       },

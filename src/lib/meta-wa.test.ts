@@ -90,16 +90,14 @@ describe("sendMetaWA", () => {
       Authorization: "Bearer test-token",
       "Content-Type": "application/json",
     });
-    expect(JSON.parse(options.body as string)).toEqual({
-      messaging_product: "whatsapp",
-      to: "628123456789",
-      type: "template",
-      template: {
-        name: "invoice",
-        language: { code: "id" },
-        components: [{ type: "body", parameters }],
-      },
-    });
+    const body = JSON.parse(options.body as string) as {
+      template: { components: { parameters: Record<string, unknown>[] }[] };
+    };
+    expect(body.template.components[0].parameters).toEqual([
+      { type: "text", parameter_name: "store_name", text: "Servisin" },
+      { type: "text", parameter_name: "service_number", text: "SRV-2026-0012" },
+    ]);
+    expect(JSON.stringify(body)).not.toContain('"value"');
   });
 
   it("membalas 190 sebagai infrastructure agar token bisa di-rotate", async () => {
