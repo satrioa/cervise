@@ -158,7 +158,7 @@ export const PhoneCarousel: React.FC<PhoneCarouselProps> = ({
 
     if (!isClient) {
         return (
-            <div className="w-full h-[400px] flex items-center justify-center">
+            <div className="flex h-[520px] w-full items-center justify-center md:h-[560px] lg:h-[590px]">
                 <div className="animate-pulse w-64 h-96 rounded-3xl"></div>
             </div>
         );
@@ -249,7 +249,7 @@ export const PhoneCarousel: React.FC<PhoneCarouselProps> = ({
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div className="relative">
                     {/* Main carousel container */}
-                    <div className="flex justify-center items-start h-[470px] md:h-[560px] lg:h-[590px]">
+                    <div className="flex justify-center items-start h-[520px] md:h-[560px] lg:h-[590px]">
                         <div className="relative flex justify-center w-full">
                             {images.map((image, index) => {
                                 const isActive = index === currentIndex;
@@ -265,7 +265,7 @@ export const PhoneCarousel: React.FC<PhoneCarouselProps> = ({
                                         key={index}
                                         className={cn(
                                             "absolute opacity-100 transition-all duration-700 ease-in-out will-change-transform",
-                                            isActive ? "z-20" : "z-10",
+                                            isActive ? "z-20" : "z-10 hidden md:block",
                                         )}
                                         style={{
                                             top: "0",
@@ -285,9 +285,9 @@ export const PhoneCarousel: React.FC<PhoneCarouselProps> = ({
                                         }}
                                         aria-hidden={false}
                                     >
-                                        <div className="group">
+                                        <div className="group w-[min(62vw,280px)] md:w-[400px]">
                                             <Iphone15Pro
-                                                width={isMobile ? 320 : 400}
+                                                width="100%"
                                                 height="auto"
                                                 src={image.src}
                                                 alt={image.alt}
