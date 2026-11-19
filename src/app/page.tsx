@@ -75,6 +75,7 @@ export default async function LandingPage() {
 
       <FooterSimple
         companyName="Kaggo"
+        logoUrl="/Logo/IconLogo.png?v=2"
         description="Manajemen servis gadget multibranch. Dibuat ringan untuk Frontliner & Teknisi di HP."
         social={{}}
         links={{

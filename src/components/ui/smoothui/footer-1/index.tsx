@@ -1,6 +1,7 @@
 "use client";
 
 import { motion, useReducedMotion } from "motion/react";
+import Image from "next/image";
 
 const ANIMATION_DURATION = 0.6;
 const DELAY_INCREMENT = 0.1;
@@ -13,6 +14,7 @@ const DELAY_COPYRIGHT = DELAY_INCREMENT * 5;
 
 interface FooterSimpleProps {
   companyName?: string;
+  logoUrl?: string;
   copyright?: string;
   description?: string;
   links?: {
@@ -30,6 +32,7 @@ interface FooterSimpleProps {
 
 export function FooterSimple({
   companyName = "SmoothUI",
+  logoUrl,
   description = "Build beautiful UIs, effortlessly.",
   links = {
     company: [
@@ -99,9 +102,21 @@ export function FooterSimple({
                 shouldReduceMotion ? { opacity: 1 } : { opacity: 1, y: 0 }
               }
             >
-              <h3 className="mb-4 font-bold text-2xl text-foreground">
-                {companyName}
-              </h3>
+              <div className="mb-4 flex items-center gap-2">
+                {logoUrl ? (
+                  <Image
+                    src={logoUrl}
+                    alt=""
+                    width={40}
+                    height={40}
+                    className="size-10 object-contain"
+                    priority
+                  />
+                ) : null}
+                <h3 className="font-bold text-2xl text-foreground">
+                  {companyName}
+                </h3>
+              </div>
               <p className="mb-6 max-w-md text-foreground/70 text-sm">
                 {description}
               </p>
