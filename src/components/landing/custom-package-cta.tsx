@@ -24,18 +24,20 @@ export function CustomPackageCta() {
           <AnimatedGradient colors={GRADIENT_COLORS} speed={10} blur="medium" />
         </div>
 
-        <div className="relative z-10 flex flex-col items-center gap-4">
-          <h2 className="text-balance text-2xl font-bold sm:text-3xl">
-            Siap tumbuhkan bisnis dengan solusi sistem Manajemen Servis Gadget Multibranch?
-          </h2>
-          <p className="max-w-2xl text-sm text-white/90 sm:text-base">
-            dikembangkan khusus untuk toko servis dan jual beli gadget untuk operasional yang terstruktur dan mempunyai laporan yang rapi.
-          </p>
+        <div className="relative z-10 flex flex-col items-center gap-6 text-center sm:flex-row sm:items-center sm:justify-between sm:gap-10 sm:text-left">
+          <div className="flex flex-col gap-3">
+            <h2 className="text-balance text-2xl font-bold sm:text-3xl">
+              Siap tumbuhkan bisnis dengan solusi sistem Manajemen Servis Gadget Multibranch?
+            </h2>
+            <p className="max-w-2xl text-sm text-white/90 sm:text-base">
+              dikembangkan khusus untuk toko servis dan jual beli gadget untuk operasional yang terstruktur dan mempunyai laporan yang rapi.
+            </p>
+          </div>
           <a
             href={href}
             target={external ? "_blank" : undefined}
             rel={external ? "noopener noreferrer" : undefined}
-            className="mt-2 inline-flex items-center gap-2 rounded-full border border-white bg-white/10 px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-white hover:text-blue-700"
+            className="inline-flex shrink-0 items-center gap-2 whitespace-nowrap rounded-full border border-white bg-white/10 px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-white hover:text-blue-700"
           >
             Chat Admin WhatsApp
             <MessageCircleIcon className="size-4" aria-hidden />
