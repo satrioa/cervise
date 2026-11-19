@@ -12,6 +12,16 @@ import { publicPhotoUrl } from "@/lib/photos";
 import { validatePhone } from "@/lib/phone";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { findAuthUserByEmail } from "@/lib/supabase/admin-users";
+import { validPin } from "@/lib/attendance/pin";
+
+async function applyPin(employeeId: string, rawPin: string | undefined): Promise<void> {
+  if (!rawPin || rawPin.trim() === "") return;
+  const pin = rawPin.trim();
+  if (!validPin(pin)) throw new Error("PIN harus 6 digit angka");
+  const admin = createAdminClient();
+  const { error } = await admin.rpc("set_employee_pin", { p_employee_id: employeeId, p_pin: pin });
+  if (error) throw new Error(error.message);
+}
 
 type BranchUser = { supabase: Actor["supabase"]; userId: string; employeeId: string; organizationId: string; branchId: string; role: string; permissions?: readonly string[] | null };
 
@@ -97,7 +107,7 @@ export async function getKaryawanBranches(): Promise<{ id: string; name: string 
   return ((data ?? []) as any[]).map((b) => ({ id: b.id as string, name: b.name as string }));
 }
 
-export type CreateKaryawanInput = { fullName: string; email: string; phone?: string; role: string; roleKey?: string | null; branchId: string };
+export type CreateKaryawanInput = { fullName: string; email: string; phone?: string; role: string; roleKey?: string | null; branchId: string; pin?: string };
 
 /**
  * Menentukan role dasar dan role key untuk sebuah assignment karyawan.
@@ -231,11 +241,12 @@ export async function createKaryawan(input: CreateKaryawanInput): Promise<{ empl
     }
     throw new Error(detail);
   }
+  await applyPin(employee.id as string, input.pin);
   revalidatePath("/app/karyawan");
   return { employeeId: employee.id as string, profileId: uid, tempPassword };
 }
 
-export type UpdateKaryawanInput = { profileId: string; employeeId: string; fullName: string; phone?: string; email?: string; role: string; roleKey?: string | null; branchId: string };
+export type UpdateKaryawanInput = { profileId: string; employeeId: string; fullName: string; phone?: string; email?: string; role: string; roleKey?: string | null; branchId: string; pin?: string };
 
 export async function updateKaryawan(input: UpdateKaryawanInput) {
   const { supabase, organizationId, role } = await getBranchUser();
@@ -415,6 +426,7 @@ export async function updateKaryawan(input: UpdateKaryawanInput) {
     }
   }
 
+  await applyPin(input.employeeId, input.pin);
   revalidatePath("/app/karyawan");
   return { ok: true as const };
 }
