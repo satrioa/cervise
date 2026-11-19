@@ -51,17 +51,14 @@ export function FeatureShowcase() {
     <section className="border-t px-4 py-16 lg:px-8">
       <div className="mx-auto grid max-w-6xl gap-10 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] lg:gap-16">
         <div className="lg:sticky lg:top-24 lg:self-start">
-          <div className="flex flex-col">
+          <div className="flex flex-col divide-y divide-border">
             {FEATURES.map((feature, index) => (
               <button
                 key={feature.title}
                 type="button"
                 onClick={() => goTo(index)}
                 aria-current={active === index ? "step" : undefined}
-                className={cn(
-                  "border-l-2 py-5 text-left transition-colors",
-                  active === index ? "border-primary" : "border-border",
-                )}
+                className="py-5 text-left transition-colors"
               >
                 <h3
                   className={cn(
