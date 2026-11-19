@@ -26,7 +26,7 @@ export async function getAttendanceRekap(
   let query = actor.supabase
     .from("attendance_rekap")
     .select(
-      "id,attendance_date,employee_id,branch_id,check_in_at,check_out_at,check_in_selfie_path,check_out_lat,check_out_lng,note,full_name,branch_name,check_in_time,check_out_time",
+      "id,attendance_date,employee_id,branch_id,check_in_at,check_out_at,check_in_selfie_path,check_in_lat,check_in_lng,check_out_lat,check_out_lng,note,full_name,branch_name,check_in_time,check_out_time",
     )
     .eq("organization_id", actor.orgId)
     .gte("attendance_date", from)
