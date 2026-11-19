@@ -3,6 +3,7 @@ import { fetchLoginAccess } from "@/lib/auth/login-access";
 import Hero02 from "@/components/originkit/hero-02";
 import BentoSection from "@/components/landing/bento-section";
 import { FeatureSection } from "@/components/feature-section";
+import FeatureShowcase from "@/components/landing/feature-showcase";
 import { LandingSmoothScroll } from "@/components/layout/landing-smooth-scroll";
 import { publicPhotoUrl } from "@/lib/photos";
 import { PricingThreeTier } from "@/components/pricing-three-tier";
@@ -64,6 +65,8 @@ export default async function LandingPage() {
       <section id="fitur" className="border-t bg-muted/20 px-4 py-16 lg:px-8">
         <FeatureSection />
       </section>
+
+      <FeatureShowcase />
 
       <section id="harga">
         <PricingThreeTier />
