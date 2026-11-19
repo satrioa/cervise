@@ -10,7 +10,6 @@ const TAP_SCALE = 0.9;
 const DELAY_PRODUCT = DELAY_INCREMENT * 2;
 const DELAY_COMPANY = DELAY_INCREMENT * 3;
 const DELAY_SUPPORT = DELAY_INCREMENT * 4;
-const DELAY_COPYRIGHT = DELAY_INCREMENT * 5;
 
 interface FooterSimpleProps {
   companyName?: string;
@@ -117,9 +116,10 @@ export function FooterSimple({
                   {companyName}
                 </h3>
               </div>
-              <p className="mb-6 max-w-md text-foreground/70 text-sm">
+              <p className="max-w-md text-foreground/70 text-sm">
                 {description}
               </p>
+              <p className="mb-6 mt-2 text-foreground/60 text-xs">{copyright}</p>
 
               {/* Social Links */}
               <div className="flex gap-4">
@@ -327,23 +327,6 @@ export function FooterSimple({
           </div>
         </motion.div>
 
-        {/* Copyright */}
-        <motion.div
-          animate={shouldReduceMotion ? { opacity: 1 } : { opacity: 1, y: 0 }}
-          className="mt-12 border-border border-t pt-8 text-center"
-          initial={shouldReduceMotion ? { opacity: 1 } : { opacity: 0, y: 20 }}
-          transition={
-            shouldReduceMotion
-              ? { duration: 0 }
-              : { delay: DELAY_COPYRIGHT, duration: ANIMATION_DURATION }
-          }
-          viewport={{ once: true }}
-          whileInView={
-            shouldReduceMotion ? { opacity: 1 } : { opacity: 1, y: 0 }
-          }
-        >
-          <p className="text-foreground/60 text-sm">{copyright}</p>
-        </motion.div>
       </div>
     </footer>
   );
