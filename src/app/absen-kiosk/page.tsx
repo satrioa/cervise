@@ -12,6 +12,9 @@ export default async function AbsenKioskPage() {
   if (!session) return <PinLogin />;
 
   const today = wibDate(new Date());
+  const sebulanLalu = new Date();
+  sebulanLalu.setUTCDate(sebulanLalu.getUTCDate() - 29);
+  const dari = wibDate(sebulanLalu);
   const admin = createAdminClient();
   // Sesi menyimpan employees.id, sedangkan attendance_records.employee_id
   // adalah profiles.id. Terjemahkan dulu supaya filter log tidak kosong.
@@ -26,8 +29,9 @@ export default async function AbsenKioskPage() {
     .from("attendance_rekap")
     .select("attendance_date, check_in_at, check_out_at, check_in_time, check_out_time")
     .eq("employee_id", employee?.profile_id ?? "")
+    .gte("attendance_date", dari)
     .order("attendance_date", { ascending: false })
-    .limit(7);
+    .limit(30);
   if (error) throw new Error(error.message);
 
   const rawRows = (data ?? []) as Parameters<typeof toLogRow>[0][];

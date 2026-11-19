@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { wibDate } from "@/lib/attendance/status";
 
 const { fromMock, eqCalls, readSessionMock } = vi.hoisted(() => {
   const eqCalls: Array<[string, unknown]> = [];
@@ -9,7 +10,12 @@ const { fromMock, eqCalls, readSessionMock } = vi.hoisted(() => {
         if (table === "employees") {
           return { maybeSingle: async () => ({ data: { profile_id: "profile-1" }, error: null }) };
         }
-        return { order: () => ({ limit: async () => ({ data: [], error: null }) }) };
+        return {
+          gte: (col: string, value: unknown) => {
+            eqCalls.push([col, value]);
+            return { order: () => ({ limit: async () => ({ data: [], error: null }) }) };
+          },
+        };
       },
     }),
   }));
@@ -38,5 +44,11 @@ describe("AbsenKioskPage", () => {
     await AbsenKioskPage();
     expect(eqCalls).toContainEqual(["id", "emp-row-1"]);
     expect(eqCalls).toContainEqual(["employee_id", "profile-1"]);
+  });
+
+  it("membatasi riwayat 30 hari terakhir", async () => {
+    await AbsenKioskPage();
+    const expected = wibDate(new Date(Date.now() - 29 * 24 * 60 * 60 * 1000));
+    expect(eqCalls).toContainEqual(["attendance_date", expected]);
   });
 });

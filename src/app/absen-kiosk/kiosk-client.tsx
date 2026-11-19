@@ -179,8 +179,8 @@ export function KioskClient({ name, today, rows }: { name: string; today: string
 
       <CardFrame className="w-full">
         <CardFrameHeader className="grid-rows-1 gap-2 px-4 py-3">
-          <CardFrameTitle>Log harian</CardFrameTitle>
-          <CardFrameDescription>Riwayat absensi Anda</CardFrameDescription>
+          <CardFrameTitle>Riwayat Absensi</CardFrameTitle>
+          <CardFrameDescription>30 hari terakhir</CardFrameDescription>
           <CardFrameAction>
             <CossButton
               variant="outline"
