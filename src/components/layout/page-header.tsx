@@ -52,12 +52,14 @@ export function PageHeader({
     <header
       className={cn(
         "border-b border-border/60 bg-white dark:bg-[#0f0f0f]",
-        sticky ? "sticky top-0 z-30" : "relative",
+        sticky
+          ? "sticky top-0 z-30 group-data-[shell=compact]/shell:relative lg:group-data-[shell=compact]/shell:sticky"
+          : "relative",
         className,
       )}
     >
       <PageHeaderContainer className="flex min-h-16 flex-row items-center justify-between gap-4">
-        <div className="min-w-0 flex-1">
+        <div className="min-w-0 flex-1 group-data-[shell=compact]/shell:hidden lg:group-data-[shell=compact]/shell:block">
           <PageBreadcrumb title={title} titleClassName={titleClassName} />
         </div>
         <ShellChrome />

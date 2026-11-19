@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type ReactNode, type UIEvent } from "react";
+import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
 import { usePathname } from "next/navigation";
 import {
   MainNavLink,
@@ -52,12 +52,7 @@ export type CompactShellActor = {
   avatarUrl: string | null;
 };
 
-const MENU_MAX_DVH = 95;
-const MENU_MIN_DVH = 70;
-const MENU_RANGE_PX = 160;
-
-// Desktop: panel kiri mengambang, tinggi tetap - bentuk lama sebelum drawer
-// mobile masuk. Mobile: bottom sheet yang tingginya ikut scroll.
+// Desktop: panel kiri mengambang, tinggi tetap. Mobile: sheet langsung penuh.
 const MENU_SHEET_DESKTOP =
   "gap-0 overflow-hidden rounded-[28px] bg-[#F1F1F1] p-0 shadow-[0_30px_80px_-32px_rgba(0,0,0,0.55)] duration-300 ease-[linear(0,0.35,0.85,1.06,1.02,0.995,1)] dark:bg-neutral-950 data-[side=left]:inset-y-4 data-[side=left]:left-4 data-[side=left]:h-[calc(100%-2rem)] data-[side=left]:w-[calc(100%-2rem)] data-[side=left]:border-0 data-[side=left]:sm:max-w-[340px] data-[side=left]:data-starting-style:translate-x-[-110%]! data-[side=left]:data-ending-style:translate-x-[-110%]!";
 const MENU_SHEET_MOBILE =
@@ -108,26 +103,22 @@ function CompactShellInner({
   // desktop. Popup sheet baru dirender saat dibuka, jadi nilai `matchMedia`
   // ini sudah final ketika dipakai - tidak ada kedipan saat hidrasi.
   const [desktop, setDesktop] = useState(false);
-  // Drawer menu: tinggi mengikuti nilai scroll konten, bukan snap. Paling atas
-  // 70dvh, membesar linear sampai 95dvh setelah 160px scroll.
-  const [menuHeight, setMenuHeight] = useState(MENU_MIN_DVH);
+  const [dragY, setDragY] = useState(0);
   const pathname = usePathname();
   const t = useTranslations("nav");
   const role = normalizeAppRole(actor.role);
 
-  // scrollTop kembali 0 saat drawer dibuka tanpa memicu event scroll.
   function setMenuOpen(next: boolean) {
     setOpen(next);
-    if (next) setMenuHeight(MENU_MIN_DVH);
   }
 
-  function handleMenuScroll(event: UIEvent<HTMLDivElement>) {
-    const top = event.currentTarget.scrollTop;
-    // Scroll ke bawah -> drawer drag-naik mengikuti nilai scroll, batas atas
-    // 95dvh; scroll ke atas -> drag-balik turun ke 70dvh.
-    setMenuHeight(
-      Math.min(MENU_MAX_DVH, MENU_MIN_DVH + (top / MENU_RANGE_PX) * (MENU_MAX_DVH - MENU_MIN_DVH)),
-    );
+  useEffect(() => {
+    if (open) setDragY(0);
+  }, [open]);
+
+  function handleDragEnd(delta: number) {
+    if (delta > 100) setOpen(false);
+    else setDragY(0);
   }
 
   useEffect(() => {
@@ -231,16 +222,30 @@ function CompactShellInner({
             <SheetContent
               side={desktop ? "left" : "bottom"}
               showCloseButton={false}
-              // Tinggi mengikuti scroll hanya di mobile (lihat
-              // `handleMenuScroll`); di desktop panel kiri tingginya tetap.
-              style={desktop ? undefined : { height: `${menuHeight}dvh` }}
-              className={desktop ? MENU_SHEET_DESKTOP : MENU_SHEET_MOBILE}
+              // Transform ada di POPUP: konten di belakang tetap terlihat saat
+              // sheet ditarik ke bawah. Backdrop sengaja transparan.
+              style={
+                desktop
+                  ? undefined
+                  : ({ height: "100dvh", "--drag-y": `${dragY}px` } as CSSProperties)
+              }
+              overlayClassName={
+                desktop ? undefined : "bg-transparent! backdrop-blur-none!"
+              }
+              slideDownOnClose={!desktop}
+              className={cn(
+                desktop ? MENU_SHEET_DESKTOP : MENU_SHEET_MOBILE,
+                !desktop && "data-[side=bottom]:translate-y-[var(--drag-y)]",
+                dragY > 0 && "transition-none",
+              )}
             >
               <CompactMenuSheet
                 role={actor.role}
                 permissions={actor.permissions}
+                actor={actor}
                 onNavigate={() => setOpen(false)}
-                onScroll={desktop ? undefined : handleMenuScroll}
+                onDragYChange={setDragY}
+                onDragEnd={handleDragEnd}
               />
             </SheetContent>
           </Sheet>
@@ -280,6 +285,7 @@ function CompactShellInner({
         fullName={actor.fullName}
         email={actor.email}
         avatarUrl={actor.avatarUrl}
+        onOpenMenu={() => setMenuOpen(true)}
       />
 
       </div>

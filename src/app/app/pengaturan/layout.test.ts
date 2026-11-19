@@ -143,8 +143,11 @@ describe("sub-menu pengaturan master admin (tabs horizontal)", () => {
     expect(pageHeaderSource).toContain("<SettingsHeaderTabs />");
   });
 
-  it("teknisi/frontliner tetap memakai sidebar lama", () => {
+  it("teknisi/frontliner tidak memakai sub-sidebar pengaturan", () => {
     expect(layoutSource).toMatch(/role === "TECHNICIAN" \|\| role === "FRONTLINER"/);
-    expect(layoutSource).toContain("<SettingsNav groups={groups} />");
+    const compactBranch = layoutSource.slice(layoutSource.indexOf("if (!isCompact)"));
+    expect(compactBranch).not.toContain("<SettingsNav groups={groups} />");
+    expect(compactBranch).not.toContain("<SettingsMobileNav");
+    expect(compactBranch).toContain("{children}");
   });
 });

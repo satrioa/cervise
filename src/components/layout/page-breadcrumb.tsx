@@ -55,7 +55,7 @@ const SEGMENT_LABEL: Record<string, string> = {
   usage: "Usage",
 };
 
-function labelFor(segment: string): string {
+export function labelFor(segment: string): string {
   return (
     SEGMENT_LABEL[segment] ??
     segment
@@ -65,7 +65,7 @@ function labelFor(segment: string): string {
 }
 
 /** Entri menu untuk path ini, atau induk terdekatnya untuk rute detail. */
-function matchEntry(pathname: string): NavEntry | undefined {
+export function matchEntry(pathname: string): NavEntry | undefined {
   const exact = NAV_ENTRIES.find((entry) => entry.href === pathname);
   if (exact) return exact;
   return NAV_ENTRIES.filter((entry) => pathname.startsWith(`${entry.href}/`)).sort(
