@@ -141,6 +141,15 @@ export const getActiveTenantForBilling = cache(async (): Promise<Actor> => {
 });
 
 /**
+ * Khusus /absensi: karyawan tetap bisa absen walau tenant trial-nya habis,
+ * supaya data kehadiran tidak bolong. Pemeriksaan profil/tenant/cabang tetap
+ * berjalan lewat resolveTenant. Jangan dipakai di halaman /app lain.
+ */
+export const getActiveTenantForAttendance = cache(async (): Promise<Actor> => {
+  return resolveTenant({ allowExpiredSubscription: true });
+});
+
+/**
  * Role dari `employees.role`, dinormalkan ke bentuk manifest.
  *
  * Fallback TECHNICIAN dipertahankan karena itu role dengan akses paling sempit

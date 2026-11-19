@@ -4,6 +4,7 @@ import {
   MAX_PHOTO_BYTES,
   PHOTO_BUCKET,
   accountPhotoPath,
+  attendancePhotoPath,
   formatBytes,
   initialsOf,
   isSafeObjectPath,
@@ -124,6 +125,14 @@ describe("isSafeObjectPath", () => {
     expect(isSafeObjectPath("avatars/u 1/x.png")).toBe(false);
     expect(isSafeObjectPath("avatars/u-1/x.png?a=1")).toBe(false);
     expect(isSafeObjectPath("avatars/u-1/x.png#f")).toBe(false);
+  });
+
+  it("menerima path selfie absensi dan menolak penyusupannya", () => {
+    const path = attendancePhotoPath("org-1", "emp-1", "2026-11-19", "in", "jpg");
+    expect(path).toMatch(/^attendance\/org-1\/emp-1\/2026-11-19-in-[a-z0-9]+\.jpg$/);
+    expect(isSafeObjectPath(path)).toBe(true);
+    expect(isSafeObjectPath("attendance/org-1/../emp-1/x.jpg")).toBe(false);
+    expect(isSafeObjectPath("attendance/org-1/emp-1/x.jpg/http://evil")).toBe(false);
   });
 });
 

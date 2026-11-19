@@ -1,4 +1,4 @@
-export type ProtectedPathKind = "app" | "tenant";
+export type ProtectedPathKind = "app" | "tenant" | "absensi";
 export type TenantAccessErrorCode =
   | "unauthenticated"
   | "tenant_not_found"
@@ -81,6 +81,9 @@ export function isSalesRole(role: string | null | undefined) {
 
 export function getProtectedPathKind(pathname: string): ProtectedPathKind | null {
   const withoutLocale = pathname.replace(/^\/(?:id|en)(?=\/|$)/i, "");
+  if (withoutLocale === "/absensi" || withoutLocale.startsWith("/absensi/")) {
+    return "absensi";
+  }
   if (withoutLocale === "/app" || withoutLocale.startsWith("/app/")) {
     return "app";
   }
