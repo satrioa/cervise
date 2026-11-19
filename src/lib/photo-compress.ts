@@ -1,4 +1,4 @@
-import sharp from "sharp";
+import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { MAX_RAW_PHOTO_BYTES, validatePhotoFile } from "./photos";
 
 export const COMPRESSED_PHOTO_TYPE = "image/webp";
@@ -9,9 +9,24 @@ const WEBP_QUALITY = 80;
 
 export class PhotoCompressionError extends Error {}
 
+type ImagesBinding = {
+  input: (stream: ReadableStream) => {
+    transform: (options: {
+      width: number;
+      height: number;
+      fit: "scale-down";
+    }) => {
+      output: (options: {
+        quality: number;
+        format: string;
+      }) => Promise<{ image: () => ReadableStream }>;
+    };
+  };
+};
+
 /**
  * Validasi file mentah (maks 10MB) → kompres → pastikan hasil ≤2MB.
- * Dipakai semua server action upload supaya aturannya tidak diduplikasi.
+ * Dipakai semua server action upload supaya aturan tidak diduplikasi.
  */
 export async function preparePhoto(file: File): Promise<File> {
   const raw = validatePhotoFile(file, MAX_RAW_PHOTO_BYTES);
@@ -24,23 +39,29 @@ export async function preparePhoto(file: File): Promise<File> {
   return compressed;
 }
 
-/** Kompres foto jadi WebP q80, sisi terpanjang maksimal 1600px (tanpa upscale). */
+/**
+ * Kompres foto jadi WebP q80, sisi terpanjang maksimal 1600px (tanpa upscale).
+ * Memakai binding IMAGES bawaan Cloudflare Worker: `sharp` adalah modul native
+ * yang tidak bisa dimuat di Worker dan membuat seluruh server action gagal.
+ */
 export async function compressPhoto(file: File): Promise<File> {
-  const input = Buffer.from(await file.arrayBuffer());
   try {
-    const output = await sharp(input, { failOn: "error" })
-      .rotate()
-      .resize({
+    const { env } = getCloudflareContext();
+    const images = (env as { IMAGES?: ImagesBinding }).IMAGES;
+    if (!images) throw new Error("Binding IMAGES tidak tersedia");
+
+    const transformed = await images
+      .input(file.stream())
+      .transform({
         width: MAX_DIMENSION,
         height: MAX_DIMENSION,
-        fit: "inside",
-        withoutEnlargement: true,
+        fit: "scale-down",
       })
-      .webp({ quality: WEBP_QUALITY })
-      .toBuffer();
+      .output({ quality: WEBP_QUALITY, format: COMPRESSED_PHOTO_TYPE });
 
+    const bytes = await new Response(transformed.image()).arrayBuffer();
     const baseName = file.name.replace(/\.[^.]+$/, "") || "photo";
-    return new File([output], `${baseName}.webp`, { type: COMPRESSED_PHOTO_TYPE });
+    return new File([bytes], `${baseName}.webp`, { type: COMPRESSED_PHOTO_TYPE });
   } catch (error) {
     throw new PhotoCompressionError(
       `Gagal mengompres foto: ${error instanceof Error ? error.message : String(error)}`,
