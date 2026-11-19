@@ -45,9 +45,9 @@ type View = "kartu" | "tabel";
  * berbeda artinya.
  */
 function stockBadgeClass(stock: number): string {
-  if (stock <= 0) return "border-destructive text-destructive";
-  if (stock < STOCK_MENIPIS_MAX) return "border-amber-500 text-amber-700";
-  return "border-emerald-500 text-emerald-700";
+  if (stock <= 0) return "border-destructive bg-destructive text-white";
+  if (stock < STOCK_MENIPIS_MAX) return "border-amber-600 bg-amber-600 text-white";
+  return "border-emerald-600 bg-emerald-600 text-white";
 }
 
 function StockBadge({ stock }: { stock: number }) {
@@ -104,7 +104,7 @@ function BekasRow({ variant, onEdit, onPrint }: { variant: InventoryProduct; onE
         </div>
       </div>
       <HoverActions product={variant} onEdit={onEdit} onPrint={onPrint} />
-      <Badge variant="outline" size="sm" className={stock > 0 ? "border-emerald-500 text-emerald-700" : "border-zinc-400 text-zinc-500"}>
+      <Badge variant="outline" size="sm" className={stock > 0 ? "border-emerald-600 bg-emerald-600 text-white" : "border-zinc-500 bg-zinc-500 text-white"}>
         {stock > 0 ? "Tersedia" : "Terjual"}
       </Badge>
     </div>
