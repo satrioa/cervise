@@ -25,6 +25,17 @@ type PackageRow = {
   user_limit: number | null;
   is_active: boolean;
   sort_order: number;
+  annual_price: number | null;
+  trial_days: number | null;
+  ticket_quota: number | null;
+  whatsapp_quota: number | null;
+  extra_branch_price: number | null;
+  extra_employee_price: number | null;
+  extra_ticket_block_price: number | null;
+  ticket_block_size: number | null;
+  wa_per_ticket_block: number | null;
+  annual_multiplier: number | null;
+  is_recommended: boolean;
 };
 
 type SubscriptionRow = {
@@ -190,7 +201,7 @@ export async function getPackages() {
   const { supabase } = await requirePlatformAdmin();
   const { data, error } = await supabase
     .from("packages")
-    .select("id, code, name, description, monthly_price, branch_limit, user_limit, is_active, sort_order")
+    .select("id, code, name, description, monthly_price, branch_limit, user_limit, is_active, sort_order, annual_price, trial_days, ticket_quota, whatsapp_quota, extra_branch_price, extra_employee_price, extra_ticket_block_price, ticket_block_size, wa_per_ticket_block, annual_multiplier, is_recommended")
     .order("sort_order", { ascending: true });
   if (error) throw error;
   return (data ?? []) as PackageRow[];
@@ -204,6 +215,19 @@ export async function savePackage(input: {
   monthlyPrice: string | number;
   branchLimit: string | number;
   userLimit?: string | number | null;
+  annualPrice?: string | number | null;
+  trialDays?: string | number | null;
+  ticketQuota?: string | number | null;
+  whatsappQuota?: string | number | null;
+  extraBranchPrice?: string | number | null;
+  extraEmployeePrice?: string | number | null;
+  extraTicketBlockPrice?: string | number | null;
+  ticketBlockSize?: string | number | null;
+  waPerTicketBlock?: string | number | null;
+  annualMultiplier?: string | number | null;
+  isActive?: string | number | boolean;
+  sortOrder?: string | number;
+  isRecommended?: string | number | boolean;
 }) {
   const { supabase } = await requirePlatformAdmin();
   const packageInput = parsePackageInput(input);
@@ -214,6 +238,19 @@ export async function savePackage(input: {
     monthly_price: packageInput.monthlyPrice,
     branch_limit: packageInput.branchLimit,
     user_limit: packageInput.userLimit,
+    annual_price: packageInput.annualPrice,
+    trial_days: packageInput.trialDays,
+    ticket_quota: packageInput.ticketQuota,
+    whatsapp_quota: packageInput.whatsappQuota,
+    extra_branch_price: packageInput.extraBranchPrice,
+    extra_employee_price: packageInput.extraEmployeePrice,
+    extra_ticket_block_price: packageInput.extraTicketBlockPrice,
+    ticket_block_size: packageInput.ticketBlockSize,
+    wa_per_ticket_block: packageInput.waPerTicketBlock,
+    annual_multiplier: packageInput.annualMultiplier,
+    is_active: packageInput.isActive,
+    sort_order: packageInput.sortOrder,
+    is_recommended: packageInput.isRecommended,
   };
 
   const query = input.id
@@ -224,6 +261,7 @@ export async function savePackage(input: {
 
   revalidatePath("/owner/packages");
   revalidatePath("/owner");
+  revalidatePath("/");
   return { id: input.id ?? null };
 }
 

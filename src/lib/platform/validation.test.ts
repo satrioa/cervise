@@ -47,7 +47,70 @@ describe("parsePackageInput", () => {
       monthlyPrice: 499000,
       branchLimit: 3,
       userLimit: 15,
+      annualPrice: null,
+      trialDays: null,
+      ticketQuota: null,
+      whatsappQuota: null,
+      extraBranchPrice: 79000,
+      extraEmployeePrice: 12000,
+      extraTicketBlockPrice: 199000,
+      ticketBlockSize: 100,
+      waPerTicketBlock: 300,
+      annualMultiplier: 10,
+      isActive: true,
+      sortOrder: 0,
+      isRecommended: false,
     });
+  });
+
+  it("parses pricing v2 fields including custom add-ons", () => {
+    expect(
+      parsePackageInput({
+        code: "custom",
+        name: "Custom",
+        monthlyPrice: "999000",
+        annualPrice: "",
+        branchLimit: "3",
+        userLimit: "15",
+        ticketQuota: "500",
+        whatsappQuota: "1500",
+        extraBranchPrice: "79000",
+        extraEmployeePrice: "12000",
+        extraTicketBlockPrice: "199000",
+        ticketBlockSize: "100",
+        waPerTicketBlock: "300",
+        annualMultiplier: "10",
+        trialDays: "",
+        sortOrder: "40",
+        isRecommended: "false",
+        isActive: "true",
+      }),
+    ).toMatchObject({
+      annualPrice: null,
+      ticketQuota: 500,
+      whatsappQuota: 1500,
+      extraBranchPrice: 79000,
+      extraEmployeePrice: 12000,
+      extraTicketBlockPrice: 199000,
+      ticketBlockSize: 100,
+      waPerTicketBlock: 300,
+      annualMultiplier: 10,
+      sortOrder: 40,
+      isActive: true,
+      isRecommended: false,
+    });
+  });
+
+  it("rejects invalid custom add-on values", () => {
+    expect(() =>
+      parsePackageInput({
+        code: "custom",
+        name: "Custom",
+        monthlyPrice: "999000",
+        branchLimit: "3",
+        ticketBlockSize: "0",
+      }),
+    ).toThrow("Ticket block size must be at least one");
   });
 
   it("rejects negative prices and invalid branch limits", () => {

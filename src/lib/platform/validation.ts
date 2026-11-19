@@ -10,6 +10,12 @@ function asInteger(value: unknown) {
   return Number.isInteger(parsed) ? parsed : Number.NaN;
 }
 
+function asBoolean(value: unknown, fallback: boolean) {
+  if (value === undefined || value === null || value === "") return fallback;
+  if (typeof value === "boolean") return value;
+  return value === "true" || value === "1";
+}
+
 function normalizePhone(value: unknown) {
   let digits = asString(value).replace(/\D/g, "");
   if (digits.startsWith("0")) digits = `62${digits.slice(1)}`;
@@ -53,6 +59,19 @@ export function parsePackageInput(input: {
   monthlyPrice?: unknown;
   branchLimit?: unknown;
   userLimit?: unknown;
+  annualPrice?: unknown;
+  trialDays?: unknown;
+  ticketQuota?: unknown;
+  whatsappQuota?: unknown;
+  extraBranchPrice?: unknown;
+  extraEmployeePrice?: unknown;
+  extraTicketBlockPrice?: unknown;
+  ticketBlockSize?: unknown;
+  waPerTicketBlock?: unknown;
+  annualMultiplier?: unknown;
+  isActive?: unknown;
+  sortOrder?: unknown;
+  isRecommended?: unknown;
 }) {
   const code = slugify(asString(input.code));
   const name = asString(input.name);
@@ -60,6 +79,19 @@ export function parsePackageInput(input: {
   const monthlyPrice = asInteger(input.monthlyPrice);
   const branchLimit = asInteger(input.branchLimit);
   const userLimit = asInteger(input.userLimit);
+  const annualPrice = asInteger(input.annualPrice);
+  const trialDays = asInteger(input.trialDays);
+  const ticketQuota = asInteger(input.ticketQuota);
+  const whatsappQuota = asInteger(input.whatsappQuota);
+  const extraBranchPrice = asInteger(input.extraBranchPrice) ?? 79000;
+  const extraEmployeePrice = asInteger(input.extraEmployeePrice) ?? 12000;
+  const extraTicketBlockPrice = asInteger(input.extraTicketBlockPrice) ?? 199000;
+  const ticketBlockSize = asInteger(input.ticketBlockSize) ?? 100;
+  const waPerTicketBlock = asInteger(input.waPerTicketBlock) ?? 300;
+  const annualMultiplier = asInteger(input.annualMultiplier) ?? 10;
+  const sortOrder = asInteger(input.sortOrder) ?? 0;
+  const isActive = asBoolean(input.isActive, true);
+  const isRecommended = asBoolean(input.isRecommended, false);
 
   if (!code || !name) {
     throw new Error("Package code and name are required");
@@ -73,6 +105,37 @@ export function parsePackageInput(input: {
   if (userLimit !== null && (Number.isNaN(userLimit) || userLimit < 1)) {
     throw new Error("User limit must be at least one");
   }
+  if (annualPrice !== null && (Number.isNaN(annualPrice) || annualPrice < 0)) {
+    throw new Error("Annual price must be zero or greater");
+  }
+  if (trialDays !== null && (Number.isNaN(trialDays) || trialDays < 1)) {
+    throw new Error("Trial days must be at least one");
+  }
+  for (const [value, label] of [
+    [ticketQuota, "Ticket quota"],
+    [whatsappQuota, "WhatsApp quota"],
+  ] as const) {
+    if (value !== null && (Number.isNaN(value) || value < 0)) {
+      throw new Error(`${label} must be zero or greater`);
+    }
+  }
+  for (const [value, label] of [
+    [extraBranchPrice, "Extra branch price"],
+    [extraEmployeePrice, "Extra employee price"],
+    [extraTicketBlockPrice, "Extra ticket block price"],
+    [waPerTicketBlock, "WhatsApp per ticket block"],
+    [annualMultiplier, "Annual multiplier"],
+  ] as const) {
+    if (Number.isNaN(value) || value < 0) {
+      throw new Error(`${label} must be zero or greater`);
+    }
+  }
+  if (!Number.isInteger(ticketBlockSize) || ticketBlockSize < 1) {
+    throw new Error("Ticket block size must be at least one");
+  }
+  if (Number.isNaN(sortOrder)) {
+    throw new Error("Sort order must be an integer");
+  }
 
   return {
     code,
@@ -81,6 +144,19 @@ export function parsePackageInput(input: {
     monthlyPrice,
     branchLimit,
     userLimit,
+    annualPrice,
+    trialDays,
+    ticketQuota,
+    whatsappQuota,
+    extraBranchPrice,
+    extraEmployeePrice,
+    extraTicketBlockPrice,
+    ticketBlockSize,
+    waPerTicketBlock,
+    annualMultiplier,
+    isActive,
+    sortOrder,
+    isRecommended,
   };
 }
 

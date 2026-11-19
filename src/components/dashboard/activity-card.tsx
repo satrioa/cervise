@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ListRowsSkeleton } from "@/components/ui/skeleton-shapes";
-import { formatCurrencyPlain } from "@/lib/format";
+import { formatRupiah } from "@/lib/format";
 import type { DashboardFeedItem } from "@/lib/operational/dashboard";
 import { cn } from "@/lib/utils";
 
@@ -195,7 +195,7 @@ export default function ActivityCard({
                         </div>
                         {item.amount !== null ? (
                           <span className="shrink-0 font-mono text-xs tabular-nums text-muted-foreground">
-                            {formatCurrencyPlain(item.amount)}
+                            {formatRupiah(item.amount)}
                           </span>
                         ) : null}
                       </Tooltip.Trigger>

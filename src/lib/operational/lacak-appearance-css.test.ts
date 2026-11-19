@@ -13,7 +13,9 @@ const css = readFileSync(CSS_PATH, "utf8");
  */
 describe("konsistensi token Lacak dengan globals.css", () => {
   it("mempunyai blok token terang dan gelap untuk elemen mana pun", () => {
-    expect(css).toMatch(/^\.lacak-light\s*\{/m);
+    // Boleh tergabung dengan selector lain (`:root, .lacak-light, .landing-light`),
+    // yang penting blok token terang tetap ada untuk elemen `.lacak-light`.
+    expect(css).toMatch(/^\.lacak-light\s*[,{]/m);
     expect(css).toMatch(/^\.lacak-dark\s*\{/m);
   });
 

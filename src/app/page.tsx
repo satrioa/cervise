@@ -9,6 +9,7 @@ import CustomPackageCta from "@/components/landing/custom-package-cta";
 import { LandingSmoothScroll } from "@/components/layout/landing-smooth-scroll";
 import { publicPhotoUrl } from "@/lib/photos";
 import { PricingThreeTier } from "@/components/pricing-three-tier";
+import { getPublicPackages } from "@/lib/pricing/public";
 
 export default async function LandingPage() {
   const supabase = await createClient();
@@ -57,6 +58,8 @@ export default async function LandingPage() {
     }
   }
 
+  const packages = await getPublicPackages();
+
   return (
     <div className="flex min-h-svh flex-col bg-background text-foreground landing-light">
       <LandingSmoothScroll />
@@ -71,7 +74,7 @@ export default async function LandingPage() {
       <FeatureShowcase />
 
       <section id="harga">
-        <PricingThreeTier />
+        <PricingThreeTier packages={packages} />
       </section>
 
       <CustomPackageCta />

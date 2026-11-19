@@ -147,12 +147,41 @@ async function resolveEmployeeRole(
   return { role: base, roleKey: key };
 }
 
+async function countActiveEmployees(
+  supabase: Awaited<ReturnType<typeof getBranchUser>>["supabase"],
+  organizationId: string,
+) {
+  const { count } = await supabase
+    .from("employees")
+    .select("id", { count: "exact", head: true })
+    .eq("organization_id", organizationId)
+    .eq("is_active", true);
+  return count ?? 0;
+}
+
 export async function createKaryawan(input: CreateKaryawanInput): Promise<{ employeeId: string; profileId: string; tempPassword: string }> {
   const { supabase, organizationId, role } = await getBranchUser();
   // Gate mengikuti policy employees_insert, bukan requireManager() yang juga
   // menerima ADMIN - ADMIN akan lolos di sini lalu ditolak RLS diam-diam.
   if (!canManageEmployees(role)) throw new Error("Hanya Master Admin yang bisa menambah karyawan.");
   requireManager(role);
+
+  // Cek lebih awal, sebelum auth user dibuat, supaya gagalnya tidak perlu
+  // rollback. Trigger DB tetap jadi backstop untuk jalur lain.
+  const { data: subscription } = await supabase
+    .from("tenant_subscriptions")
+    .select("packages(user_limit)")
+    .eq("organization_id", organizationId)
+    .maybeSingle();
+  const employeeLimit =
+    ((subscription?.packages as Array<{ user_limit: number | null }> | null)?.[0]?.user_limit) ?? null;
+  if (employeeLimit) {
+    const count = await countActiveEmployees(supabase, organizationId);
+    if (count >= employeeLimit) {
+      throw new Error("Batas karyawan paket Anda sudah tercapai. Silakan upgrade paket.");
+    }
+  }
+
   const email = input.email.trim().toLowerCase();
   const fullName = input.fullName.trim();
   if (!fullName) throw new Error("Nama wajib");

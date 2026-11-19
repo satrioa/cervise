@@ -16,6 +16,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Pagination } from "@/components/ui/pagination";
 import { Select, SelectItem, SelectPopup, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { PageHeader } from "@/components/layout/page-header";
+import { RefreshDataButton } from "@/components/layout/refresh-data-button";
 import { useBranch, type Branch } from "@/lib/branch-context";
 import { formatCurrencyPlain } from "@/lib/format";
 import { playPageTransition } from "@/components/layout/page-transition";
@@ -163,6 +164,7 @@ export default function SparepartPage({ canManage }: { canManage: boolean }) {
         }
         actions={
           <div className="flex shrink-0 flex-wrap gap-2">
+            <RefreshDataButton onRefresh={() => reload(q)} />
             <Button variant="outline" size="sm" className="h-8" onClick={() => setStockMode("beli")} disabled={!canManage || rows.length === 0}>
               <ShoppingCartIcon className="size-3.5" /> Beli Sparepart
             </Button>

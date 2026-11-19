@@ -3,6 +3,8 @@
 import { useEffect, useState, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import Link from "next/link";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { createClient } from "@/lib/supabase/client";
 import { format } from "date-fns";
@@ -12,7 +14,17 @@ import { PageHeader } from "@/components/layout/page-header";
 import { Skeleton } from "@/components/ui/skeleton";
 import { StatValueSkeleton, TableRowsSkeleton } from "@/components/ui/skeleton-shapes";
 
-export default function UsagePage() {
+type UsageData = {
+  services_used: number;
+  ticket_limit: number | null;
+  wa_included_used: number;
+  wa_included_limit: number | null;
+  wa_topup_granted: number;
+  wa_topup_used: number;
+  period_start: string;
+};
+
+export default function UsagePage({ usage }: { usage: UsageData | Record<string, unknown> | null }) {
   const [rows, setRows] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -26,10 +38,12 @@ export default function UsagePage() {
     })();
   }, []);
 
-  const total = rows.length;
-  const quota = 100; // trial 100, basic 500, pro 9999 — simple for MVP
+  const data = usage as UsageData | null;
+  const total = data?.services_used ?? rows.length;
+  const quota = data?.ticket_limit ?? 0;
   const sisa = Math.max(0, quota - total);
-  const pct = Math.min(100, Math.round((total / quota) * 100));
+  const pct = quota > 0 ? Math.min(100, Math.round((total / quota) * 100)) : 0;
+  const warning = pct >= 100 ? "limits" : pct >= 95 ? "critical" : pct >= 80 ? "warning" : null;
 
   const last7 = useMemo(() => {
     const map = new Map<string, number>();
@@ -57,12 +71,33 @@ export default function UsagePage() {
       <PageHeader
         title="Usage"
         titleClassName="font-heading text-2xl"
-        description="Count servis — bukan amount. Kuota trial 100, basic 500, pro unlimited."
+        description="Pemakaian tiket dan WhatsApp sesuai paket Anda. Kuota di-reset tiap periode."
         containerClassName="max-w-4xl"
       />
 
       <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8 py-8 space-y-6">
-      <div className="grid gap-3 sm:grid-cols-3">
+        {warning ? (
+          <div className="flex flex-col gap-3 rounded-xl border border-warning/30 bg-warning/10 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-sm font-medium">
+                {warning === "limits" ? "Kuota paket Anda sudah habis" : `Pemakaian tiket sudah ${pct}%`}
+              </p>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                Data Anda tetap aman. Upgrade paket untuk menambah kapasitas.
+              </p>
+            </div>
+            <Button asChild variant="outline" size="sm">
+              <Link href="/app/pengaturan/subscription">Lihat paket & upgrade</Link>
+            </Button>
+          </div>
+        ) : null}
+        {data ? (
+          <p className="text-xs text-muted-foreground">
+            WhatsApp: {data.wa_included_used}/{data.wa_included_limit ?? "∞"} included
+            {" · "}top-up {data.wa_topup_used}/{data.wa_topup_granted} · periode {data.period_start}
+          </p>
+        ) : null}
+        <div className="grid gap-3 sm:grid-cols-3">
         <Card>
           <CardHeader className="pb-2"><CardTitle className="text-sm flex items-center gap-2"><BarChart3Icon className="size-4" /> Hari ini</CardTitle></CardHeader>
           <CardContent>

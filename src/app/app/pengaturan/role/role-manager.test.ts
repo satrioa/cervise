@@ -25,6 +25,13 @@ describe("tampilan kelola role", () => {
     expect(source).not.toMatch(/fixed inset-0 z-50 bg-black\/50/);
   });
 
+  it("batal/X menutup dialog dan mengosongkan form", () => {
+    expect(source).toMatch(/const closeForm = \(\) => \{[\s\S]*?setOpenKey\(null\);[\s\S]*?setForm\(null\);/);
+    expect(source).toContain("onOpenChange={(open) => !open && closeForm()}");
+    expect(source).toContain("onClick={closeForm}");
+    expect(source).not.toContain("onOpenChange={(open) => !open && setOpenKey(null)}");
+  });
+
   it("notifikasi memakai sonner, bukan toast div buatan sendiri", () => {
     expect(source).toContain('import { toast } from "sonner"');
     expect(source).toContain("toast.success");

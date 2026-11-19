@@ -175,7 +175,18 @@ export async function getKelengkapanOptions() {
 }
 
 export async function createServis(payload: CreateServisPayload) {
-  const { supabase, userId, branchId } = await getBranchAndUser();
+  const { supabase, userId, branchId, orgId } = await getBranchAndUser();
+
+  // Kuota tiket dipesan lebih dulu di database (atomik). Gagal = jangan buat
+  // servis baru; data lama tidak dihapus, tenant cukup Upgrade.
+  const { data: quotaResult, error: quotaError } = await supabase.rpc(
+    "reserve_service_ticket",
+    { p_organization_id: orgId },
+  );
+  if (quotaError) throw new Error(quotaError.message);
+  if (quotaResult && typeof quotaResult === "object" && (quotaResult as { allowed?: boolean }).allowed === false) {
+    throw new Error("Kuota tiket servis bulan ini sudah habis. Silakan upgrade paket.");
+  }
 
   // validation server-side (teknisi wajib)
   if (!payload.teknisi_id) throw new Error("Teknisi wajib diisi");

@@ -48,6 +48,7 @@ export type CompactShellActor = {
   orgId: string;
   branchId: string | null;
   fullName: string | null;
+  email: string | null;
   avatarUrl: string | null;
 };
 
@@ -277,6 +278,7 @@ function CompactShellInner({
       <CompactBottomBar
         role={actor.role}
         fullName={actor.fullName}
+        email={actor.email}
         avatarUrl={actor.avatarUrl}
       />
 

@@ -37,13 +37,20 @@ function MockScreen({ children, label }: { children: React.ReactNode; label: str
   );
 }
 
+const gridVariants = {
+  hidden: {},
+  show: { transition: { staggerChildren: 0.12, delayChildren: 0.05 } },
+};
+
 const fadeIn = {
-  hidden: { opacity: 0, y: 28 },
-  show: (i: number) => ({
+  hidden: { opacity: 0, y: 28, scale: 0.98, filter: "blur(6px)" },
+  show: {
     opacity: 1,
     y: 0,
-    transition: { duration: 0.6, delay: 0.05 * i, ease: EASE },
-  }),
+    scale: 1,
+    filter: "blur(0px)",
+    transition: { duration: 0.6, ease: EASE },
+  },
 };
 
 const NOTIFICATIONS = [
@@ -96,11 +103,11 @@ function NotificationStack({ cycle }: { cycle: number }) {
               <div className="min-w-0 flex-1">
                 <p className={cn(
                   "truncate text-xs",
-                  isTop ? "text-foreground font-medium" : "text-muted-foreground",
+                  isTop ? "text-white font-medium" : "text-neutral-400",
                 )}>
                   {n.t}
                 </p>
-                <p className="mt-0.5 text-[10px] text-muted-foreground/60">{n.s}</p>
+                <p className="mt-0.5 text-[10px] text-neutral-500">{n.s}</p>
               </div>
             </div>
           </motion.div>
@@ -153,21 +160,23 @@ export function BentoSection() {
           </motion.p>
         </div>
 
-        <div className="mt-14 grid grid-cols-1 gap-4 md:grid-cols-3">
+        <motion.div
+          variants={gridVariants}
+          initial="hidden"
+          whileInView="show"
+          viewport={{ once: true, margin: "-80px" }}
+          className="mt-14 grid grid-cols-1 gap-4 md:grid-cols-3"
+        >
           {/* Card 1: Globe */}
           <motion.div
             variants={fadeIn}
-            custom={0}
-            initial="hidden"
-            whileInView="show"
-            viewport={{ once: true, margin: "-80px" }}
-            className="group relative overflow-hidden rounded-2xl border border-white/10 bg-white/[0.04] p-6 md:col-span-1"
+            className="group relative overflow-hidden rounded-2xl border border-white/10 bg-neutral-950 p-6 md:col-span-1"
           >
             <div className="flex items-center gap-2 text-primary">
               
-              <h3 className="text-lg font-semibold text-foreground">Pantau dari Mana Saja</h3>
+              <h3 className="text-lg font-semibold text-white">Pantau dari Mana Saja</h3>
             </div>
-            <p className="mt-2 text-sm text-muted-foreground">
+            <p className="mt-2 text-sm text-neutral-400">
               Kelola seluruh cabang secara realtime dimanapun Anda berada.
             </p>
             <div className="relative -mx-6 -mb-6" style={{ height: 175 }}>
@@ -181,11 +190,7 @@ export function BentoSection() {
           {/* Card 2: CardSwap - Dashboard Features */}
           <motion.div
             variants={fadeIn}
-            custom={1}
-            initial="hidden"
-            whileInView="show"
-            viewport={{ once: true, margin: "-80px" }}
-            className="group relative overflow-hidden rounded-2xl border border-white/10 bg-white/[0.04] p-6 md:col-span-2"
+            className="group relative overflow-hidden rounded-2xl border border-white/10 bg-neutral-950 p-6 md:col-span-2"
           >
             <div className="flex h-full flex-col gap-6 sm:flex-row sm:items-center">
               <div className="relative z-10 flex-1 space-y-2 py-4 sm:max-w-[46%]">
@@ -233,17 +238,13 @@ export function BentoSection() {
           {/* Card 3: Track Progress Servis — Kanban */}
           <motion.div
             variants={fadeIn}
-            custom={2}
-            initial="hidden"
-            whileInView="show"
-            viewport={{ once: true, margin: "-80px" }}
-            className="group relative overflow-hidden rounded-2xl border border-white/10 bg-white/[0.04] p-6 h-[260px]"
+            className="group relative overflow-hidden rounded-2xl border border-white/10 bg-neutral-950 p-6 h-[260px]"
           >
             <div className="flex items-center gap-2 text-primary">
               <Activity className="size-5" />
-              <h3 className="text-lg font-semibold text-foreground">Track Progress Servis</h3>
+              <h3 className="text-lg font-semibold text-white">Track Progress Servis</h3>
             </div>
-            <p className="mt-2 text-sm text-muted-foreground">
+            <p className="mt-2 text-sm text-neutral-400">
               Pantau setiap unit dari intake hingga pickup dengan status realtime.
             </p>
             <KanbanPreview />
@@ -252,18 +253,14 @@ export function BentoSection() {
           {/* Card 4: Performa Toko */}
           <motion.div
             variants={fadeIn}
-            custom={3}
-            initial="hidden"
-            whileInView="show"
-            viewport={{ once: true, margin: "-80px" }}
-            className="group relative overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-br from-primary/10 to-transparent p-6 h-[260px]"
+            className="group relative overflow-hidden rounded-2xl border border-white/10 bg-neutral-950 bg-gradient-to-br from-primary/10 to-transparent p-6 h-[260px]"
           >
             <div className="flex items-center gap-2 text-primary">
               <TrendingUp className="size-5" />
-              <h3 className="text-lg font-semibold text-foreground">Performa Toko</h3>
+              <h3 className="text-lg font-semibold text-white">Performa Toko</h3>
             </div>
             
-            <p className="mt-2 text-sm text-muted-foreground">
+            <p className="mt-2 text-sm text-neutral-400">
               Analitik cabang, teknisi, dan revenue dalam satu pandangan.
             </p>
             
@@ -291,7 +288,7 @@ export function BentoSection() {
                     dataKey="day"
                     axisLine={false}
                     tickLine={true}
-                    tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
+                    tick={{ fontSize: 10, fill: "#a3a3a3" }}
                   />
                   <YAxis hide domain={[0, 100]} />
                   <Area
@@ -311,20 +308,16 @@ export function BentoSection() {
           {/* Card 5: Notifikasi */}
           <motion.div
             variants={fadeIn}
-            custom={4}
-            initial="hidden"
-            whileInView="show"
-            viewport={{ once: true, margin: "-80px" }}
             className={cn(
               "group relative flex flex-col overflow-hidden rounded-xl h-[260px]",
-              "bg-background dark:bg-background transform-gpu",
-              "dark:[box-shadow:0_-20px_80px_-20px_#ffffff1f_inset] dark:[border:1px_solid_rgba(255,255,255,.1)]",
+              "border border-white/10 bg-neutral-950 transform-gpu",
+              "[box-shadow:0_-20px_80px_-20px_#ffffff1f_inset]",
             )}
           >
             <div className="relative z-10 flex flex-1 flex-col p-4">
               <div className="flex flex-col gap-1">
                 
-                <h3 className="text-xl font-semibold text-neutral-700 dark:text-neutral-300">
+                <h3 className="text-xl font-semibold text-white">
                   Selalu Update
                 </h3>
                 <p className="max-w-lg text-sm text-neutral-400">
@@ -335,9 +328,9 @@ export function BentoSection() {
               <NotificationStack cycle={cycle} />
             </div>
 
-            <div className="pointer-events-none absolute inset-0 transform-gpu transition-all duration-300 group-hover:bg-black/3 group-hover:dark:bg-neutral-800/10" />
+            <div className="pointer-events-none absolute inset-0 transform-gpu transition-all duration-300 group-hover:bg-black/3" />
           </motion.div>
-        </div>
+        </motion.div>
       </div>
     </section>
   );
@@ -345,7 +338,7 @@ export function BentoSection() {
 function FeatureTitle({ className, ...props }: React.ComponentProps<"h3">) {
 	return (
 		<h3
-			className={cn("font-medium text-foreground text-lg", className)}
+			className={cn("font-medium text-white text-lg", className)}
 			{...props}
 		/>
 	);
@@ -355,7 +348,7 @@ function FeatureDescription({
 	...props
 }: React.ComponentProps<"p">) {
 	return (
-		<p className={cn("text-muted-foreground text-sm", className)} {...props} />
+		<p className={cn("text-neutral-400 text-sm", className)} {...props} />
 	);
 }
 export default BentoSection;

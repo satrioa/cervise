@@ -1,12 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { FonnteError } from "@/lib/fonnte";
+import { MetaWaError } from "@/lib/meta-wa";
 import { GET } from "./route";
 
 const { mocks } = vi.hoisted(() => {
   const claimed = new Set<string>();
   const events: string[] = [];
   const sendResult: { skip?: boolean } = { skip: false };
-  const sendFonnteWA = vi.fn();
+  const sendMetaWA = vi.fn();
 
   const invoiceRows = [
     {
@@ -15,7 +15,7 @@ const { mocks } = vi.hoisted(() => {
       amount: 1000,
       period_start: "2026-01-01",
       period_end: "2026-02-01",
-      organization: { id: "org-1", name: "Tenant 1", contact_phone: "0811" },
+      organization: { id: "org-1", name: "Tenant 1", contact_phone: "0811", owner_profile_id: "user-1" },
       package: { name: "Pro" },
     },
     {
@@ -24,7 +24,7 @@ const { mocks } = vi.hoisted(() => {
       amount: 2000,
       period_start: "2026-01-01",
       period_end: "2026-02-01",
-      organization: { id: "org-2", name: "Tenant 2", contact_phone: "0822" },
+      organization: { id: "org-2", name: "Tenant 2", contact_phone: "0822", owner_profile_id: "user-2" },
       package: { name: "Pro" },
     },
   ];
@@ -60,9 +60,21 @@ const { mocks } = vi.hoisted(() => {
     maybeSingle: vi.fn(async () => ({ data: { owner_whatsapp: "0899" }, error: null })),
   };
 
+  const profilesQuery = {
+    select: vi.fn(() => profilesQuery),
+    in: vi.fn(async (_column: string, ids: string[]) => ({
+      data: ids.map((id) => ({
+        id,
+        full_name: id === "user-1" ? "Budi Santoso" : "Siti Aminah",
+      })),
+      error: null,
+    })),
+  };
+
   const admin = {
     rpc: vi.fn(async () => ({ data: [], error: null })),
     from: vi.fn((table: string) => {
+      if (table === "profiles") return profilesQuery;
       if (table === "invoices") {
         return {
           update: invoicesUpdate,
@@ -83,7 +95,8 @@ const { mocks } = vi.hoisted(() => {
       admin,
       invoiceRows,
       invoicesUpdate,
-      sendFonnteWA,
+      profilesQuery,
+      sendMetaWA,
       sendResult,
       isAuthorizedCronRequest: vi.fn(() => true),
     },
@@ -91,18 +104,14 @@ const { mocks } = vi.hoisted(() => {
 });
 
 vi.mock("@/lib/cron-auth", () => ({ isAuthorizedCronRequest: mocks.isAuthorizedCronRequest }));
-// FonnteError sengaja TIDAK dimock: route memakai `instanceof FonnteError`
+// MetaWaError sengaja TIDAK diganti: route memakai `instanceof MetaWaError`
 // untuk membedakan galat permanen dari sementara, jadi kelasnya harus
 // identitas yang sama dengan yang dipakai route.
-vi.mock("@/lib/fonnte", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@/lib/fonnte")>()),
-  sendFonnteWA: mocks.sendFonnteWA,
+vi.mock("@/lib/meta-wa", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/meta-wa")>()),
+  sendMetaWA: mocks.sendMetaWA,
 }));
 vi.mock("@/lib/supabase/admin", () => ({ createAdminClient: () => mocks.admin }));
-vi.mock("@/lib/billing/renewal", () => ({
-  buildRenewalWhatsAppMessage: () => "message",
-  buildWhatsAppUrl: () => "https://wa.me/0899",
-}));
 
 function request() {
   return new Request("http://localhost/api/cron/subscription-renewals");
@@ -114,18 +123,37 @@ describe("subscription renewal cron", () => {
     mocks.claimed.clear();
     mocks.events.length = 0;
     mocks.sendResult.skip = false;
-    mocks.sendFonnteWA.mockImplementation(async (phone: string) => {
+    mocks.sendMetaWA.mockImplementation(async (phone: string) => {
       mocks.events.push(`send:${phone}`);
       return mocks.sendResult;
     });
   });
 
-  it("claims each invoice before sending a whatsapp", async () => {
+  it("claims each invoice before sending a whatsapp via Meta", async () => {
     const response = await GET(request());
     const body = await response.json();
 
     expect(body).toEqual({ sent: 2, skipped: 0, failed: 0 });
     expect(mocks.events).toEqual(["claim:inv-1", "send:0811", "claim:inv-2", "send:0822"]);
+    expect(mocks.sendMetaWA).toHaveBeenCalledWith("0811", "renewal_reminder_v1", [
+      { type: "text", parameter_name: "nama", value: "Budi Santoso" },
+      { type: "text", parameter_name: "tenant", value: "Tenant 1" },
+      { type: "text", parameter_name: "nama_paket", value: "Pro" },
+      { type: "text", parameter_name: "tanggal_berakhir", value: "1 Februari 2026" },
+    ]);
+  });
+
+  it("falls back to the tenant name when the owner has no profile name", async () => {
+    mocks.profilesQuery.in.mockResolvedValueOnce({ data: [], error: null });
+
+    await GET(request());
+
+    expect(mocks.sendMetaWA).toHaveBeenCalledWith("0811", "renewal_reminder_v1", [
+      { type: "text", parameter_name: "nama", value: "Tenant 1" },
+      { type: "text", parameter_name: "tenant", value: "Tenant 1" },
+      { type: "text", parameter_name: "nama_paket", value: "Pro" },
+      { type: "text", parameter_name: "tanggal_berakhir", value: "1 Februari 2026" },
+    ]);
   });
 
   it("skips invoices already claimed by a concurrent run", async () => {
@@ -135,13 +163,13 @@ describe("subscription renewal cron", () => {
     const body = await response.json();
 
     expect(body).toEqual({ sent: 1, skipped: 1, failed: 0 });
-    expect(mocks.sendFonnteWA).toHaveBeenCalledTimes(1);
+    expect(mocks.sendMetaWA).toHaveBeenCalledTimes(1);
   });
 
   it("releases the claim when sending fails", async () => {
-    mocks.sendFonnteWA.mockImplementation(async (phone: string) => {
+    mocks.sendMetaWA.mockImplementation(async (phone: string) => {
       mocks.events.push(`send:${phone}`);
-      if (phone === "0811") throw new Error("fonnte down");
+      if (phone === "0811") throw new Error("meta down");
       return { skip: false };
     });
 
@@ -153,11 +181,11 @@ describe("subscription renewal cron", () => {
     expect(mocks.claimed.has("inv-2")).toBe(true);
   });
 
-  it("keeps the claim when fonnte reports a message-scoped failure", async () => {
-    mocks.sendFonnteWA.mockImplementation(async (phone: string) => {
+  it("keeps the claim when Meta reports a message-scoped failure", async () => {
+    mocks.sendMetaWA.mockImplementation(async (phone: string) => {
       mocks.events.push(`send:${phone}`);
       if (phone === "0811") {
-        throw new FonnteError("invalid target", "message");
+        throw new MetaWaError("invalid target", "message");
       }
       return { skip: false };
     });
@@ -165,18 +193,18 @@ describe("subscription renewal cron", () => {
     const response = await GET(request());
     const body = await response.json();
 
-    // Nomor yang ditolak Fonnte tidak akan berubah, jadi klaim ditahan:
-    // run berikutnya tidak akan memanggil Fonnte lagi untuk invoice ini.
+    // Nomor/template yang ditolak Meta tidak akan berubah, jadi klaim ditahan:
+    // run berikutnya tidak akan mengirim lagi untuk invoice ini.
     expect(body).toEqual({ sent: 1, skipped: 0, failed: 1 });
     expect(mocks.claimed.has("inv-1")).toBe(true);
     expect(mocks.claimed.has("inv-2")).toBe(true);
   });
 
-  it("releases the claim when fonnte reports an infrastructure failure", async () => {
-    mocks.sendFonnteWA.mockImplementation(async (phone: string) => {
+  it("releases the claim when Meta reports an infrastructure failure", async () => {
+    mocks.sendMetaWA.mockImplementation(async (phone: string) => {
       mocks.events.push(`send:${phone}`);
       if (phone === "0811") {
-        throw new FonnteError("HTTP 401", "infrastructure");
+        throw new MetaWaError("HTTP 401", "infrastructure");
       }
       return { skip: false };
     });

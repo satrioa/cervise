@@ -55,7 +55,16 @@ describe("shell chrome", () => {
     // didorong ke kanan dengan `ml-auto`. Tombol cari `lg:hidden` tidak
     // menggeser profil ke tengah.
     expect(compactBottomBar).toMatch(/ml-auto flex shrink-0 items-center gap-2/);
-    expect(compactBottomBar).toMatch(/aria-label="Menu akun"/);
+    // Pill profil lama (Popover + "Menu akun") diganti ProfileDropdown dari
+    // KokonutUI: menu Profil, tema via next-themes, dan Keluar.
+    expect(compactBottomBar).toMatch(/ProfileDropdown/);
+    expect(compactBottomBar).not.toMatch(/aria-label="Menu akun"/);
+    expect(compactBottomBar).toMatch(/href: "\/app\/pengaturan\/profil"/);
+    expect(compactBottomBar).toMatch(/useTheme/);
+    expect(compactBottomBar).toMatch(/onSignOut/);
+    expect(compactBottomBar).toMatch(/auth\.signOut\(\)/);
+    expect(compactBottomBar).toMatch(/avatarUrl,/);
+    expect(compactShell).toMatch(/avatarUrl=\{actor\.avatarUrl\}/);
   });
 
   it("bottom nav berisi Home, Servis, item role-aware, dan Menu", () => {

@@ -42,6 +42,7 @@ import { cn } from "@/lib/utils";
 import { SparepartPickDialog, CancelSparepartDialog } from "@/components/servis/sparepart-dialogs";
 import { PickupSignatureDialog } from "@/components/servis/pickup-signature-dialog";
 import { PageHeader } from "@/components/layout/page-header";
+import { RefreshDataButton } from "@/components/layout/refresh-data-button";
 import { Button as CossButton } from "@/components/ui/coss-button";
 import { Pagination } from "@/components/ui/pagination";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -883,6 +884,7 @@ export default function ServisPage() {
         onClearFilters={() => { setDateRange({}); setTeknisiFilter("Semua"); setPaymentFilter("Semua"); }}
         actions={
           <>
+            <RefreshDataButton onRefresh={loadServis} />
             <Tabs value={view} onValueChange={(v) => setView(v as "table" | "kanban")} className="shrink-0">
               <TabsList><TabsTrigger value="table" aria-label="Table view" className="px-2.5"><TableIcon className="size-4" /></TabsTrigger><TabsTrigger value="kanban" aria-label="Kanban view" className="px-2.5"><LayoutGridIcon className="size-4" /></TabsTrigger></TabsList>
             </Tabs>

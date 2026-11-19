@@ -53,6 +53,11 @@ export function RoleManager({ roles, baseCatalog, permissionGroups }: Props) {
   const isNew = openKey === "__new__";
   const editing = openKey && !isNew ? roles.find((r) => r.key === openKey) ?? null : null;
 
+  const closeForm = () => {
+    setOpenKey(null);
+    setForm(null);
+  };
+
   const openForm = (key: string) => {
     const row = key === "__new__" ? null : roles.find((r) => r.key === key) ?? null;
     setOpenKey(key);
@@ -111,8 +116,7 @@ export function RoleManager({ roles, baseCatalog, permissionGroups }: Props) {
           permissions: form.permissions,
         });
       }
-      setOpenKey(null);
-      setForm(null);
+      closeForm();
       playPageTransition();
       toast.success(t("saved"));
     } catch (e) {
@@ -193,7 +197,7 @@ export function RoleManager({ roles, baseCatalog, permissionGroups }: Props) {
         )}
       </div>
 
-      <Dialog open={form !== null} onOpenChange={(open) => !open && setOpenKey(null)}>
+      <Dialog open={form !== null} onOpenChange={(open) => !open && closeForm()}>
         <DialogContent className="flex max-h-[90vh] max-w-lg flex-col gap-0 overflow-hidden p-0">
           <DialogHeader className="shrink-0 border-b px-5 py-4">
             <DialogTitle>{isNew ? t("create_role") : t("edit_role")}</DialogTitle>
@@ -268,7 +272,7 @@ export function RoleManager({ roles, baseCatalog, permissionGroups }: Props) {
               </div>
             </div>
             <DialogFooter className="shrink-0 border-t px-5 py-3">
-              <Button type="button" variant="outline" onClick={() => setOpenKey(null)}>
+              <Button type="button" variant="outline" onClick={closeForm}>
                 {t("cancel")}
               </Button>
               <Button type="submit" disabled={isBusy}>
