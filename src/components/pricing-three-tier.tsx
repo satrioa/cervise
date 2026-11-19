@@ -93,7 +93,7 @@ export function PricingThreeTier() {
         ))}
       </div>
 
-      <p className="mt-10 text-center font-mono text-[10px] text-muted-foreground uppercase tracking-[0.25em]">Semua harga dalam Rupiah · Konfirmasi manual · Batal kapan saja</p>
+      <p className="mt-10 text-center font-mono text-[10px] text-muted-foreground uppercase tracking-[0.25em]">Bisa batal kapan saja</p>
     </div>
   );
 }
