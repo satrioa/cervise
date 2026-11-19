@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { getActiveTenant } from "@/lib/supabase/actor";
 import { canAccessActor } from "@/lib/rbac";
+import { validWorkHours } from "./work-hours";
 
 function requireCabangAccess(actor: { role: string; permissions?: readonly string[] | null }) {
   if (!canAccessActor(actor, "cabang")) throw new Error("Role tidak diizinkan mengelola cabang");
@@ -28,7 +29,7 @@ function readIntensifMode(value: unknown): IntensifMode {
 export async function getCabangList() {
   const { supabase, orgId, role, permissions } = await getActiveTenant();
   requireCabangAccess({ role, permissions });
-  const { data: branches, error } = await supabase.from("branches").select("id,name,city,phone,is_active,is_intensif_enabled,intensif_mode,intensif_value,intensif_target_count,target_type,target_value,show_target_to_teknisi,show_intensif_to_teknisi,created_at").eq("organization_id", orgId).order("created_at");
+  const { data: branches, error } = await supabase.from("branches").select("id,name,city,phone,is_active,is_intensif_enabled,intensif_mode,intensif_value,intensif_target_count,target_type,target_value,show_target_to_teknisi,show_intensif_to_teknisi,check_in_time,check_out_time,created_at").eq("organization_id", orgId).order("created_at");
   if (error) throw new Error(error.message);
   const ids = (branches ?? []).map((b: any) => b.id);
   let counts = new Map<string, number>();
@@ -53,6 +54,8 @@ export async function getCabangList() {
     target_value: b.target_value ?? null,
     show_target_to_teknisi: b.show_target_to_teknisi ?? true,
     show_intensif_to_teknisi: b.show_intensif_to_teknisi ?? true,
+    check_in_time: (b.check_in_time as string) ?? "08:00",
+    check_out_time: (b.check_out_time as string) ?? "17:00",
     created_at: b.created_at as string,
     teknisiCount: counts.get(b.id as string) ?? 0,
   }));
@@ -212,6 +215,25 @@ export async function updateCabang(id: string, form: { name: string; alamat: str
   if (!name) throw new Error("Nama cabang wajib");
   if (name.length > 50) throw new Error("Nama maksimal 50 karakter");
   const { error } = await supabase.from("branches").update({ name, city: form.alamat.trim() || null, phone: form.telepon.trim() || null }).eq("id", id).eq("organization_id", orgId);
+  if (error) throw new Error(error.message);
+  revalidatePath("/app/cabang");
+  return { ok: true };
+}
+
+export async function updateCabangWorkHours(
+  id: string,
+  data: { checkInTime: string; checkOutTime: string },
+) {
+  const { supabase, orgId, role, permissions } = await getActiveTenant();
+  requireCabangAccess({ role, permissions });
+  if (!validWorkHours(data.checkInTime, data.checkOutTime)) {
+    throw new Error("Jam masuk harus lebih awal dari jam pulang (HH:MM)");
+  }
+  const { error } = await supabase
+    .from("branches")
+    .update({ check_in_time: data.checkInTime, check_out_time: data.checkOutTime })
+    .eq("id", id)
+    .eq("organization_id", orgId);
   if (error) throw new Error(error.message);
   revalidatePath("/app/cabang");
   return { ok: true };
