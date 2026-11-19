@@ -52,9 +52,9 @@ export async function sendMetaWA(
   // yang belum punya nomor sendiri, supaya perilaku lama tetap berjalan.
   phoneNumberId: string = process.env.META_WA_PHONE_NUMBER_ID ?? "",
   language: "id" | "en" = "id",
-  // Template dengan URL button (mis. servis_masuk_v2) wajib menerima nilai
-  // untuk {{1}} di button itu; tanpa ini Meta menolak dengan 131008.
-  buttonUrl: string = "",
+  // Nilai untuk {{1}} pada URL button template (mis. servis_masuk_v2).
+  // Bukan URL penuh: Meta menggantungkannya ke URL tetap di template.
+  buttonValue: string = "",
 ): Promise<MetaWaResult> {
   const token = process.env.META_WA_ACCESS_TOKEN;
   const senderId = phoneNumberId.trim();
@@ -87,13 +87,13 @@ export async function sendMetaWA(
                   text: value,
                 })),
               },
-              ...(buttonUrl
+              ...(buttonValue
                 ? [
                     {
                       type: "button",
                       sub_type: "url",
                       index: "0",
-                      parameters: [{ type: "text", text: buttonUrl }],
+                      parameters: [{ type: "text", text: buttonValue }],
                     },
                   ]
                 : []),

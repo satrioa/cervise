@@ -1,7 +1,7 @@
 import { MetaWaError, sendMetaWA, type TemplateParameter } from "@/lib/meta-wa";
 import { toFonnteTarget } from "@/lib/phone";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { publicLacakUrl, type ServiceMessageInput, type ShiftMessageInput } from "./service-message";
+import type { ServiceMessageInput, ShiftMessageInput } from "./service-message";
 import { getWaTemplate, type WaTemplateKey } from "./wa-templates";
 
 /**
@@ -240,11 +240,11 @@ function resolveRow(
       language: template.language,
       parameters: template.build(input),
       phoneNumberId,
-      // servis_masuk_v2 punya URL button; isi dengan tautan lacak yang sama
-      // seperti yang dipakai pesan teks.
+      // URL button di template Meta berbentuk https://kaggo.app/{{1}}, jadi yang
+      // dikirim hanya path-nya -- bukan URL penuh (nanti dobel) dan bukan origin.
       buttonUrl:
-        key === "servis_created_customer"
-          ? publicLacakUrl(input.siteOrigin, input.tenantSlug, input.trackingCode)
+        key === "servis_created_customer" && input.tenantSlug && input.trackingCode
+          ? `${input.tenantSlug}/lacak/${input.trackingCode}`
           : undefined,
     };
   }

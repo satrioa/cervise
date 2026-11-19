@@ -113,7 +113,7 @@ const SERVIS = {
 };
 
 const ORIGIN = "https://app.kaggo.id";
-const LACAK_URL = "https://app.kaggo.id/servisin/lacak/F5FB0DFCB6";
+const LACAK_PATH = "servisin/lacak/F5FB0DFCB6";
 
 /**
  * `.eq()` mengembalikan objek yang bisa di-await, seperti PostgrestFilterBuilder
@@ -272,7 +272,7 @@ describe("dispatchPendingNotifications", () => {
         ]),
         "global-phone-id",
         "id",
-        LACAK_URL,
+        LACAK_PATH,
       );
       expect(patchFor("o1")).toMatchObject({ state: "sent", last_error: null });
     });
@@ -301,7 +301,7 @@ describe("dispatchPendingNotifications", () => {
         expect.any(Array),
         "tenant-phone-id",
         "id",
-        LACAK_URL,
+        LACAK_PATH,
       );
     });
 
@@ -318,7 +318,7 @@ describe("dispatchPendingNotifications", () => {
         expect.any(Array),
         "global-phone-id",
         "id",
-        LACAK_URL,
+        LACAK_PATH,
       );
     });
 
@@ -425,7 +425,7 @@ describe("dispatchPendingNotifications", () => {
         ]),
         "global-phone-id",
         "id",
-        LACAK_URL,
+        LACAK_PATH,
       );
     });
   });

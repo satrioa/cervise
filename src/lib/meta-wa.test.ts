@@ -100,13 +100,13 @@ describe("sendMetaWA", () => {
     expect(JSON.stringify(body)).not.toContain('"value"');
   });
 
-  it("menyertakan komponen URL button saat buttonUrl diisi", async () => {
+  it("menyertakan komponen URL button saat buttonValue diisi", async () => {
     process.env.META_WA_ACCESS_TOKEN = "test-token";
     process.env.META_WA_PHONE_NUMBER_ID = "1443653698834770";
     const fetchMock = vi.fn().mockResolvedValue(ok());
     vi.stubGlobal("fetch", fetchMock);
 
-    await sendMetaWA("628123456789", "servis_masuk_v2", [], "1443653698834770", "id", "https://app.kaggo.id/s/lacak/X");
+    await sendMetaWA("628123456789", "servis_masuk_v2", [], "1443653698834770", "id", "toko/lacak/X");
 
     const options = fetchMock.mock.calls[0][1] as RequestInit;
     const body = JSON.parse(options.body as string) as { template: { components: unknown[] } };
@@ -114,7 +114,7 @@ describe("sendMetaWA", () => {
       type: "button",
       sub_type: "url",
       index: "0",
-      parameters: [{ type: "text", text: "https://app.kaggo.id/s/lacak/X" }],
+      parameters: [{ type: "text", text: "toko/lacak/X" }],
     });
   });
 
