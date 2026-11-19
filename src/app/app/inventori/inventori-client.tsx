@@ -8,7 +8,6 @@ import {
   Card,
   CardFrame,
   CardFrameAction,
-  CardFrameDescription,
   CardFrameHeader,
   CardFrameTitle,
   CardPanel,
@@ -119,9 +118,6 @@ function CardView({ groups, onEdit, onEditGroup, onPrint }: { groups: InventoryG
         <CardFrame key={group.key}>
           <CardFrameHeader>
             <CardFrameTitle>{group.name}</CardFrameTitle>
-            <CardFrameDescription>
-              {groupSummaryText(group)} · {group.items.length} varian
-            </CardFrameDescription>
             <CardFrameAction>
               <Button
                 variant="outline"
@@ -159,6 +155,7 @@ function CardView({ groups, onEdit, onEditGroup, onPrint }: { groups: InventoryG
                       />
                       <div className="min-w-0 flex-1">
                         <div className="truncate text-sm font-medium">{variantLabel(variant)}</div>
+                        <div className="truncate font-mono text-xs text-muted-foreground">{variant.sku}</div>
                         <div className="mt-1 flex items-center gap-2">
                           <StockBadge stock={variant.stock_qty ?? 0} />
                           {variant.price != null ? (
