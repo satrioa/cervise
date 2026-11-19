@@ -4,7 +4,15 @@ import { useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
+import {
+  Card,
+  CardFrame,
+  CardFrameAction,
+  CardFrameDescription,
+  CardFrameHeader,
+  CardFrameTitle,
+  CardPanel,
+} from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Pagination } from "@/components/ui/pagination";
 import { Select, SelectItem, SelectPopup, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -108,22 +116,26 @@ function CardView({ groups, onEdit, onEditGroup, onPrint }: { groups: InventoryG
   return (
     <div className="space-y-4">
       {groups.map((group) => (
-        <Card
-          key={group.key}
-          className="overflow-hidden rounded-[22px] border-black/5 bg-white text-neutral-900 shadow-none transition-colors hover:bg-[#FAFAFA] before:hidden dark:border-white/10 dark:bg-neutral-900 dark:text-neutral-100 dark:hover:bg-neutral-800"
-        >
-          <CardHeader className="p-4 pb-3 sm:p-5 sm:pb-3">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <CardTitle className="text-base">{group.name}</CardTitle>
-                <CardDescription>{groupSummaryText(group)}</CardDescription>
-              </div>
-              <Badge variant="secondary" className="font-mono text-xs">
-                {group.items.length} varian
-              </Badge>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-4 p-4 pt-0 sm:p-5 sm:pt-0">
+        <CardFrame key={group.key}>
+          <CardFrameHeader>
+            <CardFrameTitle>{group.name}</CardFrameTitle>
+            <CardFrameDescription>
+              {groupSummaryText(group)} · {group.items.length} varian
+            </CardFrameDescription>
+            <CardFrameAction>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={group.items.length === 0}
+                onClick={() => onEditGroup(group, group.baru.length > 0 ? "BARU" : "BEKAS")}
+              >
+                <PencilIcon className="size-3.5" />
+                Edit
+              </Button>
+            </CardFrameAction>
+          </CardFrameHeader>
+          <Card>
+            <CardPanel className="space-y-4">
             {group.baru.length > 0 ? (
               <div>
                 <div className="mb-2 flex items-center justify-between gap-2">
@@ -178,8 +190,9 @@ function CardView({ groups, onEdit, onEditGroup, onPrint }: { groups: InventoryG
                 </div>
               </div>
             ) : null}
-          </CardContent>
-        </Card>
+            </CardPanel>
+          </Card>
+        </CardFrame>
       ))}
     </div>
   );
