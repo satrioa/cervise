@@ -159,7 +159,6 @@ function CardView({ groups, onEdit, onEditGroup, onPrint }: { groups: InventoryG
                       />
                       <div className="min-w-0 flex-1">
                         <div className="truncate text-sm font-medium">{variantLabel(variant)}</div>
-                        <div className="truncate font-mono text-xs text-muted-foreground">{variant.sku}</div>
                         <div className="mt-1 flex items-center gap-2">
                           <StockBadge stock={variant.stock_qty ?? 0} />
                           {variant.price != null ? (
