@@ -72,9 +72,14 @@ describe("submitKioskAttendance", () => {
     await expect(submitKioskAttendance(absenForm())).rejects.toThrow("Sesi berakhir");
     expect(rpc).not.toHaveBeenCalled();
   });
-  it("menghapus foto yang terunggah saat RPC gagal", async () => {
+  it("menganggap duplikat absen sebagai sukses (idempotent)", async () => {
     rpc.mockResolvedValue({ data: null, error: { message: "Sudah absen masuk hari ini" } });
-    await expect(submitKioskAttendance(absenForm())).rejects.toThrow("Sudah absen masuk hari ini");
+    await expect(submitKioskAttendance(absenForm())).resolves.toEqual({ ok: true });
+    expect(remove).not.toHaveBeenCalled();
+  });
+  it("menghapus foto yang terunggah saat RPC gagal dengan error lain", async () => {
+    rpc.mockResolvedValue({ data: null, error: { message: "Gagal menyimpan absen" } });
+    await expect(submitKioskAttendance(absenForm())).rejects.toThrow("Gagal menyimpan absen");
     expect(remove).toHaveBeenCalledWith([expect.stringMatching(/^attendance\//)]);
   });
 });
