@@ -153,7 +153,11 @@ export function KioskClient({ name, today, rows }: { name: string; today: string
         <Button disabled={pending || sudahMasuk} onClick={() => absen("check_in")}>
           Absen Masuk
         </Button>
-        <Button disabled={pending || !sudahMasuk || sudahPulang} onClick={() => absen("check_out")}>
+        <Button
+          variant="destructive"
+          disabled={pending || !sudahMasuk || sudahPulang}
+          onClick={() => absen("check_out")}
+        >
           Absen Pulang
         </Button>
       </div>
