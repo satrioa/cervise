@@ -13,10 +13,19 @@ export default async function AbsenKioskPage() {
 
   const today = wibDate(new Date());
   const admin = createAdminClient();
+  // Sesi menyimpan employees.id, sedangkan attendance_records.employee_id
+  // adalah profiles.id. Terjemahkan dulu supaya filter log tidak kosong.
+  const { data: employee, error: employeeError } = await admin
+    .from("employees")
+    .select("profile_id")
+    .eq("id", session.employeeId)
+    .maybeSingle();
+  if (employeeError) throw new Error(employeeError.message);
+
   const { data, error } = await admin
     .from("attendance_rekap")
     .select("attendance_date, check_in_at, check_out_at, check_in_time, check_out_time")
-    .eq("employee_id", session.employeeId)
+    .eq("employee_id", employee?.profile_id ?? "")
     .order("attendance_date", { ascending: false })
     .limit(7);
   if (error) throw new Error(error.message);
