@@ -11,40 +11,38 @@ const AnimatedGradient = dynamic(
   { ssr: false },
 );
 
-const GRADIENT_COLORS = ["#2563EB", "#7C3AED", "#EC4899"];
+const GRADIENT_COLORS = ["#B4D1F6"];
 
 export function CustomPackageCta() {
   const href = buildCustomPackageWhatsAppUrl(process.env.NEXT_PUBLIC_CONTACT_WHATSAPP);
   const external = href.startsWith("http");
 
   return (
-    <section className="relative isolate overflow-hidden border-t bg-slate-950 py-16 text-white sm:py-20">
-      <div aria-hidden="true" className="absolute inset-0 z-0">
-        <AnimatedGradient colors={GRADIENT_COLORS} speed={10} blur="medium" />
-      </div>
-      <div aria-hidden="true" className="absolute inset-0 z-0 bg-slate-950/60" />
+    <div className="mx-auto max-w-6xl px-6 py-16">
+      <section className="relative isolate overflow-hidden rounded-2xl bg-[#4194fa] px-6 py-14 text-center text-white sm:py-16">
+        <div aria-hidden="true" className="absolute inset-0 z-0">
+          <AnimatedGradient colors={GRADIENT_COLORS} speed={10} blur="medium" />
+        </div>
 
-      <div className="relative z-10 mx-auto flex max-w-3xl flex-col items-center gap-4 px-4 text-center sm:px-6">
-        <span className="font-mono text-[10px] uppercase tracking-[0.3em] text-white/70">
-          Butuh paket custom?
-        </span>
-        <h2 className="text-balance text-3xl font-bold sm:text-4xl">
-          Paket yang pas untuk kebutuhan toko Anda
-        </h2>
-        <p className="max-w-2xl text-sm text-white/80 sm:text-base">
-          Punya banyak cabang, alur servis khusus, atau butuh integrasi? Ceritakan kebutuhan Anda — kami bantu susun paketnya.
-        </p>
-        <a
-          href={href}
-          target={external ? "_blank" : undefined}
-          rel={external ? "noopener noreferrer" : undefined}
-          className="mt-2 inline-flex items-center gap-2 rounded-full border border-white bg-white/10 px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-white hover:text-blue-700"
-        >
-          <MessageCircleIcon className="size-4" aria-hidden />
-          Chat Admin WhatsApp
-        </a>
-      </div>
-    </section>
+        <div className="relative z-10 flex flex-col items-center gap-4">
+          <h2 className="text-balance text-2xl font-bold sm:text-3xl">
+            Siap tumbuhkan bisnis dengan solusi sistem Manajemen Servis Gadget Multibranch?
+          </h2>
+          <p className="max-w-2xl text-sm text-white/90 sm:text-base">
+            dikembangkan khusus untuk toko servis dan jual beli gadget untuk operasional yang terstruktur dan mempunyai laporan yang rapi.
+          </p>
+          <a
+            href={href}
+            target={external ? "_blank" : undefined}
+            rel={external ? "noopener noreferrer" : undefined}
+            className="mt-2 inline-flex items-center gap-2 rounded-full border border-white bg-white/10 px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-white hover:text-blue-700"
+          >
+            Chat Admin WhatsApp
+            <MessageCircleIcon className="size-4" aria-hidden />
+          </a>
+        </div>
+      </section>
+    </div>
   );
 }
 
