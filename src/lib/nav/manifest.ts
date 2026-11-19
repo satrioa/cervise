@@ -1,5 +1,6 @@
 import {
   House,
+  Clock3,
   Wrench,
   ShoppingCart,
   Package,
@@ -294,6 +295,17 @@ export const NAV_ENTRIES: NavEntry[] = [
     roles: MANAGERS,
     surface: ["legacy"],
     permission: "reports.shift",
+  },
+  {
+    href: "/app/laporan/absensi",
+    key: "attendanceReport",
+    label: "Laporan Absensi",
+    icon: Clock3,
+    group: "laporan",
+    roles: MANAGERS,
+    surface: ["legacy"],
+    menuKeys: ["laporan_absensi"],
+    permission: "reports.attendance",
   },
   {
     href: "/app/garansi",
