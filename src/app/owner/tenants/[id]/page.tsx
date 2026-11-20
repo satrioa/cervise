@@ -4,8 +4,7 @@ import { getPackages, getTenantDetail } from "../../actions";
 import { formatRupiah } from "@/lib/format";
 import { resolveSubscriptionAccessState, type SubscriptionLifecycleStatus } from "@/lib/billing/renewal";
 import { InvoiceReviewTable } from "@/components/owner/invoice-review-table";
-import { ExtendSubscription } from "@/components/owner/extend-subscription";
-import { SubscriptionForm } from "@/components/owner/subscription-form";
+import { TenantBillingDashboard } from "@/components/owner/tenant-billing-dashboard";
 import { EmployeeActiveToggle } from "@/components/owner/employee-active-toggle";
 import { MetaPhoneNumberForm } from "@/components/owner/meta-phone-number-form";
 import { TenantDangerZone } from "@/components/owner/tenant-danger-zone";
@@ -48,7 +47,7 @@ export default async function TenantDetailPage({ params }: { params: Promise<{ i
   const { id } = await params;
   const [detail, packages] = await Promise.all([getTenantDetail(id), getPackages()]);
   const organization = detail.organization as { id: string; name: string; slug: string; status: string; owner_email: string | null; owner_phone: string | null; contact_phone: string | null; meta_phone_number_id: string | null };
-  const subscription = detail.subscription as { package_id: string; custom_monthly_price: number | null; grace_days: number; status: string; current_period_start: string | null; current_period_end: string | null; trial_ends_at: string | null; package: { name: string; branch_limit: number; monthly_price: number } } | null;
+  const subscription = detail.subscription as { id: string; package_id: string; custom_monthly_price: number | null; grace_days: number; status: string; current_period_start: string | null; current_period_end: string | null; trial_ends_at: string | null; package: { id: string; code: string; name: string; branch_limit: number; monthly_price: number } | null } | null;
   const branches = detail.branches as { id: string; name: string; city: string | null; phone: string | null; is_active: boolean }[];
   const employees = detail.employees as { id: string; profile_id: string; role: string; is_active: boolean; branch_id: string }[];
   const invoices = detail.invoices as { id: string; invoice_number: string; invoice_type: string; status: string; amount: number; period_start: string; period_end: string; due_date: string; whatsapp_sent_at: string | null; decision_note: string | null; organization: { id: string; name: string } | null; package: { name: string } | null; currentPackageName: string | null; currentPackagePrice: number | null }[];
@@ -73,39 +72,19 @@ export default async function TenantDetailPage({ params }: { params: Promise<{ i
         <Badge variant={statusVariant(organization.status)} className="w-fit">{organization.status}</Badge>
       </div>
       <div className="grid gap-4 lg:grid-cols-3">
-        <Card className="lg:col-span-2">
-          <CardHeader className="flex-row items-start justify-between gap-3">
-            <div>
-              <CardTitle className="text-base">Subscription</CardTitle>
-              <CardDescription>Status di bawah dihitung dari periode + grace, bukan hanya kolom status.</CardDescription>
-            </div>
-            <ExtendSubscription
-              organizationId={organization.id}
-              subscription={subscription}
-              monthlyPrice={subscription?.custom_monthly_price ?? subscription?.package.monthly_price ?? 0}
-            />
-          </CardHeader>
-          <CardContent>
-            <div className="flex flex-wrap items-center gap-2">
-              <Badge variant={statusVariant(accessState)}>Akses: {accessState}</Badge>
-              {isMismatch ? <Badge variant="warning">DB: {subscription?.status}</Badge> : null}
-              {accessState === "blocked" ? <span className="text-xs text-destructive">Akses tenant terblokir meskipun status tersimpan bisa berbeda.</span> : null}
-            </div>
-            <div className="mt-4 grid gap-3 sm:grid-cols-3">
-              <div><div className="text-xs text-muted-foreground">Paket</div><div className="mt-1 font-medium">{subscription?.package.name ?? "—"}</div></div>
-              <div><div className="text-xs text-muted-foreground">Harga / bulan</div><div className="mt-1 font-medium">{formatRupiah(subscription?.custom_monthly_price ?? subscription?.package.monthly_price ?? 0)}</div></div>
-              <div><div className="text-xs text-muted-foreground">{subscription?.status === "trial" ? "Trial berakhir" : "Akses s/d"}</div><div className="mt-1 font-medium">{formatDate(subscription?.status === "trial" ? subscription.trial_ends_at : subscription?.current_period_end ?? null)}</div></div>
-            </div>
-            <div className="mt-3 flex flex-wrap gap-x-6 gap-y-1 text-xs text-muted-foreground">
-              <span>Periode mulai: <span className="text-foreground">{formatDate(subscription?.current_period_start ?? null)}</span></span>
-              <span>Grace berakhir: <span className="text-foreground">{graceEndsAt ? formatDate(graceEndsAt.toISOString()) : "—"}</span></span>
-              <span>Grace days: <span className="text-foreground">{subscription?.grace_days ?? "—"}</span></span>
-            </div>
-            <div className="mt-5 border-t pt-5">
-              <SubscriptionForm organizationId={organization.id} subscription={subscription} packages={packages.map((item) => ({ id: item.id, name: item.name, monthly_price: item.monthly_price, branch_limit: item.branch_limit }))} />
-            </div>
-          </CardContent>
-        </Card>
+        <div className="lg:col-span-2">
+          <TenantBillingDashboard
+            organizationId={organization.id}
+            subscription={subscription}
+            invoices={invoices}
+            packages={packages.map((item) => ({ id: item.id, name: item.name, monthly_price: item.monthly_price, branch_limit: item.branch_limit }))}
+            accessState={accessState}
+            dbStatus={subscription?.status ?? null}
+            mismatch={isMismatch}
+            graceEndsAt={graceEndsAt ? graceEndsAt.toISOString() : null}
+            nowIso={now.toISOString()}
+          />
+        </div>
         <Card>
           <CardHeader><CardTitle className="text-base">Kontak & branch</CardTitle></CardHeader>
           <CardContent className="space-y-2 text-sm">

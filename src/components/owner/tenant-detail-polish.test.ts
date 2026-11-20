@@ -6,6 +6,7 @@ const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8");
 const form = read("src/components/owner/subscription-form.tsx");
 const extend = read("src/components/owner/extend-subscription.tsx");
 const detail = read("src/app/owner/tenants/[id]/page.tsx");
+const dashboard = read("src/components/owner/tenant-billing-dashboard.tsx");
 
 describe("SubscriptionForm", () => {
   it("hanya satu form pengaturan, tanpa status akses manual", () => {
@@ -46,24 +47,25 @@ describe("ExtendSubscription", () => {
 
 describe("Tenant detail layout", () => {
   it("memakai ExtendSubscription tanpa prop packages", () => {
-    const start = detail.indexOf("<ExtendSubscription");
-    const body = detail.slice(start, start + 400);
-    expect(body).toContain("organizationId={organization.id}");
+    const start = dashboard.indexOf("<ExtendSubscription");
+    const body = dashboard.slice(start, start + 400);
+    expect(body).toContain("organizationId={organizationId}");
     expect(body).toContain("subscription={subscription}");
-    expect(body).toContain("monthlyPrice={");
+    expect(body).toContain("monthlyPrice={monthlyPrice}");
     expect(body).not.toContain("packages=");
   });
 
   it("badge DB mismatch tetap tampil", () => {
     expect(detail).toContain("isMismatch");
-    expect(detail).toContain("DB: {subscription?.status}");
+    expect(dashboard).toContain("DB: {dbStatus}");
+    expect(detail).toContain("mismatch={isMismatch}");
   });
 
-  it("tiga metrik utama dan detail sekunder hadir", () => {
-    expect(detail).toContain("Harga / bulan");
-    expect(detail).toContain("Akses s/d");
-    expect(detail).toContain("Periode mulai");
-    expect(detail).toContain("Grace berakhir");
-    expect(detail).toContain("Grace days");
+  it("metrik utama dan detail sekunder hadir", () => {
+    expect(dashboard).toContain("Harga / bulan");
+    expect(dashboard).toContain("Akses s/d");
+    expect(dashboard).toContain("Periode mulai");
+    expect(dashboard).toContain("Grace berakhir");
+    expect(dashboard).toContain("Grace days");
   });
 });
