@@ -2,6 +2,7 @@ import { Settings2Icon } from "lucide-react";
 import { getPlatformSettings } from "@/app/owner/actions";
 import { SettingsForm } from "@/components/owner/settings-form";
 import { PromoSettingsForm } from "@/components/owner/promo-settings-form";
+import { IncidentForm } from "@/components/owner/incident-form";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 export default async function OwnerSettingsPage() {
@@ -39,6 +40,13 @@ export default async function OwnerSettingsPage() {
             }}
           />
         </CardContent>
+      </Card>
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Catat insiden</CardTitle>
+          <CardDescription>Insiden yang tercatat tampil di Uptime Card dashboard owner.</CardDescription>
+        </CardHeader>
+        <CardContent><IncidentForm /></CardContent>
       </Card>
     </div>
   );

@@ -7,6 +7,23 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import MetricCard from "@/components/kokonutui/metric-card";
+import UptimeCard from "@/components/kokonutui/uptime-card";
+import SpendingRing from "@/components/kokonutui/spending-ring";
+
+function formatBytes(bytes: number) {
+  if (!Number.isFinite(bytes) || bytes <= 0) return "0 B";
+  const units = ["B", "KB", "MB", "GB", "TB"];
+  const index = Math.min(units.length - 1, Math.floor(Math.log(bytes) / Math.log(1024)));
+  return `${(bytes / 1024 ** index).toFixed(index === 0 ? 0 : 1)} ${units[index]}`;
+}
+
+const RING_COLORS = [
+  { stroke: "stroke-sky-500 dark:stroke-sky-400", dot: "bg-sky-500 dark:bg-sky-400" },
+  { stroke: "stroke-emerald-500 dark:stroke-emerald-400", dot: "bg-emerald-500 dark:bg-emerald-400" },
+  { stroke: "stroke-violet-500 dark:stroke-violet-400", dot: "bg-violet-500 dark:bg-violet-400" },
+  { stroke: "stroke-amber-500 dark:stroke-amber-400", dot: "bg-amber-500 dark:bg-amber-400" },
+];
 
 function formatDate(value: string | null) {
   return value ? new Intl.DateTimeFormat("id-ID", { dateStyle: "medium", timeZone: "Asia/Jakarta" }).format(new Date(value)) : "—";
@@ -22,7 +39,9 @@ function statusVariant(status: string) {
 
 export default async function OwnerDashboard({ searchParams }: { searchParams?: Promise<{ page?: string; pageSize?: string }> }) {
   const sp = (await searchParams) ?? {};
-  const { tenants: allTenants, stats } = await getOwnerDashboard();
+  const { tenants: allTenants, stats, widgets } = await getOwnerDashboard();
+  const storageBytes = widgets.storage.reduce((total, bucket) => total + Number(bucket.bytes ?? 0), 0);
+  const storageObjects = widgets.storage.reduce((total, bucket) => total + Number(bucket.objects ?? 0), 0);
   const pageSize = [10, 20, 50].includes(Number(sp.pageSize)) ? Number(sp.pageSize) : 10;
   const totalPages = Math.max(1, Math.ceil(allTenants.length / pageSize));
   const safePage = Math.min(Math.max(1, Number(sp.page) || 1), totalPages);
@@ -55,6 +74,70 @@ export default async function OwnerDashboard({ searchParams }: { searchParams?: 
         <Card>
           <CardHeader className="pb-2"><CardTitle className="text-sm">Revenue terkonfirmasi</CardTitle></CardHeader>
           <CardContent><div className="min-w-0 truncate font-heading text-[clamp(0.875rem,4.5vw,1.5rem)] leading-tight tabular-nums">{formatRupiah(stats.collected)}</div><div className="text-xs text-muted-foreground">Invoice approved</div></CardContent>
+        </Card>
+      </div>
+
+      <div className="grid gap-4 xl:grid-cols-2">
+        <MetricCard
+          label="Revenue terkonfirmasi"
+          segments={widgets.revenueSegments}
+          data={widgets.revenueSeries}
+          format="currency"
+          currency="IDR"
+          periods={[7, 30, 90]}
+          className="max-w-none"
+        />
+        <MetricCard
+          label="Pesan WhatsApp"
+          segments={widgets.waSegments}
+          data={widgets.waSeries}
+          format="number"
+          periods={[7, 30, 90]}
+          className="max-w-none"
+        />
+      </div>
+
+      <div className="grid gap-4 xl:grid-cols-2">
+        <SpendingRing
+          title="Revenue per paket"
+          currency="IDR"
+          categories={widgets.revenueByPackage.map((item, index) => ({
+            name: item.name,
+            amount: Number(item.amount),
+            ...RING_COLORS[index % RING_COLORS.length],
+          }))}
+          className="max-w-none"
+        />
+        <UptimeCard
+          title="Status sistem"
+          services={widgets.uptimeServices}
+          days={90}
+          endDate={new Date().toISOString().slice(0, 10)}
+          className="max-w-none"
+        />
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-3">
+        <Card>
+          <CardHeader className="pb-2"><CardTitle className="text-sm">Penyimpanan</CardTitle></CardHeader>
+          <CardContent>
+            <div className="font-heading text-2xl tabular-nums">{formatBytes(storageBytes)}</div>
+            <div className="text-xs text-muted-foreground">{storageObjects} objek di {widgets.storage.length} bucket</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2"><CardTitle className="text-sm">Database</CardTitle></CardHeader>
+          <CardContent>
+            <div className="font-heading text-2xl tabular-nums">{formatBytes(widgets.dbBytes)}</div>
+            <div className="text-xs text-muted-foreground">Ukuran database Supabase</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2"><CardTitle className="text-sm">WhatsApp</CardTitle></CardHeader>
+          <CardContent>
+            <div className="font-heading text-2xl tabular-nums">{widgets.waTotals.sent}</div>
+            <div className="text-xs text-muted-foreground">Terkirim · {widgets.waTotals.failed} gagal · {widgets.waTotals.skipped} dilewati</div>
+          </CardContent>
         </Card>
       </div>
 
