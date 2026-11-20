@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
-import { ClipboardListIcon, RefreshCwIcon } from "lucide-react";
+import { ClipboardListIcon, LogOutIcon, RefreshCwIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Button as CossButton } from "@/components/ui/coss-button";
 import {
@@ -21,7 +21,7 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
-import { submitKioskAttendance } from "./actions";
+import { logoutKiosk, submitKioskAttendance } from "./actions";
 import { jam, logStatus, logStatusLabel, type LogRow, workDuration } from "./kiosk-data";
 
 export function KioskClient({ name, today, rows }: { name: string; today: string; rows: LogRow[] }) {
@@ -169,12 +169,14 @@ export function KioskClient({ name, today, rows }: { name: string; today: string
           Absen Pulang
         </Button>
       </div>
-      <p className="text-center text-sm text-muted-foreground">
-        Durasi kerja:{" "}
-        <span className="font-mono tabular-nums text-foreground">
-          {workDuration(todayRow, now) ?? "—"}
-        </span>
-      </p>
+      <Card className="w-full">
+        <CardPanel className="flex items-center justify-between px-4 py-3">
+          <span className="text-sm text-muted-foreground">Durasi kerja</span>
+          <span className="font-mono text-lg font-semibold tabular-nums">
+            {workDuration(todayRow, now) ?? "—"}
+          </span>
+        </CardPanel>
+      </Card>
       {sudahPulang ? <p className="text-center text-sm text-muted-foreground">Absen hari ini selesai.</p> : null}
 
       <CardFrame className="w-full">
@@ -236,6 +238,12 @@ export function KioskClient({ name, today, rows }: { name: string; today: string
           </CardPanel>
         </Card>
       </CardFrame>
+      <form action={logoutKiosk}>
+        <Button type="submit" variant="outline" className="w-full">
+          <LogOutIcon />
+          Keluar
+        </Button>
+      </form>
     </main>
   );
 }

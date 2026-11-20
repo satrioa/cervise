@@ -59,6 +59,12 @@ export async function loginWithPin(formData: FormData): Promise<void> {
   revalidatePath("/absen-kiosk");
 }
 
+export async function logoutKiosk(): Promise<void> {
+  const store = await cookies();
+  store.delete(COOKIE_NAME);
+  revalidatePath("/absen-kiosk");
+}
+
 function numberOrNull(value: FormDataEntryValue | null): number | null {
   if (typeof value !== "string" || value.trim() === "") return null;
   const parsed = Number(value);
