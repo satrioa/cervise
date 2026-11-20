@@ -2,7 +2,8 @@
 
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { formatCurrencyPlain, formatNumberPlain } from "@/lib/format";
-import { SearchIcon, CalendarIcon, XIcon, TableIcon, LayoutGridIcon, ArrowDownIcon, ArrowUpDownIcon, ArrowUpIcon } from "lucide-react";
+import { SearchIcon, CalendarIcon, XIcon, TableIcon, LayoutGridIcon, ArrowDownIcon, ArrowUpDownIcon, ArrowUpIcon, PencilIcon, PrinterIcon, Trash2Icon, WalletIcon } from "lucide-react";
+import { SwipeActions, SwipeActionsRow, type SwipeAction } from "@/components/arc/swipe-actions/swipe-actions";
 import { format } from "date-fns";
 import { id as localeId } from "date-fns/locale";
 import { playPageTransition } from "@/components/layout/page-transition";
@@ -594,6 +595,28 @@ export default function ServisPage() {
     window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`, "_blank");
   };
 
+  // Swipe kanan (leading) = Bayar, hanya untuk servis yang belum lunas.
+  const leadingActions = (s: ServisItem): SwipeAction[] =>
+    getPaymentStatus(s) === "Lunas"
+      ? []
+      : [
+          {
+            label: "Bayar",
+            icon: <WalletIcon className="size-5" />,
+            tone: "accent",
+            keepRow: true,
+            onSelect: () => handleBayar(s),
+          },
+        ];
+
+  // Swipe kiri (trailing) = Edit, Print, Delete. Semua membuka modal/sheet,
+  // jadi baris tidak boleh hilang sebelum aksinya selesai.
+  const trailingActions = (s: ServisItem): SwipeAction[] => [
+    { label: "Edit", icon: <PencilIcon className="size-5" />, keepRow: true, onSelect: () => handleEdit(s) },
+    { label: "Print", icon: <PrinterIcon className="size-5" />, keepRow: true, onSelect: () => void handlePrint(s, "Thermal") },
+    { label: "Delete", icon: <Trash2Icon className="size-5" />, tone: "danger", keepRow: true, onSelect: () => handleDelete(s) },
+  ];
+
   // Bulk derived
   const selectedCount = selectedIds.size;
   const visibleIds = pageItems.map((r) => r.id);
@@ -978,11 +1001,16 @@ export default function ServisPage() {
           </div>
           {/* Tabel tujuh kolom tidak muat di ponsel; kartu memuat informasi
               yang sama dan tap-nya membuka bottom sheet aksi. */}
-          <ul className="mt-3 space-y-2 md:hidden">
+          <SwipeActions label="Daftar servis" className="mt-3 md:hidden">
             {pageItems.map((r) => (
               <ServisContextMenu key={r.id} servis={r} onViewDetails={handleViewDetails} onStatusChange={handleStatusChange} onEdit={handleEdit} onPrint={handlePrint} onInvoice={handleInvoice} onBayar={handleBayar} onDelete={handleDelete}>
-                <li className="rounded-xl border bg-card p-3 active:bg-muted/50">
-                  <div className="flex items-start gap-3">
+                <SwipeActionsRow
+                  label={servisLabel(r)}
+                  leading={leadingActions(r)}
+                  trailing={trailingActions(r)}
+                  fullSwipe={false}
+                >
+                  <div className="flex items-start gap-3 p-3 active:bg-muted/50">
                     <Checkbox
                       aria-label={`Select ${servisLabel(r)}`}
                       checked={selectedIds.has(r.id)}
@@ -1007,15 +1035,15 @@ export default function ServisPage() {
                       </div>
                     </div>
                   </div>
-                </li>
+                </SwipeActionsRow>
               </ServisContextMenu>
             ))}
             {pageItems.length === 0 && (
-              <li className="rounded-xl border bg-card py-8 text-center text-sm text-muted-foreground">
+              <li className="py-8 text-center text-sm text-muted-foreground">
                 Tidak ada data
               </li>
             )}
-          </ul>
+          </SwipeActions>
           {filteredTable.length > PAGE_SIZE && (
             <div className="mt-4 flex justify-center">
               <Pagination page={pageSafe} pageCount={totalPages} onPageChange={setPage} />
