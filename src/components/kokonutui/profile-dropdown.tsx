@@ -91,6 +91,8 @@ interface ProfileDropdownProps
   /** Called once Sign out has been held for `holdDuration` ms. */
   onSignOut?: () => void;
   holdDuration?: number;
+  /** Panel width in px, or `"trigger"` to match the button's width. */
+  panelWidth?: number | "trigger";
 }
 
 const SAMPLE_ACCOUNTS: Account[] = [
@@ -638,6 +640,7 @@ export default function ProfileDropdown({
   onStatusChange,
   onSignOut,
   holdDuration = 1200,
+  panelWidth = PANEL_W,
   className,
   ...props
 }: ProfileDropdownProps) {
@@ -677,6 +680,20 @@ export default function ProfileDropdown({
   const pageFocus = useRef<"first" | "switch" | null>(null);
   const closeSeq = useRef(0);
   const targetH = useRef(0);
+  const [triggerWidth, setTriggerWidth] = useState(0);
+
+  useEffect(() => {
+    const trigger = triggerRef.current;
+    if (!trigger) return;
+    const measure = () => setTriggerWidth(trigger.offsetWidth);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(trigger);
+    return () => observer.disconnect();
+  }, []);
+
+  // `"trigger"` membuat panel selebar tombol; default tetap 288px.
+  const panelW = panelWidth === "trigger" ? triggerWidth || PANEL_W : panelWidth;
 
   // The panel's visible box. The two surface layers (border and fill) and the
   // content all clip to it, so the menu grows out of the trigger's own
@@ -771,7 +788,7 @@ export default function ProfileDropdown({
     pageX.jump(0);
     targetH.current = main.offsetHeight;
     if (instant) {
-      w.jump(PANEL_W);
+      w.jump(panelW);
       h.jump(targetH.current);
       bodyOpacity.jump(1);
     } else {
@@ -780,7 +797,7 @@ export default function ProfileDropdown({
         h.jump(trigger.offsetHeight);
         bodyOpacity.jump(0);
       }
-      animate(w, PANEL_W, SPRING);
+      animate(w, panelW, SPRING);
       animate(h, targetH.current, SPRING);
       animate(bodyOpacity, 1, { duration: 0.2, delay: 0.05, ease: EASE_OUT });
     }
@@ -800,7 +817,7 @@ export default function ProfileDropdown({
     if (phaseRef.current !== "open" || !el) {
       return;
     }
-    const x = page === "main" ? 0 : -PANEL_W;
+    const x = page === "main" ? 0 : -panelW;
     targetH.current = el.offsetHeight;
     if (reduced) {
       pageX.jump(x);
@@ -962,7 +979,7 @@ export default function ProfileDropdown({
             "pointer-events-none absolute right-0 z-10",
             placement === "up" ? "bottom-0" : "top-0",
           )}
-          style={{ width: PANEL_W }}
+          style={{ width: panelW }}
         >
           <div
             aria-hidden="true"
@@ -994,7 +1011,7 @@ export default function ProfileDropdown({
                 )}
                 inert={page !== "main"}
                 ref={mainRef}
-                style={{ width: PANEL_W }}
+                style={{ width: panelW }}
               >
                 <div className="flex items-start justify-between px-2.5 pt-2.5 pb-3">
                   <Identity
@@ -1084,7 +1101,7 @@ export default function ProfileDropdown({
                 )}
                 inert={page !== "accounts"}
                 ref={accountsRef}
-                style={{ width: PANEL_W }}
+                style={{ width: panelW }}
               >
                 <motion.div
                   aria-label="Switch account"

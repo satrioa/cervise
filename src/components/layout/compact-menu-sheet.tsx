@@ -186,6 +186,7 @@ export function CompactMenuSheet({
             },
           ]}
           theme={appTheme === "light" || appTheme === "dark" ? appTheme : "system"}
+          panelWidth="trigger"
           onThemeChange={(next) => setTheme(next)}
           onSignOut={() => {
             void (async () => {
