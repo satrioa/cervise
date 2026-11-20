@@ -153,10 +153,8 @@ export function CompactMenuSheet({
           <PrinterSettings compact />
         </MenuSection>
 
-      </div>
-
-      {/* Profil dan branding menempel di bawah sheet, tidak ikut scroll. */}
-      <div className="shrink-0 border-t border-black/5 px-5 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 dark:border-white/10">
+        {/* Profil & branding ikut scroll, di bawah daftar menu. */}
+        <div className="mt-4 border-t border-black/5 pt-3 dark:border-white/10">
         <ProfileDropdown
           accounts={[
             {
@@ -203,6 +201,7 @@ export function CompactMenuSheet({
             V0.1.0 / Made by Sat.
           </p>
         </footer>
+        </div>
       </div>
     </div>
   );

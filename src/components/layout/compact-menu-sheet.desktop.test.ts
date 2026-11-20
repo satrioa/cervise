@@ -15,9 +15,11 @@ describe("menu sheet identitas tenant/cabang dan profil", () => {
     expect(tenantIndex).toBeLessThan(scrollIndex);
   });
 
-  it("profil berada di luar area scroll", () => {
-    const scrollIndex = source.indexOf("ref={scrollRef}");
+  it("profil dan branding tetap ikut scroll di bawah daftar menu", () => {
     const profileIndex = source.indexOf("<ProfileDropdown");
-    expect(profileIndex).toBeGreaterThan(scrollIndex);
+    const footerIndex = source.indexOf("<footer");
+    expect(profileIndex).toBeGreaterThan(-1);
+    expect(footerIndex).toBeGreaterThan(profileIndex);
+    expect(source).toMatch(/Profil & branding ikut scroll/);
   });
 });
