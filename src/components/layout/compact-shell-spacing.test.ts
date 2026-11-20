@@ -17,6 +17,10 @@ describe("spacing shell compact mobile", () => {
     );
   });
 
+  it("dock menyisakan gap 32px di kiri dan kanan", () => {
+    expect(read("src/components/layout/compact-dock-nav.tsx")).toMatch(/mx-8/);
+  });
+
   it("action bar memakai jarak aman dock", () => {
     for (const file of [
       "src/app/app/servis/page.tsx",
