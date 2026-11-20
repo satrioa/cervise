@@ -236,16 +236,6 @@ export function PricingThreeTier({ packages }: { packages: PublicPackage[] }) {
           <p className="mt-2 text-sm text-muted-foreground">
             Mulai dari kapasitas paket Starter. Tambahan dihitung untuk setiap kebutuhan di atasnya.
           </p>
-          <Tabs
-            value={calculatorPeriod}
-            onValueChange={(value) => setCalculatorPeriod(value as Period)}
-            className="mt-4"
-          >
-            <TabsList>
-              <TabsTrigger value="monthly">Bulanan</TabsTrigger>
-              <TabsTrigger value="annual">Tahunan</TabsTrigger>
-            </TabsList>
-          </Tabs>
           <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
             <div className="flex flex-col gap-5">
               {([
@@ -278,6 +268,16 @@ export function PricingThreeTier({ packages }: { packages: PublicPackage[] }) {
             </div>
 
             <div className="rounded-xl border p-4 text-sm">
+              <Tabs
+                value={calculatorPeriod}
+                onValueChange={(value) => setCalculatorPeriod(value as Period)}
+                className="mb-4"
+              >
+                <TabsList>
+                  <TabsTrigger value="monthly">Bulanan</TabsTrigger>
+                  <TabsTrigger value="annual">Tahunan</TabsTrigger>
+                </TabsList>
+              </Tabs>
               <div className="flex justify-between"><span>Cabang</span><span>{input.branches}</span></div>
               <div className="flex justify-between"><span>Karyawan</span><span>{input.employees}</span></div>
               <div className="flex justify-between"><span>Tiket / bulan</span><span>{input.services}</span></div>

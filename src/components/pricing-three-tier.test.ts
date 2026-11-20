@@ -45,6 +45,15 @@ describe("kalkulator Pay as You Grow", () => {
     expect(source).toMatch(/calculatorPeriod/);
     expect(source).toMatch(/calculatorPeriod === "annual" \? previewAnnual : preview\.total/);
   });
+
+  it("tab berada di dalam kartu hasil, di atas baris Cabang", () => {
+    const card = source.indexOf('className="rounded-xl border p-4 text-sm"');
+    const tabs = source.indexOf("<Tabs", card);
+    const cabang = source.indexOf("<span>Cabang</span>", card);
+    expect(card).toBeGreaterThan(-1);
+    expect(tabs).toBeGreaterThan(card);
+    expect(tabs).toBeLessThan(cabang);
+  });
 });
 
 describe("tabel perbandingan paket", () => {
