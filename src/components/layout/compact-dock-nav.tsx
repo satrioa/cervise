@@ -33,7 +33,7 @@ export function CompactDockNav({ role, collapsed = false }: { role: string; coll
     <div className="pointer-events-none fixed inset-x-0 bottom-0 z-30 lg:hidden" data-compact-dock="">
       <div
         className={cn(
-          "pointer-events-auto mx-8 flex items-center gap-1 bg-white/95 shadow-[0_-8px_24px_-20px_rgba(0,0,0,0.45)] ring-1 ring-black/5 backdrop-blur transition-[padding] duration-200 dark:bg-neutral-900/95 dark:ring-white/10",
+          "pointer-events-auto flex items-center gap-1 bg-white/95 px-8 shadow-[0_-8px_24px_-20px_rgba(0,0,0,0.45)] ring-1 ring-black/5 backdrop-blur transition-[padding] duration-200 dark:bg-neutral-900/95 dark:ring-white/10",
           collapsed
             ? "pt-0.5 pb-[max(0.25rem,env(safe-area-inset-bottom))]"
             : "pt-2 pb-[calc(1rem+env(safe-area-inset-bottom))]",
