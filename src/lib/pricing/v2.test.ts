@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   calculateCustomMonthlyPrice,
   defaultCustomConfig,
+  normalizeCustomInput,
   roundUpBlocks,
   yearlyPrice,
 } from "./v2";
@@ -9,6 +10,16 @@ import {
 const config = defaultCustomConfig;
 
 describe("pricing v2", () => {
+  it("menerima kebutuhan di bawah batas Business tanpa minimum bawaan", () => {
+    const input = normalizeCustomInput({
+      branches: 1,
+      employees: 1,
+      services: 0,
+    });
+    expect(input).toEqual({ branches: 1, employees: 1, services: 0 });
+    expect(calculateCustomMonthlyPrice(input, config).total).toBe(999000);
+  });
+
   it("membulatkan kapasitas tambahan per 100 tiket ke atas", () => {
     expect(roundUpBlocks(550, 500, 100)).toBe(1);
     expect(roundUpBlocks(700, 500, 100)).toBe(2);

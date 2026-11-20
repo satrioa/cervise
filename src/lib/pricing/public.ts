@@ -65,14 +65,11 @@ export async function requestCustomQuote(raw: CustomPricingInput): Promise<Custo
   if (!data) return { ok: false, message: "Paket Custom belum dikonfigurasi." };
 
   const config = configFromPackageRow(data);
-  const input = normalizeCustomInput(
-    {
-      branches: Number(raw?.branches),
-      employees: Number(raw?.employees),
-      services: Number(raw?.services),
-    },
-    config,
-  );
+  const input = normalizeCustomInput({
+    branches: Number(raw?.branches),
+    employees: Number(raw?.employees),
+    services: Number(raw?.services),
+  });
   const breakdown = calculateCustomMonthlyPrice(input, config);
   const annual = yearlyPrice(breakdown.total, config);
 

@@ -5,8 +5,7 @@ import Link from "next/link";
 import { CheckIcon, SparklesIcon } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { Slider } from "@/components/ui/slider";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatRupiah } from "@/lib/format";
 import {
@@ -25,6 +24,8 @@ const CONTACT = process.env.NEXT_PUBLIC_CONTACT_WHATSAPP;
 
 function priceFor(pkg: PublicPackage, period: Period) {
   if (pkg.code === "trial") return { amount: 0, cadence: `${pkg.trial_days ?? 5} hari gratis` };
+  // Custom tidak menampilkan angka: harga dihitung dari kebutuhan tenant.
+  if (pkg.code === "custom") return { amount: null, cadence: "Custom" };
   if (period === "monthly") return { amount: pkg.monthly_price, cadence: "/bulan" };
   const amount = pkg.annual_price ?? pkg.monthly_price * 10;
   return { amount, cadence: "/tahun" };
@@ -48,23 +49,16 @@ export function PricingThreeTier({ packages }: { packages: PublicPackage[] }) {
 
   const config = custom ? configFromPackageRow(custom) : null;
   const [input, setInput] = useState<CustomPricingInput>({
-    branches: config?.includedBranches ?? 3,
-    employees: config?.includedEmployees ?? 15,
-    services: config?.includedServices ?? 500,
+    branches: 1,
+    employees: 1,
+    services: 0,
   });
   const [requesting, setRequesting] = useState(false);
 
   const preview = config
-    ? calculateCustomMonthlyPrice(normalizeCustomInput(input, config), config)
+    ? calculateCustomMonthlyPrice(normalizeCustomInput(input), config)
     : null;
   const previewAnnual = preview ? yearlyPrice(preview.total, config!) : 0;
-
-  const step = (key: keyof CustomPricingInput, delta: number) => {
-    setInput((current) => ({
-      ...current,
-      [key]: Math.max(0, current[key] + delta),
-    }));
-  };
 
   const contactAdmin = async () => {
     if (!config) {
@@ -136,9 +130,13 @@ export function PricingThreeTier({ packages }: { packages: PublicPackage[] }) {
               <div className="font-mono text-[10px] text-muted-foreground uppercase tracking-[0.3em]">{pkg.name}</div>
               <div className="mt-2 flex items-baseline gap-1">
                 <span className="font-heading text-3xl">
-                  {pkg.code === "trial" ? "Gratis" : formatRupiah(amount)}
+                  {pkg.code === "trial"
+                    ? "Gratis"
+                    : amount === null
+                      ? "Custom"
+                      : formatRupiah(amount)}
                 </span>
-                {pkg.code !== "trial" ? (
+                {pkg.code !== "trial" && amount !== null ? (
                   <span className="text-muted-foreground text-xs">{cadence}</span>
                 ) : null}
               </div>
@@ -216,34 +214,36 @@ export function PricingThreeTier({ packages }: { packages: PublicPackage[] }) {
         <div id="kalkulator-custom" className="mt-16 rounded-2xl border p-6">
           <h3 className="font-heading text-2xl">Hitung Pay as You Grow</h3>
           <p className="mt-2 text-sm text-muted-foreground">
-            Mulai dari paket Business. Tambahan dihitung hanya untuk kebutuhan di atas batas Business.
+            Geser sesuai kebutuhan toko. Biaya tambahan baru dihitung di atas kapasitas Business.
           </p>
-          <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
-            <div className="grid gap-4 sm:grid-cols-3">
+          <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
+            <div className="flex flex-col gap-5">
               {([
-                ["branches", "Jumlah cabang", 1],
-                ["employees", "Karyawan aktif", 1],
-                ["services", "Tiket servis / bulan", 100],
-              ] as const).map(([key, label, stepSize]) => (
-                <div key={key} className="space-y-1.5">
-                  <Label htmlFor={`calc-${key}`}>{label}</Label>
-                  <div className="flex items-center gap-2">
-                    <Button type="button" variant="outline" size="icon" className="size-8" onClick={() => step(key, -stepSize)} aria-label={`Kurangi ${label}`}>−</Button>
-                    <Input
-                      id={`calc-${key}`}
-                      type="number"
-                      min={0}
-                      step={stepSize}
-                      value={input[key]}
-                      onChange={(event) => setInput((current) => ({ ...current, [key]: Number(event.target.value) || 0 }))}
-                      className="text-center"
-                    />
-                    <Button type="button" variant="outline" size="icon" className="size-8" onClick={() => step(key, stepSize)} aria-label={`Tambah ${label}`}>+</Button>
+                ["branches", "Jumlah cabang", 1, 30, 1, "cabang"],
+                ["employees", "Karyawan aktif", 1, 100, 1, "karyawan"],
+                ["services", "Tiket servis / bulan", 0, 5000, 100, "tiket"],
+              ] as const).map(([key, label, min, max, stepSize, unit]) => (
+                <div key={key} className="space-y-2">
+                  <div className="flex items-baseline justify-between gap-2">
+                    <span className="text-sm font-medium">{label}</span>
+                    <span className="font-mono text-sm tabular-nums text-muted-foreground">
+                      {input[key]} {unit}
+                    </span>
                   </div>
+                  <Slider
+                    value={input[key]}
+                    onValueChange={(value) =>
+                      setInput((current) => ({ ...current, [key]: value }))
+                    }
+                    min={min}
+                    max={max}
+                    step={stepSize}
+                    thumbLabel={label}
+                  />
                 </div>
               ))}
-              <div className="sm:col-span-3 text-xs text-muted-foreground">
-                Minimum: {config.includedBranches} cabang · {config.includedEmployees} karyawan · {config.includedServices} tiket/bulan.
+              <div className="text-xs text-muted-foreground">
+                Mulai dari 1 cabang, 1 karyawan, dan 0 tiket — tidak perlu mencapai batas paket Business.
               </div>
             </div>
 

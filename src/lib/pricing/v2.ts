@@ -113,19 +113,20 @@ export function annualSavings(monthlyPrice: number, annualPrice: number): number
   return Math.max(0, monthlyPrice * 12 - annualPrice);
 }
 
-/** Nilai minimum Custom mengikuti batas bawah Business. */
-export function normalizeCustomInput(
-  input: CustomPricingInput,
-  config: PricingConfig = defaultCustomConfig,
-): CustomPricingInput {
+/**
+ * Batas input Custom: bebas di bawah kapasitas Business. Cabang & karyawan
+ * tetap minimal 1, tiket boleh 0 -- biaya tambahan tetap 0 selama masih di
+ * dalam kuota Business (rumus `max(0, ...)`).
+ */
+export function normalizeCustomInput(input: CustomPricingInput): CustomPricingInput {
   const clamp = (value: number, min: number, max: number) => {
     if (!Number.isFinite(value)) return min;
     return Math.min(max, Math.max(min, Math.trunc(value)));
   };
   return {
-    branches: clamp(input.branches, config.includedBranches, 1000),
-    employees: clamp(input.employees, config.includedEmployees, 10000),
-    services: clamp(input.services, config.includedServices, 100000),
+    branches: clamp(input.branches, 1, 1000),
+    employees: clamp(input.employees, 1, 10000),
+    services: clamp(input.services, 0, 100000),
   };
 }
 
