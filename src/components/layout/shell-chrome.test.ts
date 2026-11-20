@@ -119,9 +119,14 @@ describe("shell chrome", () => {
     expect(legacyShell).toMatch(/<Settings className="size-4" \/>/);
   });
 
-  it("tombol menu header legacy memakai grid, bukan wrench", () => {
-    expect(legacyShell).toMatch(/<LayoutGrid className="size-5" \/>/);
+  it("tombol menu header legacy memakai grid terisi, bukan wrench", () => {
+    expect(legacyShell).toMatch(/<LayoutGrid className="size-5" fill="currentColor" \/>/);
     expect(legacyShell).not.toMatch(/<Wrench className="size-5" \/>/);
+  });
+
+  it("header legacy memakai logo tenant dan branch switcher", () => {
+    expect(legacyShell).toMatch(/<TenantLogo/);
+    expect(legacyShell).toMatch(/<BranchSwitcher canSwitch=\{canSwitchBranch\(actor\.role\)\} compact \/>/);
   });
 
   it("CompactShell membungkus anak-anaknya dengan ShellChromeProvider", () => {

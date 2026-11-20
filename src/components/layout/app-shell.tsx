@@ -126,13 +126,16 @@ function TenantSwitcher({ canSwitchTenant: canSwitchTenantValue }: { canSwitchTe
   );
 }
 
-function BranchSwitcher({ canSwitch }: { canSwitch: boolean }) {
+function BranchSwitcher({ canSwitch, compact = false }: { canSwitch: boolean; compact?: boolean }) {
   const { branch, setBranch, branches } = useBranch();
   const t = useTranslations("nav");
   const [open, setOpen] = useState(false);
+  const shellClass = compact
+    ? "flex h-8 max-w-[150px] items-center gap-1.5 rounded-full border border-border/60 bg-white px-2.5 text-xs dark:bg-card"
+    : "flex h-12 w-full items-center rounded-xl border border-border/60 bg-white px-2.5 dark:bg-card";
   if (!canSwitch) {
     return (
-      <div className="flex h-12 w-full items-center rounded-xl border border-border/60 bg-white px-2.5 dark:bg-card">
+      <div className={shellClass}>
         <div className="min-w-0 flex-1 truncate font-semibold text-sm">{branch.label}</div>
       </div>
     );
@@ -140,12 +143,7 @@ function BranchSwitcher({ canSwitch }: { canSwitch: boolean }) {
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger
-        render={
-          <button
-            type="button"
-            className="flex h-12 w-full items-center justify-between gap-2 rounded-xl border border-border/60 bg-white px-2.5 dark:bg-card"
-          />
-        }
+        render={<button type="button" className={cn(shellClass, "justify-between")} />}
       >
         <div className="min-w-0 flex-1 truncate font-semibold text-sm text-left">{branch.label}</div>
         <ChevronsUpDown className="size-3.5 opacity-60 shrink-0" />
@@ -358,6 +356,8 @@ export type AppShellActor = {
 
 function AppShellInner({ children, actor }: { children: React.ReactNode; actor: AppShellActor }) {
   const [open, setOpen] = useState(false);
+  const { tenants, activeOrgId } = useTenant();
+  const activeTenant = tenants.find((tenant) => tenant.id === activeOrgId) ?? tenants[0];
   const pathname = usePathname();
   const scrollRef = useRef<HTMLDivElement>(null);
   const [showTopFade, setShowTopFade] = useState(false);
@@ -406,7 +406,7 @@ function AppShellInner({ children, actor }: { children: React.ReactNode; actor: 
         <div className="lg:hidden sticky top-0 z-40 flex h-16 shrink-0 items-center justify-start gap-2 border-b border-border/60 bg-background px-3">
           <Sheet open={open} onOpenChange={setOpen}>
             <SheetTrigger render={<Button variant="ghost" size="icon" className="size-8" />}>
-              <LayoutGrid className="size-5" />
+              <LayoutGrid className="size-5" fill="currentColor" />
             </SheetTrigger>
             <SheetContent side="left" className="w-[280px] p-0 flex flex-col">
               <SheetHeader className="sr-only">
@@ -421,9 +421,17 @@ function AppShellInner({ children, actor }: { children: React.ReactNode; actor: 
               />
             </SheetContent>
           </Sheet>
-          <div className="flex items-center gap-2 font-semibold text-sm">
-            <span className="flex size-7 items-center justify-center rounded-md bg-primary text-primary-foreground">C</span>
-            Kaggo
+          <div className="flex min-w-0 items-center gap-2 font-semibold text-sm">
+            <TenantLogo
+              logoUrl={activeTenant?.logoUrl}
+              name={activeTenant?.name}
+              title={`Tenant: ${activeTenant?.name ?? "Tenant"}`}
+              className="size-7 text-xs"
+            />
+            <span className="truncate">{activeTenant?.name ?? "Kaggo"}</span>
+          </div>
+          <div className="ml-auto">
+            <BranchSwitcher canSwitch={canSwitchBranch(actor.role)} compact />
           </div>
         </div>
 
