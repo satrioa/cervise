@@ -42,6 +42,28 @@ export async function getPublicPackages(): Promise<PublicPackage[]> {
   return (data ?? []) as PublicPackage[];
 }
 
+export type PublicPromo = {
+  promo_title: string;
+  promo_headline: string;
+  promo_subtext: string;
+  promo_price: string;
+  promo_included: string[];
+  promo_separate: string[];
+  promo_note: string;
+  promo_ends_at: string;
+};
+
+export async function getPublicPromo(): Promise<PublicPromo | null> {
+  const supabase = createAdminClient();
+  const { data, error } = await supabase
+    .from("platform_settings")
+    .select("promo_title, promo_headline, promo_subtext, promo_price, promo_included, promo_separate, promo_note, promo_ends_at")
+    .eq("id", true)
+    .maybeSingle();
+  if (error) throw error;
+  return (data ?? null) as PublicPromo | null;
+}
+
 export type CustomQuote = {
   ok: boolean;
   message: string;
@@ -65,11 +87,14 @@ export async function requestCustomQuote(raw: CustomPricingInput): Promise<Custo
   if (!data) return { ok: false, message: "Paket Custom belum dikonfigurasi." };
 
   const config = configFromPackageRow(data);
-  const input = normalizeCustomInput({
-    branches: Number(raw?.branches),
-    employees: Number(raw?.employees),
-    services: Number(raw?.services),
-  });
+  const input = normalizeCustomInput(
+    {
+      branches: Number(raw?.branches),
+      employees: Number(raw?.employees),
+      services: Number(raw?.services),
+    },
+    config,
+  );
   const breakdown = calculateCustomMonthlyPrice(input, config);
   const annual = yearlyPrice(breakdown.total, config);
 

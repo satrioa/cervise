@@ -14,6 +14,7 @@ import { generateTempPassword } from "@/lib/auth/password";
 import { buildOwnerAccountRows } from "@/lib/platform/owner-accounts";
 import { resolveSubscriptionAccessState, type SubscriptionLifecycleStatus } from "@/lib/billing/renewal";
 import { verifyMetaPhoneNumber } from "@/lib/meta-wa";
+import { parsePromoList } from "@/lib/pricing/promo";
 
 type PackageRow = {
   id: string;
@@ -263,6 +264,34 @@ export async function savePackage(input: {
   revalidatePath("/owner");
   revalidatePath("/");
   return { id: input.id ?? null };
+}
+
+export async function deletePackage(id: string) {
+  const { supabase } = await requirePlatformAdmin();
+  if (!id) throw new Error("ID paket tidak valid");
+
+  // Paket yang sudah dipakai tidak boleh dihapus: FK ke tiga tabel ini
+  // mengunci riwayat subscription & invoice tenant.
+  const checks = await Promise.all([
+    supabase.from("tenant_subscriptions").select("id", { count: "exact", head: true }).eq("package_id", id),
+    supabase.from("invoices").select("id", { count: "exact", head: true }).eq("package_id", id),
+    supabase.from("manual_subscription_payments").select("id", { count: "exact", head: true }).eq("package_id", id),
+  ]);
+  for (const result of checks) {
+    if (result.error) throw new Error(result.error.message);
+  }
+  const used = checks.reduce((total, result) => total + (result.count ?? 0), 0);
+  if (used > 0) {
+    throw new Error("Paket masih digunakan oleh subscription atau invoice. Nonaktifkan saja.");
+  }
+
+  const { error } = await supabase.from("packages").delete().eq("id", id);
+  if (error) throw error;
+
+  revalidatePath("/owner/packages");
+  revalidatePath("/owner");
+  revalidatePath("/");
+  return { ok: true };
 }
 
 export async function getInvoices() {
@@ -745,7 +774,7 @@ export async function getPlatformSettings() {
   const { supabase } = await requirePlatformAdmin();
   const { data, error } = await supabase
     .from("platform_settings")
-    .select("renewal_lead_days, default_grace_days, owner_whatsapp, owner_email")
+    .select("renewal_lead_days, default_grace_days, owner_whatsapp, owner_email, promo_title, promo_headline, promo_subtext, promo_price, promo_included, promo_separate, promo_note, promo_ends_at")
     .eq("id", true)
     .single();
   if (error) throw error;
@@ -779,6 +808,49 @@ export async function updatePlatformSettings(input: {
     .eq("id", true);
   if (error) throw error;
 
+  revalidatePath("/owner/settings");
+  return { ok: true };
+}
+
+export async function updatePromoSettings(input: {
+  endsAtLocal: string;
+  title: string;
+  headline: string;
+  subtext: string;
+  price: string;
+  included: string;
+  separate: string;
+  note: string;
+}) {
+  const { supabase } = await requirePlatformAdmin();
+  const endsAt = new Date(input.endsAtLocal);
+  if (Number.isNaN(endsAt.getTime())) throw new Error("Tanggal berakhir promo tidak valid");
+
+  const included = parsePromoList(input.included);
+  const separate = parsePromoList(input.separate);
+  if (!included || !separate) throw new Error("Daftar poin promo tidak valid (maksimal 160 karakter per baris)");
+
+  const title = input.title.trim();
+  const headline = input.headline.trim();
+  const price = input.price.trim();
+  if (!title || !headline || !price) throw new Error("Judul, headline, dan harga wajib diisi");
+
+  const { error } = await supabase
+    .from("platform_settings")
+    .update({
+      promo_title: title.slice(0, 80),
+      promo_headline: headline.slice(0, 120),
+      promo_subtext: input.subtext.trim().slice(0, 240),
+      promo_price: price.slice(0, 60),
+      promo_included: included,
+      promo_separate: separate,
+      promo_note: input.note.trim().slice(0, 400),
+      promo_ends_at: endsAt.toISOString(),
+    })
+    .eq("id", true);
+  if (error) throw error;
+
+  revalidatePath("/");
   revalidatePath("/owner/settings");
   return { ok: true };
 }

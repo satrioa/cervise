@@ -9,7 +9,8 @@ import CustomPackageCta from "@/components/landing/custom-package-cta";
 import { LandingSmoothScroll } from "@/components/layout/landing-smooth-scroll";
 import { publicPhotoUrl } from "@/lib/photos";
 import { PricingThreeTier } from "@/components/pricing-three-tier";
-import { getPublicPackages } from "@/lib/pricing/public";
+import { getPublicPackages, getPublicPromo } from "@/lib/pricing/public";
+import SpecialPromoSection from "@/components/landing/special-promo-section";
 
 export default async function LandingPage() {
   const supabase = await createClient();
@@ -59,6 +60,7 @@ export default async function LandingPage() {
   }
 
   const packages = await getPublicPackages();
+  const promo = await getPublicPromo();
 
   return (
     <div className="flex min-h-svh flex-col bg-background text-foreground landing-light">
@@ -76,6 +78,8 @@ export default async function LandingPage() {
       <section id="harga">
         <PricingThreeTier packages={packages} />
       </section>
+
+      {promo ? <SpecialPromoSection promo={promo} /> : null}
 
       <CustomPackageCta />
 
