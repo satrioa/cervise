@@ -20,7 +20,7 @@ describe("dock mobile tema normal", () => {
     expect(source).toContain('variant="candy"');
     expect(source).toMatch(/\[--btn:#fff\]/);
     expect(source).toMatch(/rounded-xl/);
-    expect(source).toMatch(/size-14/);
+    expect(source).toMatch(/size-12/);
     expect(source).toMatch(/shadow-none \[&_svg\]:drop-shadow-none/);
     expect(source).not.toMatch(/\{item\.label\}<\/span>/);
   });
@@ -54,6 +54,6 @@ describe("dock mobile tema normal", () => {
   });
 
   it("gap bawah lebih besar dari gap atas", () => {
-    expect(source).toContain("pt-2 pb-[calc(1rem+env(safe-area-inset-bottom))]");
+    expect(source).toContain("pt-2 pb-[calc(1.5rem+env(safe-area-inset-bottom))]");
   });
 });

@@ -77,10 +77,10 @@ describe("shell chrome", () => {
     expect(compactDockNav).not.toMatch(/t\("menu\.title"\)/);
     expect(compactDockNav).not.toMatch(/onOpenMenu/);
     expect(compactDockNav).toMatch(/fill=\{active \? "currentColor" : "none"\}/);
-    expect(compactDockNav).toMatch(/size-14 rounded-xl shadow-none/);
+    expect(compactDockNav).toMatch(/size-12 rounded-xl shadow-none/);
     // Overlay mengambang di atas isi halaman.
     expect(compactDockNav).toMatch(/z-30/);
-    expect(compactDockNav).toMatch(/pt-2 pb-\[calc\(1rem\+env\(safe-area-inset-bottom\)\)\]/);
+    expect(compactDockNav).toMatch(/pt-2 pb-\[calc\(1\.5rem\+env\(safe-area-inset-bottom\)\)\]/);
   });
 
   it("dock compact hilang saat scroll turun dan muncul saat scroll naik", () => {

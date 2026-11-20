@@ -33,12 +33,12 @@ export function CompactDockNav({ role, hidden = false }: { role: string; hidden?
   return (
     <div
       className={cn(
-        "pointer-events-none fixed inset-x-0 bottom-0 z-30 transition-[transform,opacity] duration-200 lg:hidden",
+        "pointer-events-none fixed inset-x-0 bottom-0 z-30 transition-[transform,opacity] duration-200 lg:hidden group-has-[[data-hide-dock]]/shell:hidden",
         hidden ? "translate-y-full opacity-0" : "translate-y-0 opacity-100",
       )}
       data-compact-dock=""
     >
-      <div className="pointer-events-auto relative flex items-center gap-1 px-8 pt-2 pb-[calc(1rem+env(safe-area-inset-bottom))]">
+      <div className="pointer-events-auto relative flex items-center gap-1 px-8 pt-2 pb-[calc(1.5rem+env(safe-area-inset-bottom))]">
         {/* Fade hitam di belakang tombol; wrap dock sendiri tetap transparan. */}
         <div
           aria-hidden="true"
@@ -58,7 +58,7 @@ export function CompactDockNav({ role, hidden = false }: { role: string; hidden?
                 size="icon-lg"
                 aria-label={item.label}
                 className={cn(
-                  "size-14 rounded-xl shadow-none [&_svg]:drop-shadow-none",
+                  "size-12 rounded-xl shadow-none [&_svg]:drop-shadow-none",
                   "[--btn:#fff] [--btn-hover:#f3f4ff] [--btn-fg:#111827]",
                   "dark:[--btn:#1f2937] dark:[--btn-hover:#374151] dark:[--btn-fg:#e5e7eb]",
                   active ? "[--btn-fg:var(--color-brand)] dark:[--btn-fg:#93C5FD]" : "",
@@ -69,7 +69,7 @@ export function CompactDockNav({ role, hidden = false }: { role: string; hidden?
                   </MainNavLink>
                 }
               >
-                <Icon className="size-5" fill={active ? "currentColor" : "none"} />
+                <Icon className="size-[18px]" fill={active ? "currentColor" : "none"} />
               </Button>
             );
           })}
