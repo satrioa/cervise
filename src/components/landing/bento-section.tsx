@@ -280,8 +280,8 @@ export function BentoSection() {
                 >
                   <defs>
                     <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.8} />
-                      <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0.0} />
+                      <stop offset="5%" stopColor="#60A5FA" stopOpacity={0.8} />
+                      <stop offset="95%" stopColor="#60A5FA" stopOpacity={0.0} />
                     </linearGradient>
                   </defs>
                   <XAxis
@@ -294,7 +294,7 @@ export function BentoSection() {
                   <Area
                     type="monotone"
                     dataKey="revenue"
-                    stroke="hsl(var(--primary))"
+                    stroke="#60A5FA"
                     strokeWidth={2}
                     fill="url(#colorRevenue)"
                     animationDuration={1500}

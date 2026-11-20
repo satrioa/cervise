@@ -23,4 +23,11 @@ describe("kartu Fitur Unggulan", () => {
     expect(source).toContain("text-white");
     expect(source).toContain("text-neutral-400");
   });
+
+  it("sparkline Performa Toko memakai warna literal yang valid sebagai atribut SVG", () => {
+    // `hsl(var(--primary))` tidak bisa dipakai sebagai presentation attribute
+    // SVG: browser menganggapnya invalid sehingga stroke jadi none dan stop jadi hitam.
+    expect(source).not.toMatch(/hsl\(var\(--[a-z-]+\)\)/);
+    expect(source).toMatch(/stroke="#[0-9A-Fa-f]{6}"/);
+  });
 });
