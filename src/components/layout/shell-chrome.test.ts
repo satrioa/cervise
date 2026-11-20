@@ -115,8 +115,13 @@ describe("shell chrome", () => {
   it("sidebar compact memakai ikon fill, sidebar legacy tetap garis", () => {
     const compactSidebar = read("src/components/layout/compact-sidebar.tsx");
     expect(compactSidebar).toMatch(/fill="currentColor"/);
-    // Tombol menu pengaturan di sidebar legacy memakai ikon grid terisi.
-    expect(legacyShell).toMatch(/<LayoutGrid className="size-4" fill="currentColor" \/>/);
+    // Tombol pengaturan di profil sidebar legacy memakai ikon gear.
+    expect(legacyShell).toMatch(/<Settings className="size-4" \/>/);
+  });
+
+  it("tombol menu header legacy memakai grid, bukan wrench", () => {
+    expect(legacyShell).toMatch(/<LayoutGrid className="size-5" \/>/);
+    expect(legacyShell).not.toMatch(/<Wrench className="size-5" \/>/);
   });
 
   it("CompactShell membungkus anak-anaknya dengan ShellChromeProvider", () => {

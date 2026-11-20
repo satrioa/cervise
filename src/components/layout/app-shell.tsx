@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronsUpDown, LayoutGrid, Wrench, LogOut } from "lucide-react";
+import { ChevronsUpDown, LayoutGrid, LogOut, Settings } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState, useEffect, useRef, useCallback } from "react";
@@ -327,7 +327,7 @@ function SidebarContent({
               : "text-muted-foreground hover:bg-foreground/[0.04] hover:text-foreground",
           )}
         >
-          <LayoutGrid className="size-4" fill="currentColor" />
+          <Settings className="size-4" />
         </Link>
       </div>
     </>
@@ -406,7 +406,7 @@ function AppShellInner({ children, actor }: { children: React.ReactNode; actor: 
         <div className="lg:hidden sticky top-0 z-40 flex h-16 shrink-0 items-center justify-start gap-2 border-b border-border/60 bg-background px-3">
           <Sheet open={open} onOpenChange={setOpen}>
             <SheetTrigger render={<Button variant="ghost" size="icon" className="size-8" />}>
-              <Wrench className="size-5" />
+              <LayoutGrid className="size-5" />
             </SheetTrigger>
             <SheetContent side="left" className="w-[280px] p-0 flex flex-col">
               <SheetHeader className="sr-only">
