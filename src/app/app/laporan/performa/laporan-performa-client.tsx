@@ -150,9 +150,9 @@ export default function PerformaPage() {
               { label: "Pendapatan", value: formatCurrencyPlain(summary.revenue) },
               { label: "Total insentif", value: formatCurrencyPlain(summary.insentif) },
             ].map((card) => (
-              <div key={card.label} className="rounded-xl border border-border/60 bg-background/40 p-4">
+              <div key={card.label} className="min-w-0 overflow-hidden rounded-xl border border-border/60 bg-background/40 p-4">
                 <div className="font-mono text-[10px] text-muted-foreground uppercase tracking-[0.25em]">{card.label}</div>
-                <div className="mt-2 font-heading text-2xl tabular-nums">{card.value}</div>
+                <div title={card.value} className="mt-2 min-w-0 truncate font-heading text-[clamp(1rem,5vw,1.5rem)] leading-tight tabular-nums">{card.value}</div>
               </div>
             ))}
           </div>

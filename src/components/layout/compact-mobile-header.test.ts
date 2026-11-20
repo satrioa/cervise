@@ -11,6 +11,7 @@ const pageHeader = read("src/components/layout/page-header.tsx");
 const menuSheet = read("src/components/layout/compact-menu-sheet.tsx");
 const compactShell = read("src/components/layout/compact-shell.tsx");
 const compactDock = read("src/components/layout/compact-dock-nav.tsx");
+const posClient = read("src/app/app/penjualan/penjualan-pos-client.tsx");
 
 describe("header mobile compact", () => {
   it("pengaturan compact tidak punya sub-sidebar", () => {
@@ -48,6 +49,13 @@ describe("header mobile compact", () => {
     expect(pageHeader).toMatch(/lg:group-data-\[shell=compact\]\/shell:sticky/);
   });
 
+  it("header compact menyatu dengan warna canvas, bukan putih", () => {
+    expect(pageHeader).toMatch(/group-data-\[shell=compact\]\/shell:bg-canvas/);
+    expect(pageHeader).toMatch(/group-data-\[shell=compact\]\/shell:dark:bg-canvas/);
+    expect(pageHeader).toMatch(/group-data-\[shell=compact\]\/shell:border-b-0/);
+    expect(pageHeader).toMatch(/lg:group-data-\[shell=compact\]\/shell:border-border\/30/);
+  });
+
   it("menu sheet langsung penuh tanpa drag untuk membuka", () => {
     expect(compactShell).toMatch(/height: "95dvh"/);
     expect(compactShell).not.toMatch(/handleMenuScroll/);
@@ -72,6 +80,23 @@ describe("header mobile compact", () => {
     expect(compactShell).toMatch(/setDockHidden\(false\)/);
     expect(compactShell).toMatch(/hidden=\{dockHidden\}/);
     expect(compactDock).toMatch(/hidden \? "translate-y-full opacity-0"/);
+  });
+
+  it("typewriter aksi cepat ada di searchbar menu, bukan di popover", () => {
+    expect(menuSheet).toMatch(/"Tambah data servis"/);
+    expect(menuSheet).toMatch(/"Tambah stok produk"/);
+    expect(menuSheet).toMatch(/"SRV-2029-\*\*\*"/);
+    expect(menuSheet).toMatch(/function useTypewriter/);
+    expect(menuSheet).toMatch(/placeholder=\{typedPrompt\}/);
+    // Habis siklus tidak ada placeholder fallback.
+    expect(menuSheet).not.toMatch(/typedPrompt \|\|/);
+  });
+
+  it("dock tersembunyi saat tahap pembayaran POS aktif", () => {
+    expect(compactDock).toMatch(/group-has-\[\[data-hide-dock\]\]\/shell:hidden/);
+    expect(posClient).toMatch(/data-hide-dock/);
+    const paymentBranch = posClient.slice(posClient.indexOf("stage === \"cart\" ?"));
+    expect(paymentBranch).toMatch(/data-hide-dock/);
   });
 
   it("sheet slide ke bawah dengan opacity penuh dan backdrop transparan", () => {

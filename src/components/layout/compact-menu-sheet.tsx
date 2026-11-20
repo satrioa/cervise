@@ -38,6 +38,49 @@ import { normalizeAppRole, ROLE_LABEL } from "@/lib/nav/manifest";
  *
  * Section boleh terbuka bersamaan; yang default terbuka hanya Operasional.
  */
+
+/** Aksi cepat yang diketik bergantian di searchbar mobile. */
+const QUICK_PROMPTS = [
+  "Tambah data servis",
+  "Tambah stok produk",
+  "SRV-2029-***",
+] as const;
+
+function useTypewriter(phrases: readonly string[], enabled: boolean) {
+  const [state, setState] = useState({ index: 0, text: "", deleting: false });
+
+  useEffect(() => {
+    if (!enabled || phrases.length === 0) return;
+    const { index, text, deleting } = state;
+    const phrase = phrases[index % phrases.length];
+
+    let delay = 70;
+    let next: () => void;
+    if (!deleting && text.length < phrase.length) {
+      next = () => setState((s) => ({ ...s, text: phrase.slice(0, s.text.length + 1) }));
+    } else if (!deleting) {
+      delay = 1400;
+      next = () => setState((s) => ({ ...s, deleting: true }));
+    } else if (text.length > 0) {
+      delay = 35;
+      next = () => setState((s) => ({ ...s, text: s.text.slice(0, -1) }));
+    } else {
+      delay = 250;
+      next = () =>
+        setState((s) => ({
+          index: (s.index + 1) % phrases.length,
+          text: "",
+          deleting: false,
+        }));
+    }
+
+    const timer = setTimeout(next, delay);
+    return () => clearTimeout(timer);
+  }, [state, enabled, phrases]);
+
+  return state.text;
+}
+
 export function CompactMenuSheet({
   role,
   permissions,
@@ -62,6 +105,7 @@ export function CompactMenuSheet({
   const router = useRouter();
   const { theme: appTheme, setTheme } = useTheme();
   const [desktop, setDesktop] = useState(false);
+  const typedPrompt = useTypewriter(QUICK_PROMPTS, !desktop);
 
   useEffect(() => {
     const mql = window.matchMedia("(min-width: 1024px)");
@@ -129,6 +173,7 @@ export function CompactMenuSheet({
           </div>
           <CommandSearchTrigger
             aria-label={tn("search.placeholder")}
+            placeholder={typedPrompt}
             className="mt-3 flex h-9 w-full items-center justify-start rounded-xl border-0 bg-white px-3 text-xs text-neutral-500 shadow-sm ring-1 ring-black/5 dark:bg-neutral-900 dark:ring-white/10 [&>kbd]:hidden"
           />
         </div>

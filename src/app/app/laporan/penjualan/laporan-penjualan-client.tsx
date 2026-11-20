@@ -121,9 +121,9 @@ export default function LaporanPenjualanPage() {
               { label: "Belum dibayar", value: formatCurrencyPlain(summary.unpaid), tone: summary.unpaid > 0 ? "text-amber-600 dark:text-amber-400" : "text-muted-foreground" },
               { label: "Transaksi", value: formatNumberPlain(summary.count), tone: "text-foreground" },
             ].map((card) => (
-              <div key={card.label} className="rounded-xl border border-border/60 bg-background/40 p-4">
+              <div key={card.label} className="min-w-0 overflow-hidden rounded-xl border border-border/60 bg-background/40 p-4">
                 <div className="font-mono text-[10px] text-muted-foreground uppercase tracking-[0.25em]">{card.label}</div>
-                <div className={`mt-2 font-heading text-2xl tabular-nums ${card.tone}`}>{card.value}</div>
+                <div title={card.value} className={`mt-2 min-w-0 truncate font-heading text-[clamp(1rem,5vw,1.5rem)] leading-tight tabular-nums ${card.tone}`}>{card.value}</div>
               </div>
             ))}
           </div>

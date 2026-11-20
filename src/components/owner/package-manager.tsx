@@ -1,9 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { PencilIcon, PlusIcon, SaveIcon } from "lucide-react";
+import { PencilIcon, PlusIcon, SaveIcon, TrashIcon } from "lucide-react";
 import { toast } from "sonner";
-import { savePackage } from "@/app/owner/actions";
+import { deletePackage, savePackage } from "@/app/owner/actions";
 import { playPageTransition } from "@/components/layout/page-transition";
 import { formatRupiah } from "@/lib/format";
 import { Badge } from "@/components/ui/badge";
@@ -63,13 +63,13 @@ const emptyForm: FormState = {
   code: "",
   name: "",
   description: "",
-  monthlyPrice: "999000",
+  monthlyPrice: "",
   annualPrice: "",
-  branchLimit: "3",
-  userLimit: "15",
+  branchLimit: "1",
+  userLimit: "5",
   trialDays: "",
-  ticketQuota: "500",
-  whatsappQuota: "1500",
+  ticketQuota: "100",
+  whatsappQuota: "300",
   extraBranchPrice: "79000",
   extraEmployeePrice: "12000",
   extraTicketBlockPrice: "199000",
@@ -108,15 +108,48 @@ function NumberField({
   );
 }
 
+function formFromPackage(item: PackageRow): FormState {
+  return {
+    id: item.id,
+    code: item.code,
+    name: item.name,
+    description: item.description ?? "",
+    monthlyPrice: String(item.monthly_price),
+    annualPrice: item.annual_price === null ? "" : String(item.annual_price),
+    branchLimit: String(item.branch_limit),
+    userLimit: item.user_limit === null ? "" : String(item.user_limit),
+    trialDays: item.trial_days === null ? "" : String(item.trial_days),
+    ticketQuota: item.ticket_quota === null ? "" : String(item.ticket_quota),
+    whatsappQuota: item.whatsapp_quota === null ? "" : String(item.whatsapp_quota),
+    extraBranchPrice: String(item.extra_branch_price ?? 79000),
+    extraEmployeePrice: String(item.extra_employee_price ?? 12000),
+    extraTicketBlockPrice: String(item.extra_ticket_block_price ?? 199000),
+    ticketBlockSize: String(item.ticket_block_size ?? 100),
+    waPerTicketBlock: String(item.wa_per_ticket_block ?? 300),
+    annualMultiplier: String(item.annual_multiplier ?? 10),
+    sortOrder: String(item.sort_order),
+    isActive: item.is_active,
+    isRecommended: item.is_recommended,
+  };
+}
+
 export function PackageManager({ packages }: { packages: PackageRow[] }) {
   const [form, setForm] = useState<FormState>(emptyForm);
+  const [mode, setMode] = useState<"standard" | "custom">("standard");
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState<string | null>(null);
+
+  const custom = packages.find((item) => item.code === "custom");
+  const isCustomForm = mode === "custom";
 
   const update = (key: keyof FormState, value: string | boolean) => {
     setForm((current) => ({ ...current, [key]: value }));
   };
 
-  const reset = () => setForm(emptyForm);
+  const reset = () => {
+    setForm(emptyForm);
+    setMode("standard");
+  };
 
   const submit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -124,14 +157,14 @@ export function PackageManager({ packages }: { packages: PackageRow[] }) {
     try {
       await savePackage({
         id: form.id,
-        code: form.code,
+        code: isCustomForm ? "custom" : form.code,
         name: form.name,
         description: form.description,
         monthlyPrice: form.monthlyPrice,
-        annualPrice: form.annualPrice || null,
+        annualPrice: isCustomForm ? null : form.annualPrice || null,
         branchLimit: form.branchLimit,
         userLimit: form.userLimit || null,
-        trialDays: form.trialDays || null,
+        trialDays: isCustomForm ? null : form.trialDays || null,
         ticketQuota: form.ticketQuota || null,
         whatsappQuota: form.whatsappQuota || null,
         extraBranchPrice: form.extraBranchPrice,
@@ -155,86 +188,116 @@ export function PackageManager({ packages }: { packages: PackageRow[] }) {
   };
 
   const edit = (item: PackageRow) => {
-    setForm({
-      id: item.id,
-      code: item.code,
-      name: item.name,
-      description: item.description ?? "",
-      monthlyPrice: String(item.monthly_price),
-      annualPrice: item.annual_price === null ? "" : String(item.annual_price),
-      branchLimit: String(item.branch_limit),
-      userLimit: item.user_limit === null ? "" : String(item.user_limit),
-      trialDays: item.trial_days === null ? "" : String(item.trial_days),
-      ticketQuota: item.ticket_quota === null ? "" : String(item.ticket_quota),
-      whatsappQuota: item.whatsapp_quota === null ? "" : String(item.whatsapp_quota),
-      extraBranchPrice: String(item.extra_branch_price ?? 79000),
-      extraEmployeePrice: String(item.extra_employee_price ?? 12000),
-      extraTicketBlockPrice: String(item.extra_ticket_block_price ?? 199000),
-      ticketBlockSize: String(item.ticket_block_size ?? 100),
-      waPerTicketBlock: String(item.wa_per_ticket_block ?? 300),
-      annualMultiplier: String(item.annual_multiplier ?? 10),
-      sortOrder: String(item.sort_order),
-      isActive: item.is_active,
-      isRecommended: item.is_recommended,
-    });
+    setMode("standard");
+    setForm(formFromPackage(item));
+  };
+
+  const editCustom = () => {
+    if (!custom) return;
+    setMode("custom");
+    setForm(formFromPackage(custom));
+  };
+
+  const remove = async (item: PackageRow) => {
+    if (!window.confirm(`Hapus paket "${item.name}"? Tindakan ini tidak bisa dibatalkan.`)) return;
+    setDeleting(item.id);
+    try {
+      await deletePackage(item.id);
+      playPageTransition();
+      toast.success("Paket dihapus");
+      if (form.id === item.id) reset();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Gagal menghapus paket");
+    } finally {
+      setDeleting(null);
+    }
   };
 
   return (
-    <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_380px]">
-      <Card>
-        <CardHeader>
-          <CardTitle>Paket</CardTitle>
-          <CardDescription>
-            Harga, kapasitas, dan add-on dipakai halaman pricing maupun pembatasan tenant.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-2">
-          {packages.map((item) => (
-            <div key={item.id} className="flex flex-col gap-3 rounded-lg border p-4 sm:flex-row sm:items-center sm:justify-between">
-              <div className="min-w-0">
-                <div className="flex items-center gap-2">
-                  <span className="font-medium">{item.name}</span>
-                  <Badge variant={item.is_active ? "success" : "outline"}>
-                    {item.is_active ? "aktif" : "arsip"}
-                  </Badge>
-                  {item.is_recommended ? <Badge variant="info">unggulan</Badge> : null}
-                </div>
-                <div className="mt-1 text-xs text-muted-foreground">
-                  {formatRupiah(item.monthly_price)} / bulan
-                  {item.annual_price ? ` · ${formatRupiah(item.annual_price)} / tahun` : ""}
-                  {" · "}{item.branch_limit} cabang · {item.user_limit ?? "∞"} karyawan
-                </div>
-                <div className="mt-1 text-xs text-muted-foreground">
-                  {item.ticket_quota ?? 0} tiket · {item.whatsapp_quota ?? 0} WA
-                  {item.trial_days ? ` · trial ${item.trial_days} hari` : ""}
-                </div>
-                <div className="mt-1 text-xs text-muted-foreground">{item.description || "Tanpa deskripsi"}</div>
+    <div className="space-y-4">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        {packages.map((item) => (
+          <div key={item.id} className="flex min-w-0 flex-col gap-3 rounded-lg border p-4">
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="truncate font-medium">{item.name}</span>
+                <Badge variant={item.is_active ? "success" : "outline"}>
+                  {item.is_active ? "aktif" : "arsip"}
+                </Badge>
+                {item.is_recommended ? <Badge variant="info">unggulan</Badge> : null}
               </div>
-              <Button type="button" variant="outline" size="sm" onClick={() => edit(item)}>
-                <PencilIcon className="size-3.5" /> Edit
+              <div className="mt-1 text-xs text-muted-foreground">
+                {formatRupiah(item.monthly_price)} / bulan
+                {item.annual_price ? ` · ${formatRupiah(item.annual_price)} / tahun` : ""}
+                {" · "}{item.branch_limit} cabang · {item.user_limit ?? "∞"} karyawan
+              </div>
+              <div className="mt-1 text-xs text-muted-foreground">
+                {item.ticket_quota ?? 0} tiket · {item.whatsapp_quota ?? 0} WA
+                {item.trial_days ? ` · trial ${item.trial_days} hari` : ""}
+              </div>
+              <div className="mt-1 text-xs text-muted-foreground">{item.description || "Tanpa deskripsi"}</div>
+            </div>
+            <div className="mt-auto flex items-center gap-2">
+              {item.code === "custom" ? (
+                <Button type="button" variant="outline" size="sm" onClick={editCustom}>
+                  Atur Pay as You Grow
+                </Button>
+              ) : (
+                <Button type="button" variant="outline" size="sm" onClick={() => edit(item)}>
+                  <PencilIcon className="size-3.5" /> Edit
+                </Button>
+              )}
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                aria-label={`Hapus ${item.name}`}
+                disabled={deleting === item.id}
+                onClick={() => void remove(item)}
+              >
+                <TrashIcon className="size-3.5 text-destructive" />
               </Button>
             </div>
-          ))}
-          {packages.length === 0 ? (
-            <div className="py-8 text-center text-sm text-muted-foreground">Belum ada paket.</div>
-          ) : null}
-        </CardContent>
-      </Card>
+          </div>
+        ))}
+        {packages.length === 0 ? (
+          <div className="py-8 text-center text-sm text-muted-foreground">Belum ada paket.</div>
+        ) : null}
+      </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>{form.id ? "Edit paket" : "Tambah paket"}</CardTitle>
-          <CardDescription>Harga disimpan dalam Rupiah penuh.</CardDescription>
+          <CardTitle>
+            {isCustomForm
+              ? "Atur Pay as You Grow"
+              : form.id
+                ? "Edit paket"
+                : "Tambah paket"}
+          </CardTitle>
+          <CardDescription>
+            {isCustomForm
+              ? "Harga dasar, kapasitas, dan tarif tambahan di luar paket Business."
+              : "Harga disimpan dalam Rupiah penuh."}
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <form className="space-y-3" onSubmit={submit}>
-            <div className="space-y-1.5">
-              <Label htmlFor="package-code">Kode *</Label>
-              <Input id="package-code" value={form.code} onChange={(event) => update("code", event.target.value)} placeholder="starter" />
-            </div>
+            {!isCustomForm ? (
+              <>
+                <div className="space-y-1.5">
+                  <Label htmlFor="package-code">Kode *</Label>
+                  <Input id="package-code" value={form.code} onChange={(event) => update("code", event.target.value)} placeholder="starter" />
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <NumberField id="package-annual" label="Harga / tahun" value={form.annualPrice} onChange={(v) => update("annualPrice", v)} />
+                  <NumberField id="package-trial" label="Durasi trial (hari)" value={form.trialDays} onChange={(v) => update("trialDays", v)} min={1} />
+                </div>
+              </>
+            ) : null}
+
             <div className="space-y-1.5">
               <Label htmlFor="package-name">Nama *</Label>
-              <Input id="package-name" value={form.name} onChange={(event) => update("name", event.target.value)} placeholder="Starter" />
+              <Input id="package-name" value={form.name} onChange={(event) => update("name", event.target.value)} placeholder={isCustomForm ? "Pay as You Grow" : "Starter"} />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="package-description">Deskripsi</Label>
@@ -242,26 +305,26 @@ export function PackageManager({ packages }: { packages: PackageRow[] }) {
             </div>
             <div className="grid grid-cols-2 gap-2">
               <NumberField id="package-price" label="Harga / bulan *" value={form.monthlyPrice} onChange={(v) => update("monthlyPrice", v)} />
-              <NumberField id="package-annual" label="Harga / tahun" value={form.annualPrice} onChange={(v) => update("annualPrice", v)} />
               <NumberField id="package-branch" label="Batas cabang *" value={form.branchLimit} onChange={(v) => update("branchLimit", v)} min={1} />
               <NumberField id="package-user" label="Batas karyawan" value={form.userLimit} onChange={(v) => update("userLimit", v)} min={1} />
-              <NumberField id="package-trial" label="Durasi trial (hari)" value={form.trialDays} onChange={(v) => update("trialDays", v)} min={1} />
               <NumberField id="package-ticket" label="Tiket / bulan" value={form.ticketQuota} onChange={(v) => update("ticketQuota", v)} />
               <NumberField id="package-wa" label="WA / bulan" value={form.whatsappQuota} onChange={(v) => update("whatsappQuota", v)} />
               <NumberField id="package-order" label="Urutan tampil" value={form.sortOrder} onChange={(v) => update("sortOrder", v)} />
             </div>
 
-            <div className="rounded-md border p-3">
-              <p className="mb-2 text-xs font-medium">Add-on Custom / Pay as You Grow</p>
-              <div className="grid grid-cols-2 gap-2">
-                <NumberField id="addon-branch" label="Per cabang tambahan" value={form.extraBranchPrice} onChange={(v) => update("extraBranchPrice", v)} />
-                <NumberField id="addon-employee" label="Per karyawan tambahan" value={form.extraEmployeePrice} onChange={(v) => update("extraEmployeePrice", v)} />
-                <NumberField id="addon-ticket" label="Per blok tiket" value={form.extraTicketBlockPrice} onChange={(v) => update("extraTicketBlockPrice", v)} />
-                <NumberField id="addon-block" label="Ukuran blok tiket" value={form.ticketBlockSize} onChange={(v) => update("ticketBlockSize", v)} min={1} />
-                <NumberField id="addon-wa" label="WA per blok tiket" value={form.waPerTicketBlock} onChange={(v) => update("waPerTicketBlock", v)} />
-                <NumberField id="addon-annual" label="Faktor harga tahunan" value={form.annualMultiplier} onChange={(v) => update("annualMultiplier", v)} min={1} />
+            {isCustomForm ? (
+              <div className="rounded-md border p-3">
+                <p className="mb-2 text-xs font-medium">Tarif tambahan</p>
+                <div className="grid grid-cols-2 gap-2">
+                  <NumberField id="addon-branch" label="Per cabang tambahan" value={form.extraBranchPrice} onChange={(v) => update("extraBranchPrice", v)} />
+                  <NumberField id="addon-employee" label="Per karyawan tambahan" value={form.extraEmployeePrice} onChange={(v) => update("extraEmployeePrice", v)} />
+                  <NumberField id="addon-ticket" label="Per blok tiket" value={form.extraTicketBlockPrice} onChange={(v) => update("extraTicketBlockPrice", v)} />
+                  <NumberField id="addon-block" label="Ukuran blok tiket" value={form.ticketBlockSize} onChange={(v) => update("ticketBlockSize", v)} min={1} />
+                  <NumberField id="addon-wa" label="WA per blok tiket" value={form.waPerTicketBlock} onChange={(v) => update("waPerTicketBlock", v)} />
+                  <NumberField id="addon-annual" label="Faktor harga tahunan" value={form.annualMultiplier} onChange={(v) => update("annualMultiplier", v)} min={1} />
+                </div>
               </div>
-            </div>
+            ) : null}
 
             <div className="flex items-center justify-between rounded-md border p-3">
               <Label htmlFor="package-active">Paket aktif</Label>
@@ -274,11 +337,9 @@ export function PackageManager({ packages }: { packages: PackageRow[] }) {
 
             <div className="flex gap-2 pt-2">
               <Button type="submit" loading={saving}><SaveIcon className="size-4" /> Simpan</Button>
-              {form.id ? (
-                <Button type="button" variant="outline" onClick={reset}>
-                  <PlusIcon className="size-4" /> Paket baru
-                </Button>
-              ) : null}
+              <Button type="button" variant="outline" onClick={reset}>
+                <PlusIcon className="size-4" /> Batal
+              </Button>
             </div>
           </form>
         </CardContent>

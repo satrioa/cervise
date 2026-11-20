@@ -25,16 +25,17 @@ export type PricingConfig = {
 };
 
 export const defaultCustomConfig: PricingConfig = {
-  baseMonthlyPrice: 999000,
-  includedBranches: 3,
-  includedEmployees: 15,
-  includedServices: 500,
+  // Basis Custom mengikuti paket Starter.
+  baseMonthlyPrice: 299000,
+  includedBranches: 1,
+  includedEmployees: 5,
+  includedServices: 100,
   extraBranchPrice: 79000,
   extraEmployeePrice: 12000,
   extraServiceBlockPrice: 199000,
   serviceBlockSize: 100,
   waPerServiceBlock: 300,
-  includedWhatsapp: 1500,
+  includedWhatsapp: 300,
   annualMultiplier: 10,
 };
 
@@ -113,20 +114,19 @@ export function annualSavings(monthlyPrice: number, annualPrice: number): number
   return Math.max(0, monthlyPrice * 12 - annualPrice);
 }
 
-/**
- * Batas input Custom: bebas di bawah kapasitas Business. Cabang & karyawan
- * tetap minimal 1, tiket boleh 0 -- biaya tambahan tetap 0 selama masih di
- * dalam kuota Business (rumus `max(0, ...)`).
- */
-export function normalizeCustomInput(input: CustomPricingInput): CustomPricingInput {
+/** Batas minimum Custom mengikuti kapasitas paket Starter. */
+export function normalizeCustomInput(
+  input: CustomPricingInput,
+  config: PricingConfig = defaultCustomConfig,
+): CustomPricingInput {
   const clamp = (value: number, min: number, max: number) => {
     if (!Number.isFinite(value)) return min;
     return Math.min(max, Math.max(min, Math.trunc(value)));
   };
   return {
-    branches: clamp(input.branches, 1, 1000),
-    employees: clamp(input.employees, 1, 10000),
-    services: clamp(input.services, 0, 100000),
+    branches: clamp(input.branches, config.includedBranches, 1000),
+    employees: clamp(input.employees, config.includedEmployees, 10000),
+    services: clamp(input.services, config.includedServices, 100000),
   };
 }
 

@@ -370,7 +370,7 @@ export function TaskNoteCard({
   const counter = loading ? (
     <Skeleton className="h-8 w-14 shrink-0 rounded-md sm:h-10 sm:w-20" />
   ) : (
-    <p className="font-heading shrink-0 text-4xl font-normal leading-none tracking-tight tabular-nums sm:text-5xl">
+    <p className="font-heading max-w-full shrink truncate text-[clamp(1.25rem,6vw,3rem)] font-normal leading-none tracking-tight tabular-nums">
       {doneLabel}
     </p>
   );

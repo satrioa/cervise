@@ -27,6 +27,11 @@ describe("command palette", () => {
     expect(source).toContain("/app/servis?q=");
   });
 
+  it("popover command memakai placeholder statis", () => {
+    expect(source).toMatch(/<CommandInput placeholder="Cari menu, servis, atau ketik aksi\.\.\." \/>/);
+    expect(source).not.toMatch(/useTypewriter/);
+  });
+
   it("menyediakan aksi cepat tambah servis, stok, dan karyawan", () => {
     expect(source).toContain("Tambah data servis");
     expect(source).toContain("Tambah stok produk");

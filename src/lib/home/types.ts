@@ -80,6 +80,10 @@ export type FrontlinerHomeData = {
   session: ShiftSession | null;
   /** Saldo akhir shift yang ditutup hari ini; null jika belum ada. */
   lastClosingBalance: number | null;
+  /** Jam tutup shift terakhir (ISO), dipakai agar kalimat tidak ambigu. */
+  lastClosedAt: string | null;
+  /** Shift ditutup sistem karena cutoff, bukan petugas. */
+  lastClosedAuto: boolean;
   report: ShiftReport | null;
   todos: StaffTodo[];
   mentions: TodoMention[];

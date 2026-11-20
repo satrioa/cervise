@@ -128,6 +128,8 @@ export async function checkOpenCashSession(): Promise<
     stale: CashSessionRow | null;
     lastClosingBalance: number | null;
     lastClosedToday: { id: string; closedAt: string; closingBalance: number | null } | null;
+    lastClosedAt: string | null;
+    lastClosedAuto: boolean;
   }>
 > {
   try {

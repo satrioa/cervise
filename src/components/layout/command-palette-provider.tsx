@@ -52,9 +52,12 @@ export function CommandPaletteProvider({
 export function CommandSearchTrigger({
   className,
   "aria-label": ariaLabel,
+  placeholder,
 }: {
   className?: string;
   "aria-label"?: string;
+  /** Teks khusus (mis. typewriter) — menggantikan placeholder terjemahan. */
+  placeholder?: ReactNode;
 }) {
   const { openPalette } = useCommandPalette();
   const t = useTranslations("nav");
@@ -69,7 +72,15 @@ export function CommandSearchTrigger({
       )}
     >
       <Search className="size-3.5 shrink-0 opacity-50" />
-      <span className="hidden truncate text-xs text-muted-foreground md:inline">{t("search.placeholder")}</span>
+      {placeholder !== undefined ? (
+        <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
+          {placeholder}
+        </span>
+      ) : (
+        <span className="hidden truncate text-xs text-muted-foreground md:inline">
+          {t("search.placeholder")}
+        </span>
+      )}
       <kbd className="hidden rounded border border-border/60 bg-background/80 px-1 font-mono text-[9px] text-muted-foreground sm:inline">
         ⌘K
       </kbd>

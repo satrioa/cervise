@@ -42,19 +42,19 @@ export default async function OwnerDashboard({ searchParams }: { searchParams?: 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <Card>
           <CardHeader className="pb-2"><CardTitle className="flex items-center gap-2 text-sm"><Building2Icon className="size-4" /> Total tenant</CardTitle></CardHeader>
-          <CardContent><div className="font-heading text-3xl tabular-nums">{stats.total}</div><div className="text-xs text-muted-foreground">{stats.active} active · {stats.trial} trial</div></CardContent>
+          <CardContent><div className="min-w-0 truncate font-heading text-[clamp(1rem,5vw,1.875rem)] leading-tight tabular-nums">{stats.total}</div><div className="text-xs text-muted-foreground">{stats.active} active · {stats.trial} trial</div></CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-2"><CardTitle className="flex items-center gap-2 text-sm"><Clock3Icon className="size-4" /> Perlu perhatian</CardTitle></CardHeader>
-          <CardContent><div className="font-heading text-3xl tabular-nums">{stats.grace + stats.blocked}</div><div className="text-xs text-muted-foreground">{stats.grace} grace · {stats.blocked} blocked</div></CardContent>
+          <CardContent><div className="min-w-0 truncate font-heading text-[clamp(1rem,5vw,1.875rem)] leading-tight tabular-nums">{stats.grace + stats.blocked}</div><div className="text-xs text-muted-foreground">{stats.grace} grace · {stats.blocked} blocked</div></CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-2"><CardTitle className="flex items-center gap-2 text-sm"><CircleDollarSignIcon className="size-4" /> Pending invoice</CardTitle></CardHeader>
-          <CardContent><div className="font-heading text-3xl tabular-nums">{stats.pendingInvoices}</div><div className="text-xs text-muted-foreground">Menunggu verifikasi pembayaran</div></CardContent>
+          <CardContent><div className="min-w-0 truncate font-heading text-[clamp(1rem,5vw,1.875rem)] leading-tight tabular-nums">{stats.pendingInvoices}</div><div className="text-xs text-muted-foreground">Menunggu verifikasi pembayaran</div></CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-2"><CardTitle className="text-sm">Revenue terkonfirmasi</CardTitle></CardHeader>
-          <CardContent><div className="font-heading text-2xl tabular-nums">{formatRupiah(stats.collected)}</div><div className="text-xs text-muted-foreground">Invoice approved</div></CardContent>
+          <CardContent><div className="min-w-0 truncate font-heading text-[clamp(0.875rem,4.5vw,1.5rem)] leading-tight tabular-nums">{formatRupiah(stats.collected)}</div><div className="text-xs text-muted-foreground">Invoice approved</div></CardContent>
         </Card>
       </div>
 

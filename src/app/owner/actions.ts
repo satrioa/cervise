@@ -15,6 +15,15 @@ import { buildOwnerAccountRows } from "@/lib/platform/owner-accounts";
 import { resolveSubscriptionAccessState, type SubscriptionLifecycleStatus } from "@/lib/billing/renewal";
 import { verifyMetaPhoneNumber } from "@/lib/meta-wa";
 import { parsePromoList } from "@/lib/pricing/promo";
+import {
+  incidentServices,
+  revenueSeries,
+  waSeries,
+  waTotals,
+  REVENUE_SEGMENTS,
+  WA_SEGMENTS,
+  type OwnerIncident,
+} from "@/lib/owner/dashboard-widgets";
 
 type PackageRow = {
   id: string;
@@ -102,7 +111,7 @@ export async function getOwnerDashboard() {
         .from("invoices")
         .select("id, organization_id, status, amount, invoice_type, period_start, period_end")
         .order("created_at", { ascending: false })
-        .limit(500),
+        .limit(2000),
       supabase.from("manual_subscription_payments").select("amount"),
     ]);
 
@@ -124,6 +133,8 @@ export async function getOwnerDashboard() {
     organization_id: string;
     status: string;
     amount: number;
+    period_start: string | null;
+    invoice_type: string | null;
   }[];
 
   const subscriptionsByOrg = new Map(
@@ -175,6 +186,42 @@ export async function getOwnerDashboard() {
     };
   });
 
+  const admin = createAdminClient();
+  const since180 = new Date(Date.now() - 180 * 86_400_000).toISOString();
+  const [outboxResult, incidentsResult, metricsResult] = await Promise.all([
+    admin
+      .from("cervise_notification_outbox")
+      .select("created_at,to_kind,state")
+      .gte("created_at", since180)
+      .limit(20_000),
+    admin
+      .from("platform_incidents")
+      .select("occurred_on,service,status,minutes,title,updates")
+      .gte("occurred_on", since180.slice(0, 10))
+      .order("occurred_on", { ascending: true })
+      .limit(2_000),
+    admin.rpc("owner_platform_metrics"),
+  ]);
+  if (outboxResult.error) throw outboxResult.error;
+  if (incidentsResult.error) throw incidentsResult.error;
+  if (metricsResult.error) throw metricsResult.error;
+
+  const outboxRows = (outboxResult.data ?? []) as { created_at: string; to_kind: string | null; state: string }[];
+  const incidents = (incidentsResult.data ?? []) as OwnerIncident[];
+  const metrics = (metricsResult.data ?? {}) as {
+    storage?: { bucket: string; objects: number; bytes: number }[];
+    db_bytes?: number;
+    users?: number;
+  };
+
+  const packageByOrg = new Map(tenants.map((tenant) => [tenant.id, tenant.package?.name ?? "Lainnya"]));
+  const byPackage = new Map<string, number>();
+  for (const invoice of invoices) {
+    if (invoice.status !== "approved") continue;
+    const name = packageByOrg.get(invoice.organization_id) ?? "Lainnya";
+    byPackage.set(name, (byPackage.get(name) ?? 0) + Number(invoice.amount ?? 0));
+  }
+
   return {
     tenants,
     stats: {
@@ -189,6 +236,18 @@ export async function getOwnerDashboard() {
           .filter((invoice) => invoice.status === "approved")
           .reduce((total, invoice) => total + invoice.amount, 0) +
         (manualPaymentsResult.data ?? []).reduce((total, payment) => total + payment.amount, 0),
+    },
+    widgets: {
+      revenueSegments: [...REVENUE_SEGMENTS],
+      revenueSeries: revenueSeries(invoices),
+      revenueByPackage: [...byPackage].map(([name, amount]) => ({ name, amount })),
+      waSegments: [...WA_SEGMENTS],
+      waSeries: waSeries(outboxRows),
+      waTotals: waTotals(outboxRows),
+      uptimeServices: incidentServices(incidents),
+      storage: metrics.storage ?? [],
+      dbBytes: Number(metrics.db_bytes ?? 0),
+      users: Number(metrics.users ?? 0),
     },
   };
 }
@@ -515,6 +574,36 @@ export async function createTenant(input: {
     tempPassword: tempPassword ?? undefined,
     reusedExistingAccount: !tempPassword,
   };
+}
+
+export async function archiveTenant(input: { organizationId: string; confirmName: string }) {
+  const { supabase } = await requirePlatformAdmin();
+  if (!input.organizationId) throw new Error("ID tenant tidak valid");
+
+  const { data: organization, error: readError } = await supabase
+    .from("organizations")
+    .select("id, name, status")
+    .eq("id", input.organizationId)
+    .maybeSingle();
+  if (readError) throw readError;
+  if (!organization) throw new Error("Tenant tidak ditemukan");
+  if (organization.status === "cancelled") throw new Error("Tenant sudah diarsipkan");
+  if (input.confirmName.trim() !== organization.name.trim()) {
+    throw new Error("Nama tenant tidak cocok");
+  }
+
+  // Soft delete: status cancelled langsung memblokir akses lewat
+  // is_tenant_subscription_active(), tapi seluruh riwayat tetap tersimpan.
+  const { error } = await supabase
+    .from("organizations")
+    .update({ status: "cancelled", updated_at: new Date().toISOString() })
+    .eq("id", input.organizationId);
+  if (error) throw error;
+
+  revalidatePath("/owner");
+  revalidatePath("/owner/tenants");
+  revalidatePath(`/owner/tenants/${input.organizationId}`);
+  return { ok: true };
 }
 
 export async function approveInvoice(input: { invoiceId: string; note: string }) {

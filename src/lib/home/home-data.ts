@@ -503,6 +503,10 @@ export async function loadCashSession(
   lastClosingBalance: number | null;
   /** Sesi yang baru saja ditutup hari ini — bukan berarti toko belum dibuka. */
   lastClosedToday: { id: string; closedAt: string; closingBalance: number | null } | null;
+  /** Waktu tutup shift terakhir (WIB) untuk diteruskan ke dashboard. */
+  lastClosedAt: string | null;
+  /** true bila shift ditutup sistem karena cutoff, bukan petugas. */
+  lastClosedAuto: boolean;
 }> {
   const { supabase, branchId } = ctx;
 
@@ -517,7 +521,7 @@ export async function loadCashSession(
       .order("open_at", { ascending: false }),
     supabase
       .from("cervise_cash_sessions")
-      .select("id, closed_at, closing_balance")
+      .select("id, closed_at, closing_balance, snapshot")
       .eq("branch_id", branchId)
       .not("closed_at", "is", null)
       .order("closed_at", { ascending: false })
@@ -530,10 +534,23 @@ export async function loadCashSession(
   const hydrated = await hydrateSessions(supabase, (openResult.data ?? []) as CashSessionRecord[]);
 
   const lastClosed = closedResult.data?.[0];
-  const lastClosingBalance =
+  const lastClosedAt =
     lastClosed?.closed_at && kalenderWIB(new Date(lastClosed.closed_at)) === today
-      ? lastClosed.closing_balance ?? null
+      ? String(lastClosed.closed_at)
       : null;
+  const lastClosingBalance = lastClosedAt
+    ? lastClosed?.closing_balance ?? null
+    : null;
+  const lastSnapshot = lastClosed?.snapshot as
+    | { closedByName?: unknown; reason?: unknown }
+    | null
+    | undefined;
+  const lastClosedAuto = Boolean(
+    lastClosedAt &&
+      (lastSnapshot?.closedByName === "Sistem" ||
+        (typeof lastSnapshot?.reason === "string" &&
+          lastSnapshot.reason.includes("Ditutup otomatis oleh sistem"))),
+  );
 
   // Index unik `where closed_at is null` menjamin paling banyak satu, tapi
   // `find` tetap dipakai supaya tidak bergantung pada itu.
@@ -571,14 +588,15 @@ export async function loadCashSession(
     current: current ? { ...current, pendingHandover } : null,
     stale: hydrated.find((row) => kalenderWIB(new Date(row.openAt)) !== today) ?? null,
     lastClosingBalance,
-    lastClosedToday:
-      lastClosed?.closed_at && kalenderWIB(new Date(lastClosed.closed_at)) === today
-        ? {
-            id: String(lastClosed.id),
-            closedAt: lastClosed.closed_at,
-            closingBalance: lastClosed.closing_balance ?? null,
-          }
-        : null,
+    lastClosedToday: lastClosedAt
+      ? {
+          id: String(lastClosed?.id),
+          closedAt: lastClosedAt,
+          closingBalance: lastClosed?.closing_balance ?? null,
+        }
+      : null,
+    lastClosedAt,
+    lastClosedAuto,
   };
 }
 

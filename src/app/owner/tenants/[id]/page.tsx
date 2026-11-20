@@ -8,6 +8,7 @@ import { ExtendSubscription } from "@/components/owner/extend-subscription";
 import { SubscriptionForm } from "@/components/owner/subscription-form";
 import { EmployeeActiveToggle } from "@/components/owner/employee-active-toggle";
 import { MetaPhoneNumberForm } from "@/components/owner/meta-phone-number-form";
+import { TenantDangerZone } from "@/components/owner/tenant-danger-zone";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -157,6 +158,11 @@ export default async function TenantDetailPage({ params }: { params: Promise<{ i
         <CardHeader><CardTitle className="text-base">Invoice</CardTitle><CardDescription>Reminder renewal dibuat otomatis H-7; approve hanya untuk pembayaran yang belum dicover perpanjangan manual.</CardDescription></CardHeader>
         <CardContent><InvoiceReviewTable invoices={invoices} /></CardContent>
       </Card>
+      <TenantDangerZone
+        organizationId={organization.id}
+        organizationName={organization.name}
+        status={organization.status}
+      />
     </div>
   );
 }
