@@ -76,8 +76,8 @@ describe("shell chrome", () => {
     expect(compactDockNav).toMatch(/TECHNICIAN/);
     expect(compactDockNav).not.toMatch(/t\("menu\.title"\)/);
     expect(compactDockNav).not.toMatch(/onOpenMenu/);
-    expect(compactDockNav).toMatch(/fill="currentColor"/);
-    expect(compactDockNav).toMatch(/size-14 flex-col gap-1/);
+    expect(compactDockNav).toMatch(/fill=\{active \? "currentColor" : "none"\}/);
+    expect(compactDockNav).toMatch(/size-14 rounded-xl shadow-none/);
     // Overlay mengambang di atas isi halaman.
     expect(compactDockNav).toMatch(/z-30/);
     expect(compactDockNav).toMatch(/pt-2 pb-\[calc\(1rem\+env\(safe-area-inset-bottom\)\)\]/);

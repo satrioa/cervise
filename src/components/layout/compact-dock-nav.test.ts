@@ -16,12 +16,17 @@ describe("dock mobile tema normal", () => {
     expect(source).not.toContain("dark:ring-white/10");
   });
 
-  it("tombol menu candy putih ber-radius dengan label di dalam", () => {
+  it("tombol menu candy putih ber-radius tanpa label dan tanpa shadow", () => {
     expect(source).toContain('variant="candy"');
     expect(source).toMatch(/\[--btn:#fff\]/);
     expect(source).toMatch(/rounded-xl/);
-    expect(source).toMatch(/size-14 flex-col/);
-    expect(source).toMatch(/<span className="max-w-full truncate">\{item\.label\}<\/span>/);
+    expect(source).toMatch(/size-14/);
+    expect(source).toMatch(/shadow-none \[&_svg\]:drop-shadow-none/);
+    expect(source).not.toMatch(/\{item\.label\}<\/span>/);
+  });
+
+  it("ikon aktif di-fill, ikon non-aktif berbentuk line", () => {
+    expect(source).toMatch(/fill=\{active \? "currentColor" : "none"\}/);
   });
 
   it("ikon dan label hitam saat normal, biru saat aktif, tanpa opacity", () => {

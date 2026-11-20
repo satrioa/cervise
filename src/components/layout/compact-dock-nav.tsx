@@ -56,8 +56,9 @@ export function CompactDockNav({ role, hidden = false }: { role: string; hidden?
                 key={item.href}
                 variant="candy"
                 size="icon-lg"
+                aria-label={item.label}
                 className={cn(
-                  "size-14 flex-col gap-1 rounded-xl text-[10px] leading-none",
+                  "size-14 rounded-xl shadow-none [&_svg]:drop-shadow-none",
                   "[--btn:#fff] [--btn-hover:#f3f4ff] [--btn-fg:#111827]",
                   active ? "[--btn-fg:var(--color-brand)]" : "",
                 )}
@@ -67,8 +68,7 @@ export function CompactDockNav({ role, hidden = false }: { role: string; hidden?
                   </MainNavLink>
                 }
               >
-                <Icon className="size-5" fill="currentColor" />
-                <span className="max-w-full truncate">{item.label}</span>
+                <Icon className="size-5" fill={active ? "currentColor" : "none"} />
               </Button>
             );
           })}
