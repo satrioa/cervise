@@ -9,20 +9,30 @@ const source = readFileSync(
 
 describe("dock mobile tema normal", () => {
   it("wrap transparan dengan fade hitam di belakangnya", () => {
-    expect(source).toMatch(/bg-gradient-to-t from-black\/70 via-black\/40 to-transparent/);
+    expect(source).toMatch(/bg-gradient-to-t from-black\/40 via-black\/20 to-transparent/);
     expect(source).not.toContain("bg-white/95");
     expect(source).not.toContain("dark:bg-neutral-900/95");
     expect(source).not.toContain("ring-black/5");
     expect(source).not.toContain("dark:ring-white/10");
   });
 
-  it("tombol menu candy putih berbentuk kotak dengan label di dalam", () => {
+  it("tombol menu candy putih ber-radius dengan label di dalam", () => {
     expect(source).toContain('variant="candy"');
-    expect(source).toContain('shape="square"');
     expect(source).toMatch(/\[--btn:#fff\]/);
-    expect(source).toMatch(/\[--btn-fg:var\(--color-brand\)\]/);
+    expect(source).toMatch(/rounded-xl/);
     expect(source).toMatch(/size-14 flex-col/);
     expect(source).toMatch(/<span className="max-w-full truncate">\{item\.label\}<\/span>/);
+  });
+
+  it("ikon dan label hitam saat normal, biru saat aktif, tanpa opacity", () => {
+    expect(source).toMatch(/\[--btn-fg:#111827\]/);
+    expect(source).toMatch(/active \? "\[--btn-fg:var\(--color-brand\)\]" : ""/);
+    expect(source).not.toMatch(/opacity-80/);
+  });
+
+  it("menu berdekatan dan fade hitam lembut", () => {
+    expect(source).toMatch(/justify-center gap-3/);
+    expect(source).toMatch(/from-black\/40 via-black\/20 to-transparent/);
   });
 
   it("melekat di bawah tanpa radius", () => {
@@ -34,10 +44,5 @@ describe("dock mobile tema normal", () => {
 
   it("gap bawah lebih besar dari gap atas", () => {
     expect(source).toContain("pt-2 pb-[calc(1rem+env(safe-area-inset-bottom))]");
-  });
-
-  it("ikon dan label memakai warna brand di atas permukaan putih", () => {
-    expect(source).toContain("--btn-fg:var(--color-brand)");
-    expect(source).toMatch(/active \? "opacity-100" : "opacity-80"/);
   });
 });

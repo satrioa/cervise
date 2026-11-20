@@ -42,11 +42,11 @@ export function CompactDockNav({ role, hidden = false }: { role: string; hidden?
         {/* Fade hitam di belakang tombol; wrap dock sendiri tetap transparan. */}
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute inset-0 -z-10 bg-gradient-to-t from-black/70 via-black/40 to-transparent"
+          className="pointer-events-none absolute inset-0 -z-10 bg-gradient-to-t from-black/40 via-black/20 to-transparent"
         />
         <nav
           aria-label="Navigasi utama"
-          className="flex min-w-0 flex-1 items-center justify-around gap-2"
+          className="flex min-w-0 flex-1 items-center justify-center gap-3"
         >
           {items.map((item) => {
             const Icon = item.icon;
@@ -55,12 +55,11 @@ export function CompactDockNav({ role, hidden = false }: { role: string; hidden?
               <Button
                 key={item.href}
                 variant="candy"
-                shape="square"
                 size="icon-lg"
                 className={cn(
-                  "size-14 flex-col gap-1 rounded-none text-[10px] leading-none",
-                  "[--btn:#fff] [--btn-hover:#f3f4ff] [--btn-fg:var(--color-brand)]",
-                  active ? "opacity-100" : "opacity-80",
+                  "size-14 flex-col gap-1 rounded-xl text-[10px] leading-none",
+                  "[--btn:#fff] [--btn-hover:#f3f4ff] [--btn-fg:#111827]",
+                  active ? "[--btn-fg:var(--color-brand)]" : "",
                 )}
                 render={
                   <MainNavLink href={item.href} aria-current={active ? "page" : undefined}>
