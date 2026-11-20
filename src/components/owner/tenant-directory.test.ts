@@ -71,4 +71,40 @@ describe("Halaman Tenants", () => {
     expect(directory).toContain("<Pagination");
     expect(directory).toContain("Per halaman");
   });
+
+  it("tombol hapus permanen hanya di tabel arsip, di kolom tenant", () => {
+    expect(directory).toContain('aria-label={`Hapus permanen ${tenant.name}`}');
+    expect(directory).toContain('onDelete={setDeletingTenant}');
+    expect(directory).toContain('<TenantTable tenants={pageItems} emptyLabel="Tidak ada tenant yang cocok." />');
+  });
+
+  it("dialog konfirmasi meminta ketik nama tenant", () => {
+    expect(directory).toContain('id="confirm-delete-tenant"');
+    expect(directory).toContain("deleteConfirm.trim() !== deletingTenant.name.trim()");
+    expect(directory).toContain("Tidak bisa dibatalkan");
+    expect(directory).toContain("deleteTenantPermanently({");
+  });
+});
+
+describe("deleteTenantPermanently", () => {
+  const action = () => {
+    const actions = read("src/app/owner/actions.ts");
+    const start = actions.indexOf("export async function deleteTenantPermanently");
+    return actions.slice(start, start + 1700);
+  };
+
+  it("hanya platform admin, lewat admin client (authenticated tidak punya grant DELETE)", () => {
+    expect(action()).toContain("requirePlatformAdmin()");
+    expect(action()).toContain("const admin = createAdminClient();");
+    expect(action()).toMatch(/admin\.from\("organizations"\)\.delete\(\)/);
+  });
+
+  it("guard: hanya tenant cancelled dan nama harus cocok", () => {
+    expect(action()).toContain('organization.status !== "cancelled"');
+    expect(action()).toContain("input.confirmName.trim() !== organization.name.trim()");
+  });
+
+  it("tidak menghapus akun auth owner", () => {
+    expect(action()).not.toContain("auth.admin.deleteUser");
+  });
 });

@@ -2,7 +2,12 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { ArrowRightIcon, SearchIcon } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
+import { ArrowRightIcon, SearchIcon, Trash2Icon, TriangleAlertIcon } from "lucide-react";
+import { toast } from "sonner";
+import { deleteTenantPermanently } from "@/app/owner/actions";
+import { playPageTransition } from "@/components/layout/page-transition";
 import { formatRupiah } from "@/lib/format";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -74,7 +79,15 @@ function renewalLabel(tenant: TenantRow) {
   return `Renews ${formatDate(tenant.currentPeriodEnd)}`;
 }
 
-function TenantTable({ tenants, emptyLabel }: { tenants: TenantRow[]; emptyLabel: string }) {
+function TenantTable({
+  tenants,
+  emptyLabel,
+  onDelete,
+}: {
+  tenants: TenantRow[];
+  emptyLabel: string;
+  onDelete?: (tenant: TenantRow) => void;
+}) {
   return (
     <div data-slot="table-container" className="overflow-x-auto">
       <Table>
@@ -93,8 +106,23 @@ function TenantTable({ tenants, emptyLabel }: { tenants: TenantRow[]; emptyLabel
           {tenants.map((tenant) => (
             <TableRow key={tenant.id}>
               <TableCell>
-                <div className="font-medium">{tenant.name}</div>
-                <div className="font-mono text-xs text-muted-foreground">{tenant.slug}</div>
+                <div className="flex items-start gap-2">
+                  <div className="min-w-0">
+                    <div className="font-medium">{tenant.name}</div>
+                    <div className="font-mono text-xs text-muted-foreground">{tenant.slug}</div>
+                  </div>
+                  {onDelete ? (
+                    <Button
+                      type="button"
+                      size="icon-sm"
+                      variant="ghost"
+                      aria-label={`Hapus permanen ${tenant.name}`}
+                      onClick={() => onDelete(tenant)}
+                    >
+                      <Trash2Icon className="size-3.5 text-destructive" />
+                    </Button>
+                  ) : null}
+                </div>
               </TableCell>
               <TableCell>{tenant.package?.name ?? "—"}</TableCell>
               <TableCell>
@@ -133,11 +161,15 @@ export function TenantDirectory({
   tenants: TenantRow[];
   archivedTenants: TenantRow[];
 }) {
+  const router = useRouter();
   const [statuses, setStatuses] = useState<string[]>([...ACCESS_STATUSES]);
   const [packageName, setPackageName] = useState("all");
   const [query, setQuery] = useState("");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
+  const [deletingTenant, setDeletingTenant] = useState<TenantRow | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState("");
+  const [deleting, setDeleting] = useState(false);
 
   const packageNames = useMemo(
     () =>
@@ -162,6 +194,32 @@ export function TenantDirectory({
     setStatuses((current) =>
       checked ? [...current, status] : current.filter((item) => item !== status),
     );
+  };
+
+  const closeDeleteDialog = (open: boolean) => {
+    if (!open) {
+      setDeletingTenant(null);
+      setDeleteConfirm("");
+    }
+  };
+
+  const handlePermanentDelete = async () => {
+    if (!deletingTenant || deleteConfirm.trim() !== deletingTenant.name.trim()) return;
+    setDeleting(true);
+    try {
+      await deleteTenantPermanently({
+        organizationId: deletingTenant.id,
+        confirmName: deleteConfirm,
+      });
+      playPageTransition();
+      toast.success(`Tenant "${deletingTenant.name}" dihapus permanen`);
+      closeDeleteDialog(false);
+      router.refresh();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Gagal menghapus tenant");
+    } finally {
+      setDeleting(false);
+    }
   };
 
   return (
@@ -250,11 +308,74 @@ export function TenantDirectory({
         <CardFrameHeader>
           <CardFrameTitle>Tenant diarsipkan</CardFrameTitle>
           <CardFrameDescription>
-            {archivedTenants.length} tenant tidak aktif. Data tenant tetap tersimpan.
+            {archivedTenants.length} tenant tidak aktif. Bisa dihapus permanen lewat tombol di kolom tenant.
           </CardFrameDescription>
         </CardFrameHeader>
-        <TenantTable tenants={archivedTenants} emptyLabel="Belum ada tenant yang diarsipkan." />
+        <TenantTable
+          tenants={archivedTenants}
+          emptyLabel="Belum ada tenant yang diarsipkan."
+          onDelete={setDeletingTenant}
+        />
       </CardFrame>
+
+      <DialogPrimitive.Root open={deletingTenant !== null} onOpenChange={closeDeleteDialog}>
+        <DialogPrimitive.Portal>
+          <DialogPrimitive.Backdrop className="fixed inset-0 z-50 bg-black/30 backdrop-blur-sm" />
+          <DialogPrimitive.Popup className="fixed left-1/2 top-1/2 z-50 w-full max-w-md -translate-x-1/2 -translate-y-1/2 rounded-xl border bg-background p-0 shadow-2xl">
+            <div className="flex items-center gap-3 border-b px-6 py-4">
+              <div className="flex size-9 items-center justify-center rounded-lg bg-destructive/10">
+                <TriangleAlertIcon className="size-4 text-destructive" />
+              </div>
+              <div>
+                <DialogPrimitive.Title className="font-heading text-base font-semibold">
+                  Hapus tenant permanen
+                </DialogPrimitive.Title>
+                <DialogPrimitive.Description className="text-xs text-muted-foreground">
+                  {deletingTenant?.name}
+                </DialogPrimitive.Description>
+              </div>
+            </div>
+            <div className="space-y-3 px-6 py-4">
+              <p className="rounded-lg bg-destructive/5 p-3 text-xs text-muted-foreground">
+                Tindakan ini menghapus tenant beserta seluruh data terkait (transaksi, invoice, staf,
+                branch). Tidak bisa dibatalkan.
+              </p>
+              <div className="space-y-1.5">
+                <Label htmlFor="confirm-delete-tenant">
+                  Ketik <span className="font-mono text-foreground">{deletingTenant?.name}</span> untuk konfirmasi
+                </Label>
+                <Input
+                  id="confirm-delete-tenant"
+                  value={deleteConfirm}
+                  onChange={(event) => setDeleteConfirm(event.target.value)}
+                  placeholder={deletingTenant?.name}
+                  autoComplete="off"
+                  disabled={deleting}
+                />
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 border-t bg-muted/20 px-6 py-3">
+              <Button variant="outline" onClick={() => closeDeleteDialog(false)} disabled={deleting}>
+                Batal
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={() => void handlePermanentDelete()}
+                disabled={!deletingTenant || deleteConfirm.trim() !== deletingTenant.name.trim() || deleting}
+                loading={deleting}
+              >
+                <Trash2Icon className="size-4" /> Hapus permanen
+              </Button>
+            </div>
+            <DialogPrimitive.Close
+              className="absolute right-3 top-3 rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+              aria-label="Tutup"
+            >
+              ×
+            </DialogPrimitive.Close>
+          </DialogPrimitive.Popup>
+        </DialogPrimitive.Portal>
+      </DialogPrimitive.Root>
     </div>
   );
 }

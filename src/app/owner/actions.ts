@@ -609,6 +609,37 @@ export async function archiveTenant(input: { organizationId: string; confirmName
   return { ok: true };
 }
 
+export async function deleteTenantPermanently(input: { organizationId: string; confirmName: string }) {
+  await requirePlatformAdmin();
+  if (!input.organizationId) throw new Error("ID tenant tidak valid");
+
+  // Role authenticated tidak punya grant DELETE di organizations — sama seperti
+  // archiveTenant, otorisasi sudah dicek requirePlatformAdmin() di atas.
+  const admin = createAdminClient();
+  const { data: organization, error: readError } = await admin
+    .from("organizations")
+    .select("id, name, status")
+    .eq("id", input.organizationId)
+    .maybeSingle();
+  if (readError) throw readError;
+  if (!organization) throw new Error("Tenant tidak ditemukan");
+  if (organization.status !== "cancelled") {
+    throw new Error("Hanya tenant yang diarsipkan yang bisa dihapus permanen");
+  }
+  if (input.confirmName.trim() !== organization.name.trim()) {
+    throw new Error("Nama tenant tidak cocok");
+  }
+
+  // FK cascade menghapus data tenant (invoice, subscription, staf, dll).
+  // Akun auth owner sengaja tidak dihapus: email yang sama bisa dipakai tenant lain.
+  const { error } = await admin.from("organizations").delete().eq("id", input.organizationId);
+  if (error) throw error;
+
+  revalidatePath("/owner");
+  revalidatePath("/owner/tenants");
+  return { ok: true };
+}
+
 export async function approveInvoice(input: { invoiceId: string; note: string }) {
   const { supabase } = await requirePlatformAdmin();
   const decision = parseInvoiceDecisionInput(input.invoiceId, input.note);
