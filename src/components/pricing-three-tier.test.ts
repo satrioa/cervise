@@ -54,9 +54,20 @@ describe("kalkulator Pay as You Grow", () => {
     expect(tabs).toBeGreaterThan(card);
     expect(tabs).toBeLessThan(cabang);
   });
+
+  it("tab memakai lebar penuh kartu hasil", () => {
+    expect(source).toMatch(/<TabsList className="w-full">/);
+  });
 });
 
 describe("tabel perbandingan paket", () => {
+  it("dibungkus Card dengan header dan panel", () => {
+    expect(source).toMatch(/import \{[\s\S]*?Card,[\s\S]*?CardHeader,[\s\S]*?CardPanel[\s\S]*?\} from "@\/components\/ui\/card"/);
+    expect(source).toMatch(/<Card className="mt-16">/);
+    expect(source).toMatch(/<CardHeader>/);
+    expect(source).toMatch(/<CardPanel/);
+  });
+
   it("menampilkan fitur utama platform sebagai baris centang", () => {
     for (const label of [
       "POS",
@@ -68,5 +79,13 @@ describe("tabel perbandingan paket", () => {
       expect(source, label).toContain(label);
     }
     expect(source).toMatch(/FEATURE_ROWS/);
+  });
+
+  it("menuliskan 'custom' untuk nilai kapasitas Pay as You Grow", () => {
+    expect(source).toMatch(/p\.code === "custom" \? "custom"/);
+  });
+
+  it("tidak menampilkan baris Durasi trial", () => {
+    expect(source).not.toContain('"Durasi trial"');
   });
 });

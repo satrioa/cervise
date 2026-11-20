@@ -5,6 +5,7 @@ import Link from "next/link";
 import { CheckIcon, SparklesIcon } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { Card, CardDescription, CardHeader, CardPanel, CardTitle } from "@/components/ui/card";
 import { Slider } from "@/components/ui/slider";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -45,12 +46,13 @@ function featuresOf(pkg: PublicPackage) {
 }
 
 /** Baris tabel perbandingan: kapasitas dari data paket, fitur platform berlaku untuk semua. */
+const capacity = (p: PublicPackage, value: string) => (p.code === "custom" ? "custom" : value);
+
 const FEATURE_ROWS: { label: string; render: (p: PublicPackage) => ReactNode }[] = [
-  { label: "Cabang", render: (p) => `${p.branch_limit}` },
-  { label: "Karyawan", render: (p) => `${p.user_limit ?? "∞"}` },
-  { label: "Tiket servis / bulan", render: (p) => `${p.ticket_quota ?? 0}` },
-  { label: "Pesan WhatsApp / bulan", render: (p) => `${p.whatsapp_quota ?? 0}` },
-  { label: "Durasi trial", render: (p) => (p.trial_days ? `${p.trial_days} hari` : "—") },
+  { label: "Cabang", render: (p) => capacity(p, `${p.branch_limit}`) },
+  { label: "Karyawan", render: (p) => capacity(p, `${p.user_limit ?? "∞"}`) },
+  { label: "Tiket servis / bulan", render: (p) => capacity(p, `${p.ticket_quota ?? 0}`) },
+  { label: "Pesan WhatsApp / bulan", render: (p) => capacity(p, `${p.whatsapp_quota ?? 0}`) },
   { label: "POS", render: () => <CheckIcon className="ml-auto size-4 text-emerald-600" aria-label="Tersedia" /> },
   { label: "Manajemen Sparepart", render: () => <CheckIcon className="ml-auto size-4 text-emerald-600" aria-label="Tersedia" /> },
   { label: "Manajemen Inventori", render: () => <CheckIcon className="ml-auto size-4 text-emerald-600" aria-label="Tersedia" /> },
@@ -207,28 +209,34 @@ export function PricingThreeTier({ packages }: { packages: PublicPackage[] }) {
         })}
       </div>
 
-      <div className="mt-16 overflow-x-auto">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Kapasitas</TableHead>
-              {packages.map((pkg) => (
-                <TableHead key={pkg.code} className="text-right">{pkg.name}</TableHead>
-              ))}
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {FEATURE_ROWS.map((row) => (
-              <TableRow key={row.label}>
-                <TableCell className="font-medium">{row.label}</TableCell>
+      <Card className="mt-16">
+        <CardHeader>
+          <CardTitle>Perbandingan Paket</CardTitle>
+          <CardDescription>Kapasitas dan fitur yang tersedia di setiap paket.</CardDescription>
+        </CardHeader>
+        <CardPanel className="overflow-x-auto p-0">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Kapasitas</TableHead>
                 {packages.map((pkg) => (
-                  <TableCell key={pkg.code} className="text-right">{row.render(pkg)}</TableCell>
+                  <TableHead key={pkg.code} className="text-right">{pkg.name}</TableHead>
                 ))}
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </div>
+            </TableHeader>
+            <TableBody>
+              {FEATURE_ROWS.map((row) => (
+                <TableRow key={row.label}>
+                  <TableCell className="font-medium">{row.label}</TableCell>
+                  {packages.map((pkg) => (
+                    <TableCell key={pkg.code} className="text-right">{row.render(pkg)}</TableCell>
+                  ))}
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </CardPanel>
+      </Card>
 
       {config && preview ? (
         <div id="kalkulator-custom" className="mt-16 rounded-2xl border p-6">
@@ -273,7 +281,7 @@ export function PricingThreeTier({ packages }: { packages: PublicPackage[] }) {
                 onValueChange={(value) => setCalculatorPeriod(value as Period)}
                 className="mb-4"
               >
-                <TabsList>
+                <TabsList className="w-full">
                   <TabsTrigger value="monthly">Bulanan</TabsTrigger>
                   <TabsTrigger value="annual">Tahunan</TabsTrigger>
                 </TabsList>
