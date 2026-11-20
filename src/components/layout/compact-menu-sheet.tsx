@@ -98,16 +98,9 @@ export function CompactMenuSheet({
       <SheetTitle className="sr-only">{t("title")}</SheetTitle>
       <SheetDescription className="sr-only">{t("description")}</SheetDescription>
 
-      <div
-        ref={scrollRef}
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
-        className="min-h-0 flex-1 overflow-y-auto overscroll-contain scrollbar-none px-5 pt-2 pb-[max(1.5rem,env(safe-area-inset-bottom))]"
-      >
-        {/* Identitas tenant/cabang dan profil dipindah ke sini supaya header
-            mobile cukup berisi logo, judul halaman, dan tombol grid. */}
-        <div className="mb-3 rounded-2xl bg-white/70 p-3 shadow-sm dark:bg-white/[0.04]">
+      {/* Identitas tenant/cabang selalu terlihat di sheet, termasuk desktop. */}
+      <div className="shrink-0 px-5 pt-3">
+        <div className="rounded-2xl bg-white/70 p-3 shadow-sm dark:bg-white/[0.04]">
           <div className="flex items-center gap-2.5">
             <TenantLogo
               logoUrl={tenant?.logoUrl ?? null}
@@ -129,7 +122,15 @@ export function CompactMenuSheet({
             className="mt-3 flex h-9 w-full items-center justify-start rounded-xl border-0 bg-white px-3 text-xs text-neutral-500 shadow-sm ring-1 ring-black/5 dark:bg-neutral-900 dark:ring-white/10 [&>kbd]:hidden"
           />
         </div>
+      </div>
 
+      <div
+        ref={scrollRef}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        className="min-h-0 flex-1 overflow-y-auto overscroll-contain scrollbar-none px-5 pt-2"
+      >
         <MenuSection icon={LayoutGrid} label={t("operational")} defaultOpen>
           <MenuOperational role={role} permissions={permissions} onNavigate={onNavigate} />
         </MenuSection>
@@ -152,9 +153,10 @@ export function CompactMenuSheet({
           <PrinterSettings compact />
         </MenuSection>
 
-        {/* Profil pindah ke bawah sheet: tetap membawa tema, tautan profil,
-            dan keluar seperti pill lama di header. Ikut scroll, tidak fixed. */}
-        <div className="mt-4 border-t border-black/5 pt-3 dark:border-white/10">
+      </div>
+
+      {/* Profil dan branding menempel di bawah sheet, tidak ikut scroll. */}
+      <div className="shrink-0 border-t border-black/5 px-5 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 dark:border-white/10">
         <ProfileDropdown
           accounts={[
             {
@@ -185,23 +187,21 @@ export function CompactMenuSheet({
           }}
           className="block w-full [&>button]:w-full [&>button]:rounded-xl [&>button]:border-black/5 [&>button]:bg-white [&>button]:shadow-sm dark:[&>button]:border-white/10 dark:[&>button]:bg-neutral-900"
         />
-      </div>
-
-        <footer className="pt-4 text-center">
-        <AppImage
-          src="/Logo/IconLogo.png?v=2"
-          alt="Kaggo"
-          width={36}
-          height={36}
-          crisp
-          className="mx-auto size-9 object-contain"
-        />
-        <p className="mt-2 text-[11px] font-medium text-neutral-800 dark:text-neutral-200">
-          Kaggo! All rights reserved.
-        </p>
-        <p className="mt-0.5 text-[10px] text-neutral-500 dark:text-neutral-400">
-          V0.1.0 / Made by Sat.
-        </p>
+        <footer className="pt-3 text-center">
+          <AppImage
+            src="/Logo/IconLogo.png?v=2"
+            alt="Kaggo"
+            width={36}
+            height={36}
+            crisp
+            className="mx-auto size-9 object-contain"
+          />
+          <p className="mt-2 text-[11px] font-medium text-neutral-800 dark:text-neutral-200">
+            Kaggo! All rights reserved.
+          </p>
+          <p className="mt-0.5 text-[10px] text-neutral-500 dark:text-neutral-400">
+            V0.1.0 / Made by Sat.
+          </p>
         </footer>
       </div>
     </div>
