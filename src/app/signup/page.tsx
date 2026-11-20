@@ -161,10 +161,17 @@ function BenefitPills() {
 
 function PageBackdrop() {
   return (
-    <div aria-hidden className="pointer-events-none absolute inset-0">
-      <div className="absolute top-[-10%] left-[-10%] size-[40rem] rounded-full bg-primary/10 blur-3xl" />
-      <div className="absolute right-[-10%] bottom-[-10%] size-[40rem] rounded-full bg-accent/15 blur-3xl" />
-      <div className="absolute inset-0" style={{ background: "radial-gradient(60% 50% at 50% 0%, color-mix(in oklch, var(--color-foreground) 4%, transparent), transparent 70%)" }} />
-    </div>
+    <div
+      aria-hidden
+      className="pointer-events-none absolute inset-0"
+      style={{
+        backgroundImage: [
+          "radial-gradient(circle, color-mix(in oklch, var(--foreground) 18%, transparent) 1px, transparent 1.5px)",
+          "radial-gradient(75% 55% at 50% -10%, rgba(37, 99, 235, 0.28), transparent 70%)",
+          "radial-gradient(55% 45% at 100% 100%, rgba(37, 99, 235, 0.16), transparent 70%)",
+        ].join(", "),
+        backgroundSize: "22px 22px, 100% 100%, 100% 100%",
+      }}
+    />
   );
 }

@@ -120,10 +120,12 @@ function PageBackdrop() {
       aria-hidden
       className="pointer-events-none absolute inset-0 overflow-hidden"
       style={{
-        background: [
-          "radial-gradient(50% 40% at 0% 0%, color-mix(in oklch, var(--primary) 14%, transparent), transparent 70%)",
-          "radial-gradient(55% 45% at 100% 100%, color-mix(in oklch, var(--foreground) 8%, transparent), transparent 70%)",
+        backgroundImage: [
+          "radial-gradient(circle, color-mix(in oklch, var(--foreground) 18%, transparent) 1px, transparent 1.5px)",
+          "radial-gradient(75% 55% at 50% -10%, rgba(37, 99, 235, 0.28), transparent 70%)",
+          "radial-gradient(55% 45% at 100% 100%, rgba(37, 99, 235, 0.16), transparent 70%)",
         ].join(", "),
+        backgroundSize: "22px 22px, 100% 100%, 100% 100%",
       }}
     />
   );
