@@ -34,6 +34,19 @@ describe("waSeries & waTotals", () => {
   });
 });
 
+describe("parseIncidentUpdates", () => {
+  it("memecah baris HH:MM|Label|Catatan", () => {
+    expect(parseIncidentUpdates("10:00|Investigating|Sinkron\n10:10|Resolved")).toEqual([
+      { time: "10:00", label: "Investigating", note: "Sinkron" },
+      { time: "10:10", label: "Resolved" },
+    ]);
+  });
+
+  it("menolak format jam salah", () => {
+    expect(parseIncidentUpdates("1000|Investigating")).toBeNull();
+  });
+});
+
 describe("incidentServices", () => {
   it("memetakan insiden ke hari dan layanan", () => {
     const services = incidentServices(

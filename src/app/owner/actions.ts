@@ -17,6 +17,7 @@ import { verifyMetaPhoneNumber } from "@/lib/meta-wa";
 import { parsePromoList } from "@/lib/pricing/promo";
 import {
   incidentServices,
+  parseIncidentUpdates,
   revenueSeries,
   waSeries,
   waTotals,
@@ -940,6 +941,41 @@ export async function updatePromoSettings(input: {
   if (error) throw error;
 
   revalidatePath("/");
+  revalidatePath("/owner/settings");
+  return { ok: true };
+}
+
+export async function createPlatformIncident(input: {
+  occurredOn: string;
+  service: string;
+  status: string;
+  minutes: string | number;
+  title: string;
+  updates: string;
+}) {
+  await requirePlatformAdmin();
+  const occurredOn = new Date(`${input.occurredOn}T00:00:00Z`);
+  if (Number.isNaN(occurredOn.getTime())) throw new Error("Tanggal insiden tidak valid");
+  const minutes = Number(input.minutes);
+  if (!Number.isInteger(minutes) || minutes < 1 || minutes > 1440) {
+    throw new Error("Durasi insiden harus 1–1440 menit");
+  }
+  const title = input.title.trim();
+  if (!title) throw new Error("Judul insiden wajib diisi");
+  const updates = parseIncidentUpdates(input.updates);
+  if (!updates) throw new Error("Format update harus HH:MM|Label|Catatan (opsional)");
+
+  const { error } = await createAdminClient().from("platform_incidents").insert({
+    occurred_on: occurredOn.toISOString().slice(0, 10),
+    service: input.service,
+    status: input.status,
+    minutes,
+    title,
+    updates,
+  });
+  if (error) throw error;
+
+  revalidatePath("/owner");
   revalidatePath("/owner/settings");
   return { ok: true };
 }
