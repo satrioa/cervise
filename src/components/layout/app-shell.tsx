@@ -1,14 +1,6 @@
 "use client";
 
-import {
-  ChevronsUpDown,
-  Settings,
-  Wrench,
-  LogOut,
-  PlusIcon,
-  HomeIcon,
-  Package,
-} from "lucide-react";
+import { ChevronsUpDown, LayoutGrid, Wrench, LogOut } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState, useEffect, useRef, useCallback } from "react";
@@ -335,7 +327,7 @@ function SidebarContent({
               : "text-muted-foreground hover:bg-foreground/[0.04] hover:text-foreground",
           )}
         >
-          <Settings className="size-4" />
+          <LayoutGrid className="size-4" fill="currentColor" />
         </Link>
       </div>
     </>
@@ -347,139 +339,6 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
     <div className="mb-1 flex items-center justify-between px-2">
       <span className="font-mono text-[9px] text-muted-foreground/70 uppercase tracking-[0.25em]">{children}</span>
     </div>
-  );
-}
-
-type BottomTab = { key: string; label: string; href?: string; icon: React.ComponentType<{ className?: string; strokeWidth?: number }>; isCenter?: boolean; badge?: number };
-
-const BOTTOM_TABS: BottomTab[] = [
-  { key: "dashboard", label: "Beranda", href: "/app", icon: HomeIcon },
-  { key: "servis", label: "Servis", href: "/app/servis", icon: Wrench },
-  { key: "create", label: "Tambah", href: "/app/servis/baru", icon: PlusIcon, isCenter: true },
-  { key: "inventory", label: "Inventori", href: "/app/inventori", icon: Package },
-  { key: "lainnya", label: "Lainnya", icon: Settings },
-];
-
-/**
- * Tab yang punya `href` hanya dirender bila role boleh membukanya. Tanpa ini
- * bottom-nav akan menampilkan tautan yang sidebar menyembunyikan.
- * `/app/servis/baru` adalah halaman anak, bukan entri manifest, jadi
- * kelayakannya mengikuti `/app/servis`.
- */
-function bottomTabsForRole(role: string, permissions?: readonly string[] | null): BottomTab[] {
-  return BOTTOM_TABS.filter((tab) => {
-    if (tab.key === "lainnya") return true;
-    if (tab.key === "create") return canAccessActor({ role, permissions }, "/app/servis");
-    return canAccessActor({ role, permissions }, tab.href ?? "");
-  });
-}
-
-function bottomTabKey(key: string): string {
-  switch (key) {
-    case "dashboard":
-      return "bottomTabs.home";
-    case "servis":
-      return "bottomTabs.service";
-    case "create":
-      return "bottomTabs.add";
-    case "inventory":
-      return "bottomTabs.inventory";
-    case "lainnya":
-      return "bottomTabs.more";
-    default:
-      return key;
-  }
-}
-function KaggoBottomNav({ pathname, role, permissions }: { pathname: string; role: string; permissions?: readonly string[] | null }) {
-  const [sheetOpen, setSheetOpen] = useState(false);
-  const t = useTranslations("nav");
-  const tabs = bottomTabsForRole(role);
-  return (
-    <>
-      <nav className="h-[72px] border-t border-border/60 bg-background flex items-stretch justify-around relative shrink-0 sticky bottom-0 z-30 lg:hidden safe-area-pb">
-        {tabs.map((tab) => {
-          const isActive = tab.href ? pathname === tab.href || (tab.href !== "/app" && pathname.startsWith(tab.href)) : false;
-          const isCenter = !!tab.isCenter;
-          const label = t(bottomTabKey(tab.key));
-          if (tab.key === "lainnya") {
-            return (
-              <button
-                key={tab.key}
-                type="button"
-                onClick={() => setSheetOpen(true)}
-                aria-label={label}
-                className="relative flex flex-col items-center justify-center gap-0.5 flex-1 py-2 cursor-pointer transition-colors text-muted-foreground"
-              >
-                <tab.icon className="size-5" strokeWidth={2} />
-                <span className="text-[10px]">{label}</span>
-              </button>
-            );
-          }
-          if (isCenter) {
-            return (
-              <Link
-                key={tab.key}
-                href={tab.href!}
-                aria-label={label}
-                className="flex flex-col items-center justify-center gap-0.5 flex-1 py-2 cursor-pointer"
-              >
-                <span className="flex size-12 items-center justify-center rounded-full bg-foreground text-background -translate-y-3 shadow-md">
-                  <PlusIcon className="size-5" />
-                </span>
-                <span className={`text-[10px] -mt-2 ${isActive ? "text-foreground" : "text-muted-foreground"}`}>{label}</span>
-              </Link>
-            );
-          }
-          const Icon = tab.icon;
-          return (
-            <Link
-              key={tab.key}
-              href={tab.href!}
-              aria-label={label}
-              aria-current={isActive ? "page" : undefined}
-              // Ganti tab navigasi → undo.wav. Tab aktif diklik ulang: hening.
-              onClick={() => {
-                if (!isActive) sfx.tab();
-              }}
-              className={`relative flex flex-col items-center justify-center gap-0.5 flex-1 py-2 cursor-pointer transition-colors ${isActive ? "text-foreground" : "text-muted-foreground"}`}
-            >
-              {isActive ? <span className="absolute top-0 left-1/2 -translate-x-1/2 h-0.5 w-6 rounded-full bg-foreground" /> : null}
-              <span className="relative">
-                <Icon className="size-5" strokeWidth={isActive ? 2.4 : 2} />
-                {tab.badge ? (
-                  <span className="absolute -top-1.5 -right-2 min-w-[16px] h-4 px-1 rounded-full bg-foreground text-background text-[9px] font-medium flex items-center justify-center">
-                    {tab.badge}
-                  </span>
-                ) : null}
-              </span>
-              <span className="text-[10px]">{label}</span>
-            </Link>
-          );
-        })}
-      </nav>
-      <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
-        <SheetContent side="bottom" className="h-auto">
-          <div className="grid grid-cols-3 gap-2 pt-2 pb-6">
-            {navFor(role, "legacy", { permissions }).map((block) =>
-              block.entries.map((entry) => {
-                const Icon = entry.icon;
-                return (
-                  <Link
-                    key={entry.href}
-                    href={entry.href}
-                    onClick={() => setSheetOpen(false)}
-                    className="flex flex-col items-center gap-2 rounded-lg border p-3 text-xs"
-                  >
-                    <Icon className="size-5" />
-                    {t(`items.${entry.key}`)}
-                  </Link>
-                );
-              }),
-            )}
-          </div>
-        </SheetContent>
-      </Sheet>
-    </>
   );
 }
 
@@ -590,7 +449,6 @@ function AppShellInner({ children, actor }: { children: React.ReactNode; actor: 
           />
         </div>
 
-        <KaggoBottomNav pathname={pathname} role={actor.role} permissions={actor.permissions} />
       </div>
     </div>
   );

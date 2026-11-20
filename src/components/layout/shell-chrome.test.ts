@@ -115,9 +115,8 @@ describe("shell chrome", () => {
   it("sidebar compact memakai ikon fill, sidebar legacy tetap garis", () => {
     const compactSidebar = read("src/components/layout/compact-sidebar.tsx");
     expect(compactSidebar).toMatch(/fill="currentColor"/);
-    // Sidebar legacy ikut membaca manifest, jadi ikon di sana tidak boleh ikut
-    // terisi -- hanya rail compact yang diminta berubah.
-    expect(legacyShell).not.toMatch(/fill="currentColor"/);
+    // Tombol menu pengaturan di sidebar legacy memakai ikon grid terisi.
+    expect(legacyShell).toMatch(/<LayoutGrid className="size-4" fill="currentColor" \/>/);
   });
 
   it("CompactShell membungkus anak-anaknya dengan ShellChromeProvider", () => {
