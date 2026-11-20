@@ -60,7 +60,7 @@ export function CompactDockNav({ role, hidden = false }: { role: string; hidden?
                 className={cn(
                   "size-12 rounded-xl shadow-none [&_svg]:drop-shadow-none",
                   "[--btn:#fff] [--btn-hover:#f3f4ff] [--btn-fg:#111827]",
-                  "dark:[--btn:#1f2937] dark:[--btn-hover:#374151] dark:[--btn-fg:#e5e7eb]",
+                  "dark:[--btn:var(--card)] dark:[--btn-hover:var(--muted)] dark:[--btn-fg:#e5e7eb]",
                   active ? "[--btn-fg:var(--color-brand)] dark:[--btn-fg:#93C5FD]" : "",
                 )}
                 render={

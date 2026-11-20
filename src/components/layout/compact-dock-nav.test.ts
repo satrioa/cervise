@@ -35,8 +35,10 @@ describe("dock mobile tema normal", () => {
     expect(source).not.toMatch(/opacity-80/);
   });
 
+
   it("dark mode memakai tombol gelap, teks terang, dan aktif biru muda", () => {
-    expect(source).toMatch(/dark:\[--btn:#1f2937\]/);
+    expect(source).toMatch(/dark:\[--btn:var\(--card\)\]/);
+    expect(source).toMatch(/dark:\[--btn-hover:var\(--muted\)\]/);
     expect(source).toMatch(/dark:\[--btn-fg:#e5e7eb\]/);
     expect(source).toMatch(/dark:\[--btn-fg:#93C5FD\]/);
   });
