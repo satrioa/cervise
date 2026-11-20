@@ -13,6 +13,10 @@ const actions = readFileSync(
 );
 
 describe("KPI Omzet dashboard owner", () => {
+  it("filter periode langsung tampil tanpa tombol di mobile", () => {
+    expect(source).toContain("filtersAlwaysVisible");
+  });
+
   it("menampilkan trend perubahan dibanding periode sebelumnya", () => {
     expect(source).toMatch(/Naik|Turun/);
     expect(source).toContain("dibandingkan kemarin");

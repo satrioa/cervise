@@ -145,12 +145,14 @@ export function PageBreadcrumb({
       <BreadcrumbList className="min-w-0 flex-nowrap overflow-hidden">
         {links.map((crumb) => (
           <Fragment key={crumb.href}>
-            <BreadcrumbItem className={cn(crumb.hideOnMobile && "hidden sm:inline-flex")}>
+            {/* Mobile hanya menampilkan nama halaman saat ini; semua tautan
+                dan pemisahnya baru tampil mulai breakpoint sm. */}
+            <BreadcrumbItem className="hidden sm:inline-flex">
               <BreadcrumbLink render={<Link href={crumb.href} />}>
                 {crumb.label}
               </BreadcrumbLink>
             </BreadcrumbItem>
-            <BreadcrumbSeparator className={cn(crumb.hideOnMobile && "hidden sm:block")} />
+            <BreadcrumbSeparator className="hidden sm:block" />
           </Fragment>
         ))}
         <BreadcrumbItem className="min-w-0">
