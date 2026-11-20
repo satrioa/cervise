@@ -1,10 +1,8 @@
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
-import { useTranslations } from "next-intl";
 import { LayoutGrid, UserRound } from "lucide-react";
 import { useTheme } from "next-themes";
-import { CommandSearchTrigger } from "@/components/layout/command-palette-provider";
 import { TenantLogo } from "@/components/layout/tenant-logo";
 import { labelFor, matchEntry } from "@/components/layout/page-breadcrumb";
 import ProfileDropdown from "@/components/kokonutui/profile-dropdown";
@@ -37,7 +35,6 @@ export function CompactBottomBar({
   const { branch } = useBranch();
   const router = useRouter();
   const pathname = usePathname();
-  const t = useTranslations("nav");
   const { theme: appTheme, setTheme } = useTheme();
 
   const tenant =
@@ -70,7 +67,7 @@ export function CompactBottomBar({
             bertahap, tanpa menambah lapisan gelap di atasnya. */}
         <div
           aria-hidden
-          className="pointer-events-none absolute inset-x-0 top-0 z-0 h-16 backdrop-blur-md [mask-image:linear-gradient(to_bottom,black_0%,black_45%,transparent_100%)]"
+          className="pointer-events-none absolute inset-x-0 -mx-3 -top-[max(0.5rem,env(safe-area-inset-top))] z-0 h-[calc(4rem+env(safe-area-inset-top))] backdrop-blur-md [mask-image:linear-gradient(to_bottom,black_0%,black_45%,transparent_100%)] sm:-mx-6"
         />
         <div className="relative z-10 flex w-full items-center gap-2">
         <div className="pointer-events-auto shrink-0">
@@ -116,11 +113,6 @@ export function CompactBottomBar({
         </div>
 
         <div className="pointer-events-auto ml-auto flex shrink-0 items-center gap-2">
-          <CommandSearchTrigger
-            aria-label={t("search.placeholder")}
-            className="flex size-9 items-center justify-center rounded-full border-0 bg-white p-0 shadow-[0_16px_38px_-24px_rgba(0,0,0,0.55)] ring-1 ring-black/5 hover:bg-white dark:bg-neutral-900 dark:ring-white/10 dark:hover:bg-neutral-800 [&>kbd]:hidden"
-          />
-
           <ProfileDropdown
             accounts={[
               {

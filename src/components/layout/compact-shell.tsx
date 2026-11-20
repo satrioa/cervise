@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode, type UIEvent } from "react";
 import { usePathname } from "next/navigation";
 import {
   MainNavLink,
@@ -104,6 +104,9 @@ function CompactShellInner({
   // ini sudah final ketika dipakai - tidak ada kedipan saat hidrasi.
   const [desktop, setDesktop] = useState(false);
   const [dragY, setDragY] = useState(0);
+  const [dockHidden, setDockHidden] = useState(false);
+  const lastScrollTop = useRef(0);
+  const scrollDelta = useRef(0);
   const pathname = usePathname();
   const t = useTranslations("nav");
   const role = normalizeAppRole(actor.role);
@@ -119,6 +122,23 @@ function CompactShellInner({
   function handleDragEnd(delta: number) {
     if (delta > 100) setOpen(false);
     else setDragY(0);
+  }
+
+  // Dock hilang saat konten di-scroll ke bawah, muncul lagi saat scroll ke atas.
+  // Akumulator 8px mencegah kedip karena scroll halus.
+  function handleContentScroll(event: UIEvent<HTMLDivElement>) {
+    const top = event.currentTarget.scrollTop;
+    const delta = top - lastScrollTop.current;
+    lastScrollTop.current = top;
+    if (Math.abs(delta) < 2) return;
+    scrollDelta.current += delta;
+    if (scrollDelta.current > 8 && top > 120) {
+      setDockHidden(true);
+      scrollDelta.current = 0;
+    } else if (scrollDelta.current < -8) {
+      setDockHidden(false);
+      scrollDelta.current = 0;
+    }
   }
 
   useEffect(() => {
@@ -227,7 +247,7 @@ function CompactShellInner({
               style={
                 desktop
                   ? undefined
-                  : ({ height: "100dvh", "--drag-y": `${dragY}px` } as CSSProperties)
+                  : ({ height: "95dvh", "--drag-y": `${dragY}px` } as CSSProperties)
               }
               overlayClassName={
                 desktop ? undefined : "bg-transparent! backdrop-blur-none!"
@@ -265,6 +285,7 @@ function CompactShellInner({
 
       <main
         key={pathname}
+        onScroll={handleContentScroll}
         className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden pt-[calc(3.25rem_+_env(safe-area-inset-top))] pb-[calc(5rem_+_env(safe-area-inset-bottom))] lg:pt-0 lg:pb-32"
       >
         {/* `h-full` menjaga rantai tinggi halaman (POS mengisi sisa `main`).
@@ -274,11 +295,7 @@ function CompactShellInner({
         </MainNavTransitionOutlet>
       </main>
 
-      <CompactDockNav
-        role={actor.role}
-        menuOpen={open}
-        onOpenMenu={() => setMenuOpen(true)}
-      />
+      <CompactDockNav role={actor.role} hidden={dockHidden} />
 
       <CompactBottomBar
         role={actor.role}

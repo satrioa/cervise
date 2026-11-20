@@ -19,7 +19,8 @@ describe("dock mobile tema normal", () => {
   });
 
   it("melekat di bawah tanpa radius", () => {
-    expect(source).toContain("fixed inset-x-0 bottom-0 z-30 lg:hidden");
+    expect(source).toContain("fixed inset-x-0 bottom-0 z-30");
+    expect(source).toContain("lg:hidden");
     expect(source).not.toContain("rounded-full");
     expect(source).not.toMatch(/px-3 pb-\[max/);
   });

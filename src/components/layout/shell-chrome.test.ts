@@ -45,7 +45,7 @@ describe("shell chrome", () => {
     // search, profil) menempel di atas layar, sedangkan tab halaman di bawah.
     expect(compactShell).toMatch(/<header[^>]*hidden[^>]*lg:block/);
     expect(compactBottomBar).toMatch(/fixed inset-x-0 top-0/);
-    expect(compactBottomBar).toMatch(/CommandSearchTrigger/);
+    expect(compactBottomBar).not.toMatch(/CommandSearchTrigger/);
     expect(compactDockNav).toMatch(/fixed inset-x-0 bottom-0/);
     expect(compactDockNav).not.toMatch(/CommandSearchTrigger/);
   });
@@ -74,17 +74,20 @@ describe("shell chrome", () => {
     expect(compactDockNav).toMatch(/\/app\/penjualan/);
     expect(compactDockNav).toMatch(/\/app\/sparepart/);
     expect(compactDockNav).toMatch(/TECHNICIAN/);
-    expect(compactDockNav).toMatch(/t\("menu\.title"\)/);
+    expect(compactDockNav).not.toMatch(/t\("menu\.title"\)/);
+    expect(compactDockNav).not.toMatch(/onOpenMenu/);
+    expect(compactDockNav).toMatch(/fill="currentColor"/);
+    expect(compactDockNav).toMatch(/rounded-xl px-1 py-1.5 text-\[10px\]/);
     // Overlay mengambang di atas isi halaman.
     expect(compactDockNav).toMatch(/z-30/);
     expect(compactDockNav).toMatch(/pt-2 pb-\[calc\(1rem\+env\(safe-area-inset-bottom\)\)\]/);
   });
 
-  it("chrome compact tidak auto-hide lagi", () => {
-    // Search ada di bar yang dulu memudar setelah 5 detik; kalau auto-hide
-    // dikembalikan, fitur utamanya ikut hilang dari layar.
+  it("dock compact hilang saat scroll turun dan muncul saat scroll naik", () => {
     expect(compactShell).not.toMatch(/useIdleVisibility/);
-    expect(compactShell).toMatch(/menuOpen=\{open\}/);
+    expect(compactShell).toMatch(/<CompactDockNav role=\{actor\.role\} hidden=\{dockHidden\} \/>/);
+    expect(compactShell).toMatch(/setDockHidden\(true\)/);
+    expect(compactShell).toMatch(/setDockHidden\(false\)/);
   });
 
   it("tombol layar penuh memakai Fullscreen API dan sinkron dengan Esc", () => {

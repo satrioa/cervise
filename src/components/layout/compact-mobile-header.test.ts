@@ -10,6 +10,7 @@ const bottomBar = read("src/components/layout/compact-bottom-bar.tsx");
 const pageHeader = read("src/components/layout/page-header.tsx");
 const menuSheet = read("src/components/layout/compact-menu-sheet.tsx");
 const compactShell = read("src/components/layout/compact-shell.tsx");
+const compactDock = read("src/components/layout/compact-dock-nav.tsx");
 
 describe("header mobile compact", () => {
   it("pengaturan compact tidak punya sub-sidebar", () => {
@@ -30,8 +31,11 @@ describe("header mobile compact", () => {
   });
 
   it("progressive blur di belakang navbar mobile tanpa lapisan gelap", () => {
-    expect(bottomBar).toMatch(/absolute inset-x-0 top-0 z-0 h-16 backdrop-blur-md/);
+    expect(bottomBar).toMatch(/-top-\[max\(0\.5rem,env\(safe-area-inset-top\)\)\]/);
+    expect(bottomBar).toMatch(/h-\[calc\(4rem\+env\(safe-area-inset-top\)\)\] backdrop-blur-md/);
     expect(bottomBar).toMatch(/mask-image:linear-gradient\(to_bottom/);
+    expect(bottomBar).toMatch(/-mx-3/);
+    expect(bottomBar).toMatch(/sm:-mx-6/);
     expect(bottomBar).toMatch(/relative z-10 flex w-full items-center/);
     expect(bottomBar).not.toMatch(/from-canvas via-canvas\/60/);
     expect(bottomBar).toMatch(/lg:hidden/);
@@ -45,7 +49,7 @@ describe("header mobile compact", () => {
   });
 
   it("menu sheet langsung penuh tanpa drag untuk membuka", () => {
-    expect(compactShell).toMatch(/height: "100dvh"/);
+    expect(compactShell).toMatch(/height: "95dvh"/);
     expect(compactShell).not.toMatch(/handleMenuScroll/);
     expect(compactShell).not.toMatch(/menuHeight/);
     expect(menuSheet).not.toMatch(/onScroll/);
@@ -59,6 +63,15 @@ describe("header mobile compact", () => {
     expect(menuSheet).toMatch(/onDragYChange\?\.\(delta\)/);
     expect(menuSheet).toMatch(/onDragEnd\?\./);
     expect(compactShell).toMatch(/delta > 100/);
+  });
+
+  it("dock hilang saat scroll turun dan muncul saat scroll naik", () => {
+    expect(compactShell).toMatch(/onScroll=\{handleContentScroll\}/);
+    expect(compactShell).toMatch(/scrollDelta\.current > 8 && top > 120/);
+    expect(compactShell).toMatch(/setDockHidden\(true\)/);
+    expect(compactShell).toMatch(/setDockHidden\(false\)/);
+    expect(compactShell).toMatch(/hidden=\{dockHidden\}/);
+    expect(compactDock).toMatch(/hidden \? "translate-y-full opacity-0"/);
   });
 
   it("sheet slide ke bawah dengan opacity penuh dan backdrop transparan", () => {
