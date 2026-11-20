@@ -79,7 +79,15 @@ const Iphone15Pro: React.FC<Iphone15ProProps> = ({
                         clipPath="url(#roundedCorners)"
                     >
                         <div
-                            style={{ width: "100%", height: "100%", position: "relative" }}
+                            style={{
+                                width: "100%",
+                                height: "100%",
+                                position: "relative",
+                                // SVG clipPath pada foreignObject tidak bekerja di Safari;
+                                // potong juga pakai CSS supaya gambar tidak keluar sudut bulat.
+                                overflow: "hidden",
+                                borderRadius: "55.75px",
+                            }}
                         >
                             <Image
                                 src={src || "/placeholder.svg"}
