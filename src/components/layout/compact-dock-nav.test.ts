@@ -31,8 +31,14 @@ describe("dock mobile tema normal", () => {
 
   it("ikon dan label hitam saat normal, biru saat aktif, tanpa opacity", () => {
     expect(source).toMatch(/\[--btn-fg:#111827\]/);
-    expect(source).toMatch(/active \? "\[--btn-fg:var\(--color-brand\)\]" : ""/);
+    expect(source).toMatch(/active \? "\[--btn-fg:var\(--color-brand\)\] dark:\[--btn-fg:#93C5FD\]" : ""/);
     expect(source).not.toMatch(/opacity-80/);
+  });
+
+  it("dark mode memakai tombol gelap, teks terang, dan aktif biru muda", () => {
+    expect(source).toMatch(/dark:\[--btn:#1f2937\]/);
+    expect(source).toMatch(/dark:\[--btn-fg:#e5e7eb\]/);
+    expect(source).toMatch(/dark:\[--btn-fg:#93C5FD\]/);
   });
 
   it("menu berdekatan dan fade hitam lembut", () => {

@@ -60,7 +60,8 @@ export function CompactDockNav({ role, hidden = false }: { role: string; hidden?
                 className={cn(
                   "size-14 rounded-xl shadow-none [&_svg]:drop-shadow-none",
                   "[--btn:#fff] [--btn-hover:#f3f4ff] [--btn-fg:#111827]",
-                  active ? "[--btn-fg:var(--color-brand)]" : "",
+                  "dark:[--btn:#1f2937] dark:[--btn-hover:#374151] dark:[--btn-fg:#e5e7eb]",
+                  active ? "[--btn-fg:var(--color-brand)] dark:[--btn-fg:#93C5FD]" : "",
                 )}
                 render={
                   <MainNavLink href={item.href} aria-current={active ? "page" : undefined}>
