@@ -29,6 +29,12 @@ describe("archiveTenant", () => {
   it("mengarsipkan menutup akses lewat status organizations", () => {
     expect(action()).toContain('status: "cancelled"');
   });
+
+  it("UPDATE lewat admin client (role authenticated tidak punya grant UPDATE)", () => {
+    expect(action()).toMatch(
+      /createAdminClient\(\)\s*\.from\("organizations"\)\s*\.update\(\{ status: "cancelled"/,
+    );
+  });
 });
 
 describe("TenantDangerZone", () => {

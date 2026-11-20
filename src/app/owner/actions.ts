@@ -595,7 +595,9 @@ export async function archiveTenant(input: { organizationId: string; confirmName
 
   // Soft delete: status cancelled langsung memblokir akses lewat
   // is_tenant_subscription_active(), tapi seluruh riwayat tetap tersimpan.
-  const { error } = await supabase
+  // Role authenticated tidak punya grant UPDATE di organizations, jadi pakai
+  // admin client — otorisasi sudah dicek requirePlatformAdmin() di atas.
+  const { error } = await createAdminClient()
     .from("organizations")
     .update({ status: "cancelled", updated_at: new Date().toISOString() })
     .eq("id", input.organizationId);
