@@ -25,10 +25,11 @@ describe("mockup hero di mobile", () => {
     expect(source).toContain("w-[min(88vw,360px)] md:w-[400px]");
   });
 
-  it("gambar screen terpotong sudut bulatnya juga lewat CSS (clipPath foreignObject gagal di Safari)", () => {
+  it("gambar screen pakai overlay HTML yang dipotong CSS, bukan foreignObject", () => {
     const source = read("src/components/phone-carousel.tsx");
-    expect(source).toContain('clipPath="url(#roundedCorners)"');
-    expect(source).toContain('overflow: "hidden"');
-    expect(source).toContain('borderRadius: "55.75px"');
+    expect(source).not.toContain("<foreignObject");
+    expect(source).toContain('className="pointer-events-none absolute overflow-hidden"');
+    expect(source).toContain("SCREEN_RADIUS_X");
+    expect(source).toContain("borderRadius: `${SCREEN_RADIUS_X}% / ${SCREEN_RADIUS_Y}%`");
   });
 });

@@ -12,6 +12,12 @@ interface Iphone15ProProps extends React.SVGProps<SVGSVGElement> {
     alt?: string;
 }
 
+/** Koordinat area layar di viewBox 433x882 (sama dgn path screen area). */
+const SCREEN = { x: 21.25, y: 19.25, w: 389.5, h: 843.5 };
+/** Radius 55.75 dalam satuan viewBox -> persen lebar & tinggi overlay. */
+const SCREEN_RADIUS_X = (55.75 / SCREEN.w) * 100;
+const SCREEN_RADIUS_Y = (55.75 / SCREEN.h) * 100;
+
 const Iphone15Pro: React.FC<Iphone15ProProps> = ({
     width = "100%",
     height = "auto",
@@ -64,44 +70,56 @@ const Iphone15Pro: React.FC<Iphone15ProProps> = ({
                     d="M174 5H258V5.5C258 6.60457 257.105 7.5 256 7.5H176C174.895 7.5 174 6.60457 174 5.5V5Z"
                     className="dark:fill-[#DADADA] fill-[#404040]"
                 />
-                {/* screen area */}
+                {/* screen area (landas di bawah gambar) */}
                 <path
                     d="M21.25 75C21.25 44.2101 46.2101 19.25 77 19.25H355C385.79 19.25 410.75 44.2101 410.75 75V807C410.75 837.79 385.79 862.75 355 862.75H77C46.2101 862.75 21.25 837.79 21.25 807V75Z"
                     className="dark:fill-[#F5F5F5] fill-[#404040] dark:stroke-[#E0E0E0] stroke-[#404040] stroke-[0.5]"
                     filter="drop-shadow(0px 2px 4px rgba(0, 0, 0, 0.1))"
                 />
-                {src && (
-                    <foreignObject
-                        x="21.25"
-                        y="19.25"
-                        width="389.5"
-                        height="843.5"
-                        clipPath="url(#roundedCorners)"
-                    >
-                        <div
-                            style={{
-                                width: "100%",
-                                height: "100%",
-                                position: "relative",
-                                // SVG clipPath pada foreignObject tidak bekerja di Safari;
-                                // potong juga pakai CSS supaya gambar tidak keluar sudut bulat.
-                                overflow: "hidden",
-                                borderRadius: "55.75px",
-                            }}
-                        >
-                            <Image
-                                src={src || "/placeholder.svg"}
-                                alt={alt}
-                                fill
-                                style={{ objectFit: "cover" }}
-                                sizes="(max-width: 768px) 80vw, (max-width: 1200px) 50vw, 33vw"
-                                priority
-                              unoptimized
-                            />
-                        </div>
-                    </foreignObject>
-                )}
-                {/* notch area */}
+            </svg>
+
+            {/*
+              Screenshot dirender sebagai elemen HTML biasa, bukan elemen
+              foreignObject SVG. Safari tidak konsisten memotongnya dengan clipPath,
+              sehingga gambar bisa keluar dari sudut bulat layar. Overlay ini
+              dipotong CSS murni; posisinya memakai persen viewBox supaya ikut
+              skala saat SVG mengecil/besar.
+            */}
+            {src && (
+                <div
+                    aria-hidden
+                    className="pointer-events-none absolute overflow-hidden"
+                    style={{
+                        left: `${(SCREEN.x / 433) * 100}%`,
+                        top: `${(SCREEN.y / 882) * 100}%`,
+                        width: `${(SCREEN.w / 433) * 100}%`,
+                        height: `${(SCREEN.h / 882) * 100}%`,
+                        borderRadius: `${SCREEN_RADIUS_X}% / ${SCREEN_RADIUS_Y}%`,
+                    }}
+                >
+                    <Image
+                        src={src || "/placeholder.svg"}
+                        alt={alt}
+                        fill
+                        style={{ objectFit: "cover" }}
+                        sizes="(max-width: 768px) 80vw, (max-width: 1200px) 50vw, 33vw"
+                        priority
+                        unoptimized
+                    />
+                </div>
+            )}
+
+            {/* notch, kamera, dan highlight di atas screenshot */}
+            <svg
+                aria-hidden
+                className="pointer-events-none absolute inset-0"
+                width="100%"
+                height="100%"
+                viewBox="0 0 433 882"
+                preserveAspectRatio="xMidYMid meet"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+            >
                 <path
                     d="M154 48.5C154 38.2827 162.283 30 172.5 30H259.5C269.717 30 278 38.2827 278 48.5C278 58.7173 269.717 67 259.5 67H172.5C162.283 67 154 58.7173 154 48.5Z"
                     className="fill-[#171717]"
@@ -111,26 +129,13 @@ const Iphone15Pro: React.FC<Iphone15ProProps> = ({
                     className="fill-[#171717]"
                 />
                 <path
-                    d="M254 48.5C254 45.4624 256.462 43 259.5 43C262.538 43 265 45.4624 265 48.5C265 51.5376 262.538 54 259.5 54C256.462 54 254 51.5376 254 48.5Z"
+                    d="M254 48.5C254 45.4624 256.462 43 259.5 43C262.538 43 265 45.4624 265 48.5C265 51.5376 262.538 54 265 48.5C265 45.4624 262.538 43 259.5 43Z"
                     className="fill-[#171717]"
                 />
-                {/* highlight */}
                 <path
                     d="M76 4C37.3401 4 6 35.3401 6 74V808C6 846.66 37.3401 878 76 878H356C394.66 878 426 846.66 426 808V74C426 35.3401 394.66 4 356 4H76Z"
                     className="fill-transparent dark:stroke-white/20 stroke-[0.5] stroke-transparent"
                 />
-                <defs>
-                    <clipPath id="roundedCorners">
-                        <rect
-                            x="21.25"
-                            y="19.25"
-                            width="389.5"
-                            height="843.5"
-                            rx="55.75"
-                            ry="55.75"
-                        />
-                    </clipPath>
-                </defs>
             </svg>
         </div>
     );
@@ -179,7 +184,6 @@ export const PhoneCarousel: React.FC<PhoneCarouselProps> = ({
         const prev = (active - 1 + total) % total;
         const next = (active + 1) % total;
 
-        // Each feature has a single image
         const prevImage = featuresData[prev].images[0];
         const activeImage = featuresData[active].images[0];
         const nextImage = featuresData[next].images[0];
@@ -193,54 +197,24 @@ export const PhoneCarousel: React.FC<PhoneCarouselProps> = ({
                 aria-label="iPhone product showcase in feature mode"
             >
                 <div className="relative h-[600px] sm:h-[650px] lg:h-[700px] w-full">
-                    {/* Center the phone stack */}
                     <div className="absolute top-0 left-1/2 transform -translate-x-1/2">
-                        {/* 1) Back phone (prev) */}
                         <div
                             className="absolute opacity-100"
-                            style={{
-                                transform: "translateY(-20px) scale(0.92)",
-                                zIndex: 10,
-                            }}
+                            style={{ transform: "translateY(-20px) scale(0.92)", zIndex: 10 }}
                         >
-                            <Iphone15Pro
-                                width={isMobile ? 320 : 400}
-                                height="auto"
-                                src={prevImage.src}
-                                alt={prevImage.alt}
-                            />
+                            <Iphone15Pro width={isMobile ? 320 : 400} height="auto" src={prevImage.src} alt={prevImage.alt} />
                         </div>
-
-                        {/* 2) Middle phone (next) */}
                         <div
                             className="absolute opacity-100"
-                            style={{
-                                transform: "translateY(25px) scale(0.96)",
-                                zIndex: 20,
-                            }}
+                            style={{ transform: "translateY(25px) scale(0.96)", zIndex: 20 }}
                         >
-                            <Iphone15Pro
-                                width={isMobile ? 320 : 400}
-                                height="auto"
-                                src={nextImage.src}
-                                alt={nextImage.alt}
-                            />
+                            <Iphone15Pro width={isMobile ? 320 : 400} height="auto" src={nextImage.src} alt={nextImage.alt} />
                         </div>
-
-                        {/* 3) Front phone (active) */}
                         <div
                             className="relative"
-                            style={{
-                                transform: "translateY(70px) scale(1)",
-                                zIndex: 30,
-                            }}
+                            style={{ transform: "translateY(70px) scale(1)", zIndex: 30 }}
                         >
-                            <Iphone15Pro
-                                width={isMobile ? 320 : 400}
-                                height="auto"
-                                src={activeImage.src}
-                                alt={activeImage.alt}
-                            />
+                            <Iphone15Pro width={isMobile ? 320 : 400} height="auto" src={activeImage.src} alt={activeImage.alt} />
                         </div>
                     </div>
                 </div>
@@ -256,7 +230,6 @@ export const PhoneCarousel: React.FC<PhoneCarouselProps> = ({
         >
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div className="relative">
-                    {/* Main carousel container */}
                     <div className="flex justify-center items-start h-[360px] md:h-[560px] lg:h-[590px]">
                         <div className="relative flex justify-center w-full">
                             {images.map((image, index) => {
@@ -307,7 +280,6 @@ export const PhoneCarousel: React.FC<PhoneCarouselProps> = ({
                             })}
                         </div>
                     </div>
-
                 </div>
             </div>
         </section>

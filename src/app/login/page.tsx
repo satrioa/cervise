@@ -122,10 +122,10 @@ function PageBackdrop() {
       style={{
         backgroundImage: [
           "radial-gradient(circle, color-mix(in oklch, var(--foreground) 18%, transparent) 1px, transparent 1.5px)",
-          "radial-gradient(75% 55% at 50% -10%, rgba(37, 99, 235, 0.28), transparent 70%)",
-          "radial-gradient(55% 45% at 100% 100%, rgba(37, 99, 235, 0.16), transparent 70%)",
+          // Linear seperti hero landing; di-mix --background supaya adaptif di dark theme.
+          "linear-gradient(to bottom, transparent 0%, color-mix(in oklch, #2563eb 6%, var(--background)) 25%, color-mix(in oklch, #2563eb 14%, var(--background)) 60%, color-mix(in oklch, #2563eb 26%, var(--background)) 100%)",
         ].join(", "),
-        backgroundSize: "22px 22px, 100% 100%, 100% 100%",
+        backgroundSize: "22px 22px, 100% 100%",
       }}
     />
   );
