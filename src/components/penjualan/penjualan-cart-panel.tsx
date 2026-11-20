@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { Dispatch, ReactNode, SetStateAction } from "react";
 import { AppImage } from "@/components/ui/app-image";
+import { SwipeActions, SwipeActionsRow } from "@/components/arc/swipe-actions/swipe-actions";
 import { formatCurrencyPlain } from "@/lib/format";
 import { MinusIcon, PlusIcon, TrashIcon, PackageIcon, XIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -108,6 +109,10 @@ function CartBody({
   const setQty = (id: string, qty: number) => {
     haptic(15);
     setCart((prev) => prev.map((c) => c.product.id === id ? { ...c, qty: Math.max(1, Math.min(qty, c.product.stock_qty)) } : c));
+  };
+  const removeItem = (id: string) => {
+    haptic([15, 30, 15]);
+    setCart((prev) => prev.filter((x) => x.product.id !== id));
   };
   const setUnitPrice = (id: string, price: number) => setCart((prev) => prev.map((c) => c.product.id === id ? { ...c, unit_price: Math.max(0, price) } : c));
 
@@ -227,9 +232,21 @@ function CartBody({
                 </EmptyHeader>
               </Empty>
             ) : (
-              <div className="space-y-2">
+              <SwipeActions label="Item keranjang" className="border-0 bg-transparent">
                 {cart.map((c) => (
-                  <div key={c.product.id} className="group relative flex gap-3 rounded-xl border bg-card p-3 shadow-xs/5 hover:bg-muted/20 transition-colors">
+                  <SwipeActionsRow
+                    key={c.product.id}
+                    label={c.product.name}
+                    trailing={[{
+                      label: "Hapus",
+                      icon: <TrashIcon className="size-5" />,
+                      tone: "danger",
+                      onSelect: () => removeItem(c.product.id),
+                    }]}
+                    fullSwipe={false}
+                    className="mb-2"
+                  >
+                    <div className="group relative flex gap-3 rounded-xl border bg-card p-3 shadow-xs/5 hover:bg-muted/20 transition-colors">
                     <CartThumb item={c} />
                     <div className="min-w-0 flex-1">
                       <div className="flex items-start justify-between gap-2">
@@ -268,9 +285,10 @@ function CartBody({
                         </div>
                       </div>
                     </div>
-                  </div>
+                    </div>
+                  </SwipeActionsRow>
                 ))}
-              </div>
+              </SwipeActions>
             )}
           </div>
         </div>
@@ -359,6 +377,8 @@ export function PenjualanCartExpander(props: Omit<CartPanelProps, "riwayatAction
     /* Tanpa transform: `-translate-x-1/2` membuat containing block baru dan
        `fixed inset-0` milik kartu expand ikut mengecil seukuran dock. */
     <div className="fixed inset-x-0 bottom-[var(--dock-clearance)] z-30 mx-auto w-[95vw] max-w-sm lg:hidden">
+      {/* Dock keranjang menggantikan dock compact; sembunyikan menu dock. */}
+      <span data-hide-dock aria-hidden className="hidden" />
       <ExpandableScreen
         layoutId="penjualan-cart-expander"
         triggerRadius="16px"
