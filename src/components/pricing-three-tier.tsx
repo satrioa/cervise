@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import Link from "next/link";
 import { CheckIcon, SparklesIcon } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { formatRupiah } from "@/lib/format";
 import {
   annualSavings,
@@ -31,32 +32,49 @@ function priceFor(pkg: PublicPackage, period: Period) {
   return { amount, cadence: "/tahun" };
 }
 
+// Poin kartu sengaja tanpa angka kapasitas -- angka itu berubah sesuai paket
+// dan sudah tersedia di tabel perbandingan di bawah kartu.
 function featuresOf(pkg: PublicPackage) {
   return [
-    `${pkg.branch_limit} cabang`,
-    `${pkg.user_limit ?? "∞"} karyawan`,
-    `${pkg.ticket_quota ?? 0} tiket servis/bulan`,
-    `${pkg.whatsapp_quota ?? 0} pesan WhatsApp/bulan`,
+    "Cabang sesuai kebutuhan",
+    "Tim kerja yang terjangkau",
+    "Kapasitas servis bulanan",
+    "Notifikasi WhatsApp otomatis",
     pkg.description ?? "Semua fitur utama",
   ];
 }
 
+/** Baris tabel perbandingan: kapasitas dari data paket, fitur platform berlaku untuk semua. */
+const FEATURE_ROWS: { label: string; render: (p: PublicPackage) => ReactNode }[] = [
+  { label: "Cabang", render: (p) => `${p.branch_limit}` },
+  { label: "Karyawan", render: (p) => `${p.user_limit ?? "∞"}` },
+  { label: "Tiket servis / bulan", render: (p) => `${p.ticket_quota ?? 0}` },
+  { label: "Pesan WhatsApp / bulan", render: (p) => `${p.whatsapp_quota ?? 0}` },
+  { label: "Durasi trial", render: (p) => (p.trial_days ? `${p.trial_days} hari` : "—") },
+  { label: "POS", render: () => <CheckIcon className="ml-auto size-4 text-emerald-600" aria-label="Tersedia" /> },
+  { label: "Manajemen Sparepart", render: () => <CheckIcon className="ml-auto size-4 text-emerald-600" aria-label="Tersedia" /> },
+  { label: "Manajemen Inventori", render: () => <CheckIcon className="ml-auto size-4 text-emerald-600" aria-label="Tersedia" /> },
+  { label: "Portal Lacak Servis", render: () => <CheckIcon className="ml-auto size-4 text-emerald-600" aria-label="Tersedia" /> },
+  { label: "Laporan Keuangan & Servis", render: () => <CheckIcon className="ml-auto size-4 text-emerald-600" aria-label="Tersedia" /> },
+];
+
 export function PricingThreeTier({ packages }: { packages: PublicPackage[] }) {
   const [period, setPeriod] = useState<Period>("monthly");
+  const [calculatorPeriod, setCalculatorPeriod] = useState<Period>("monthly");
   const trial = packages.find((p) => p.code === "trial");
   const custom = packages.find((p) => p.code === "custom");
   const paid = packages.filter((p) => p.code !== "trial" && p.code !== "custom");
 
   const config = custom ? configFromPackageRow(custom) : null;
   const [input, setInput] = useState<CustomPricingInput>({
-    branches: 1,
-    employees: 1,
-    services: 0,
+    branches: config?.includedBranches ?? 1,
+    employees: config?.includedEmployees ?? 5,
+    services: config?.includedServices ?? 100,
   });
   const [requesting, setRequesting] = useState(false);
 
   const preview = config
-    ? calculateCustomMonthlyPrice(normalizeCustomInput(input), config)
+    ? calculateCustomMonthlyPrice(normalizeCustomInput(input, config), config)
     : null;
   const previewAnnual = preview ? yearlyPrice(preview.total, config!) : 0;
 
@@ -109,10 +127,14 @@ export function PricingThreeTier({ packages }: { packages: PublicPackage[] }) {
           const { amount, cadence } = priceFor(pkg, period);
           const recommended = pkg.is_recommended;
           const isCustom = pkg.code === "custom";
+          const annualEquivalent = pkg.annual_price ?? pkg.monthly_price * 10;
           const savings =
             period === "annual" && pkg.code !== "trial"
-              ? annualSavings(pkg.monthly_price, pkg.annual_price ?? pkg.monthly_price * 10)
+              ? annualSavings(pkg.monthly_price, annualEquivalent)
               : 0;
+          const savingsPercent = Math.round(
+            (1 - annualEquivalent / Math.max(1, pkg.monthly_price * 12)) * 100,
+          );
           return (
             <div
               key={pkg.code}
@@ -140,8 +162,12 @@ export function PricingThreeTier({ packages }: { packages: PublicPackage[] }) {
                   <span className="text-muted-foreground text-xs">{cadence}</span>
                 ) : null}
               </div>
-              {savings > 0 ? (
-                <p className="mt-1 text-xs text-emerald-600">Hemat {formatRupiah(savings)} / tahun</p>
+              {period === "annual" && (savings > 0 || isCustom) ? (
+                <p className="mt-1 text-xs text-emerald-600">
+                  {isCustom
+                    ? `Hemat ${savingsPercent}%`
+                    : `Hemat ${formatRupiah(savings)} / tahun`}
+                </p>
               ) : null}
               <p className="mt-2 text-muted-foreground text-sm">{pkg.description}</p>
 
@@ -192,17 +218,11 @@ export function PricingThreeTier({ packages }: { packages: PublicPackage[] }) {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {[
-              ["Cabang", (p: PublicPackage) => `${p.branch_limit}`],
-              ["Karyawan", (p: PublicPackage) => `${p.user_limit ?? "∞"}`],
-              ["Tiket servis / bulan", (p: PublicPackage) => `${p.ticket_quota ?? 0}`],
-              ["Pesan WhatsApp / bulan", (p: PublicPackage) => `${p.whatsapp_quota ?? 0}`],
-              ["Durasi trial", (p: PublicPackage) => p.trial_days ? `${p.trial_days} hari` : "—"],
-            ].map(([label, value]) => (
-              <TableRow key={label as string}>
-                <TableCell className="font-medium">{label as string}</TableCell>
+            {FEATURE_ROWS.map((row) => (
+              <TableRow key={row.label}>
+                <TableCell className="font-medium">{row.label}</TableCell>
                 {packages.map((pkg) => (
-                  <TableCell key={pkg.code} className="text-right">{(value as (p: PublicPackage) => string)(pkg)}</TableCell>
+                  <TableCell key={pkg.code} className="text-right">{row.render(pkg)}</TableCell>
                 ))}
               </TableRow>
             ))}
@@ -214,14 +234,24 @@ export function PricingThreeTier({ packages }: { packages: PublicPackage[] }) {
         <div id="kalkulator-custom" className="mt-16 rounded-2xl border p-6">
           <h3 className="font-heading text-2xl">Hitung Pay as You Grow</h3>
           <p className="mt-2 text-sm text-muted-foreground">
-            Geser sesuai kebutuhan toko. Biaya tambahan baru dihitung di atas kapasitas Business.
+            Mulai dari kapasitas paket Starter. Tambahan dihitung untuk setiap kebutuhan di atasnya.
           </p>
+          <Tabs
+            value={calculatorPeriod}
+            onValueChange={(value) => setCalculatorPeriod(value as Period)}
+            className="mt-4"
+          >
+            <TabsList>
+              <TabsTrigger value="monthly">Bulanan</TabsTrigger>
+              <TabsTrigger value="annual">Tahunan</TabsTrigger>
+            </TabsList>
+          </Tabs>
           <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
             <div className="flex flex-col gap-5">
               {([
-                ["branches", "Jumlah cabang", 1, 30, 1, "cabang"],
-                ["employees", "Karyawan aktif", 1, 100, 1, "karyawan"],
-                ["services", "Tiket servis / bulan", 0, 5000, 100, "tiket"],
+                ["branches", "Jumlah cabang", config?.includedBranches ?? 1, 30, 1, "cabang"],
+                ["employees", "Karyawan aktif", config?.includedEmployees ?? 5, 100, 1, "karyawan"],
+                ["services", "Tiket servis / bulan", config?.includedServices ?? 100, 5000, 100, "tiket"],
               ] as const).map(([key, label, min, max, stepSize, unit]) => (
                 <div key={key} className="space-y-2">
                   <div className="flex items-baseline justify-between gap-2">
@@ -243,7 +273,7 @@ export function PricingThreeTier({ packages }: { packages: PublicPackage[] }) {
                 </div>
               ))}
               <div className="text-xs text-muted-foreground">
-                Mulai dari 1 cabang, 1 karyawan, dan 0 tiket — tidak perlu mencapai batas paket Business.
+                Minimum: {config?.includedBranches ?? 1} cabang · {config?.includedEmployees ?? 5} karyawan · {config?.includedServices ?? 100} tiket/bulan.
               </div>
             </div>
 
@@ -253,14 +283,20 @@ export function PricingThreeTier({ packages }: { packages: PublicPackage[] }) {
               <div className="flex justify-between"><span>Tiket / bulan</span><span>{input.services}</span></div>
               <div className="flex justify-between"><span>Kuota WA</span><span>{preview.whatsappQuota} pesan</span></div>
               <div className="mt-3 border-t pt-3 space-y-1">
+                <div className="text-xs text-muted-foreground">Rincian bulanan</div>
                 <div className="flex justify-between text-muted-foreground"><span>Harga dasar</span><span>{formatRupiah(preview.base)}</span></div>
                 <div className="flex justify-between text-muted-foreground"><span>Tambah cabang</span><span>{formatRupiah(preview.branchAddon)}</span></div>
                 <div className="flex justify-between text-muted-foreground"><span>Tambah karyawan</span><span>{formatRupiah(preview.employeeAddon)}</span></div>
                 <div className="flex justify-between text-muted-foreground"><span>Tambah {preview.extraServiceBlocks} blok tiket</span><span>{formatRupiah(preview.serviceAddon)}</span></div>
               </div>
               <div className="mt-3 border-t pt-3">
-                <div className="flex justify-between font-medium"><span>Total bulanan</span><span>{formatRupiah(preview.total)}</span></div>
-                <div className="flex justify-between font-medium"><span>Total tahunan</span><span>{formatRupiah(previewAnnual)}</span></div>
+                <div className="flex justify-between font-medium">
+                  <span>{calculatorPeriod === "annual" ? "Total tahunan" : "Total bulanan"}</span>
+                  <span>{formatRupiah(calculatorPeriod === "annual" ? previewAnnual : preview.total)}</span>
+                </div>
+                <div className="flex justify-between text-xs text-muted-foreground">
+                  <span>{calculatorPeriod === "annual" ? "/tahun" : "/bulan"}</span>
+                </div>
                 <div className="flex justify-between text-emerald-600"><span>Hemat / tahun</span><span>{formatRupiah(annualSavings(preview.total, previewAnnual))}</span></div>
               </div>
               <Button size="lg" className="mt-4 w-full" loading={requesting} onClick={contactAdmin}>

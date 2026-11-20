@@ -15,10 +15,10 @@ describe("kalkulator Pay as You Grow", () => {
     expect(source).not.toMatch(/type="number"/);
   });
 
-  it("slider mulai dari 1 cabang, 1 karyawan, 0 tiket", () => {
-    expect(source).toMatch(/\["branches", "Jumlah cabang", 1, 30, 1/);
-    expect(source).toMatch(/\["employees", "Karyawan aktif", 1, 100, 1/);
-    expect(source).toMatch(/\["services", "Tiket servis \/ bulan", 0, 5000, 100/);
+  it("minimum slider mengikuti kapasitas Starter dari konfigurasi", () => {
+    expect(source).toMatch(/\["branches", "Jumlah cabang", config\?\.includedBranches \?\? 1/);
+    expect(source).toMatch(/\["employees", "Karyawan aktif", config\?\.includedEmployees \?\? 5/);
+    expect(source).toMatch(/\["services", "Tiket servis \/ bulan", config\?\.includedServices \?\? 100/);
   });
 
   it("kartu Custom menampilkan teks Custom, bukan angka", () => {
@@ -26,8 +26,38 @@ describe("kalkulator Pay as You Grow", () => {
     expect(source).toMatch(/amount === null\s*\?\s*"Custom"/);
   });
 
+  it("label hemat tahunan Custom pakai persentase", () => {
+    expect(source).toMatch(/isCustom\s*\?\s*`Hemat \$\{savingsPercent\}%`/);
+  });
+
+  it("poin kapasitas kartu tidak memuat angka", () => {
+    const body = source.slice(source.indexOf("function featuresOf"), source.indexOf("export function PricingThreeTier"));
+    expect(body).not.toMatch(/\$\{pkg\.(branch_limit|user_limit|ticket_quota|whatsapp_quota)/);
+  });
+
   it("layout desktop dua kolom dengan input bertumpuk di kiri", () => {
     expect(source).toMatch(/lg:grid-cols-\[minmax\(0,1fr\)_360px\]/);
     expect(source).toMatch(/<div className="flex flex-col gap-5">/);
+  });
+
+  it("kalkulator punya tab Bulanan/Tahunan dengan state terpisah", () => {
+    expect(source).toMatch(/useState<Period>\("monthly"\)/);
+    expect(source).toMatch(/calculatorPeriod/);
+    expect(source).toMatch(/calculatorPeriod === "annual" \? previewAnnual : preview\.total/);
+  });
+});
+
+describe("tabel perbandingan paket", () => {
+  it("menampilkan fitur utama platform sebagai baris centang", () => {
+    for (const label of [
+      "POS",
+      "Manajemen Sparepart",
+      "Manajemen Inventori",
+      "Portal Lacak Servis",
+      "Laporan Keuangan & Servis",
+    ]) {
+      expect(source, label).toContain(label);
+    }
+    expect(source).toMatch(/FEATURE_ROWS/);
   });
 });
