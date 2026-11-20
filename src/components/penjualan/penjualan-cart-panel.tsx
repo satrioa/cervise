@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { Dispatch, PointerEvent as ReactPointerEvent, ReactNode, SetStateAction } from "react";
+import type { Dispatch, ReactNode, SetStateAction } from "react";
 import { AppImage } from "@/components/ui/app-image";
 import { formatCurrencyPlain } from "@/lib/format";
 import { MinusIcon, PlusIcon, TrashIcon, PackageIcon, XIcon } from "lucide-react";
@@ -355,29 +355,6 @@ function ExpandedCart(props: Omit<CartPanelProps, "riwayatAction">) {
  * dianimasikan, jadi tingginya ikut membesar dari dock ke hampir satu layar.
  */
 export function PenjualanCartExpander(props: Omit<CartPanelProps, "riwayatAction">) {
-  const [revealed, setRevealed] = useState(false);
-  const dragStart = useRef<{ x: number; y: number } | null>(null);
-
-  const clearCart = () => {
-    haptic([15, 30, 15]);
-    props.setCart([]);
-    toast.success("Keranjang dikosongkan");
-    setRevealed(false);
-  };
-
-  const onPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
-    dragStart.current = { x: event.clientX, y: event.clientY };
-  };
-  const onPointerUp = (event: ReactPointerEvent<HTMLDivElement>) => {
-    const start = dragStart.current;
-    dragStart.current = null;
-    if (!start) return;
-    const dx = event.clientX - start.x;
-    const dy = event.clientY - start.y;
-    if (Math.abs(dx) < 40 || Math.abs(dx) < Math.abs(dy)) return;
-    setRevealed(dx < 0);
-  };
-
   return (
     /* Tanpa transform: `-translate-x-1/2` membuat containing block baru dan
        `fixed inset-0` milik kartu expand ikut mengecil seukuran dock. */
@@ -391,45 +368,26 @@ export function PenjualanCartExpander(props: Omit<CartPanelProps, "riwayatAction
         animationDuration={0.25}
         lockScroll={false}
       >
-        <div className="relative overflow-hidden rounded-2xl">
-          <button
-            type="button"
-            aria-label="Kosongkan keranjang"
-            onClick={clearCart}
-            className="absolute inset-y-0 right-0 flex w-24 flex-col items-center justify-center gap-1 rounded-2xl bg-destructive text-[11px] font-medium text-destructive-foreground"
-          >
-            <TrashIcon className="size-5" />
-            Hapus
-          </button>
-          <div
-            className="relative touch-pan-y transition-transform duration-200"
-            style={{ transform: revealed ? "translateX(-96px)" : "translateX(0)" }}
-            onPointerDown={onPointerDown}
-            onPointerUp={onPointerUp}
-            onPointerCancel={() => { dragStart.current = null; }}
-          >
-            <ExpandableScreenTrigger className="block w-full">
-              <div className="flex w-full items-center gap-1 rounded-2xl border bg-background/95 p-1.5 shadow-2xl backdrop-blur-xl">
-                <div className="min-w-0 flex-1 px-2.5 py-1">
-                  <div className="text-[11px] text-muted-foreground">Total {props.cart.length} item</div>
-                  <div className="font-mono text-base font-semibold tabular-nums">
-                    {formatCurrencyPlain(props.subtotal)}
-                  </div>
-                </div>
-                <Button
-                  size="sm"
-                  className="shrink-0"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    props.onBayar();
-                  }}
-                >
-                  Checkout
-                </Button>
+        <ExpandableScreenTrigger className="block w-full">
+          <div className="flex w-full items-center gap-1 rounded-2xl border bg-background/95 p-1.5 shadow-2xl backdrop-blur-xl">
+            <div className="min-w-0 flex-1 px-2.5 py-1">
+              <div className="text-[11px] text-muted-foreground">Total {props.cart.length} item</div>
+              <div className="font-mono text-base font-semibold tabular-nums">
+                {formatCurrencyPlain(props.subtotal)}
               </div>
-            </ExpandableScreenTrigger>
+            </div>
+            <Button
+              size="sm"
+              className="shrink-0"
+              onClick={(event) => {
+                event.stopPropagation();
+                props.onBayar();
+              }}
+            >
+              Checkout
+            </Button>
           </div>
-        </div>
+        </ExpandableScreenTrigger>
 
         <ExpandableScreenContent
           showCloseButton={false}

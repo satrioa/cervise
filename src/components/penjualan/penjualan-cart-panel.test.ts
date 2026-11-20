@@ -14,15 +14,10 @@ describe("dock keranjang penjualan", () => {
     expect(expander).toContain("data-hide-dock");
   });
 
-  it("pill dock bisa digeser kiri untuk membuka tombol Hapus", () => {
-    expect(expander).toMatch(/onPointerDown=\{onPointerDown\}/);
-    expect(expander).toMatch(/onPointerUp=\{onPointerUp\}/);
-    expect(expander).toMatch(/setRevealed\(dx < 0\)/);
-    expect(expander).toMatch(/translateX\(-96px\)/);
-    expect(expander).toMatch(/aria-label="Kosongkan keranjang"/);
-  });
-
-  it("tidak ada swipe pada baris item keranjang", () => {
+  it("pill dock tanpa gesture hapus", () => {
+    expect(expander).not.toMatch(/onPointerDown|onPointerUp/);
+    expect(expander).not.toMatch(/translateX\(-96px\)/);
+    expect(expander).not.toContain("aria-label=\"Kosongkan keranjang\"");
     expect(source).not.toContain("SwipeActionsRow");
   });
 });
