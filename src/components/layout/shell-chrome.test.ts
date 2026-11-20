@@ -77,7 +77,7 @@ describe("shell chrome", () => {
     expect(compactDockNav).not.toMatch(/t\("menu\.title"\)/);
     expect(compactDockNav).not.toMatch(/onOpenMenu/);
     expect(compactDockNav).toMatch(/fill="currentColor"/);
-    expect(compactDockNav).toMatch(/rounded-xl px-1 py-1.5 text-\[10px\]/);
+    expect(compactDockNav).toMatch(/size-14 flex-col gap-1/);
     // Overlay mengambang di atas isi halaman.
     expect(compactDockNav).toMatch(/z-30/);
     expect(compactDockNav).toMatch(/pt-2 pb-\[calc\(1rem\+env\(safe-area-inset-bottom\)\)\]/);

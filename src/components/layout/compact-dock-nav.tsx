@@ -4,6 +4,7 @@ import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { House, Package, ShoppingCart, Wrench, type LucideIcon } from "lucide-react";
 import { MainNavLink } from "@/components/layout/main-nav-transition";
+import { Button } from "@/components/ui/button";
 import { normalizeAppRole } from "@/lib/nav/manifest";
 import { cn } from "@/lib/utils";
 
@@ -37,29 +38,39 @@ export function CompactDockNav({ role, hidden = false }: { role: string; hidden?
       )}
       data-compact-dock=""
     >
-      <div className="pointer-events-auto flex items-center gap-1 bg-white/95 px-8 pt-2 pb-[calc(1rem+env(safe-area-inset-bottom))] shadow-[0_-8px_24px_-20px_rgba(0,0,0,0.45)] ring-1 ring-black/5 backdrop-blur dark:bg-neutral-900/95 dark:ring-white/10">
+      <div className="pointer-events-auto relative flex items-center gap-1 px-8 pt-2 pb-[calc(1rem+env(safe-area-inset-bottom))]">
+        {/* Fade hitam di belakang tombol; wrap dock sendiri tetap transparan. */}
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 -z-10 bg-gradient-to-t from-black/70 via-black/40 to-transparent"
+        />
         <nav
           aria-label="Navigasi utama"
-          className="flex min-w-0 flex-1 items-center justify-around gap-0.5"
+          className="flex min-w-0 flex-1 items-center justify-around gap-2"
         >
           {items.map((item) => {
             const Icon = item.icon;
             const active = isActive(pathname, item.href);
             return (
-              <MainNavLink
+              <Button
                 key={item.href}
-                href={item.href}
-                aria-current={active ? "page" : undefined}
+                variant="candy"
+                shape="square"
+                size="icon-lg"
                 className={cn(
-                  "flex min-w-0 flex-1 flex-col items-center gap-0.5 rounded-xl px-1 py-1.5 text-[10px] font-medium leading-none transition-colors",
-                  active
-                    ? "text-[#2563EB]"
-                    : "text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white",
+                  "size-14 flex-col gap-1 rounded-none text-[10px] leading-none",
+                  "[--btn:#fff] [--btn-hover:#f3f4ff] [--btn-fg:var(--color-brand)]",
+                  active ? "opacity-100" : "opacity-80",
                 )}
+                render={
+                  <MainNavLink href={item.href} aria-current={active ? "page" : undefined}>
+                    {null}
+                  </MainNavLink>
+                }
               >
-                <Icon className="size-[18px]" fill="currentColor" />
+                <Icon className="size-5" fill="currentColor" />
                 <span className="max-w-full truncate">{item.label}</span>
-              </MainNavLink>
+              </Button>
             );
           })}
         </nav>

@@ -1169,3 +1169,11 @@ html[data-ui-world="toy"] [data-shell="compact"] .bg-card {
 html[data-ui-world="toy"] [data-shell="compact"] .bg-background {
   background-color: var(--toy-surface-2);
 }
+
+/* Dock compact: wrap transparan dengan fade hitam, tanpa outline/background tema. */
+html[data-ui-world] [data-compact-dock],
+html[data-ui-world] [data-compact-dock] > div {
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+}

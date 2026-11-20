@@ -8,14 +8,21 @@ const source = readFileSync(
 );
 
 describe("dock mobile tema normal", () => {
-  it("terang di light mode dan gelap di dark mode", () => {
-    expect(source).toContain("bg-white/95");
-    expect(source).toContain("dark:bg-neutral-900/95");
-    expect(source).toContain("ring-black/5");
-    expect(source).toContain("dark:ring-white/10");
-    // Urutan invers (gelap di light, terang di dark) tidak boleh kembali.
-    expect(source).not.toMatch(/["' ]bg-neutral-900\/95/);
-    expect(source).not.toContain("dark:bg-white/95");
+  it("wrap transparan dengan fade hitam di belakangnya", () => {
+    expect(source).toMatch(/bg-gradient-to-t from-black\/70 via-black\/40 to-transparent/);
+    expect(source).not.toContain("bg-white/95");
+    expect(source).not.toContain("dark:bg-neutral-900/95");
+    expect(source).not.toContain("ring-black/5");
+    expect(source).not.toContain("dark:ring-white/10");
+  });
+
+  it("tombol menu candy putih berbentuk kotak dengan label di dalam", () => {
+    expect(source).toContain('variant="candy"');
+    expect(source).toContain('shape="square"');
+    expect(source).toMatch(/\[--btn:#fff\]/);
+    expect(source).toMatch(/\[--btn-fg:var\(--color-brand\)\]/);
+    expect(source).toMatch(/size-14 flex-col/);
+    expect(source).toMatch(/<span className="max-w-full truncate">\{item\.label\}<\/span>/);
   });
 
   it("melekat di bawah tanpa radius", () => {
@@ -29,8 +36,8 @@ describe("dock mobile tema normal", () => {
     expect(source).toContain("pt-2 pb-[calc(1rem+env(safe-area-inset-bottom))]");
   });
 
-  it("warna teks mengikuti tema halaman", () => {
-    expect(source).toContain("text-neutral-500 hover:text-neutral-900");
-    expect(source).toContain("dark:text-neutral-400 dark:hover:text-white");
+  it("ikon dan label memakai warna brand di atas permukaan putih", () => {
+    expect(source).toContain("--btn-fg:var(--color-brand)");
+    expect(source).toMatch(/active \? "opacity-100" : "opacity-80"/);
   });
 });
