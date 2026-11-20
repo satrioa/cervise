@@ -10,6 +10,8 @@ const css = read("src/app/globals.css");
 const hero = read("src/components/originkit/hero-02.tsx");
 const bento = read("src/components/landing/bento-section.tsx");
 const pricing = read("src/components/pricing-three-tier.tsx");
+const layout = read("src/app/layout.tsx");
+const sync = read("src/components/layout/theme-color-sync.tsx");
 
 describe("landing page tidak mengikuti mode dark/light aplikasi", () => {
   it("pembungkus landing memakai scope terang", () => {
@@ -26,5 +28,24 @@ describe("landing page tidak mengikuti mode dark/light aplikasi", () => {
     expect(hero).not.toMatch(/dark:/);
     expect(bento).not.toMatch(/dark:/);
     expect(pricing).not.toMatch(/dark:/);
+  });
+});
+
+describe("status bar / toolbar browser mengikuti warna halaman", () => {
+  it("landing memaksa theme-color putih", () => {
+    expect(page).toMatch(/export const viewport: Viewport = \{\s*themeColor: "#ffffff"/);
+  });
+
+  it("layout memakai theme-color light/dark untuk preferensi sistem", () => {
+    expect(layout).toContain('media: "(prefers-color-scheme: light)"');
+    expect(layout).toContain('media: "(prefers-color-scheme: dark)"');
+    expect(layout).toContain("<ThemeColorSync />");
+  });
+
+  it("sinkronisasi mengikuti rute dan toggle tema", () => {
+    expect(sync).toContain('pathname === "/"');
+    expect(sync).toContain('resolvedTheme !== "dark"');
+    expect(sync).toContain('meta[name="theme-color"]');
+    expect(sync).toContain("meta.removeAttribute(\"media\")");
   });
 });

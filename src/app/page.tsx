@@ -11,6 +11,13 @@ import { publicPhotoUrl } from "@/lib/photos";
 import { PricingThreeTier } from "@/components/pricing-three-tier";
 import { getPublicPackages, getPublicPromo } from "@/lib/pricing/public";
 import SpecialPromoSection from "@/components/landing/special-promo-section";
+import type { Viewport } from "next";
+
+// Landing selalu terang (`.landing-light`), jadi toolbar browser tetap putih
+// walaupun tema aplikasi sedang dark.
+export const viewport: Viewport = {
+  themeColor: "#ffffff",
+};
 
 export default async function LandingPage() {
   const supabase = await createClient();
