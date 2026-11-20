@@ -1228,7 +1228,7 @@ export default function ServisPage() {
               <DialogPrimitive.Title className="font-heading text-lg font-semibold">Tambah Servis</DialogPrimitive.Title>
               <DialogPrimitive.Description className="text-sm text-muted-foreground">Isi data servis baru — status awal Masuk</DialogPrimitive.Description>
             </div>
-            <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain">
+            <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain scrollbar-none">
               <div className="px-4 sm:px-6 py-4">
                 <ServisForm onSuccess={() => setOpenServis(false)} onCancel={() => setOpenServis(false)} />
               </div>
@@ -1288,7 +1288,7 @@ export default function ServisPage() {
               <DialogPrimitive.Title className="font-heading text-lg font-semibold">Edit Servis {selectedServis?.serviceNumber ?? selectedServis?.id}</DialogPrimitive.Title>
               <DialogPrimitive.Description className="text-sm text-muted-foreground">Form lengkap sama seperti create — siapa yang input terkunci, kondisi awal readonly.</DialogPrimitive.Description>
             </div>
-            <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain">
+            <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain scrollbar-none">
               <div className="px-4 sm:px-6 py-4">
                 {detailLoading ? (
                   <ServisFormSkeleton />
