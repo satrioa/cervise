@@ -10,7 +10,7 @@ import { MenuPreferences } from "@/components/layout/menu-preferences";
 import { MenuSound } from "@/components/layout/menu-sound";
 import { PrinterSettings } from "@/components/pengaturan/printer-card";
 import { AppImage } from "@/components/ui/app-image";
-import { useRef, type TouchEvent } from "react";
+import { useEffect, useRef, useState, type TouchEvent } from "react";
 import { UserRound } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
@@ -61,6 +61,15 @@ export function CompactMenuSheet({
   const tn = useTranslations("nav");
   const router = useRouter();
   const { theme: appTheme, setTheme } = useTheme();
+  const [desktop, setDesktop] = useState(false);
+
+  useEffect(() => {
+    const mql = window.matchMedia("(min-width: 1024px)");
+    const update = () => setDesktop(mql.matches);
+    update();
+    mql.addEventListener("change", update);
+    return () => mql.removeEventListener("change", update);
+  }, []);
   const { tenants, activeOrgId } = useTenant();
   const { branch } = useBranch();
   const tenant =
@@ -98,7 +107,8 @@ export function CompactMenuSheet({
       <SheetTitle className="sr-only">{t("title")}</SheetTitle>
       <SheetDescription className="sr-only">{t("description")}</SheetDescription>
 
-      {/* Identitas tenant/cabang selalu terlihat di sheet, termasuk desktop. */}
+      {/* Identitas tenant/cabang + command key hanya untuk sheet mobile. */}
+      {desktop ? null : (
       <div className="shrink-0 px-5 pt-3">
         <div className="rounded-2xl bg-white/70 p-3 shadow-sm dark:bg-white/[0.04]">
           <div className="flex items-center gap-2.5">
@@ -123,6 +133,7 @@ export function CompactMenuSheet({
           />
         </div>
       </div>
+      )}
 
       <div
         ref={scrollRef}
@@ -153,7 +164,8 @@ export function CompactMenuSheet({
           <PrinterSettings compact />
         </MenuSection>
 
-        {/* Profil & branding ikut scroll, di bawah daftar menu. */}
+        {/* Profil hanya untuk sheet mobile; footer tetap tampil di desktop. */}
+        {desktop ? null : (
         <div className="mt-4 border-t border-black/5 pt-3 dark:border-white/10">
         <ProfileDropdown
           accounts={[
@@ -185,7 +197,10 @@ export function CompactMenuSheet({
           }}
           className="block w-full [&>button]:w-full [&>button]:rounded-xl [&>button]:border-black/5 [&>button]:bg-white [&>button]:shadow-sm dark:[&>button]:border-white/10 dark:[&>button]:bg-neutral-900"
         />
-        <footer className="pt-3 text-center">
+        </div>
+        )}
+
+        <footer className="pt-4 text-center">
           <AppImage
             src="/Logo/IconLogo.png?v=2"
             alt="Kaggo"
@@ -201,7 +216,6 @@ export function CompactMenuSheet({
             V0.1.0 / Made by Sat.
           </p>
         </footer>
-        </div>
       </div>
     </div>
   );

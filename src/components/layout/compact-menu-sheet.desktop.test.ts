@@ -15,11 +15,17 @@ describe("menu sheet identitas tenant/cabang dan profil", () => {
     expect(tenantIndex).toBeLessThan(scrollIndex);
   });
 
+  it("identitas tenant/cabang dan profil disembunyikan di desktop", () => {
+    const hidden = source.match(/desktop \? null :/g) ?? [];
+    expect(hidden.length).toBeGreaterThanOrEqual(2);
+    expect(source).toMatch(/min-width: 1024px/);
+  });
+
   it("profil dan branding tetap ikut scroll di bawah daftar menu", () => {
     const profileIndex = source.indexOf("<ProfileDropdown");
     const footerIndex = source.indexOf("<footer");
     expect(profileIndex).toBeGreaterThan(-1);
     expect(footerIndex).toBeGreaterThan(profileIndex);
-    expect(source).toMatch(/Profil & branding ikut scroll/);
+    expect(source).toMatch(/Profil hanya untuk sheet mobile; footer tetap tampil di desktop/);
   });
 });
