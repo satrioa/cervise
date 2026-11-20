@@ -1,31 +1,37 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { rpc, upload, remove, cookiesSet, cookiesGet, revalidatePath, verifySessionMock } =
+const { rpc, upload, remove, cookiesSet, cookiesGet, cookiesDelete, revalidatePath, verifySessionMock } =
   vi.hoisted(() => {
     const rpc = vi.fn();
     const upload = vi.fn();
     const remove = vi.fn();
     const cookiesSet = vi.fn();
     const cookiesGet = vi.fn();
+    const cookiesDelete = vi.fn();
     return {
-      rpc, upload, remove, cookiesSet, cookiesGet,
+      rpc, upload, remove, cookiesSet, cookiesGet, cookiesDelete,
       revalidatePath: vi.fn(),
       verifySessionMock: vi.fn(),
     };
   });
 
 vi.mock("@/lib/supabase/admin", () => ({ createAdminClient: () => ({ rpc, storage: { from: () => ({ upload, remove }) } }) }));
-vi.mock("next/headers", () => ({ cookies: async () => ({ set: cookiesSet, get: cookiesGet }) }));
+vi.mock("next/headers", () => ({ cookies: async () => ({ set: cookiesSet, get: cookiesGet, delete: cookiesDelete }) }));
 vi.mock("next/cache", () => ({ revalidatePath }));
 vi.mock("@/lib/attendance/session", () => ({ verifySession: verifySessionMock, signSession: vi.fn(() => "token") }));
 vi.mock("@/lib/attendance/pin", () => ({ validPin: (v: string) => /^\d{6}$/.test(v) }));
 
-import { loginWithPin, readSession, submitKioskAttendance } from "./actions";
+import { loginWithPin, logoutKiosk, readSession, submitKioskAttendance } from "./actions";
 
 it("readSession returns null without a cookie even if the secret is not configured", async () => {
   delete process.env.ABSEN_SESSION_SECRET;
   cookiesGet.mockReturnValueOnce(undefined);
   await expect(readSession()).resolves.toBeNull();
+});
+
+it("logoutKiosk menghapus cookie sesi", async () => {
+  await logoutKiosk();
+  expect(cookiesDelete).toHaveBeenCalledWith("kaggo_absen_session");
 });
 
 function loginForm(email = "budi@kaggo.id", pin = "123456") {
