@@ -18,9 +18,10 @@ describe("mockup hero di mobile", () => {
     expect(layer).toContain("md:block");
   });
 
-  it("hanya menampilkan HP aktif dan memakai tinggi mobile yang lebih pendek", () => {
+  it("hanya menampilkan HP aktif dan memotong setengah bagian atas di mobile", () => {
     const source = read("src/components/phone-carousel.tsx");
     expect(source).toMatch(/hidden md:block/);
-    expect(source).toContain("h-[520px] md:h-[560px] lg:h-[590px]");
+    expect(source).toContain("h-[360px] md:h-[560px] lg:h-[590px]");
+    expect(source).toContain("w-[min(88vw,360px)] md:w-[400px]");
   });
 });
