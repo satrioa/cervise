@@ -361,7 +361,7 @@ export async function getInvoices() {
     supabase
       .from("invoices")
       .select(
-        "id, organization_id, invoice_number, invoice_type, status, amount, period_start, period_end, due_date, whatsapp_sent_at, decision_note, organization:organizations!inner(id, name), package:packages!inner(name)",
+        "id, organization_id, invoice_number, invoice_type, status, amount, period_start, period_end, due_date, whatsapp_sent_at, wa_confirmation_sent_at, decision_note, organization:organizations!inner(id, name), package:packages!inner(name)",
       )
       .order("created_at", { ascending: false })
       .limit(500),
@@ -898,7 +898,7 @@ export async function getPlatformSettings() {
   const { supabase } = await requirePlatformAdmin();
   const { data, error } = await supabase
     .from("platform_settings")
-    .select("renewal_lead_days, default_grace_days, owner_whatsapp, owner_email, promo_title, promo_headline, promo_subtext, promo_price, promo_included, promo_separate, promo_note, promo_ends_at")
+    .select("renewal_lead_days, default_grace_days, owner_whatsapp, owner_email, bank_name, bank_account_name, bank_account_number, promo_title, promo_headline, promo_subtext, promo_price, promo_included, promo_separate, promo_note, promo_ends_at")
     .eq("id", true)
     .single();
   if (error) throw error;
@@ -910,6 +910,9 @@ export async function updatePlatformSettings(input: {
   defaultGraceDays: string | number;
   ownerWhatsapp: string;
   ownerEmail: string;
+  bankName: string;
+  bankAccountName: string;
+  bankAccountNumber: string;
 }) {
   const { supabase } = await requirePlatformAdmin();
   const renewalLeadDays = Number(input.renewalLeadDays);
@@ -928,6 +931,9 @@ export async function updatePlatformSettings(input: {
       default_grace_days: defaultGraceDays,
       owner_whatsapp: input.ownerWhatsapp.trim() || null,
       owner_email: input.ownerEmail.trim() || null,
+      bank_name: input.bankName.trim() || null,
+      bank_account_name: input.bankAccountName.trim() || null,
+      bank_account_number: input.bankAccountNumber.trim() || null,
     })
     .eq("id", true);
   if (error) throw error;
