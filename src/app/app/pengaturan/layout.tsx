@@ -29,6 +29,12 @@ const GROUP_LABEL: Partial<Record<NavGroup, string>> = {
 const GROUP_ORDER: NavGroup[] = ["akun", "pengaturan"];
 
 /**
+ * Halaman tagihan tetap bisa dibuka lewat URL/redirect (jalur pemulihan
+ * pembayaran), tapi tidak lagi dipajang sebagai menu pengaturan.
+ */
+const HIDDEN_SETTINGS_HREFS = new Set(["/app/pengaturan/subscription"]);
+
+/**
  * Bentuk payload untuk Client Component, dibangun di sini dari `NavEntry`.
  *
  * Dipisah sebagai fungsi murni supaya bisa diuji tanpa `getActiveTenant()`.
@@ -38,7 +44,7 @@ export function buildSettingsGroups(entries: NavEntry[]): SettingsNavGroup[] {
     group,
     label: GROUP_LABEL[group],
     entries: entries
-      .filter((entry) => entry.group === group)
+      .filter((entry) => entry.group === group && !HIDDEN_SETTINGS_HREFS.has(entry.href))
       .map(({ href, label }) => ({ href, label })),
   })).filter((block) => block.entries.length > 0);
 }

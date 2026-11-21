@@ -76,8 +76,15 @@ describe("isi sub-sidebar", () => {
     expect(hrefs).toContain("/app/pengaturan");
     expect(hrefs).toContain("/app/pengaturan/tampilan");
     expect(hrefs).toContain("/app/pengaturan/nota");
-    expect(hrefs).toContain("/app/pengaturan/subscription");
+    expect(hrefs).not.toContain("/app/pengaturan/subscription");
     expect(hrefs).toContain("/app/pengaturan/usage");
+  });
+
+  it("subscription tidak dipajang di menu, tapi entri & halamannya tetap ada", () => {
+    const groups = buildSettingsGroups(entriesForRole("MASTER_ADMIN"));
+    expect(groups.flatMap((b) => b.entries.map((e) => e.href))).not.toContain("/app/pengaturan/subscription");
+    // Guard billing dan redirect trial masih bergantung pada entri ini.
+    expect(NAV_ENTRIES.some((e) => e.href === "/app/pengaturan/subscription")).toBe(true);
   });
 
   it("Akun dan Pengaturan Tenant dipisah dengan label yang jelas", () => {
@@ -95,7 +102,6 @@ describe("isi sub-sidebar", () => {
       "/app/pengaturan",
       "/app/pengaturan/tampilan",
       "/app/pengaturan/nota",
-      "/app/pengaturan/subscription",
       "/app/pengaturan/usage",
       "/app/pengaturan/role",
     ]);
