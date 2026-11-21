@@ -15,10 +15,15 @@ describe("kalkulator Pay as You Grow", () => {
     expect(source).not.toMatch(/type="number"/);
   });
 
-  it("minimum slider mengikuti kapasitas Starter dari konfigurasi", () => {
+  it("kalkulator hanya punya slider jumlah cabang", () => {
+    const calculator = source.slice(source.indexOf('id="kalkulator-custom"'));
     expect(source).toMatch(/\["branches", "Jumlah cabang", config\?\.includedBranches \?\? 1/);
-    expect(source).toMatch(/\["employees", "Karyawan aktif", config\?\.includedEmployees \?\? 5/);
-    expect(source).toMatch(/\["services", "Tiket servis \/ bulan", config\?\.includedServices \?\? 100/);
+    expect(calculator).not.toContain("Karyawan aktif");
+    expect(calculator).not.toContain("Tiket servis / bulan");
+    expect(calculator).not.toContain("<span>Karyawan</span>");
+    expect(calculator).not.toContain("<span>Tiket / bulan</span>");
+    expect(calculator).not.toContain("Tambah karyawan");
+    expect(calculator).not.toContain("blok tiket");
   });
 
   it("kartu Custom menampilkan teks Custom, bukan angka", () => {

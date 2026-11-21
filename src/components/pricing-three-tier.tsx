@@ -248,8 +248,6 @@ export function PricingThreeTier({ packages }: { packages: PublicPackage[] }) {
             <div className="flex flex-col gap-5">
               {([
                 ["branches", "Jumlah cabang", config?.includedBranches ?? 1, 30, 1, "cabang"],
-                ["employees", "Karyawan aktif", config?.includedEmployees ?? 5, 100, 1, "karyawan"],
-                ["services", "Tiket servis / bulan", config?.includedServices ?? 100, 5000, 100, "tiket"],
               ] as const).map(([key, label, min, max, stepSize, unit]) => (
                 <div key={key} className="space-y-2">
                   <div className="flex items-baseline justify-between gap-2">
@@ -271,7 +269,7 @@ export function PricingThreeTier({ packages }: { packages: PublicPackage[] }) {
                 </div>
               ))}
               <div className="text-xs text-muted-foreground">
-                Minimum: {config?.includedBranches ?? 1} cabang · {config?.includedEmployees ?? 5} karyawan · {config?.includedServices ?? 100} tiket/bulan.
+                Minimum: {config?.includedBranches ?? 1} cabang.
               </div>
             </div>
 
@@ -287,15 +285,11 @@ export function PricingThreeTier({ packages }: { packages: PublicPackage[] }) {
                 </TabsList>
               </Tabs>
               <div className="flex justify-between"><span>Cabang</span><span>{input.branches}</span></div>
-              <div className="flex justify-between"><span>Karyawan</span><span>{input.employees}</span></div>
-              <div className="flex justify-between"><span>Tiket / bulan</span><span>{input.services}</span></div>
               <div className="flex justify-between"><span>Kuota WA</span><span>{preview.whatsappQuota} pesan</span></div>
               <div className="mt-3 border-t pt-3 space-y-1">
                 <div className="text-xs text-muted-foreground">Rincian bulanan</div>
                 <div className="flex justify-between text-muted-foreground"><span>Harga dasar</span><span>{formatRupiah(preview.base)}</span></div>
                 <div className="flex justify-between text-muted-foreground"><span>Tambah cabang</span><span>{formatRupiah(preview.branchAddon)}</span></div>
-                <div className="flex justify-between text-muted-foreground"><span>Tambah karyawan</span><span>{formatRupiah(preview.employeeAddon)}</span></div>
-                <div className="flex justify-between text-muted-foreground"><span>Tambah {preview.extraServiceBlocks} blok tiket</span><span>{formatRupiah(preview.serviceAddon)}</span></div>
               </div>
               <div className="mt-3 border-t pt-3">
                 <div className="flex justify-between font-medium">
