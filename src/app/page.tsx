@@ -6,6 +6,7 @@ import { FeatureSection } from "@/components/feature-section";
 import FeatureShowcase from "@/components/landing/feature-showcase";
 import FooterSimple from "@/components/ui/smoothui/footer-1";
 import CustomPackageCta from "@/components/landing/custom-package-cta";
+import { FaqSection } from "@/components/landing/faq-section";
 import { LandingSmoothScroll } from "@/components/layout/landing-smooth-scroll";
 import { publicPhotoUrl } from "@/lib/photos";
 import { PricingThreeTier } from "@/components/pricing-three-tier";
@@ -90,6 +91,8 @@ export default async function LandingPage() {
 
       <CustomPackageCta />
 
+      <FaqSection />
+
       <FooterSimple
         companyName="Kaggo"
         logoUrl="/Logo/IconLogo.png?v=2"
@@ -99,6 +102,7 @@ export default async function LandingPage() {
           product: [
             { name: "Fitur", url: "#fitur" },
             { name: "Harga", url: "#harga" },
+            { name: "FAQ", url: "#faq" },
             { name: "Mulai Trial", url: "/signup" },
           ],
           company: [
