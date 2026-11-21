@@ -7,6 +7,7 @@ import {
   parseCreateTenantInput,
   parseInvoiceDecisionInput,
   parsePackageInput,
+  parseTopupPackageInput,
 } from "@/lib/platform/validation";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { findAuthUserByEmail } from "@/lib/supabase/admin-users";
@@ -1011,4 +1012,102 @@ export async function createPlatformIncident(input: {
   revalidatePath("/owner");
   revalidatePath("/owner/settings");
   return { ok: true };
+}
+
+// ---------------------------------------------------------------------------
+// Paket top-up WhatsApp & penyesuaian kuota (Platform Owner)
+// ---------------------------------------------------------------------------
+
+export async function saveTopupPackage(input: {
+  id?: string;
+  code: string;
+  name: string;
+  messageQuantity: number | string;
+  priceIdr: number | string;
+  isActive?: boolean;
+  sortOrder?: number | string;
+}) {
+  await requirePlatformAdmin();
+  const value = parseTopupPackageInput(input);
+  const admin = createAdminClient();
+  const row = {
+    code: value.code,
+    name: value.name,
+    message_quantity: value.messageQuantity,
+    price_idr: value.priceIdr,
+    is_active: value.isActive,
+    sort_order: value.sortOrder,
+  };
+
+  if (value.id) {
+    const { error } = await admin.from("wa_topup_packages").update(row).eq("id", value.id);
+    if (error) throw error;
+  } else {
+    const { error } = await admin.from("wa_topup_packages").insert(row);
+    if (error) throw error;
+  }
+
+  const actor = await admin.auth.getUser();
+  await admin.from("platform_audit_logs").insert({
+    actor_user_id: actor.data.user?.id ?? null,
+    action: value.id ? "wa_topup_package.updated" : "wa_topup_package.created",
+    entity_type: "wa_topup_package",
+    entity_id: value.id ?? null,
+    metadata: row as never,
+  });
+
+  revalidatePath("/owner/settings");
+  revalidatePath("/app/pengaturan/usage");
+  return { ok: true };
+}
+
+export async function setTopupPackageActive(id: string, isActive: boolean) {
+  await requirePlatformAdmin();
+  if (!id) throw new Error("ID paket tidak valid");
+  const { error } = await createAdminClient()
+    .from("wa_topup_packages")
+    .update({ is_active: isActive })
+    .eq("id", id);
+  if (error) throw error;
+  revalidatePath("/owner/settings");
+  revalidatePath("/app/pengaturan/usage");
+  return { ok: true };
+}
+
+export async function adjustTenantWaQuota(
+  organizationId: string,
+  amount: number,
+  reason: string,
+) {
+  await requirePlatformAdmin();
+  if (!organizationId || !Number.isInteger(amount) || amount === 0) {
+    throw new Error("Data penyesuaian tidak valid");
+  }
+  const { error } = await createAdminClient().rpc("platform_adjust_wa_quota", {
+    p_organization_id: organizationId,
+    p_amount: amount,
+    p_reason: reason,
+  });
+  if (error) throw error;
+  revalidatePath(`/owner/tenants/${organizationId}`);
+  revalidatePath("/app/pengaturan/usage");
+  return { ok: true };
+}
+
+export async function retryPaymentFulfillment(invoiceId: string) {
+  await requirePlatformAdmin();
+  if (!invoiceId) throw new Error("Invoice tidak valid");
+  const { error } = await createAdminClient().rpc("platform_retry_fulfillment", {
+    p_invoice_id: invoiceId,
+  });
+  if (error) throw error;
+  revalidatePath("/owner/billing");
+  revalidatePath("/app/pengaturan/usage");
+  return { ok: true };
+}
+
+export async function getOwnerProofUrl(storagePath: string) {
+  await requirePlatformAdmin();
+  const { getProofSignedUrl } = await import("@/lib/payments/payment-service");
+  return getProofSignedUrl(storagePath);
 }

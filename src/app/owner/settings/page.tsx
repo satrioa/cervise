@@ -4,16 +4,56 @@ import { SettingsForm } from "@/components/owner/settings-form";
 import { PromoSettingsForm } from "@/components/owner/promo-settings-form";
 import { IncidentForm } from "@/components/owner/incident-form";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { TopupPackageManager } from "@/components/owner/topup-package-manager";
+import { PAYMENT_PROVIDERS } from "@/lib/payments/provider";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 export default async function OwnerSettingsPage() {
-  const settings = await getPlatformSettings();
+  const [settings, topupResult] = await Promise.all([
+    getPlatformSettings(),
+    createAdminClient()
+      .from("wa_topup_packages")
+      .select("id, code, name, message_quantity, price_idr, is_active, sort_order")
+      .order("sort_order", { ascending: true }),
+  ]);
+  const topupPackages = topupResult.data ?? [];
   return (
     <div className="mx-auto max-w-4xl space-y-6">
       <div>
         <div className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.3em] text-muted-foreground"><Settings2Icon className="size-3.5" /> Platform settings</div>
         <h1 className="mt-1 font-heading text-3xl">Settings</h1>
-        <p className="mt-1 text-sm text-muted-foreground">Atur reminder renewal, grace period, kontak WhatsApp platform owner, dan Special Promo.</p>
+        <p className="mt-1 text-sm text-muted-foreground">Atur pembayaran, paket top-up WhatsApp, renewal, grace period, kontak owner, dan Special Promo.</p>
       </div>
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Payment providers</CardTitle>
+          <CardDescription>Transfer bank manual adalah satu-satunya provider aktif. Duitku menunggu persetujuan merchant.</CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-3">
+          {PAYMENT_PROVIDERS.map((provider) => (
+            <div key={provider.id} className="flex flex-col gap-1 rounded-lg border p-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <div className="font-medium">{provider.label}</div>
+                <p className="text-xs text-muted-foreground">{provider.notice}</p>
+              </div>
+              <Badge variant={provider.state === "active" ? "success" : "warning"} className="self-start sm:self-auto">
+                {provider.state === "active" ? "ACTIVE" : "NOT CONFIGURED"}
+              </Badge>
+            </div>
+          ))}
+          <p className="text-xs text-muted-foreground">
+            Jangan mengaktifkan checkout Duitku sebelum verifikasi merchant selesai. Tidak ada kredensial atau simulasi pembayaran di aplikasi ini.
+          </p>
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Paket top-up WhatsApp</CardTitle>
+          <CardDescription>Dijual per jumlah pesan dengan harga IDR. Shared untuk seluruh cabang tenant.</CardDescription>
+        </CardHeader>
+        <CardContent><TopupPackageManager packages={topupPackages as never} /></CardContent>
+      </Card>
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Renewal defaults</CardTitle>

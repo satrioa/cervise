@@ -17,6 +17,7 @@ import {
   type BillingInvoice,
   type InvoiceStatus,
 } from "@/components/billing-overview";
+import { WaTopupPanel } from "@/components/billing/wa-topup-panel";
 
 type UsageData = {
   services_used: number;
@@ -74,9 +75,30 @@ function invoiceStatus(status: string): InvoiceStatus {
 export default function UsagePage({
   usage,
   billing,
+  wallet,
+  topupPackages,
+  ledger,
+  branchUsage,
+  proofs,
+  topupInvoices,
+  branches,
 }: {
   usage: UsageData | Record<string, unknown> | null;
   billing: BillingData;
+  wallet: {
+    organization_id: string;
+    included_limit: number;
+    included_used: number;
+    topup_balance: number;
+    period_start: string;
+    period_end: string;
+  } | null;
+  topupPackages: { id: string; code: string; name: string; message_quantity: number; price_idr: number }[];
+  ledger: { id: string; transaction_type: string; amount: number; description: string; reason: string | null; created_at: string }[];
+  branchUsage: { branch_id: string | null; units: number }[];
+  proofs: { id: string; invoice_id: string; storage_path: string; file_name: string; created_at: string }[];
+  topupInvoices: { id: string; invoice_number: string; invoice_type: string; status: string; amount: number; wa_message_quantity: number | null; due_date: string; created_at: string }[];
+  branches: { id: string; name: string }[];
 }) {
   const router = useRouter();
   const [rows, setRows] = useState<any[]>([]);
@@ -184,28 +206,39 @@ export default function UsagePage({
             {
               label: "Tiket servis",
               used: data?.services_used ?? 0,
-              limit: data?.ticket_limit ?? null,
+              limit: null,
               unit: "tiket",
-              note: "Jumlah servis yang dibuat pada periode ini. Batas mengikuti kuota tiket paket Anda.",
+              note: "Tiket servis tanpa batas. Jumlah ini hanya untuk informasi.",
             },
             {
               label: "Pesan WhatsApp included",
-              used: data?.wa_included_used ?? 0,
-              limit: data?.wa_included_limit ?? null,
+              used: wallet?.included_used ?? data?.wa_included_used ?? 0,
+              limit: wallet?.included_limit ?? data?.wa_included_limit ?? null,
               unit: "pesan",
-              note: "Pesan otomatis gratis yang sudah termasuk paket.",
+              note: "Kuota bulanan shared untuk seluruh cabang. Di-reset di awal periode tagihan.",
             },
             {
               label: "Pesan WhatsApp top-up",
               used: data?.wa_topup_used ?? 0,
-              limit: data?.wa_topup_granted ?? null,
+              limit: (data?.wa_topup_granted ?? 0) + (wallet?.topup_balance ?? 0) || null,
               unit: "pesan",
-              note: "Pesan tambahan yang dibeli terpisah dari paket.",
+              note: "Pesan tambahan yang dibeli dari platform owner. Tidak hangus saat kuota bulanan di-reset.",
             },
           ]}
           invoices={invoices}
           onChangePlan={() => router.push("/app/pengaturan/subscription")}
         />
+
+        <div className="mt-6">
+          <WaTopupPanel
+            packages={topupPackages}
+            invoices={topupInvoices}
+            proofs={proofs}
+            ledger={ledger}
+            branches={branches}
+            branchUsage={branchUsage}
+          />
+        </div>
 
         <div className="mt-6 grid gap-4 lg:grid-cols-2">
           <Card>

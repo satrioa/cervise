@@ -7,6 +7,7 @@ import { SwipeActions, SwipeActionsRow, type SwipeAction } from "@/components/ar
 import { format } from "date-fns";
 import { id as localeId } from "date-fns/locale";
 import { playPageTransition } from "@/components/layout/page-transition";
+import { recordManualWaSend } from "./wa-actions";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -579,7 +580,7 @@ export default function ServisPage() {
     w.document.close();
   };
 
-  const handleInvoice = (s: ServisItem) => {
+  const handleInvoice = async (s: ServisItem) => {
     if (s.price === 0) {
       alert("Harga belum diisi, tidak bisa kirim invoice");
       return;
@@ -591,6 +592,13 @@ export default function ServisPage() {
       return;
     }
     const tracking = publicTrackingUrl(printContext.tenantSlug, s.trackingCode);
+    try {
+      // Kuota dipotong sekali per invoice di server sebelum tautan dibuka.
+      await recordManualWaSend(s.id);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Gagal mencatat pemakaian kuota WA");
+      return;
+    }
     const msg = `Halo, invoice servis *${servisLabel(s)}* Kaggo\nDevice: ${s.device}\nNominal: ${formatCurrencyPlain(s.price)}\nStatus: ${s.status}\nTeknisi: ${s.teknisi}${tracking ? `\nLacak progres: ${tracking}` : ""}\nTerima kasih — Garansi 3 bulan`;
     window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`, "_blank");
   };
@@ -780,7 +788,7 @@ export default function ServisPage() {
     setBulkPrintOpen(false);
   };
 
-  const handleBulkInvoice = () => {
+  const handleBulkInvoice = async () => {
     const data = selectedData.filter((s) => s.price > 0);
     if (data.length === 0) {
       alert("Tidak ada servis dengan harga untuk dikirim invoice");
@@ -793,6 +801,17 @@ export default function ServisPage() {
       if (!phone) continue;
       if (!groups.has(phone)) groups.set(phone, []);
       groups.get(phone)!.push(s);
+    }
+    try {
+      // Satu pesan gabungan per nomor = satu unit kuota.
+      await Promise.all(
+        [...groups.entries()].map(([, items]) =>
+          recordManualWaSend(`bulk:${items.map((s) => s.id).join(",")}`),
+        ),
+      );
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Gagal mencatat pemakaian kuota WA");
+      return;
     }
     for (const [phone, items] of groups) {
       const msg = `Halo, invoice servis Kaggo:\n` + items.map((s) => {

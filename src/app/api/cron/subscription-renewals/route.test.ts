@@ -72,7 +72,15 @@ const { mocks } = vi.hoisted(() => {
   };
 
   const admin = {
-    rpc: vi.fn(async () => ({ data: [], error: null })),
+    rpc: vi.fn(async (fn: string) => {
+      if (fn === "wa_quota_reserve") {
+        return { data: { allowed: true, already_accounted: false, quota_source: "included", reservation_id: "res-1" }, error: null };
+      }
+      if (fn === "wa_quota_finalize" || fn === "wa_quota_release") {
+        return { data: { ok: true }, error: null };
+      }
+      return { data: [], error: null };
+    }),
     from: vi.fn((table: string) => {
       if (table === "profiles") return profilesQuery;
       if (table === "invoices") {

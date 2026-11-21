@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { CheckIcon, XIcon } from "lucide-react";
 import { toast } from "sonner";
-import { approveInvoice, rejectInvoice } from "@/app/owner/actions";
+import { approveInvoice, getOwnerProofUrl, rejectInvoice } from "@/app/owner/actions";
 import { playPageTransition } from "@/components/layout/page-transition";
 import { formatRupiah } from "@/lib/format";
 import { Badge } from "@/components/ui/badge";
@@ -38,7 +38,13 @@ function statusVariant(status: string) {
   return "outline" as const;
 }
 
-export function InvoiceReviewTable({ invoices }: { invoices: InvoiceRow[] }) {
+export function InvoiceReviewTable({
+  invoices,
+  proofsByInvoice = {},
+}: {
+  invoices: InvoiceRow[];
+  proofsByInvoice?: Record<string, { storage_path: string; file_name: string }[]>;
+}) {
   const [notes, setNotes] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState<string | null>(null);
 
@@ -94,13 +100,29 @@ export function InvoiceReviewTable({ invoices }: { invoices: InvoiceRow[] }) {
     }
   };
 
+  const openProof = async (storagePath: string) => {
+    try {
+      const url = await getOwnerProofUrl(storagePath);
+      if (url) window.open(url, "_blank", "noopener,noreferrer");
+      else toast.error("Bukti tidak tersedia");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Gagal membuka bukti");
+    }
+  };
+
   return (
     <div className="space-y-2">
       {invoices.map((invoice) => (
         <div key={invoice.id} className="rounded-lg border p-4">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
             <div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><span className="font-mono text-sm font-medium">{invoice.invoice_number}</span><Badge variant={statusVariant(invoice.status)}>{invoice.status}</Badge><Badge variant="outline">{invoice.invoice_type}</Badge></div><div className="mt-1 text-sm">{invoice.organization?.name ?? "—"} · {invoice.package?.name ?? "—"}</div><div className="mt-1 text-xs text-muted-foreground">{formatRupiah(invoice.amount)} · {formatDate(invoice.period_start)} — {formatDate(invoice.period_end)}{invoice.whatsapp_sent_at ? ` · WA dikirim ${formatDate(invoice.whatsapp_sent_at)}` : ""}</div>{invoice.decision_note ? <div className="mt-2 text-xs text-muted-foreground">Catatan: {invoice.decision_note}</div> : null}{invoice.status === "pending" ? <div className="mt-2 text-xs"><span className="text-muted-foreground">Approval: </span><span className="font-medium">{invoice.currentPackageName ?? "—"} → {invoice.package?.name ?? "—"}</span>{invoice.currentPackageName && invoice.package?.name && invoice.currentPackageName !== invoice.package.name && invoice.currentPackagePrice !== null && invoice.amount < invoice.currentPackagePrice ? <span className="ml-1 font-medium text-destructive">(downgrade)</span> : null}<span className="text-muted-foreground"> · periode {formatDate(invoice.period_start)} — {formatDate(invoice.period_end)}</span></div> : null}</div>
-            {invoice.status === "pending" ? <div className="flex w-full flex-col gap-2 sm:flex-row lg:w-auto"><Input className="min-w-56" placeholder="Alasan rejection" value={notes[invoice.id] ?? ""} onChange={(event) => setNotes((current) => ({ ...current, [invoice.id]: event.target.value }))} /><Button type="button" size="sm" loading={loading === invoice.id} onClick={() => approve(invoice)}><CheckIcon className="size-4" /> Setujui</Button><Button type="button" size="sm" variant="outline" disabled={loading === invoice.id} onClick={() => reject(invoice.id)}><XIcon className="size-4" /> Reject</Button></div> : null}
+            {invoice.status === "pending" ? <div className="flex w-full flex-col gap-2 sm:flex-row lg:w-auto">{(proofsByInvoice[invoice.id] ?? []).length > 0 ? (
+              <Button type="button" size="sm" variant="ghost" onClick={() => openProof(proofsByInvoice[invoice.id][0].storage_path)}>
+                Lihat bukti ({proofsByInvoice[invoice.id].length})
+              </Button>
+            ) : (
+              <span className="self-center text-xs text-muted-foreground">Belum ada bukti</span>
+            )}<Input className="min-w-56" placeholder="Alasan rejection" value={notes[invoice.id] ?? ""} onChange={(event) => setNotes((current) => ({ ...current, [invoice.id]: event.target.value }))} /><Button type="button" size="sm" loading={loading === invoice.id} onClick={() => approve(invoice)}><CheckIcon className="size-4" /> Setujui</Button><Button type="button" size="sm" variant="outline" disabled={loading === invoice.id} onClick={() => reject(invoice.id)}><XIcon className="size-4" /> Reject</Button></div> : null}
           </div>
         </div>
       ))}

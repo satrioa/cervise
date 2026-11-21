@@ -23,6 +23,34 @@ function normalizePhone(value: unknown) {
   return digits;
 }
 
+/** Paket top-up WA: owner menentukan jumlah pesan & harga IDR. Tidak ada hardcode. */
+export function parseTopupPackageInput(input: {
+  id?: unknown;
+  code?: unknown;
+  name?: unknown;
+  messageQuantity?: unknown;
+  priceIdr?: unknown;
+  isActive?: unknown;
+  sortOrder?: unknown;
+}) {
+  const id = asString(input.id) || null;
+  const code = slugify(asString(input.code));
+  const name = asString(input.name);
+  const messageQuantity = asInteger(input.messageQuantity);
+  const priceIdr = asInteger(input.priceIdr);
+  const isActive = asBoolean(input.isActive, true);
+  const sortOrder = asInteger(input.sortOrder) ?? 0;
+
+  if (!code || !name) throw new Error("Kode dan nama paket wajib diisi");
+  if (messageQuantity === null || Number.isNaN(messageQuantity) || messageQuantity < 1) {
+    throw new Error("Jumlah pesan harus lebih dari nol");
+  }
+  if (priceIdr === null || Number.isNaN(priceIdr) || priceIdr < 1) {
+    throw new Error("Harga harus lebih dari nol");
+  }
+  return { id, code, name, messageQuantity, priceIdr, isActive, sortOrder };
+}
+
 export function parseCreateTenantInput(input: {
   name?: unknown;
   slug?: unknown;

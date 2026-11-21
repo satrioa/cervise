@@ -126,6 +126,15 @@ function stubAdmin() {
   return {
     rpc: async (fn: string, args: unknown) => {
       state.rpcCalls.push({ fn, args });
+      if (fn === "wa_quota_reserve") {
+        return {
+          data: { allowed: true, already_accounted: false, quota_source: "included", reservation_id: "res-1" },
+          error: null,
+        };
+      }
+      if (fn === "wa_quota_finalize" || fn === "wa_quota_release") {
+        return { data: { ok: true }, error: null };
+      }
       return { data: state.claimed, error: state.rpcError };
     },
     from: (table: string) => {

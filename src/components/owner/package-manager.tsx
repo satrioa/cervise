@@ -306,9 +306,10 @@ export function PackageManager({ packages }: { packages: PackageRow[] }) {
             <div className="grid grid-cols-2 gap-2">
               <NumberField id="package-price" label="Harga / bulan *" value={form.monthlyPrice} onChange={(v) => update("monthlyPrice", v)} />
               <NumberField id="package-branch" label="Batas cabang *" value={form.branchLimit} onChange={(v) => update("branchLimit", v)} min={1} />
-              <NumberField id="package-user" label="Batas karyawan" value={form.userLimit} onChange={(v) => update("userLimit", v)} min={1} />
-              <NumberField id="package-ticket" label="Tiket / bulan" value={form.ticketQuota} onChange={(v) => update("ticketQuota", v)} />
-              <NumberField id="package-wa" label="WA / bulan" value={form.whatsappQuota} onChange={(v) => update("whatsappQuota", v)} />
+              <div className="col-span-2 text-xs text-muted-foreground">
+                Karyawan dan tiket servis tanpa batas. Batas cabang tetap mengikuti paket.
+              </div>
+              <NumberField id="package-wa" label="Shared WhatsApp Quota / tenant / periode" value={form.whatsappQuota} onChange={(v) => update("whatsappQuota", v)} />
               <NumberField id="package-order" label="Urutan tampil" value={form.sortOrder} onChange={(v) => update("sortOrder", v)} />
             </div>
 
@@ -317,10 +318,6 @@ export function PackageManager({ packages }: { packages: PackageRow[] }) {
                 <p className="mb-2 text-xs font-medium">Tarif tambahan</p>
                 <div className="grid grid-cols-2 gap-2">
                   <NumberField id="addon-branch" label="Per cabang tambahan" value={form.extraBranchPrice} onChange={(v) => update("extraBranchPrice", v)} />
-                  <NumberField id="addon-employee" label="Per karyawan tambahan" value={form.extraEmployeePrice} onChange={(v) => update("extraEmployeePrice", v)} />
-                  <NumberField id="addon-ticket" label="Per blok tiket" value={form.extraTicketBlockPrice} onChange={(v) => update("extraTicketBlockPrice", v)} />
-                  <NumberField id="addon-block" label="Ukuran blok tiket" value={form.ticketBlockSize} onChange={(v) => update("ticketBlockSize", v)} min={1} />
-                  <NumberField id="addon-wa" label="WA per blok tiket" value={form.waPerTicketBlock} onChange={(v) => update("waPerTicketBlock", v)} />
                   <NumberField id="addon-annual" label="Faktor harga tahunan" value={form.annualMultiplier} onChange={(v) => update("annualMultiplier", v)} min={1} />
                 </div>
               </div>

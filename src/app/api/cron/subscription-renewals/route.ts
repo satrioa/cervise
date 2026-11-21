@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { isAuthorizedCronRequest } from "@/lib/cron-auth";
 import { MetaWaError, sendMetaWA, type TemplateParameter } from "@/lib/meta-wa";
+import { finalizeQuota, releaseQuota, reserveQuota } from "@/lib/payments/quota";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export const runtime = "nodejs";
@@ -126,6 +127,20 @@ export async function GET(request: Request) {
           .eq("id", invoice.id);
       };
 
+      // Pesan renewal juga memakai wallet tenant yang sama dengan notifikasi
+      // servis (shared lintas cabang). Kunci idempotensi per invoice.
+      const idempotencyKey = `renewal-invoice:${invoice.id}`;
+      const reservation = await reserveQuota({
+        organizationId: invoice.organization.id,
+        idempotencyKey,
+        messageType: "renewal_invoice",
+      });
+      if (!reservation.allowed) {
+        await releaseClaim();
+        skipped += 1;
+        continue;
+      }
+
       // Nama variabel harus persis mengikuti template `renewal_reminder_v1`
       // yang sudah disetujui Meta: nama, tenant, nama_paket, tanggal_berakhir.
       const parameters: TemplateParameter[] = [
@@ -154,13 +169,16 @@ export async function GET(request: Request) {
         );
 
         if (isSkippedResult(result)) {
+          await releaseQuota(idempotencyKey);
           await releaseClaim();
           skipped += 1;
           continue;
         }
 
+        await finalizeQuota({ idempotencyKey, status: "sent" });
         sent += 1;
       } catch (error) {
+        await releaseQuota(idempotencyKey);
         // Nomor/template yang memang salah tidak akan pernah berhasil, jadi
         // klaim ditahan supaya tidak dipanggil ulang tiap jam. Token kedaluwarsa
         // atau masalah Meta lain scope-nya infrastruktur: pesannya masih layak,

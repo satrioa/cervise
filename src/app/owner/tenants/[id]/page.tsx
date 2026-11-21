@@ -8,6 +8,8 @@ import { TenantBillingDashboard } from "@/components/owner/tenant-billing-dashbo
 import { EmployeeActiveToggle } from "@/components/owner/employee-active-toggle";
 import { MetaPhoneNumberForm } from "@/components/owner/meta-phone-number-form";
 import { TenantDangerZone } from "@/components/owner/tenant-danger-zone";
+import { TenantWaQuotaPanel } from "@/components/owner/tenant-wa-quota-panel";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -45,7 +47,15 @@ function addDays(value: Date, days: number) {
 
 export default async function TenantDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const [detail, packages] = await Promise.all([getTenantDetail(id), getPackages()]);
+  const admin = createAdminClient();
+  const [detail, packages, walletResult, usageResult, ledgerResult, fulfillmentResult] = await Promise.all([
+    getTenantDetail(id),
+    getPackages(),
+    admin.from("whatsapp_quota_wallets").select("organization_id, included_limit, included_used, topup_balance, period_start, period_end").eq("organization_id", id).maybeSingle(),
+    admin.from("whatsapp_usage_logs").select("branch_id, quota_units, created_at").eq("organization_id", id).gte("created_at", new Date(Date.now() - 30 * 86_400_000).toISOString()),
+    admin.from("whatsapp_quota_ledger").select("id, transaction_type, amount, balance_after, description, reason, created_at").eq("organization_id", id).order("created_at", { ascending: false }).limit(20),
+    admin.from("payment_fulfillments").select("id, invoice_id, fulfillment_type, status, attempts, last_error").eq("organization_id", id).order("created_at", { ascending: false }).limit(20),
+  ]);
   const organization = detail.organization as { id: string; name: string; slug: string; status: string; owner_email: string | null; owner_phone: string | null; contact_phone: string | null; meta_phone_number_id: string | null };
   const subscription = detail.subscription as { id: string; package_id: string; custom_monthly_price: number | null; grace_days: number; status: string; current_period_start: string | null; current_period_end: string | null; trial_ends_at: string | null; package: { id: string; code: string; name: string; branch_limit: number; monthly_price: number } | null } | null;
   const branches = detail.branches as { id: string; name: string; city: string | null; phone: string | null; is_active: boolean }[];
@@ -95,6 +105,20 @@ export default async function TenantDetailPage({ params }: { params: Promise<{ i
           </CardContent>
         </Card>
       </div>
+      <TenantWaQuotaPanel
+        organizationId={organization.id}
+        wallet={walletResult.data as never}
+        branchUsage={Object.entries(
+          (usageResult.data ?? []).reduce<Record<string, number>>((acc, row) => {
+            const key = row.branch_id ?? "none";
+            acc[key] = (acc[key] ?? 0) + row.quota_units;
+            return acc;
+          }, {}),
+        ).map(([branch_id, units]) => ({ branch_id: branch_id === "none" ? null : branch_id, units }))}
+        ledger={(ledgerResult.data ?? []) as never}
+        fulfillments={(fulfillmentResult.data ?? []) as never}
+        branches={branches.map((branch) => ({ id: branch.id, name: branch.name }))}
+      />
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>
           <CardHeader><CardTitle className="text-base">Branches</CardTitle></CardHeader>

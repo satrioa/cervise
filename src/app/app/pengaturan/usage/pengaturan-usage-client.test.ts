@@ -18,9 +18,10 @@ describe("halaman usage & billing", () => {
     for (const label of ["Tiket servis", "Pesan WhatsApp included", "Pesan WhatsApp top-up"]) {
       expect(source, `${label} tidak punya label`).toContain(`label: "${label}"`);
     }
-    expect(source).toContain("Jumlah servis yang dibuat pada periode ini");
-    expect(source).toContain("Pesan otomatis gratis yang sudah termasuk paket");
-    expect(source).toContain("Pesan tambahan yang dibeli terpisah dari paket");
+    expect(source).toContain("Tiket servis tanpa batas");
+    expect(source).toContain("Kuota bulanan shared untuk seluruh cabang");
+    expect(source).toContain("Pesan tambahan yang dibeli dari platform owner");
+    expect(source).toContain("WaTopupPanel");
   });
 
   it("status invoice DB dipetakan ke status tampilan", () => {
