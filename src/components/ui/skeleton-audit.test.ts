@@ -171,8 +171,13 @@ describe("angka nol saat loading diganti skeleton", () => {
 
   it("usage tidak menampilkan 0 sebelum data masuk", () => {
     const source = read("src/app/app/pengaturan/usage/pengaturan-usage-client.tsx");
-    expect(source).toContain("StatValueSkeleton");
-    expect(source).toContain("progress");
+    // Kuota kini dirender BillingOverview dari data yang sudah di-fetch server,
+    // jadi tidak ada lagi kartu client-side yang sempat menampilkan 0.
+    expect(source).toContain("BillingOverview");
+    expect(source).toContain("data?.services_used");
+    expect(source).not.toContain("StatValueSkeleton");
+    // Tabel yang masih di-fetch di client tetap memakai skeleton baris.
+    expect(source).toContain("TableRowsSkeleton");
   });
 
   it("laporan penjualan dan performa menampilkan kartu ringkasan saat loading", () => {

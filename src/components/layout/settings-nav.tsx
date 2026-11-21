@@ -109,7 +109,7 @@ export function SettingsHeaderTabs() {
       <Tabs value={activeHref} className="gap-0">
         <TabsList
           variant="underline"
-          className="justify-start overflow-x-auto scrollbar-none border-b-0"
+          className="w-full max-w-full justify-start overflow-x-auto scrollbar-none border-b-0"
         >
           {block.entries.map((entry) => (
             <TabsTab

@@ -143,6 +143,15 @@ describe("sub-menu pengaturan master admin (tabs horizontal)", () => {
     expect(pageHeaderSource).toContain("<SettingsHeaderTabs />");
   });
 
+  it("tabs dibatasi lebar induknya supaya scroll internal, bukan scroll halaman", () => {
+    const body = navSource.slice(navSource.indexOf("export function SettingsHeaderTabs"));
+    const tabsList = body.slice(body.indexOf("<TabsList"), body.indexOf("</TabsList>"));
+    expect(tabsList).toContain("overflow-x-auto");
+    // w-fit (default TabsList) membuat elemen ikut lebar konten, jadi
+    // overflow-x-auto tidak pernah jalan dan halaman yang bergeser.
+    expect(tabsList).toMatch(/\bw-full\b/);
+  });
+
   it("teknisi/frontliner tidak memakai sub-sidebar pengaturan", () => {
     expect(layoutSource).toMatch(/role === "TECHNICIAN" \|\| role === "FRONTLINER"/);
     const compactBranch = layoutSource.slice(layoutSource.indexOf("if (!isCompact)"));
