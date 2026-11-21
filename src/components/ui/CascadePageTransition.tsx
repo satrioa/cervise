@@ -222,6 +222,9 @@ export default function CascadePageTransition({
           ? { x: "0%", y: "0%" }
           : getTransform("exit");
 
+        // Overlay ini murni visual. Panel tidak boleh menerima klik, kalau
+        // tidak klik nav (atau apa pun di bawahnya) tertelan selama animasi
+        // dan terasa "kadang bisa, kadang tidak".
         return (
           <motion.div
             key={i}
@@ -233,7 +236,7 @@ export default function CascadePageTransition({
               delay: delay,
             }}
             className={cn(
-              "pointer-events-auto relative flex flex-1 items-center justify-center overflow-hidden",
+              "pointer-events-none relative flex flex-1 items-center justify-center overflow-hidden",
               panelClassName,
             )}
             style={{
