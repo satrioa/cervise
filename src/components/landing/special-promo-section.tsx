@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { CheckIcon } from "lucide-react";
 import CloudSky from "@/components/originkit/ui/cloud-sky";
 import { TiltCard } from "@/components/landing/tilt-card";
 import { promoCountdown, type PromoCountdown } from "@/lib/pricing/promo";
@@ -89,7 +90,7 @@ export function SpecialPromoSection({ promo }: { promo: PublicPromo }) {
               <ul className="mt-3 space-y-2">
                 {promo.promo_included.map((item) => (
                   <li key={item} className="flex items-start gap-2 text-sm text-slate-700">
-                    <span aria-hidden className="mt-1.5 size-1.5 shrink-0 rounded-full bg-emerald-500" />
+                    <CheckIcon aria-hidden className="mt-0.5 size-4 shrink-0 text-emerald-600" />
                     <span>{item}</span>
                   </li>
                 ))}
