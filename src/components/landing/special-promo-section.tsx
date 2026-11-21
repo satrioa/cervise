@@ -38,15 +38,39 @@ function Countdown({ endsAt }: { endsAt: string }) {
   );
 }
 
+/** Dua half identik ditranslas -50% oleh animate-trusted-marquee → loop mulus. */
+function PromoMarquee() {
+  const line = (prefix: string) =>
+    Array.from({ length: 12 }, (_, i) => (
+      <span
+        key={`${prefix}-${i}`}
+        className="shrink-0 px-6 font-mono text-xs font-semibold uppercase tracking-[0.25em] text-white sm:text-sm"
+      >
+        Penawaran terbatas 🎉
+      </span>
+    ));
+
+  return (
+    <div role="region" aria-label="Penawaran terbatas" className="relative w-full overflow-hidden bg-black">
+      <div aria-hidden className="flex w-max animate-trusted-marquee items-center py-3 will-change-transform motion-reduce:animate-none">
+        {line("a")}
+        {line("b")}
+      </div>
+    </div>
+  );
+}
+
 export function SpecialPromoSection({ promo }: { promo: PublicPromo }) {
   return (
-    <section className="relative isolate overflow-hidden px-4 py-16 sm:px-6 lg:px-8">
+    <section className="relative isolate overflow-hidden">
       <div aria-hidden className="absolute inset-0 -z-10">
         <CloudSky style={{ position: "absolute", inset: 0, minWidth: 0, minHeight: 0, width: "100%", height: "100%" }} />
       </div>
       <div aria-hidden className="absolute inset-0 -z-10 bg-slate-950/45" />
 
-      <div className="mx-auto max-w-5xl [perspective:1200px]">
+      <PromoMarquee />
+
+      <div className="mx-auto max-w-5xl px-4 pb-16 pt-12 sm:px-6 lg:px-8 [perspective:1200px]">
         <div className="flex flex-col items-center gap-3 text-center">
           <h2 className="font-heading text-3xl font-bold text-white sm:text-4xl">{promo.promo_title}</h2>
           <Countdown endsAt={promo.promo_ends_at} />
