@@ -23,15 +23,6 @@ export async function listTopupPackages(): Promise<TopupPackage[]> {
   return (data ?? []) as TopupPackage[];
 }
 
-export async function createTopupOrder(organizationId: string, packageId: string): Promise<string> {
-  const { data, error } = await createAdminClient().rpc("platform_create_topup_order", {
-    p_organization_id: organizationId,
-    p_package_id: packageId,
-  });
-  if (error) throw error;
-  return data as string;
-}
-
 const MAX_PROOF_BYTES = 5 * 1024 * 1024;
 const ALLOWED_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "application/pdf"]);
 

@@ -483,7 +483,10 @@ as $$
 declare
   v_wallet public.whatsapp_quota_wallets%rowtype;
 begin
-  if not public.is_platform_admin(auth.uid()) then
+  -- Cron memanggil lewat service_role (tanpa auth.uid()); akses cron sudah
+  -- diamankan CRON_SECRET di route handler.
+  if coalesce(nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'role', '') <> 'service_role'
+     and not public.is_platform_admin(auth.uid()) then
     raise exception 'Platform admin access required';
   end if;
   if p_organization_id is null or p_period_end <= p_period_start or p_included_limit < 0 then

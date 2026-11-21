@@ -1079,11 +1079,12 @@ export async function adjustTenantWaQuota(
   amount: number,
   reason: string,
 ) {
-  await requirePlatformAdmin();
+  const { supabase } = await requirePlatformAdmin();
   if (!organizationId || !Number.isInteger(amount) || amount === 0) {
     throw new Error("Data penyesuaian tidak valid");
   }
-  const { error } = await createAdminClient().rpc("platform_adjust_wa_quota", {
+  // auth.uid() diverifikasi RPC, jadi pakai client sesi owner.
+  const { error } = await supabase.rpc("platform_adjust_wa_quota", {
     p_organization_id: organizationId,
     p_amount: amount,
     p_reason: reason,
@@ -1095,9 +1096,9 @@ export async function adjustTenantWaQuota(
 }
 
 export async function retryPaymentFulfillment(invoiceId: string) {
-  await requirePlatformAdmin();
+  const { supabase } = await requirePlatformAdmin();
   if (!invoiceId) throw new Error("Invoice tidak valid");
-  const { error } = await createAdminClient().rpc("platform_retry_fulfillment", {
+  const { error } = await supabase.rpc("platform_retry_fulfillment", {
     p_invoice_id: invoiceId,
   });
   if (error) throw error;

@@ -103,6 +103,32 @@ describe("migrasi Kuota & pembayaran", () => {
     expect(migration).toContain("'topup'");
   });
 
+  it("RPC berotentikasi dipanggil dengan client sesi, bukan service_role", () => {
+    const usageAction = readFileSync(
+      join(process.cwd(), "src/app/app/pengaturan/usage/actions.ts"),
+      "utf8",
+    );
+    const ownerActions = readFileSync(
+      join(process.cwd(), "src/app/owner/actions.ts"),
+      "utf8",
+    );
+    expect(usageAction).toContain('actor.supabase.rpc("platform_create_topup_order"');
+    expect(usageAction).not.toContain('createAdminClient().rpc("platform_create_topup_order"');
+    const adjust = ownerActions.slice(ownerActions.indexOf("export async function adjustTenantWaQuota"));
+    const retry = ownerActions.slice(ownerActions.indexOf("export async function retryPaymentFulfillment"));
+    expect(adjust.slice(0, 500)).toContain("supabase.rpc(\"platform_adjust_wa_quota\"");
+    expect(retry.slice(0, 400)).toContain("supabase.rpc(\"platform_retry_fulfillment\"");
+  });
+
+  it("cron reset diizinkan memakai service_role", () => {
+    const fix = readFileSync(
+      join(process.cwd(), "supabase/migrations/20261121140000_fix_quota_rpc_auth.sql"),
+      "utf8",
+    );
+    expect(fix).toContain("<> 'service_role'");
+    expect(fix).toContain("wa_quota_reset");
+  });
+
   it("unlimited karyawan & tiket, branch limit tidak diubah", () => {
     expect(migration).toContain("set user_limit = null, ticket_quota = null");
     expect(migration).not.toContain("drop trigger if exists branches_enforce_subscription_limit");

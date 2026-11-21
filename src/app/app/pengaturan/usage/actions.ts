@@ -5,7 +5,6 @@ import { getActiveTenantForBilling } from "@/lib/supabase/actor";
 import { canAccessActor } from "@/lib/nav/manifest";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
-  createTopupOrder,
   getProofSignedUrl,
   uploadPaymentProof,
 } from "@/lib/payments/payment-service";
@@ -25,7 +24,13 @@ export async function createTopupOrderAction(packageId: string) {
   if (ACTIVE_PAYMENT_PROVIDER.id !== "manual_transfer") {
     throw new Error(ACTIVE_PAYMENT_PROVIDER.notice);
   }
-  const invoiceId = await createTopupOrder(actor.orgId, packageId);
+  // RPC harus dipanggil dengan client sesi pengguna: auth.uid() dipakai untuk
+  // verifikasi keanggotaan tenant di dalam database.
+  const { data: invoiceId, error } = await actor.supabase.rpc("platform_create_topup_order", {
+    p_organization_id: actor.orgId,
+    p_package_id: packageId,
+  });
+  if (error) throw error;
   revalidatePath("/app/pengaturan/usage");
   revalidatePath("/app/pengaturan/subscription");
   return { invoiceId };
