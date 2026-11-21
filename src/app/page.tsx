@@ -104,6 +104,7 @@ export default async function LandingPage() {
           company: [
             { name: "Masuk", url: "/login" },
             { name: "Dashboard", url: "/app" },
+            { name: "Changelog", url: "/changelog" },
           ],
         }}
         copyright="© 2026 Kaggo • Manajemen Servis Gadget Multibranch"
