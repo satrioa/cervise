@@ -38,19 +38,12 @@ export function CreateTenantDialog() {
       setOwnerEmail("");
       setOwnerPhone("");
       setOpen(false);
+
+      // Modal harus dipasang dulu. router.refresh() bisa mengganti pohon RSC
+      // dan membuat state dialog hilang kalau dipanggil lebih dulu.
+      setCreated({ email: result.ownerEmail, tempPassword: result.tempPassword });
       playPageTransition();
       router.refresh();
-
-      if (result.tempPassword) {
-        // Akun owner baru dibuat dengan password sementara. Tanpa ini, akunnya
-        // tidak akan pernah bisa login karena aplikasi ini tidak punya magic
-        // link dan createUser lama tidak pernah menyertakan password.
-        setCreated({ email: result.ownerEmail, tempPassword: result.tempPassword });
-      } else {
-        toast.success(
-          `Tenant "${name}" dibuat dengan trial 14 hari. Email owner sudah punya akun, password tidak diubah.`,
-        );
-      }
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Gagal membuat tenant");
     } finally {

@@ -88,13 +88,10 @@ describe("penanda must_change_password", () => {
       "must_change_password: true",
     );
 
-    // Owner tenant: ditandai setelah RPC berhasil, dan HANYA kalau akun auth-nya
-    // baru dibuat (tempPassword terisi). Akun existing yang dipakai ulang tidak
-    // boleh dipaksa mengganti password yang sudah dia punya.
+    // Owner tenant: setiap tenant baru selalu punya akun auth dengan password
+    // generated, jadi penanda ganti password ditulis setelah RPC berhasil.
     const owner = read("src/app/owner/actions.ts");
-    expect(owner).toMatch(
-      /if \(tempPassword\) \{[\s\S]{0,400}must_change_password: true/,
-    );
+    expect(owner).toMatch(/must_change_password: true/);
   });
 
   it("signup tidak ikut ditandai karena user memilih password sendiri", () => {

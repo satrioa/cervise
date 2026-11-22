@@ -63,7 +63,7 @@ describe("createTenant", () => {
   });
 
   it("returns the temporary password to the caller so it can be shown once", () => {
-    expect(body).toContain("tempPassword: tempPassword ?? undefined");
+    expect(body).toContain("tempPassword,");
   });
 });
 

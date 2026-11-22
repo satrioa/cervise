@@ -506,29 +506,24 @@ export async function createTenant(input: {
   const admin = createAdminClient();
   const existing = await findAuthUserByEmail(admin, tenantInput.ownerEmail);
 
-  let ownerId: string;
-  let tempPassword: string | null = null;
-
+  // Email yang sudah dipakai akun lain tidak boleh dipakai ulang: tenant baru
+  // harus mendapat akun owner sendiri dengan password generated. Memakai ulang
+  // akun lama juga berisiko memberi akses tenant ke pemilik email tersebut.
   if (existing) {
-    // Emailnya sudah punya akun. Password existing TIDAK diubah - diam-diam
-    // menimpa password seseorang akan mengunci mereka dari akunnya sendiri.
-    ownerId = existing.id;
-  } else {
-    // Dulu createUser dipanggil tanpa password sama sekali, jadi setiap owner
-    // yang dibuat dari console ini punya akun yang mustahil login: aplikasi ini
-    // tidak punya magic link, login murni password. Sekarang dibuat dengan
-    // password sementara yang dikembalikan sekali ke pemanggil.
-    const generated = generateTempPassword();
-    const { data, error } = await admin.auth.admin.createUser({
-      email: tenantInput.ownerEmail,
-      phone: tenantInput.ownerPhone,
-      password: generated,
-      email_confirm: true,
-    });
-    if (error) throw error;
-    ownerId = data.user.id;
-    tempPassword = generated;
+    throw new Error("Email sudah terdaftar. Gunakan email lain untuk owner tenant.");
   }
+
+  // Setiap tenant baru selalu dibuatkan auth user dengan password sementara.
+  // Aplikasi ini tidak punya magic link, jadi tanpa password akun mustahil login.
+  const tempPassword = generateTempPassword();
+  const { data: createdUser, error: createUserError } = await admin.auth.admin.createUser({
+    email: tenantInput.ownerEmail,
+    phone: tenantInput.ownerPhone,
+    password: tempPassword,
+    email_confirm: true,
+  });
+  if (createUserError) throw createUserError;
+  const ownerId = createdUser.user.id;
 
   const { data: organizationId, error } = await supabase.rpc("platform_create_tenant", {
     tenant_name: tenantInput.name,
@@ -540,25 +535,19 @@ export async function createTenant(input: {
   if (error) {
     // Tenant gagal dibuat. Kalau akun auth baru saja dibuat untuk ini, ikut
     // dibersihkan supaya tidak ada akun yatim tanpa tenant.
-    if (tempPassword) await admin.auth.admin.deleteUser(ownerId);
+    await admin.auth.admin.deleteUser(ownerId);
     throw error;
   }
 
-  // Akun owner yang BARU dibuat memakai password generated, jadi dashboard-nya
-  // harus meminta password sendiri saat pertama masuk. Akun yang dipakai ulang
-  // (tempPassword null) sengaja tidak disentuh: password-nya sudah dia punya.
-  //
-  // Kegagalan di sini tidak menggagalkan pembuatan tenant - tenantnya sudah
-  // ada, dan melempar error hanya akan membuat operator mengulang dan mendapat
-  // "email sudah terdaftar". Dicatat supaya tetap bisa ditelusuri.
-  if (tempPassword) {
-    const { error: flagError } = await admin
-      .from("profiles")
-      .update({ must_change_password: true })
-      .eq("id", ownerId);
-    if (flagError) {
-      console.warn("gagal menandai must_change_password untuk owner", ownerId, flagError.message);
-    }
+  // Akun owner memakai password generated, jadi dashboard akan meminta password
+  // baru saat pertama masuk. Kegagalan menandai ini tidak membatalkan tenant yang
+  // sudah dibuat — dicatat supaya tetap bisa ditelusuri.
+  const { error: flagError } = await admin
+    .from("profiles")
+    .update({ must_change_password: true })
+    .eq("id", ownerId);
+  if (flagError) {
+    console.warn("gagal menandai must_change_password untuk owner", ownerId, flagError.message);
   }
 
   revalidatePath("/owner");
@@ -566,9 +555,8 @@ export async function createTenant(input: {
   return {
     id: organizationId as string,
     ownerEmail: tenantInput.ownerEmail,
-    // null = emailnya sudah punya akun, jadi password tidak diubah.
-    tempPassword: tempPassword ?? undefined,
-    reusedExistingAccount: !tempPassword,
+    tempPassword,
+    reusedExistingAccount: false,
   };
 }
 
