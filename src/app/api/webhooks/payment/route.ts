@@ -23,6 +23,17 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "invalid_body" }, { status: 400 });
   }
 
+  // Tombol "Test" di dashboard hanya mengirim payload minim (status_code +
+  // signature_key) tanpa order_id/transaksi. Terima sebagai uji konektivitas;
+  // tidak ada perubahan status invoice yang dilakukan di jalur ini.
+  if (!body.order_id || !body.transaction_status) {
+    console.info("webhook payment: test konektivitas diterima", {
+      keys: Object.keys(body),
+      status_code: body.status_code,
+    });
+    return NextResponse.json({ received: true, ignored: true });
+  }
+
   if (!verifyWebhookSignature(body, serverKey)) {
     console.warn("webhook payment: signature ditolak", {
       order_id: body.order_id,
