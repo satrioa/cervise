@@ -5,11 +5,11 @@ import { describe, expect, it } from "vitest";
 const read = (path: string) => readFileSync(join(process.cwd(), path), "utf8");
 
 describe("navigasi setelah autentikasi", () => {
-  it("login tidak memanggil refresh yang membatalkan navigasi", () => {
+  it("login memakai navigasi penuh agar Router Cache tidak menyimpan payload pra-login", () => {
     const source = read("src/app/login/page.tsx");
-    expect(source).toContain('router.replace(result.destination)');
-    const success = source.slice(source.indexOf('toast.success("Berhasil masuk")'));
-    expect(success.slice(0, 300)).not.toContain("router.refresh()");
+    const success = source.slice(source.indexOf('toast.success("Berhasil masuk")'), source.indexOf('toast.success("Berhasil masuk")') + 400);
+    expect(success).toContain("window.location.assign(result.destination)");
+    expect(success).not.toContain("router.replace(result.destination)");
   });
 
   it("semua jalur logout tidak memanggil refresh setelah navigasi", () => {

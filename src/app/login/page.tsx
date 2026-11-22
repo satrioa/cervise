@@ -174,9 +174,10 @@ function SignInForm() {
         return;
       }
       toast.success("Berhasil masuk");
-      // Jangan menyegarkan rute setelah navigasi: refresh menyerang halaman
-      // saat ini dan membatalkan replace yang baru saja diantrekan.
-      router.replace(result.destination);
+      // Navigasi penuh sengaja dipakai: Router Cache Next bisa menyimpan RSC
+      // /app dari sebelum login (berisi redirect ke /login), sehingga
+      // router.replace hanya mengubah URL tanpa merender dashboard.
+      window.location.assign(result.destination);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Gagal masuk");
     } finally {
