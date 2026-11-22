@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { SaveIcon } from "lucide-react";
 import { toast } from "sonner";
 import { updatePlatformSettings } from "@/app/owner/actions";
@@ -28,6 +29,7 @@ export function SettingsForm({ settings }: { settings: Settings }) {
   const [bankAccountName, setBankAccountName] = useState(settings.bank_account_name ?? "");
   const [bankAccountNumber, setBankAccountNumber] = useState(settings.bank_account_number ?? "");
   const [saving, setSaving] = useState(false);
+  const router = useRouter();
 
   const submit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -43,6 +45,7 @@ export function SettingsForm({ settings }: { settings: Settings }) {
         bankAccountNumber,
       });
       playPageTransition();
+      router.refresh();
       toast.success("Settings platform disimpan");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Gagal menyimpan settings");

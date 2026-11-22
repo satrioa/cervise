@@ -20,4 +20,9 @@ describe("owner shell", () => {
   it("avatar akun memakai foto bila tersedia", () => {
     expect(source).toMatch(/<IdentityAvatar photoUrl=\{avatarUrl\}/);
   });
+
+  it("menu navigasi memakai navigasi penuh agar tidak tertahan cache RSC", () => {
+    expect(source).toContain("window.location.assign(item.href)");
+    expect(source).toContain("event.preventDefault()");
+  });
 });

@@ -28,7 +28,11 @@ function OwnerNavLink({ item, pathname, onNavigate }: { item: OwnerNavItem; path
   return (
     <Link
       href={item.href}
-      onClick={onNavigate}
+      onClick={(event) => {
+        event.preventDefault();
+        onNavigate?.();
+        window.location.assign(item.href);
+      }}
       aria-current={active ? "page" : undefined}
       className={cn(
         "flex w-full items-center gap-2.5 rounded-md px-2 py-2 text-sm transition-colors",

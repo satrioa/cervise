@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { PlusIcon } from "lucide-react";
 import { toast } from "sonner";
 import { createPlatformIncident } from "@/app/owner/actions";
@@ -18,12 +19,14 @@ export function IncidentForm() {
   const [title, setTitle] = useState("");
   const [updates, setUpdates] = useState("");
   const [saving, setSaving] = useState(false);
+  const router = useRouter();
 
   const submit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setSaving(true);
     try {
       await createPlatformIncident({ occurredOn, service, status, minutes, title, updates });
+      router.refresh();
       toast.success("Insiden dicatat");
       setTitle("");
       setUpdates("");

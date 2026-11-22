@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { SaveIcon } from "lucide-react";
 import { toast } from "sonner";
 import { updatePromoSettings } from "@/app/owner/actions";
@@ -38,6 +39,7 @@ export function PromoSettingsForm({ settings }: { settings: PromoSettings }) {
   const [separate, setSeparate] = useState(settings.promo_separate.join("\n"));
   const [note, setNote] = useState(settings.promo_note);
   const [saving, setSaving] = useState(false);
+  const router = useRouter();
 
   useEffect(() => {
     setEndsAt(localInputValue(settings.promo_ends_at));
@@ -48,6 +50,7 @@ export function PromoSettingsForm({ settings }: { settings: PromoSettings }) {
     setSaving(true);
     try {
       await updatePromoSettings({ endsAtLocal: endsAt, title, headline, subtext, price, included, separate, note });
+      router.refresh();
       playPageTransition();
       toast.success("Special Promo disimpan");
     } catch (error) {

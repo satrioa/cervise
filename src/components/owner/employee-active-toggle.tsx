@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { UserCheckIcon, UserXIcon } from "lucide-react";
 import { toast } from "sonner";
 import { setEmployeeActive } from "@/app/owner/actions";
@@ -9,11 +10,13 @@ import { Button } from "@/components/ui/button";
 
 export function EmployeeActiveToggle({ employeeId, active }: { employeeId: string; active: boolean }) {
   const [loading, setLoading] = useState(false);
+  const router = useRouter();
 
   const toggle = async () => {
     setLoading(true);
     try {
       await setEmployeeActive({ employeeId, active: !active });
+      router.refresh();
       playPageTransition();
       toast.success(active ? "Akun dinonaktifkan" : "Akun diaktifkan");
     } catch (error) {

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { PencilIcon, PlusIcon, SaveIcon, TrashIcon } from "lucide-react";
 import { toast } from "sonner";
 import { deletePackage, savePackage } from "@/app/owner/actions";
@@ -130,6 +131,7 @@ export function PackageManager({ packages }: { packages: PackageRow[] }) {
   const [mode, setMode] = useState<"standard" | "custom">("standard");
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState<string | null>(null);
+  const router = useRouter();
 
   const custom = packages.find((item) => item.code === "custom");
   const isCustomForm = mode === "custom";
@@ -168,6 +170,7 @@ export function PackageManager({ packages }: { packages: PackageRow[] }) {
         isRecommended: form.isRecommended,
       });
       playPageTransition();
+      router.refresh();
       toast.success(form.id ? "Paket diperbarui" : "Paket dibuat");
       reset();
     } catch (error) {
@@ -194,6 +197,7 @@ export function PackageManager({ packages }: { packages: PackageRow[] }) {
     try {
       await deletePackage(item.id);
       playPageTransition();
+      router.refresh();
       toast.success("Paket dihapus");
       if (form.id === item.id) reset();
     } catch (error) {

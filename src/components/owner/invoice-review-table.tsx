@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { CheckIcon, XIcon } from "lucide-react";
 import { toast } from "sonner";
 import { approveInvoice, getOwnerProofUrl, rejectInvoice } from "@/app/owner/actions";
@@ -48,6 +49,7 @@ export function InvoiceReviewTable({
 }) {
   const [notes, setNotes] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState<string | null>(null);
+  const router = useRouter();
 
   const approve = async (invoice: InvoiceRow) => {
     const current = invoice.currentPackageName;
@@ -72,6 +74,7 @@ export function InvoiceReviewTable({
     setLoading(invoice.id);
     try {
       await approveInvoice({ invoiceId: invoice.id, note: "Pembayaran terverifikasi" });
+      router.refresh();
       playPageTransition();
       toast.success(
         target ? `Invoice disetujui. Paket ${target} aktif.` : "Invoice disetujui dan paket diaktifkan",
@@ -92,6 +95,7 @@ export function InvoiceReviewTable({
     setLoading(invoiceId);
     try {
       await rejectInvoice({ invoiceId, reason });
+      router.refresh();
       playPageTransition();
       toast.success("Invoice ditolak dan replacement dibuat");
     } catch (error) {
