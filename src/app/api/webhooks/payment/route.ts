@@ -24,6 +24,13 @@ export async function POST(request: Request) {
   }
 
   if (!verifyWebhookSignature(body, serverKey)) {
+    console.warn("webhook payment: signature ditolak", {
+      order_id: body.order_id,
+      status_code: body.status_code,
+      gross_amount: body.gross_amount,
+      transaction_status: body.transaction_status,
+      signature_prefix: String(body.signature_key ?? "").slice(0, 12),
+    });
     return NextResponse.json({ error: "invalid_signature" }, { status: 401 });
   }
 
