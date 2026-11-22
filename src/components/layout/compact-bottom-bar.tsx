@@ -137,7 +137,7 @@ export function CompactBottomBar({
               void (async () => {
                 const supabase = createClient();
                 await supabase.auth.signOut();
-                router.replace("/login");
+                window.location.assign("/login");
               })();
             }}
             className="pointer-events-auto [&>button]:w-auto [&>button]:rounded-full [&>button]:border-black/5 [&>button]:bg-white [&>button]:p-1.5 [&>button]:pr-3 [&>button]:shadow-[0_16px_38px_-24px_rgba(0,0,0,0.55)] dark:[&>button]:border-white/10 dark:[&>button]:bg-neutral-900"

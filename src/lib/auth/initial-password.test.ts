@@ -35,7 +35,7 @@ describe("dialog ganti password pertama", () => {
 
   it("setelah berhasil logout dan login ulang dengan password baru", () => {
     expect(dialog).toContain("supabase.auth.signOut()");
-    expect(dialog).toContain('router.replace("/login?password=updated")');
+    expect(dialog).toContain('window.location.assign("/login?password=updated")');
   });
 
   it("dirender di layout /app, bukan hanya di satu halaman", () => {

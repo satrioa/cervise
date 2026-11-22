@@ -286,7 +286,7 @@ function LogoutButton() {
       onClick={async () => {
         const supabase = createClient();
         await supabase.auth.signOut();
-        router.replace("/login");
+        window.location.assign("/login");
       }}
       aria-label="Keluar"
       title="Keluar"

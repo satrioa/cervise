@@ -70,8 +70,7 @@ export function UpdatePasswordForm({ exchangeFailed }: { exchangeFailed: boolean
     // user logs back in with the new password instead of staying on a
     // recovery-derived session.
     await supabase.auth.signOut();
-    router.replace("/login?password=updated");
-    router.refresh();
+    window.location.assign("/login?password=updated");
   }
 
   if (state === "checking") {

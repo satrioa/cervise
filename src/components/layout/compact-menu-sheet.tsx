@@ -237,7 +237,7 @@ export function CompactMenuSheet({
             void (async () => {
               const supabase = createClient();
               await supabase.auth.signOut();
-              router.replace("/login");
+              window.location.assign("/login");
             })();
           }}
           className="block w-full [&>button]:w-full [&>button]:rounded-xl [&>button]:border-black/5 [&>button]:bg-white [&>button]:shadow-sm dark:[&>button]:border-white/10 dark:[&>button]:bg-neutral-900"
