@@ -171,12 +171,12 @@ function SignInForm() {
       if (result.kind === "denied") {
         toast.error("Tidak bisa masuk");
         router.replace(`/login?error=${result.reason}`);
-        router.refresh();
         return;
       }
       toast.success("Berhasil masuk");
-      router.push(result.destination);
-      router.refresh();
+      // Jangan menyegarkan rute setelah navigasi: refresh menyerang halaman
+      // saat ini dan membatalkan replace yang baru saja diantrekan.
+      router.replace(result.destination);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Gagal masuk");
     } finally {

@@ -83,8 +83,7 @@ function OwnerAccountFooter({ email, avatarUrl }: { email: string; avatarUrl?: s
   const signOut = async () => {
     const supabase = createClient();
     await supabase.auth.signOut();
-    router.push("/login");
-    router.refresh();
+    router.replace("/login");
   };
 
   return (

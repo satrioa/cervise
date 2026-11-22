@@ -306,8 +306,7 @@ function SidebarContent({
           onClick={async () => {
             const supabase = createClient();
             await supabase.auth.signOut();
-            router.push("/login");
-            router.refresh();
+            router.replace("/login");
           }}
           className="rounded-md p-1.5 text-muted-foreground hover:bg-foreground/[0.04]"
           aria-label="Logout"
