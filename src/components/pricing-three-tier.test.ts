@@ -83,7 +83,22 @@ describe("tabel perbandingan paket", () => {
     ]) {
       expect(source, label).toContain(label);
     }
-    expect(source).toMatch(/FEATURE_ROWS/);
+    expect(source).toMatch(/FEATURE_GROUPS/);
+  });
+
+  it("dikelompokkan per kategori dengan baris header grup", () => {
+    for (const group of [
+      "Kapasitas",
+      "Operasional",
+      "Pelanggan & Garansi",
+      "Keuangan & Laporan",
+      "Akses & Pendukung",
+    ]) {
+      expect(source, group).toContain(`label: "${group}"`);
+    }
+    expect(source).toMatch(/<GroupRows key=\{group\.label\} group=\{group\} packages=\{packages\} \/>/);
+    expect(source).toMatch(/colSpan=\{packages\.length \+ 1\}/);
+    expect(source).toContain("Bandingkan Fitur");
   });
 
   it("menuliskan 'custom' untuk nilai kapasitas Pay as You Grow", () => {

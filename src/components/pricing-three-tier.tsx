@@ -47,18 +47,78 @@ function featuresOf(pkg: PublicPackage) {
 
 /** Baris tabel perbandingan: kapasitas dari data paket, fitur platform berlaku untuk semua. */
 const capacity = (p: PublicPackage, value: string) => (p.code === "custom" ? "custom" : value);
+const available = <CheckIcon className="ml-auto size-4 text-emerald-600" aria-label="Tersedia" />;
 
-const FEATURE_ROWS: { label: string; render: (p: PublicPackage) => ReactNode }[] = [
-  { label: "Cabang", render: (p) => capacity(p, `${p.branch_limit}`) },
-  { label: "Karyawan", render: (p) => capacity(p, `${p.user_limit ?? "∞"}`) },
-  { label: "Tiket servis / bulan", render: (p) => capacity(p, `${p.ticket_quota ?? 0}`) },
-  { label: "Pesan WhatsApp / bulan", render: (p) => capacity(p, `${p.whatsapp_quota ?? 0}`) },
-  { label: "POS", render: () => <CheckIcon className="ml-auto size-4 text-emerald-600" aria-label="Tersedia" /> },
-  { label: "Manajemen Sparepart", render: () => <CheckIcon className="ml-auto size-4 text-emerald-600" aria-label="Tersedia" /> },
-  { label: "Manajemen Inventori", render: () => <CheckIcon className="ml-auto size-4 text-emerald-600" aria-label="Tersedia" /> },
-  { label: "Portal Lacak Servis", render: () => <CheckIcon className="ml-auto size-4 text-emerald-600" aria-label="Tersedia" /> },
-  { label: "Laporan Keuangan & Servis", render: () => <CheckIcon className="ml-auto size-4 text-emerald-600" aria-label="Tersedia" /> },
+type FeatureRow = { label: string; render: (p: PublicPackage) => ReactNode };
+type FeatureGroup = { label: string; rows: FeatureRow[] };
+
+const FEATURE_GROUPS: FeatureGroup[] = [
+  {
+    label: "Kapasitas",
+    rows: [
+      { label: "Cabang", render: (p) => capacity(p, `${p.branch_limit}`) },
+      { label: "Karyawan", render: (p) => capacity(p, `${p.user_limit ?? "∞"}`) },
+      { label: "Tiket servis / bulan", render: (p) => capacity(p, `${p.ticket_quota ?? 0}`) },
+      { label: "Pesan WhatsApp / bulan", render: (p) => capacity(p, `${p.whatsapp_quota ?? 0}`) },
+    ],
+  },
+  {
+    label: "Operasional",
+    rows: [
+      { label: "POS", render: () => available },
+      { label: "Manajemen Servis", render: () => available },
+      { label: "Manajemen Sparepart", render: () => available },
+      { label: "Manajemen Inventori", render: () => available },
+    ],
+  },
+  {
+    label: "Pelanggan & Garansi",
+    rows: [
+      { label: "Data Customer", render: () => available },
+      { label: "Garansi", render: () => available },
+      { label: "Portal Lacak Servis", render: () => available },
+    ],
+  },
+  {
+    label: "Keuangan & Laporan",
+    rows: [
+      { label: "Laporan Keuangan & Servis", render: () => available },
+      { label: "Laporan Penjualan", render: () => available },
+      { label: "Arus Kas", render: () => available },
+    ],
+  },
+  {
+    label: "Akses & Pendukung",
+    rows: [
+      { label: "Karyawan & Role", render: () => available },
+      { label: "Multi-Cabang", render: () => available },
+      { label: "Notifikasi WhatsApp", render: () => available },
+    ],
+  },
 ];
+
+function GroupRows({ group, packages }: { group: FeatureGroup; packages: PublicPackage[] }) {
+  return (
+    <>
+      <TableRow className="bg-muted/50 hover:bg-muted/50">
+        <TableCell
+          colSpan={packages.length + 1}
+          className="py-2 font-mono text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground"
+        >
+          {group.label}
+        </TableCell>
+      </TableRow>
+      {group.rows.map((row) => (
+        <TableRow key={row.label}>
+          <TableCell className="sticky left-0 z-10 bg-background font-medium">{row.label}</TableCell>
+          {packages.map((pkg) => (
+            <TableCell key={pkg.code} className="text-right">{row.render(pkg)}</TableCell>
+          ))}
+        </TableRow>
+      ))}
+    </>
+  );
+}
 
 export function PricingThreeTier({ packages }: { packages: PublicPackage[] }) {
   const [period, setPeriod] = useState<Period>("monthly");
@@ -210,27 +270,22 @@ export function PricingThreeTier({ packages }: { packages: PublicPackage[] }) {
 
       <Card className="mt-16">
         <CardHeader>
-          <CardTitle>Perbandingan Paket</CardTitle>
-          <CardDescription>Kapasitas dan fitur yang tersedia di setiap paket.</CardDescription>
+          <CardTitle>Bandingkan Fitur</CardTitle>
+          <CardDescription>Bandingkan kapasitas dan fitur tiap paket. Pilih yang paling pas untuk toko Anda.</CardDescription>
         </CardHeader>
         <CardPanel className="overflow-x-auto p-0">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Kapasitas</TableHead>
+                <TableHead className="sticky left-0 z-10 bg-background">Kapasitas &amp; Fitur</TableHead>
                 {packages.map((pkg) => (
                   <TableHead key={pkg.code} className="text-right">{pkg.name}</TableHead>
                 ))}
               </TableRow>
             </TableHeader>
             <TableBody>
-              {FEATURE_ROWS.map((row) => (
-                <TableRow key={row.label}>
-                  <TableCell className="font-medium">{row.label}</TableCell>
-                  {packages.map((pkg) => (
-                    <TableCell key={pkg.code} className="text-right">{row.render(pkg)}</TableCell>
-                  ))}
-                </TableRow>
+              {FEATURE_GROUPS.map((group) => (
+                <GroupRows key={group.label} group={group} packages={packages} />
               ))}
             </TableBody>
           </Table>
