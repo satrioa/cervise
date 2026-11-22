@@ -15,6 +15,18 @@ describe("Owner Packages", () => {
     expect(manager).toContain("deletePackage(item.id)");
     expect(manager).toContain("aria-label={`Hapus ${item.name}`}");
   });
+
+  it("tidak ada field karyawan di form maupun kartu paket", () => {
+    expect(manager).not.toContain("userLimit");
+    expect(manager).not.toContain("extraEmployeePrice");
+    expect(manager).not.toContain("karyawan");
+    const start = actions.indexOf("export async function savePackage");
+    const savePackage = actions.slice(start, start + 1200);
+    expect(savePackage).not.toContain("userLimit");
+    expect(savePackage).not.toContain("extraEmployeePrice");
+    expect(savePackage).not.toContain("user_limit");
+    expect(savePackage).not.toContain("extra_employee_price");
+  });
 });
 
 describe("deletePackage guard", () => {

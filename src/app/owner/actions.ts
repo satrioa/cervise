@@ -34,7 +34,6 @@ type PackageRow = {
   description: string | null;
   monthly_price: number;
   branch_limit: number;
-  user_limit: number | null;
   is_active: boolean;
   sort_order: number;
   annual_price: number | null;
@@ -42,7 +41,6 @@ type PackageRow = {
   ticket_quota: number | null;
   whatsapp_quota: number | null;
   extra_branch_price: number | null;
-  extra_employee_price: number | null;
   extra_ticket_block_price: number | null;
   ticket_block_size: number | null;
   wa_per_ticket_block: number | null;
@@ -263,7 +261,7 @@ export async function getPackages() {
   const { supabase } = await requirePlatformAdmin();
   const { data, error } = await supabase
     .from("packages")
-    .select("id, code, name, description, monthly_price, branch_limit, user_limit, is_active, sort_order, annual_price, trial_days, ticket_quota, whatsapp_quota, extra_branch_price, extra_employee_price, extra_ticket_block_price, ticket_block_size, wa_per_ticket_block, annual_multiplier, is_recommended")
+    .select("id, code, name, description, monthly_price, branch_limit, is_active, sort_order, annual_price, trial_days, ticket_quota, whatsapp_quota, extra_branch_price, extra_ticket_block_price, ticket_block_size, wa_per_ticket_block, annual_multiplier, is_recommended")
     .order("sort_order", { ascending: true });
   if (error) throw error;
   return (data ?? []) as PackageRow[];
@@ -276,13 +274,11 @@ export async function savePackage(input: {
   description?: string;
   monthlyPrice: string | number;
   branchLimit: string | number;
-  userLimit?: string | number | null;
   annualPrice?: string | number | null;
   trialDays?: string | number | null;
   ticketQuota?: string | number | null;
   whatsappQuota?: string | number | null;
   extraBranchPrice?: string | number | null;
-  extraEmployeePrice?: string | number | null;
   extraTicketBlockPrice?: string | number | null;
   ticketBlockSize?: string | number | null;
   waPerTicketBlock?: string | number | null;
@@ -299,13 +295,11 @@ export async function savePackage(input: {
     description: packageInput.description,
     monthly_price: packageInput.monthlyPrice,
     branch_limit: packageInput.branchLimit,
-    user_limit: packageInput.userLimit,
     annual_price: packageInput.annualPrice,
     trial_days: packageInput.trialDays,
     ticket_quota: packageInput.ticketQuota,
     whatsapp_quota: packageInput.whatsappQuota,
     extra_branch_price: packageInput.extraBranchPrice,
-    extra_employee_price: packageInput.extraEmployeePrice,
     extra_ticket_block_price: packageInput.extraTicketBlockPrice,
     ticket_block_size: packageInput.ticketBlockSize,
     wa_per_ticket_block: packageInput.waPerTicketBlock,

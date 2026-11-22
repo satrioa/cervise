@@ -20,7 +20,6 @@ type PackageRow = {
   description: string | null;
   monthly_price: number;
   branch_limit: number;
-  user_limit: number | null;
   is_active: boolean;
   sort_order: number;
   annual_price: number | null;
@@ -28,7 +27,6 @@ type PackageRow = {
   ticket_quota: number | null;
   whatsapp_quota: number | null;
   extra_branch_price: number | null;
-  extra_employee_price: number | null;
   extra_ticket_block_price: number | null;
   ticket_block_size: number | null;
   wa_per_ticket_block: number | null;
@@ -44,12 +42,10 @@ type FormState = {
   monthlyPrice: string;
   annualPrice: string;
   branchLimit: string;
-  userLimit: string;
   trialDays: string;
   ticketQuota: string;
   whatsappQuota: string;
   extraBranchPrice: string;
-  extraEmployeePrice: string;
   extraTicketBlockPrice: string;
   ticketBlockSize: string;
   waPerTicketBlock: string;
@@ -66,12 +62,10 @@ const emptyForm: FormState = {
   monthlyPrice: "",
   annualPrice: "",
   branchLimit: "1",
-  userLimit: "5",
   trialDays: "",
   ticketQuota: "100",
   whatsappQuota: "300",
   extraBranchPrice: "79000",
-  extraEmployeePrice: "12000",
   extraTicketBlockPrice: "199000",
   ticketBlockSize: "100",
   waPerTicketBlock: "300",
@@ -117,12 +111,10 @@ function formFromPackage(item: PackageRow): FormState {
     monthlyPrice: String(item.monthly_price),
     annualPrice: item.annual_price === null ? "" : String(item.annual_price),
     branchLimit: String(item.branch_limit),
-    userLimit: item.user_limit === null ? "" : String(item.user_limit),
     trialDays: item.trial_days === null ? "" : String(item.trial_days),
     ticketQuota: item.ticket_quota === null ? "" : String(item.ticket_quota),
     whatsappQuota: item.whatsapp_quota === null ? "" : String(item.whatsapp_quota),
     extraBranchPrice: String(item.extra_branch_price ?? 79000),
-    extraEmployeePrice: String(item.extra_employee_price ?? 12000),
     extraTicketBlockPrice: String(item.extra_ticket_block_price ?? 199000),
     ticketBlockSize: String(item.ticket_block_size ?? 100),
     waPerTicketBlock: String(item.wa_per_ticket_block ?? 300),
@@ -163,12 +155,10 @@ export function PackageManager({ packages }: { packages: PackageRow[] }) {
         monthlyPrice: form.monthlyPrice,
         annualPrice: isCustomForm ? null : form.annualPrice || null,
         branchLimit: form.branchLimit,
-        userLimit: form.userLimit || null,
         trialDays: isCustomForm ? null : form.trialDays || null,
         ticketQuota: form.ticketQuota || null,
         whatsappQuota: form.whatsappQuota || null,
         extraBranchPrice: form.extraBranchPrice,
-        extraEmployeePrice: form.extraEmployeePrice,
         extraTicketBlockPrice: form.extraTicketBlockPrice,
         ticketBlockSize: form.ticketBlockSize,
         waPerTicketBlock: form.waPerTicketBlock,
@@ -229,7 +219,7 @@ export function PackageManager({ packages }: { packages: PackageRow[] }) {
               <div className="mt-1 text-xs text-muted-foreground">
                 {formatRupiah(item.monthly_price)} / bulan
                 {item.annual_price ? ` · ${formatRupiah(item.annual_price)} / tahun` : ""}
-                {" · "}{item.branch_limit} cabang · {item.user_limit ?? "∞"} karyawan
+                {" · "}{item.branch_limit} cabang
               </div>
               <div className="mt-1 text-xs text-muted-foreground">
                 {item.ticket_quota ?? 0} tiket · {item.whatsapp_quota ?? 0} WA

@@ -86,13 +86,11 @@ export function parsePackageInput(input: {
   description?: unknown;
   monthlyPrice?: unknown;
   branchLimit?: unknown;
-  userLimit?: unknown;
   annualPrice?: unknown;
   trialDays?: unknown;
   ticketQuota?: unknown;
   whatsappQuota?: unknown;
   extraBranchPrice?: unknown;
-  extraEmployeePrice?: unknown;
   extraTicketBlockPrice?: unknown;
   ticketBlockSize?: unknown;
   waPerTicketBlock?: unknown;
@@ -106,13 +104,11 @@ export function parsePackageInput(input: {
   const description = asString(input.description) || null;
   const monthlyPrice = asInteger(input.monthlyPrice);
   const branchLimit = asInteger(input.branchLimit);
-  const userLimit = asInteger(input.userLimit);
   const annualPrice = asInteger(input.annualPrice);
   const trialDays = asInteger(input.trialDays);
   const ticketQuota = asInteger(input.ticketQuota);
   const whatsappQuota = asInteger(input.whatsappQuota);
   const extraBranchPrice = asInteger(input.extraBranchPrice) ?? 79000;
-  const extraEmployeePrice = asInteger(input.extraEmployeePrice) ?? 12000;
   const extraTicketBlockPrice = asInteger(input.extraTicketBlockPrice) ?? 199000;
   const ticketBlockSize = asInteger(input.ticketBlockSize) ?? 100;
   const waPerTicketBlock = asInteger(input.waPerTicketBlock) ?? 300;
@@ -130,9 +126,6 @@ export function parsePackageInput(input: {
   if (branchLimit === null || Number.isNaN(branchLimit) || branchLimit < 1) {
     throw new Error("Branch limit must be at least one");
   }
-  if (userLimit !== null && (Number.isNaN(userLimit) || userLimit < 1)) {
-    throw new Error("User limit must be at least one");
-  }
   if (annualPrice !== null && (Number.isNaN(annualPrice) || annualPrice < 0)) {
     throw new Error("Annual price must be zero or greater");
   }
@@ -149,7 +142,6 @@ export function parsePackageInput(input: {
   }
   for (const [value, label] of [
     [extraBranchPrice, "Extra branch price"],
-    [extraEmployeePrice, "Extra employee price"],
     [extraTicketBlockPrice, "Extra ticket block price"],
     [waPerTicketBlock, "WhatsApp per ticket block"],
     [annualMultiplier, "Annual multiplier"],
@@ -171,13 +163,11 @@ export function parsePackageInput(input: {
     description,
     monthlyPrice,
     branchLimit,
-    userLimit,
     annualPrice,
     trialDays,
     ticketQuota,
     whatsappQuota,
     extraBranchPrice,
-    extraEmployeePrice,
     extraTicketBlockPrice,
     ticketBlockSize,
     waPerTicketBlock,
