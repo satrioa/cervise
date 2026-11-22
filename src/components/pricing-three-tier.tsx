@@ -58,7 +58,7 @@ const FEATURE_GROUPS: FeatureGroup[] = [
     rows: [
       { label: "Cabang", render: (p) => capacity(p, `${p.branch_limit}`) },
       { label: "Karyawan", render: (p) => capacity(p, `${p.user_limit ?? "∞"}`) },
-      { label: "Tiket servis / bulan", render: (p) => capacity(p, `${p.ticket_quota ?? 0}`) },
+      { label: "Tiket servis / bulan", render: (p) => capacity(p, `${p.ticket_quota ?? "∞"}`) },
       { label: "Pesan WhatsApp / bulan", render: (p) => capacity(p, `${p.whatsapp_quota ?? 0}`) },
     ],
   },

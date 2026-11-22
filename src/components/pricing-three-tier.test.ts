@@ -101,8 +101,9 @@ describe("tabel perbandingan paket", () => {
     expect(source).toContain("Bandingkan Fitur");
   });
 
-  it("menuliskan 'custom' untuk nilai kapasitas Pay as You Grow", () => {
+  it("menuliskan 'custom' untuk kapasitas Pay as You Grow dan '∞' untuk tiket unlimited", () => {
     expect(source).toMatch(/p\.code === "custom" \? "custom"/);
+    expect(source).toContain('p.ticket_quota ?? "∞"');
   });
 
   it("tidak menampilkan baris Durasi trial", () => {
