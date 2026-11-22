@@ -103,7 +103,7 @@ export function PricingThreeTier({ packages }: { packages: PublicPackage[] }) {
     <div className="mx-auto max-w-6xl px-6 py-16">
       <div className="text-center">
         <div className="font-mono text-[10px] text-muted-foreground uppercase tracking-[0.3em]">Harga</div>
-        <h2 className="mt-2 font-heading text-4xl tracking-tight md:text-5xl">Harga Simpel</h2>
+        <h2 className="mt-2 font-heading text-4xl tracking-tight md:text-5xl">Harga Transparan &amp; Fleksibel</h2>
         <p className="mx-auto mt-3 max-w-xl text-balance text-muted-foreground text-sm">
           Mulai gratis {trial?.trial_days ?? 5} hari. Bayar bulanan atau tahunan — kapasitas tetap di-reset tiap bulan. Upgrade kapan saja.
         </p>
