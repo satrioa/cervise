@@ -28,3 +28,17 @@ describe("KPI Omzet dashboard owner", () => {
     expect(actions).toContain("previousPeriodStart");
   });
 });
+
+describe("KPI Piutang dashboard owner", () => {
+  it("kartu piutang memakai saldo berjalan dari server", () => {
+    expect(source).toContain('label: "Piutang"');
+    expect(source).toContain("formatCurrencyPlain(summary.piutang)");
+    expect(source).toContain('sub: "saldo berjalan"');
+    expect(actions).toContain("piutangSales");
+  });
+
+  it("grid kartu mendukung lima KPI", () => {
+    expect(source).toContain("xl:grid-cols-5");
+    expect(source).toContain("Array.from({ length: 5 }");
+  });
+});

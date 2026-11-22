@@ -123,6 +123,14 @@ export default function DashboardOwnerClient() {
           sub: data?.branchLabel ?? branch.label,
           sparkline: summary.buckets.map((b) => b.masuk),
         },
+        {
+          label: "Piutang",
+          value: formatCurrencyPlain(summary.piutang),
+          delta: summary.piutang > 0 ? "perlu ditagih" : "aman",
+          trend: summary.piutang > 0 ? ("down" as const) : ("up" as const),
+          sub: "saldo berjalan",
+          sparkline: summary.buckets.map((b) => b.masuk),
+        },
       ]
     : [];
 
@@ -146,9 +154,9 @@ export default function DashboardOwnerClient() {
           </div>
         ) : null}
 
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-5">
           {loading && !summary
-            ? Array.from({ length: 4 }, (_, index) => (
+            ? Array.from({ length: 5 }, (_, index) => (
                 <div
                   key={index}
                   aria-hidden

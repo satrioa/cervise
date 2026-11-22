@@ -35,6 +35,10 @@ export type DashboardFinance = {
 export type DashboardSale = {
   id?: string;
   created_at: string;
+  servis_id?: string | null;
+  total?: number;
+  paid?: number;
+  payment_status?: string | null;
 };
 
 export type DashboardServiceLog = {
@@ -140,6 +144,8 @@ export type DashboardSummary = {
   omzet: number;
   pengeluaran: number;
   garansiAktif: number;
+  /** Piutang servis selesai yang belum lunas (saldo berjalan, bukan per periode). */
+  piutang: number;
   buckets: DashboardBucket[];
   bucketTotal: number;
   /** Aktivitas harian untuk terrain "kapan toko ramai". */
@@ -274,15 +280,40 @@ export function buildActivityTerrain(input: {
   return { data: keys.map((k) => counts.get(k) ?? 0), endDate: keys[keys.length - 1] };
 }
 
+const SERVIS_SELESAI = new Set(["Selesai", "Sudah Diambil"]);
+
+/**
+ * Piutang = sisa tagihan servis selesai. Servis tanpa sale memakai price penuh;
+ * servis dengan sale memakai total - paid. Batal dan servis berjalan diabaikan.
+ * Saldo berjalan: sengaja tidak memakai filter periode.
+ */
+export function hitungPiutang(
+  services: Pick<DashboardService, "id" | "status" | "price">[],
+  sales: Pick<DashboardSale, "servis_id" | "total" | "paid">[] = [],
+): number {
+  const sisaByServis = new Map<string, number>();
+  for (const sale of sales) {
+    if (!sale.servis_id) continue;
+    const sisa = Math.max(0, Number(sale.total ?? 0) - Number(sale.paid ?? 0));
+    sisaByServis.set(sale.servis_id, (sisaByServis.get(sale.servis_id) ?? 0) + sisa);
+  }
+
+  return services.reduce((total, service) => {
+    if (!SERVIS_SELESAI.has(service.status)) return total;
+    return total + (sisaByServis.get(service.id) ?? Math.max(0, Number(service.price ?? 0)));
+  }, 0);
+}
+
 export function summarizeDashboard(input: {
   services: DashboardService[];
   finance: DashboardFinance[];
   sales?: DashboardSale[];
+  piutangSales?: DashboardSale[];
   profiles?: DashboardProfile[];
   period: DashboardPeriod;
   now: Date;
 }): DashboardSummary {
-  const { services, finance, sales = [], profiles = [], period, now } = input;
+  const { services, finance, sales = [], piutangSales, profiles = [], period, now } = input;
   const windows = buildBuckets(period, now);
   const buckets: DashboardBucket[] = windows.map((window) => ({
     key: window.key,
@@ -342,6 +373,7 @@ export function summarizeDashboard(input: {
     omzet,
     pengeluaran,
     garansiAktif,
+    piutang: hitungPiutang(services, piutangSales ?? sales),
     buckets,
     bucketTotal: buckets.reduce((total, bucket) => total + bucket.masuk, 0),
     activityTerrain: buildActivityTerrain({ services, sales, period, now }),
