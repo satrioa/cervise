@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { fetchLoginAccess } from "@/lib/auth/login-access";
 import Hero02 from "@/components/originkit/hero-02";
 import BentoSection from "@/components/landing/bento-section";
+import { WhyDigitalPos } from "@/components/landing/why-digital-pos";
 import { FeatureSection } from "@/components/feature-section";
 import FeatureShowcase from "@/components/landing/feature-showcase";
 import FooterSimple from "@/components/ui/smoothui/footer-1";
@@ -76,6 +77,8 @@ export default async function LandingPage() {
       <Hero02 isLoggedIn={isLoggedIn} user={heroUser} dashboardHref={dashboardHref} />
 
       <BentoSection />
+
+      <WhyDigitalPos />
 
       <section id="fitur" className="border-t bg-muted/20 px-4 py-16 lg:px-8">
         <FeatureSection />

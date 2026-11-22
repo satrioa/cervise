@@ -10,6 +10,7 @@ const css = read("src/app/globals.css");
 const hero = read("src/components/originkit/hero-02.tsx");
 const bento = read("src/components/landing/bento-section.tsx");
 const pricing = read("src/components/pricing-three-tier.tsx");
+const why = read("src/components/landing/why-digital-pos.tsx");
 const layout = read("src/app/layout.tsx");
 const sync = read("src/components/layout/theme-color-sync.tsx");
 
@@ -28,6 +29,35 @@ describe("landing page tidak mengikuti mode dark/light aplikasi", () => {
     expect(hero).not.toMatch(/dark:/);
     expect(bento).not.toMatch(/dark:/);
     expect(pricing).not.toMatch(/dark:/);
+  });
+});
+
+describe("section mengapa UMKM butuh kasir digital", () => {
+  it("berada setelah Bento dan sebelum fitur", () => {
+    const bento = page.indexOf("<BentoSection />");
+    const whyAt = page.indexOf("<WhyDigitalPos />");
+    const fitur = page.indexOf('<section id="fitur"');
+    expect(bento).toBeGreaterThan(-1);
+    expect(whyAt).toBeGreaterThan(bento);
+    expect(whyAt).toBeLessThan(fitur);
+  });
+
+  it("berisi empat kartu masalah dengan judul Kaggo", () => {
+    expect(why).toContain("Mengapa UMKM butuh aplikasi kasir digital?");
+    for (const title of [
+      "Servis & antrean tidak tercatat",
+      "Laporan kas menyita waktu",
+      "Stok sparepart tidak terkontrol",
+      "Susah pantau cabang & teknisi",
+    ]) {
+      expect(why, title).toContain(title);
+    }
+  });
+
+  it("memakai grid responsif dan Card, tanpa varian dark", () => {
+    expect(why).toContain("sm:grid-cols-2 lg:grid-cols-4");
+    expect(why).toContain("<Card");
+    expect(why).not.toContain("dark:");
   });
 });
 
