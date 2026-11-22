@@ -16,6 +16,7 @@ import { CompactMenuSheet } from "@/components/layout/compact-menu-sheet";
 import { CompactBottomBar } from "@/components/layout/compact-bottom-bar";
 import { CompactDockNav } from "@/components/layout/compact-dock-nav";
 import { PageTransition } from "@/components/layout/page-transition";
+import { PullToRefreshIndicator, usePullToRefresh } from "@/components/layout/pull-to-refresh";
 import { BranchProvider } from "@/lib/branch-context";
 import { TenantProvider } from "@/lib/tenant-context";
 import { LocaleProvider } from "@/lib/localization-context";
@@ -107,7 +108,12 @@ function CompactShellInner({
   const [dockHidden, setDockHidden] = useState(false);
   const lastScrollTop = useRef(0);
   const scrollDelta = useRef(0);
+  const contentRef = useRef<HTMLElement | null>(null);
   const pathname = usePathname();
+  const pull = usePullToRefresh(contentRef, {
+    onRefresh: () => window.location.reload(),
+    rebindKey: pathname,
+  });
   const t = useTranslations("nav");
   const role = normalizeAppRole(actor.role);
 
@@ -283,10 +289,12 @@ function CompactShellInner({
         </div>
       </header>
 
+      <PullToRefreshIndicator distance={pull.distance} refreshing={pull.refreshing} />
       <main
         key={pathname}
+        ref={contentRef}
         onScroll={handleContentScroll}
-        className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden pt-[calc(3.25rem_+_env(safe-area-inset-top))] pb-[calc(5rem_+_env(safe-area-inset-bottom))] lg:pt-0 lg:pb-32"
+        className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-y-contain pt-[calc(3.25rem_+_env(safe-area-inset-top))] pb-[calc(5rem_+_env(safe-area-inset-bottom))] lg:pt-0 lg:pb-32"
       >
         {/* `h-full` menjaga rantai tinggi halaman (POS mengisi sisa `main`).
             Reveal hanya membungkus isi halaman, bukan chrome shell. */}
