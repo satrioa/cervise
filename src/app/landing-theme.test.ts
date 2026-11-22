@@ -32,7 +32,7 @@ describe("landing page tidak mengikuti mode dark/light aplikasi", () => {
   });
 });
 
-describe("section mengapa UMKM butuh kasir digital", () => {
+describe("section kenapa kamu butuh aplikasi digital", () => {
   it("berada setelah Bento dan sebelum fitur", () => {
     const bento = page.indexOf("<BentoSection />");
     const whyAt = page.indexOf("<WhyDigitalPos />");
@@ -43,7 +43,8 @@ describe("section mengapa UMKM butuh kasir digital", () => {
   });
 
   it("berisi empat kartu masalah dengan judul Kaggo", () => {
-    expect(why).toContain("Mengapa UMKM butuh aplikasi kasir digital?");
+    expect(why).toContain("Kenapa kamu butuh aplikasi digital?");
+    expect(why).toContain("mx-auto mt-3 max-w-2xl text-center");
     for (const title of [
       "Servis & antrean tidak tercatat",
       "Laporan kas menyita waktu",

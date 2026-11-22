@@ -32,10 +32,10 @@ export function WhyDigitalPos() {
   return (
     <section className="border-t bg-muted/20 px-4 py-16 lg:px-8">
       <div className="mx-auto max-w-6xl">
-        <h2 className="font-heading text-balance text-2xl font-medium md:text-3xl lg:text-4xl">
-          Mengapa UMKM butuh aplikasi kasir digital?
+        <h2 className="mx-auto text-center font-heading text-balance text-2xl font-medium md:text-3xl lg:text-4xl">
+          Kenapa kamu butuh aplikasi digital?
         </h2>
-        <p className="mt-3 max-w-2xl text-sm text-muted-foreground md:text-base">
+        <p className="mx-auto mt-3 max-w-2xl text-center text-sm text-muted-foreground md:text-base">
           Pencatatan manual sering jadi penghambat pertumbuhan. Empat masalah ini yang paling
           sering dialami pemilik toko servis — dan bisa diselesaikan dengan satu sistem.
         </p>
