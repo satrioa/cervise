@@ -24,6 +24,7 @@ describe("checkout online", () => {
       order_id: "INV-202611-0001",
       gross_amount: 199000,
     });
+    expect(payload.callbacks.finish).toContain("/app/pengaturan/usage/beli");
     expect(payload.customer_details.email).toBe("budi@toko.id");
   });
 

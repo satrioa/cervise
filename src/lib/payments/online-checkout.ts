@@ -34,10 +34,18 @@ export function checkoutEndpoint(isProduction: boolean) {
 }
 
 export function buildCheckoutPayload(input: CheckoutInput) {
+  const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL ?? "https://kaggo.app").replace(/\/$/, "");
+  const returnUrl = `${siteUrl}/app/pengaturan/usage/beli`;
   return {
     transaction_details: {
       order_id: input.orderId,
       gross_amount: input.grossAmount,
+    },
+    // Redirect dikirim di request supaya tidak perlu mengubah preferensi checkout di dashboard.
+    callbacks: {
+      finish: returnUrl,
+      pending: returnUrl,
+      error: returnUrl,
     },
     credit_card: { secure: true },
     customer_details: {
