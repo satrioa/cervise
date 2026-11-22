@@ -1,15 +1,18 @@
 "use client";
 
-import { type FormEvent, useState } from "react";
+import { type FormEvent, useEffect, useState } from "react";
 import { EyeIcon, EyeOffIcon } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardHeader, CardPanel } from "@/components/ui/card";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { createClient } from "@/lib/supabase/client";
+import { clearRememberedEmail, readRememberedEmail, saveRememberedEmail } from "@/lib/auth/remember-login";
 import { getPostLoginDestination } from "./actions";
 import { AppImage } from "@/components/ui/app-image";
 import { toast } from "sonner";
@@ -156,7 +159,18 @@ function SignInForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [reveal, setReveal] = useState(false);
+  const [remember, setRemember] = useState(true);
   const [pending, setPending] = useState(false);
+
+  // localStorage hanya bisa dibaca di client; baca setelah mount supaya tidak
+  // menyebabkan beda HTML antara server dan client (hydration mismatch).
+  useEffect(() => {
+    const saved = readRememberedEmail();
+    if (saved) {
+      setEmail(saved);
+      setRemember(true);
+    }
+  }, []);
 
   const onSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -166,6 +180,8 @@ function SignInForm() {
       const supabase = createClient();
       const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
       if (error) throw error;
+      if (remember) saveRememberedEmail(email.trim());
+      else clearRememberedEmail();
       const clientSavedOrganizationId = window.localStorage.getItem("cervise_org");
       const result = await getPostLoginDestination(clientSavedOrganizationId);
       if (result.kind === "denied") {
@@ -202,6 +218,16 @@ function SignInForm() {
           </InputGroupAddon>
         </InputGroup>
       </Field>
+      <div className="flex items-center gap-2">
+        <Checkbox
+          id="remember-login"
+          checked={remember}
+          onCheckedChange={(value) => setRemember(value === true)}
+        />
+        <Label htmlFor="remember-login" className="cursor-pointer text-sm font-normal text-muted-foreground">
+          Ingat saya di perangkat ini
+        </Label>
+      </div>
       <Button type="submit" size="lg" loading={pending} className="mt-1 w-full">Masuk</Button>
     </form>
   );
