@@ -18,7 +18,6 @@ export function buildCustomQuoteWhatsAppUrl(
   number: string | undefined | null,
   quote: {
     branches: number;
-    employees: number;
     services: number;
     monthly: number;
     annual: number;
@@ -33,7 +32,6 @@ export function buildCustomQuoteWhatsAppUrl(
 
 Kebutuhan:
 - Cabang: ${quote.branches}
-- Karyawan aktif: ${quote.employees}
 - Kapasitas servis: ${quote.services} tiket/bulan
 - Kuota WhatsApp: ${quote.whatsappQuota} pesan/bulan
 

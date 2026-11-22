@@ -90,7 +90,6 @@ export async function requestCustomQuote(raw: CustomPricingInput): Promise<Custo
   const input = normalizeCustomInput(
     {
       branches: Number(raw?.branches),
-      employees: Number(raw?.employees),
       services: Number(raw?.services),
     },
     config,

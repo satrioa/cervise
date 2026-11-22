@@ -70,7 +70,6 @@ export function PricingThreeTier({ packages }: { packages: PublicPackage[] }) {
   const config = custom ? configFromPackageRow(custom) : null;
   const [input, setInput] = useState<CustomPricingInput>({
     branches: config?.includedBranches ?? 1,
-    employees: config?.includedEmployees ?? 5,
     services: config?.includedServices ?? 100,
   });
   const [requesting, setRequesting] = useState(false);

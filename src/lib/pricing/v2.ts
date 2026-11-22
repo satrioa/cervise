@@ -6,17 +6,14 @@
 
 export type CustomPricingInput = {
   branches: number;
-  employees: number;
   services: number;
 };
 
 export type PricingConfig = {
   baseMonthlyPrice: number;
   includedBranches: number;
-  includedEmployees: number;
   includedServices: number;
   extraBranchPrice: number;
-  extraEmployeePrice: number;
   extraServiceBlockPrice: number;
   serviceBlockSize: number;
   waPerServiceBlock: number;
@@ -28,10 +25,8 @@ export const defaultCustomConfig: PricingConfig = {
   // Basis Custom mengikuti paket Starter.
   baseMonthlyPrice: 299000,
   includedBranches: 1,
-  includedEmployees: 5,
   includedServices: 100,
   extraBranchPrice: 79000,
-  extraEmployeePrice: 12000,
   extraServiceBlockPrice: 199000,
   serviceBlockSize: 100,
   waPerServiceBlock: 300,
@@ -42,7 +37,6 @@ export const defaultCustomConfig: PricingConfig = {
 export type CustomPriceBreakdown = {
   base: number;
   branchAddon: number;
-  employeeAddon: number;
   serviceAddon: number;
   total: number;
   extraServiceBlocks: number;
@@ -72,13 +66,10 @@ export function calculateCustomMonthlyPrice(
   config: PricingConfig = defaultCustomConfig,
 ): CustomPriceBreakdown {
   const branches = requireCount(input.branches, "Jumlah cabang");
-  const employees = requireCount(input.employees, "Jumlah karyawan");
   const services = requireCount(input.services, "Kapasitas servis");
 
   const branchAddon =
     Math.max(0, branches - config.includedBranches) * config.extraBranchPrice;
-  const employeeAddon =
-    Math.max(0, employees - config.includedEmployees) * config.extraEmployeePrice;
   const extraServiceBlocks = roundUpBlocks(
     services,
     config.includedServices,
@@ -89,9 +80,8 @@ export function calculateCustomMonthlyPrice(
   return {
     base: config.baseMonthlyPrice,
     branchAddon,
-    employeeAddon,
     serviceAddon,
-    total: config.baseMonthlyPrice + branchAddon + employeeAddon + serviceAddon,
+    total: config.baseMonthlyPrice + branchAddon + serviceAddon,
     extraServiceBlocks,
     whatsappQuota:
       config.includedWhatsapp + extraServiceBlocks * config.waPerServiceBlock,
@@ -125,7 +115,6 @@ export function normalizeCustomInput(
   };
   return {
     branches: clamp(input.branches, config.includedBranches, 1000),
-    employees: clamp(input.employees, config.includedEmployees, 10000),
     services: clamp(input.services, config.includedServices, 100000),
   };
 }
@@ -147,10 +136,8 @@ export function configFromPackageRow(row: {
   return {
     baseMonthlyPrice: row.monthly_price,
     includedBranches: row.branch_limit,
-    includedEmployees: row.user_limit ?? defaultCustomConfig.includedEmployees,
     includedServices: row.ticket_quota ?? defaultCustomConfig.includedServices,
     extraBranchPrice: row.extra_branch_price ?? defaultCustomConfig.extraBranchPrice,
-    extraEmployeePrice: row.extra_employee_price ?? defaultCustomConfig.extraEmployeePrice,
     extraServiceBlockPrice:
       row.extra_ticket_block_price ?? defaultCustomConfig.extraServiceBlockPrice,
     serviceBlockSize: row.ticket_block_size ?? defaultCustomConfig.serviceBlockSize,
