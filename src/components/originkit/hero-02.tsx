@@ -127,8 +127,7 @@ const Navbar = ({ isLoggedIn, user, dashboardHref }: { isLoggedIn?: boolean; use
   const handleSignOut = async () => {
     const supabase = createClient();
     await supabase.auth.signOut();
-    router.push("/login");
-    router.refresh();
+    router.replace("/login");
   };
   const initials = initialsOf(user?.name);
   // Fallback-nya inisial lokal, BUKAN api.dicebear.com. Repo ini sudah

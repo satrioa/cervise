@@ -12,14 +12,22 @@ describe("navigasi setelah autentikasi", () => {
     expect(success.slice(0, 300)).not.toContain("router.refresh()");
   });
 
-  it("logout shell tenant & owner tidak memanggil refresh setelah navigasi", () => {
+  it("semua jalur logout tidak memanggil refresh setelah navigasi", () => {
     for (const path of [
       "src/components/layout/app-shell.tsx",
+      "src/components/layout/compact-bottom-bar.tsx",
+      "src/components/layout/compact-menu-sheet.tsx",
+      "src/components/layout/compact-sidebar.tsx",
+      "src/components/layout/command-palette.tsx",
       "src/components/owner/owner-shell.tsx",
+      "src/components/initial-password-dialog.tsx",
+      "src/components/originkit/hero-02.tsx",
     ]) {
       const source = read(path);
-      const body = source.slice(source.indexOf("signOut"), source.indexOf("signOut") + 500);
-      expect(body, path).toContain('router.replace("/login")');
+      const signOutAt = source.indexOf("signOut");
+      expect(signOutAt, path).toBeGreaterThan(-1);
+      const body = source.slice(signOutAt, signOutAt + 500);
+      expect(body, path).toMatch(/router\.replace\("\/login/);
       expect(body, path).not.toContain("router.refresh()");
     }
   });

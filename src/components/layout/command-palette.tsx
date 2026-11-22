@@ -182,7 +182,6 @@ export function KaggoCommandPalette({ open, onOpenChange, role, permissions }: P
     close();
     await createClient().auth.signOut();
     router.replace("/login");
-    router.refresh();
   };
 
   // ---- Aksi cepat -----------------------------------------------------------

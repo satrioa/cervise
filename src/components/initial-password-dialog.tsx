@@ -61,7 +61,6 @@ export function InitialPasswordDialog({ mustChange }: { mustChange: boolean }) {
       const supabase = createClient();
       await supabase.auth.signOut();
       router.replace("/login?password=updated");
-      router.refresh();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Gagal mengganti password.");
     } finally {
