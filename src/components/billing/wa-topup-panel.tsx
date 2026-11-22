@@ -45,8 +45,8 @@ const tanggal = (value: string) =>
   new Intl.DateTimeFormat("id-ID", { dateStyle: "medium", timeZone: "Asia/Jakarta" }).format(new Date(value));
 
 /**
- * Ringkasan singkat di halaman pemakaian. Pembelian, transfer, dan unggah bukti
- * sekarang berada di halaman tersendiri: /app/pengaturan/usage/beli.
+ * Ringkasan singkat di halaman pemakaian. Pembelian & pembayaran berada di
+ * halaman tersendiri: /app/pengaturan/usage/beli.
  */
 export function WaTopupPanel({
   invoices,
@@ -70,7 +70,7 @@ export function WaTopupPanel({
       <CardHeader>
         <CardTitle className="text-base">Kuota WhatsApp tambahan</CardTitle>
         <CardDescription>
-          Beli pesan tambahan untuk seluruh cabang. Transfer &amp; unggah bukti dilakukan di halaman terpisah.
+          Beli pesan tambahan untuk seluruh cabang. Pembayaran dilakukan di halaman terpisah.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -89,7 +89,6 @@ export function WaTopupPanel({
           <div className="space-y-2">
             <p className="text-xs font-medium text-muted-foreground">Order terakhir</p>
             {recent.map((invoice) => {
-              const hasProof = proofs.some((proof) => proof.invoice_id === invoice.id);
               return (
                 <div key={invoice.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border px-3 py-2 text-xs">
                   <div>
@@ -100,10 +99,8 @@ export function WaTopupPanel({
                   </div>
                   <div className="flex flex-wrap items-center gap-1.5">
                     <Badge variant={invoice.status === "approved" ? "success" : invoice.status === "rejected" ? "destructive" : "warning"}>
-                      {invoice.status === "approved" ? "Lunas" : invoice.status === "rejected" ? "Ditolak" : "Menunggu verifikasi"}
+                      {invoice.status === "approved" ? "Lunas" : invoice.status === "rejected" ? "Ditolak" : "Menunggu pembayaran"}
                     </Badge>
-                    {hasProof ? <Badge variant="outline">Bukti diunggah</Badge> : null}
-                    {invoice.wa_confirmation_sent_at ? <Badge variant="outline">WA terkirim</Badge> : null}
                   </div>
                 </div>
               );

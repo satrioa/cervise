@@ -4,8 +4,6 @@ import { describe, expect, it } from "vitest";
 import { quotaLevel, walletSummary } from "./quota";
 import {
   ACTIVE_PAYMENT_PROVIDER,
-  PAYMENT_PROVIDERS,
-  getDuitkuCheckout,
   isProviderCheckoutAvailable,
 } from "./provider";
 import { parseTopupPackageInput } from "@/lib/platform/validation";
@@ -16,14 +14,9 @@ const migration = readFileSync(
 );
 
 describe("payment provider", () => {
-  it("hanya transfer manual yang aktif; Duitku tidak pernah checkout", () => {
-    expect(ACTIVE_PAYMENT_PROVIDER.id).toBe("manual_transfer");
-    expect(isProviderCheckoutAvailable("manual_transfer")).toBe(true);
-    expect(isProviderCheckoutAvailable("duitku")).toBe(false);
-    expect(PAYMENT_PROVIDERS.find((p) => p.id === "duitku")?.notice).toBe(
-      "NOT CONFIGURED / PENDING MERCHANT APPROVAL",
-    );
-    expect(() => getDuitkuCheckout()).toThrow(/belum dikonfigurasi/);
+  it("checkout online adalah satu-satunya provider aktif", () => {
+    expect(ACTIVE_PAYMENT_PROVIDER.id).toBe("online_checkout");
+    expect(isProviderCheckoutAvailable("online_checkout")).toBe(true);
   });
 });
 

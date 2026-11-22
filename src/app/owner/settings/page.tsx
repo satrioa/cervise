@@ -28,7 +28,7 @@ export default async function OwnerSettingsPage() {
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Payment providers</CardTitle>
-          <CardDescription>Transfer bank manual adalah satu-satunya provider aktif. Duitku menunggu persetujuan merchant.</CardDescription>
+          <CardDescription>Metode pembayaran yang tersedia untuk pembelian kuota dan perpanjangan.</CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-3">
           {PAYMENT_PROVIDERS.map((provider) => (
@@ -43,7 +43,7 @@ export default async function OwnerSettingsPage() {
             </div>
           ))}
           <p className="text-xs text-muted-foreground">
-            Jangan mengaktifkan checkout Duitku sebelum verifikasi merchant selesai. Tidak ada kredensial atau simulasi pembayaran di aplikasi ini.
+            Status pembayaran diverifikasi otomatis oleh sistem. Kuota dan langganan aktif setelah pembayaran diterima.
           </p>
         </CardContent>
       </Card>
