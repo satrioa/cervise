@@ -13,7 +13,7 @@ import { CommandPaletteProvider } from "@/components/layout/command-palette-prov
 import { ShellRoleProvider } from "@/components/layout/shell-chrome";
 import { canAccessActor } from "@/lib/nav/manifest";
 import { PageTransition } from "@/components/layout/page-transition";
-import { PullToRefreshIndicator, usePullToRefresh } from "@/components/layout/pull-to-refresh";
+import { PullToRefresh } from "@/components/motion/pull-to-refresh";
 import { BranchProvider, useBranch } from "@/lib/branch-context";
 import { TenantProvider, useTenant } from "@/lib/tenant-context";
 import { TrialCard } from "@/components/layout/trial-card";
@@ -362,7 +362,6 @@ function AppShellInner({ children, actor }: { children: React.ReactNode; actor: 
   const scrollRef = useRef<HTMLDivElement>(null);
   const [showTopFade, setShowTopFade] = useState(false);
   const [showBottomFade, setShowBottomFade] = useState(false);
-  const pull = usePullToRefresh(scrollRef, { onRefresh: () => window.location.reload() });
 
   const updateFade = useCallback(() => {
     const el = scrollRef.current;
@@ -436,12 +435,17 @@ function AppShellInner({ children, actor }: { children: React.ReactNode; actor: 
           </div>
         </div>
 
-        <div
+        <PullToRefresh
           ref={scrollRef}
           onScroll={updateFade}
-          className="relative flex-1 overflow-y-auto overflow-x-hidden overscroll-y-contain scrollbar-none scroll-smooth"
+          onRefresh={() => window.location.reload()}
+          labels={{
+            pulling: "Tarik untuk menyegarkan",
+            release: "Lepaskan untuk menyegarkan",
+            refreshing: "Menyegarkan…",
+          }}
+          className="relative min-h-0 flex-1 overflow-x-hidden scrollbar-none scroll-smooth"
         >
-          <PullToRefreshIndicator distance={pull.distance} refreshing={pull.refreshing} />
           {/* progressive blur — top */}
           <div
             aria-hidden
@@ -457,7 +461,7 @@ function AppShellInner({ children, actor }: { children: React.ReactNode; actor: 
             className="pointer-events-none sticky bottom-0 z-10 -mt-8 h-8 bg-gradient-to-t from-background via-background/60 to-transparent backdrop-blur-[6px] [mask-image:linear-gradient(to_top,black_0%,black_35%,transparent_100%)] transition-opacity duration-300"
             style={{ opacity: showBottomFade ? 1 : 0 }}
           />
-        </div>
+        </PullToRefresh>
 
       </div>
     </div>

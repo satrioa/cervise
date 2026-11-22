@@ -40,6 +40,7 @@
     "@aceternity": "https://ui.aceternity.com/registry/{name}.json",
     "@componentry": "https://componentry.fun/r/{name}.json",
     "@skiper-ui": "https://skiper-ui.com/registry/{name}.json",
-    "@magicui": "https://magicui.design/r/{name}"
+    "@magicui": "https://magicui.design/r/{name}",
+    "@beui": "https://beui.dev/r/{name}.json"
   }
 }
