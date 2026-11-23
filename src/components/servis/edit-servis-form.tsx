@@ -23,6 +23,7 @@ import type { ServisDetail } from "@/app/app/servis/actions";
 import { format } from "date-fns";
 import { id as localeId } from "date-fns/locale";
 import { playPageTransition } from "@/components/layout/page-transition";
+import { toast } from "sonner";
 
 type Props = {
   servisId: string;
@@ -252,7 +253,12 @@ export function EditServisForm({ servisId, initial, onSuccess, onCancel }: Props
       {kondisiYa ? (
         <KondisiAwalForm
           onSave={async (data: KondisiAwal) => {
-            await updateKondisiAwal(servisId, data);
+            try {
+              await updateKondisiAwal(servisId, data);
+            } catch (error) {
+              toast.error(error instanceof Error ? error.message : "Gagal menyimpan kondisi awal");
+              return;
+            }
             playPageTransition();
             onSuccess?.();
           }}
