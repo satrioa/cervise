@@ -168,7 +168,7 @@ export function KaggoCommandPalette({ open, onOpenChange, role, permissions }: P
 
   const navigate = (href: string) => {
     close();
-    router.push(href);
+    window.location.assign(href);
   };
 
   const handleNewServis = () => {

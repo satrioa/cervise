@@ -117,6 +117,23 @@ function CompactShellInner({
     setOpen(next);
   }
 
+  // Paksa navigasi penuh untuk semua link internal. Soft navigation (SPA) di
+  // shell ini memicu removeChild null saat React commit, sehingga URL berubah
+  // tapi konten lama tertahan. Capture phase menimpa handler next/link.
+  useEffect(() => {
+    const handler = (event: MouseEvent) => {
+      if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+      const anchor = (event.target as HTMLElement | null)?.closest("a");
+      if (!anchor) return;
+      const href = anchor.getAttribute("href");
+      if (!href || href.startsWith("#") || href.startsWith("http") || href.startsWith("mailto:") || href.startsWith("tel:")) return;
+      event.preventDefault();
+      window.location.assign(href);
+    };
+    document.addEventListener("click", handler, true);
+    return () => document.removeEventListener("click", handler, true);
+  }, []);
+
   useEffect(() => {
     if (open) setDragY(0);
   }, [open]);
