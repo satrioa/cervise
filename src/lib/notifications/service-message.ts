@@ -230,19 +230,17 @@ export function buildServisMasukParameters(input: ServiceMessageInput): Template
   ];
 }
 
-/** Template status customer: `{{nama_customer}}, {{device}}, {{service_number}}`. */
+/** Template status customer: body `{{device}}, {{service_number}}` (nama customer ada di header). */
 export function buildServisStatusParameters(input: ServiceMessageInput): TemplateParameter[] {
   return [
-    param("nama_customer", input.customerName),
     param("device", input.device),
     param("service_number", serviceRef(input)),
   ];
 }
 
-/** Template `servis_baru_teknisi_v1`. */
+/** Template `servis_baru_teknisi_v1`: nama teknisi ada di header, bukan body. */
 export function buildTechnicianParameters(input: ServiceMessageInput): TemplateParameter[] {
   return [
-    param("nama_teknisi", input.technicianName),
     param("device", input.device),
     param("complaint", input.complaint),
     param("service_number", serviceRef(input)),
@@ -254,7 +252,7 @@ export function buildShiftOpenParameters(input: ShiftMessageInput): TemplatePara
   return [
     param("tenant", input.tenant),
     param("cabang", input.cabang),
-    param("user-open", input.userOpen),
+    param("user_open", input.userOpen),
     param("date_open", input.dateOpen),
     { type: "text", parameter_name: "saldo_awal", value: rupiahValue(input.saldoAwal) },
   ];
@@ -265,10 +263,9 @@ export function buildShiftClosedParameters(input: ShiftMessageInput): TemplatePa
   return [
     param("tenant", input.tenant),
     param("cabang", input.cabang),
-    param("date", input.date),
-    param("user-open", input.userOpen),
+    param("user_open", input.userOpen),
     param("shift_open_time", input.shiftOpenTime),
-    param("user-close", input.userClose),
+    param("user_close", input.userClose),
     param("shift_close_time", input.shiftCloseTime),
     { type: "text", parameter_name: "saldo_awal", value: rupiahValue(input.saldoAwal) },
     { type: "text", parameter_name: "saldo_akhir", value: rupiahValue(input.saldoAkhir) },

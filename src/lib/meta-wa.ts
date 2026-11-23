@@ -55,6 +55,8 @@ export async function sendMetaWA(
   // Nilai untuk {{1}} pada URL button template (mis. servis_masuk_v2).
   // Bukan URL penuh: Meta menggantungkannya ke URL tetap di template.
   buttonValue: string = "",
+  // Template dengan placeholder di header (mis. servis_baru_teknisi_v1).
+  header?: { parameter_name: string; value: string },
 ): Promise<MetaWaResult> {
   const token = process.env.META_WA_ACCESS_TOKEN;
   const senderId = phoneNumberId.trim();
@@ -78,6 +80,16 @@ export async function sendMetaWA(
             name: templateName,
             language: { code: language },
             components: [
+              ...(header
+                ? [
+                    {
+                      type: "header",
+                      parameters: [
+                        { type: "text", parameter_name: header.parameter_name, text: header.value },
+                      ],
+                    },
+                  ]
+                : []),
               {
                 type: "body",
                 // Builder internal memakai `value`; Graph API Meta mensyaratkan `text`.
