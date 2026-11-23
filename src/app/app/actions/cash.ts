@@ -23,6 +23,7 @@ import {
   type CashSessionRecord,
 } from "@/lib/home/home-data";
 import type { FrontlinerQueueItem, PickupServiceItem } from "@/lib/home/types";
+import { dispatchPendingNotifications } from "@/lib/notifications/dispatcher";
 
 /**
  * Sesi kas harian dan Laporan Shift.
@@ -106,6 +107,13 @@ async function enqueueShiftWa(
       },
       { onConflict: "dedupe_key", ignoreDuplicates: true },
     );
+    // Jadwal cron GitHub Actions bisa terlambat berjam-jam. Kirim segera setelah
+    // shift dibuka/ditutup; claim+lease di dispatcher mencegah dobel kirim bila
+    // cron juga jalan. Gagal kirim tidak boleh membatalkan sesi kas.
+    void dispatchPendingNotifications({
+      limit: 5,
+      siteOrigin: process.env.NEXT_PUBLIC_SITE_URL || "https://kaggo.app",
+    }).catch((error) => console.warn("[wa] gagal mengirim notifikasi shift", error));
   } catch (error) {
     console.warn("[wa] gagal mengantre notifikasi shift", error);
   }
