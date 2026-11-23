@@ -8,15 +8,16 @@ import { receiptStamp } from "@/lib/sales/receipt";
 import type { SalesReceiptInput } from "@/lib/sales/receipt";
 import { parsePaymentNote } from "@/lib/sales/payment-note";
 import type { ServiceReceiptInput } from "./types";
+import { barcodeRaster } from "./barcode-raster";
 import {
   PAPER_COLS,
   align,
-  barcode,
   centerLine,
   columns,
   line,
   normalizeAscii,
   qr,
+  rasterCommand,
   renderLines,
   text,
   wrap,
@@ -201,7 +202,12 @@ export function buildServiceEscpos(
       ...text(line()),
     );
   }
-  after.push(...align("center"), ...barcode(barcodeValueForReceipt(input.invoiceNo)), ...align("left"), ...text(line()));
+  // Bitmap lebih bisa diandalkan daripada GS k pada printer thermal murah.
+  const barcodeBitmap = barcodeRaster(barcodeValueForReceipt(input.invoiceNo));
+  if (barcodeBitmap) {
+    after.push(...align("center"), ...rasterCommand(barcodeBitmap), ...align("left"));
+  }
+  after.push(...text(line()));
   for (const row of buildServiceFooterLines(input)) {
     after.push(...text(row));
   }

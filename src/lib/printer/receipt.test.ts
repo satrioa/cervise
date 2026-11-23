@@ -178,34 +178,23 @@ describe("nota servis 58mm", () => {
     expect(hasQr(withoutQr)).toBe(false);
   });
 
-  it("mencetak barcode nomor servis", () => {
-    const bytes = Array.from(buildServiceEscpos(service));
-    const hasBarcode = bytes.some(
-      (value, index) => value === 0x1d && bytes[index + 1] === 0x6b && bytes[index + 2] === 73,
-    );
-    expect(hasBarcode).toBe(true);
-  });
-
-  it("memperpendek nilai barcode thermal dan menambah tinggi + quiet zone", () => {
-    expect(barcodeValueForReceipt("SRV-2026-0003")).toBe("2026-0003");
-    expect(barcodeValueForReceipt("2026-0003")).toBe("2026-0003");
-
+  it("mencetak barcode nomor servis sebagai bitmap (GS v 0)", () => {
     const bytes = Array.from(buildServiceEscpos(service));
     const at = bytes.findIndex(
-      (value, index) => value === 0x1d && bytes[index + 1] === 0x6b && bytes[index + 2] === 73,
+      (value, index) => value === 0x1d && bytes[index + 1] === 0x76 && bytes[index + 2] === 0x30,
     );
     expect(at).toBeGreaterThan(0);
-    // Susunan: [spasi quiet zone] GS h 120, GS w 2, GS H, GS k 73 ...
-    expect(bytes[at - 10]).toBe(0x20);
-    expect(bytes[at - 9]).toBe(0x1d);
-    expect(bytes[at - 8]).toBe(0x68);
-    expect(bytes[at - 7]).toBe(120);
-    expect(bytes[at - 6]).toBe(0x1d);
-    expect(bytes[at - 5]).toBe(0x77);
-    expect(bytes[at - 4]).toBe(2);
-    const payload = bytes.slice(at + 4, at + 4 + bytes[at + 3]);
-    expect(String.fromCharCode(...payload)).toBe("2026-0042");
-    expect(String.fromCharCode(...payload)).not.toContain("SV-");
+    // Tidak lagi mengandalkan GS k yang sering diabaikan printer murah.
+    const hasNativeBarcode = bytes.some(
+      (value, index) => value === 0x1d && bytes[index + 1] === 0x6b && bytes[index + 2] === 73,
+    );
+    expect(hasNativeBarcode).toBe(false);
+  });
+
+  it("memperpendek nilai barcode thermal sebelum dibuat bitmap", () => {
+    expect(barcodeValueForReceipt("SRV-2026-0003")).toBe("2026-0003");
+    expect(barcodeValueForReceipt("2026-0003")).toBe("2026-0003");
+    expect(barcodeValueForReceipt("SRV-2026-0042")).not.toContain("SV-");
   });
 
   it("memakai Estimasi dan menyembunyikan sparepart saat belum selesai", () => {

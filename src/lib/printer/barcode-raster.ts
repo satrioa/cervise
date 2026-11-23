@@ -18,7 +18,7 @@ export function barcodeRaster(
   const { widths } = code128B(clean);
   if (widths.length === 0) return null;
 
-  // Setiap entri `widths` adalah jumlag modul berturut-turut (bar/space
+  // Setiap entri `widths` adalah jumlah modul berturut-turut (bar/space
   // bergantian), bukan satu modul. Bentangkan ke pattern per modul.
   const pattern: boolean[] = [];
   widths.forEach((moduleCount, index) => {
