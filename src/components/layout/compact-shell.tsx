@@ -16,7 +16,6 @@ import { CompactMenuSheet } from "@/components/layout/compact-menu-sheet";
 import { CompactBottomBar } from "@/components/layout/compact-bottom-bar";
 import { CompactDockNav } from "@/components/layout/compact-dock-nav";
 import { PageTransition } from "@/components/layout/page-transition";
-import { PullToRefreshIndicator, usePullToRefresh } from "@/components/layout/pull-to-refresh";
 import { BranchProvider } from "@/lib/branch-context";
 import { TenantProvider } from "@/lib/tenant-context";
 import { LocaleProvider } from "@/lib/localization-context";
@@ -111,10 +110,6 @@ function CompactShellInner({
   const scrollDelta = useRef(0);
   const contentRef = useRef<HTMLElement | null>(null);
   const pathname = usePathname();
-  const pull = usePullToRefresh(contentRef, {
-    onRefresh: () => window.location.reload(),
-    rebindKey: pathname,
-  });
   const t = useTranslations("nav");
   const role = normalizeAppRole(actor.role);
 
@@ -125,6 +120,13 @@ function CompactShellInner({
   useEffect(() => {
     if (open) setDragY(0);
   }, [open]);
+
+  // Tutup sheet SETELAH commit navigasi. Menutup portal di handler klik yang
+  // sama dengan navigasi membuat cleanup exit-animation Base UI menghapus node
+  // yang sedang dipindah React (removeChild null) dan konten lama tertahan.
+  useEffect(() => {
+    setOpen(false);
+  }, [pathname]);
 
   function handleDragEnd(delta: number) {
     if (delta > 100) setOpen(false);
@@ -292,9 +294,7 @@ function CompactShellInner({
         </div>
       </header>
 
-      <PullToRefreshIndicator distance={pull.distance} refreshing={pull.refreshing} />
       <main
-        key={pathname}
         ref={contentRef}
         onScroll={handleContentScroll}
         className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-y-auto pt-[calc(3.25rem_+_env(safe-area-inset-top))] pb-[calc(5rem_+_env(safe-area-inset-bottom))] lg:pt-0 lg:pb-32"

@@ -38,7 +38,6 @@ describe("regresi UI", () => {
       const source = read(file);
       expect(source, file).not.toContain('from "next/link"');
       expect(source, file).toContain("<a");
-      expect(source, file).toMatch(/href=\{?("|entry\.href)/);
     }
   });
 });

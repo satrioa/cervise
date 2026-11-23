@@ -13,7 +13,6 @@ import { CommandPaletteProvider } from "@/components/layout/command-palette-prov
 import { ShellRoleProvider } from "@/components/layout/shell-chrome";
 import { canAccessActor } from "@/lib/nav/manifest";
 import { PageTransition } from "@/components/layout/page-transition";
-import { PullToRefreshIndicator, usePullToRefresh } from "@/components/layout/pull-to-refresh";
 import { BranchProvider, useBranch } from "@/lib/branch-context";
 import { TenantProvider, useTenant } from "@/lib/tenant-context";
 import { TrialCard } from "@/components/layout/trial-card";
@@ -362,7 +361,6 @@ function AppShellInner({ children, actor }: { children: React.ReactNode; actor: 
   const scrollRef = useRef<HTMLDivElement>(null);
   const [showTopFade, setShowTopFade] = useState(false);
   const [showBottomFade, setShowBottomFade] = useState(false);
-  const pull = usePullToRefresh(scrollRef, { onRefresh: () => window.location.reload() });
 
   const updateFade = useCallback(() => {
     const el = scrollRef.current;
@@ -436,7 +434,6 @@ function AppShellInner({ children, actor }: { children: React.ReactNode; actor: 
           </div>
         </div>
 
-        <PullToRefreshIndicator distance={pull.distance} refreshing={pull.refreshing} />
         <div
           ref={scrollRef}
           onScroll={updateFade}
@@ -449,7 +446,7 @@ function AppShellInner({ children, actor }: { children: React.ReactNode; actor: 
             style={{ opacity: showTopFade ? 1 : 0 }}
           />
           <div data-main-content className="min-h-full">
-            <AsciiPage className="min-h-full">{children}</AsciiPage>
+            <AsciiPage className="min-h-full" reveal={false}>{children}</AsciiPage>
           </div>
           {/* progressive blur — bottom */}
           <div

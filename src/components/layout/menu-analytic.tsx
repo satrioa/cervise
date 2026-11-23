@@ -82,7 +82,6 @@ export function MenuAnalytic({ onNavigate }: { onNavigate?: (href?: string) => v
         href="/app/analitik-servis"
         onClick={() => {
           playCue("tap");
-          onNavigate?.("/app/analitik-servis");
         }}
         className="mt-2.5 inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-[11px] font-medium text-neutral-900 shadow-sm ring-1 ring-black/5 transition-colors hover:bg-white dark:bg-neutral-800 dark:text-neutral-100 dark:ring-white/10"
       >

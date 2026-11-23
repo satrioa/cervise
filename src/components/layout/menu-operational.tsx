@@ -70,7 +70,6 @@ export function MenuOperational({
             href={entry.href}
             onClick={() => {
               playCue("tap");
-              onNavigate?.(entry.href);
             }}
             className="flex min-h-[5.25rem] flex-col items-start justify-between rounded-[18px] border border-black/5 bg-white p-3 shadow-[0_10px_24px_-22px_rgba(0,0,0,0.35)] transition-transform active:scale-[0.98] dark:border-white/10 dark:bg-neutral-800"
           >

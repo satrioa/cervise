@@ -10,7 +10,6 @@ import { Button } from "@/components/ui/button";
 import { IdentityAvatar } from "@/components/identity-avatar";
 import { AsciiPage } from "@/components/layout/ascii-page";
 import { PageTransition } from "@/components/layout/page-transition";
-import { PullToRefreshIndicator, usePullToRefresh } from "@/components/layout/pull-to-refresh";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import {
   isOwnerNavActive,
@@ -110,7 +109,6 @@ function OwnerShellInner({ children, email, avatarUrl }: { children: React.React
   const scrollRef = useRef<HTMLDivElement>(null);
   const [showTopFade, setShowTopFade] = useState(false);
   const [showBottomFade, setShowBottomFade] = useState(false);
-  const pull = usePullToRefresh(scrollRef, { onRefresh: () => window.location.reload() });
 
   const updateFade = useCallback(() => {
     const element = scrollRef.current;
@@ -163,7 +161,6 @@ function OwnerShellInner({ children, email, avatarUrl }: { children: React.React
           <div className="size-8" />
         </div>
 
-        <PullToRefreshIndicator distance={pull.distance} refreshing={pull.refreshing} />
         <div
           ref={scrollRef}
           onScroll={updateFade}
