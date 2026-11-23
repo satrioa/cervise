@@ -7,6 +7,16 @@ const source = readFileSync(
   "utf8",
 );
 
+describe("haptic drag kanban servis", () => {
+  it("bergetar sekali saat kartu mulai terangkat", () => {
+    expect(source).toContain('import { haptic } from "@/lib/haptic"');
+    const start = source.indexOf("onDragStart={(event) => {");
+    expect(start).toBeGreaterThan(-1);
+    const body = source.slice(start, start + 400);
+    expect(body).toContain("haptic()");
+  });
+});
+
 describe("filter status servis", () => {
   it("memakai PTabs10 (@coss/p-tabs-10), bukan JellyRadio", () => {
     expect(source).toContain('import { PTabs10 } from "@/components/p-tabs-10"');

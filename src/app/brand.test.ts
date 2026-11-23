@@ -10,10 +10,10 @@ describe("brand Kaggo", () => {
     expect(read("public/manifest.json")).toContain('"short_name": "Kaggo"');
     expect(JSON.parse(read("package.json")).name).toBe("kaggo");
     expect(JSON.parse(read("package-lock.json")).name).toBe("kaggo");
+    expect(read("wrangler.jsonc")).toContain('"name": "kaggo"');
   });
 
   it("identifier teknis tetap cervise sesuai allowlist", () => {
-    expect(read("wrangler.jsonc")).toContain('"name": "cervise"');
     expect(read("src/lib/format.ts")).toContain('"cervise-locale"');
     expect(read("src/app/app/inventori/actions.ts")).toContain("cervise_products");
   });

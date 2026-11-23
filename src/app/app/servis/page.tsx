@@ -40,6 +40,7 @@ import { toPrintData, renderJetHtml, renderDotMatrixHtml, renderThermalHtml, pub
 import { getReceiptAppearance } from "@/app/app/pengaturan/tampilan/actions";
 import { printReceipt } from "@/lib/printer";
 import { createClient } from "@/lib/supabase/client";
+import { haptic } from "@/lib/haptic";
 import { cn } from "@/lib/utils";
 import { SparepartPickDialog, CancelSparepartDialog } from "@/components/servis/sparepart-dialogs";
 import { PickupSignatureDialog } from "@/components/servis/pickup-signature-dialog";
@@ -1113,6 +1114,9 @@ export default function ServisPage() {
               // menghilangkan kartu di kolom lain. Commit terjadi di onDragEnd.
               onValueChange={() => {}}
               onDragStart={(event) => {
+                // Getar sekali saat kartu benar-benar terangkat/tergeser, bukan
+                // saat jari mulai menyentuh (sensordrag punya ambang aktifasi).
+                haptic();
                 const from = stageOfDrop(event.active.id);
                 const item = from
                   ? (displayedKanban[from] ?? []).find((x) => x.id === event.active.id)
