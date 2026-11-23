@@ -436,16 +436,11 @@ function AppShellInner({ children, actor }: { children: React.ReactNode; actor: 
           </div>
         </div>
 
-        <PullToRefresh
+        <PullToRefreshIndicator distance={pull.distance} refreshing={pull.refreshing} />
+        <div
           ref={scrollRef}
           onScroll={updateFade}
-          onRefresh={() => window.location.reload()}
-          labels={{
-            pulling: "Tarik untuk menyegarkan",
-            release: "Lepaskan untuk menyegarkan",
-            refreshing: "Menyegarkan…",
-          }}
-          className="relative min-h-0 flex-1 overflow-x-hidden scrollbar-none scroll-smooth"
+          className="relative min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-y-contain scrollbar-none scroll-smooth"
         >
           {/* progressive blur — top */}
           <div
@@ -462,7 +457,7 @@ function AppShellInner({ children, actor }: { children: React.ReactNode; actor: 
             className="pointer-events-none sticky bottom-0 z-10 -mt-8 h-8 bg-gradient-to-t from-background via-background/60 to-transparent backdrop-blur-[6px] [mask-image:linear-gradient(to_top,black_0%,black_35%,transparent_100%)] transition-opacity duration-300"
             style={{ opacity: showBottomFade ? 1 : 0 }}
           />
-        </PullToRefresh>
+        </div>
 
       </div>
     </div>

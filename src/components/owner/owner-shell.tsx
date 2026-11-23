@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { IdentityAvatar } from "@/components/identity-avatar";
 import { AsciiPage } from "@/components/layout/ascii-page";
 import { PageTransition } from "@/components/layout/page-transition";
-import { PullToRefresh } from "@/components/motion/pull-to-refresh";
+import { PullToRefreshIndicator, usePullToRefresh } from "@/components/layout/pull-to-refresh";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import {
   isOwnerNavActive,
@@ -110,6 +110,7 @@ function OwnerShellInner({ children, email, avatarUrl }: { children: React.React
   const scrollRef = useRef<HTMLDivElement>(null);
   const [showTopFade, setShowTopFade] = useState(false);
   const [showBottomFade, setShowBottomFade] = useState(false);
+  const pull = usePullToRefresh(scrollRef, { onRefresh: () => window.location.reload() });
 
   const updateFade = useCallback(() => {
     const element = scrollRef.current;
@@ -162,23 +163,18 @@ function OwnerShellInner({ children, email, avatarUrl }: { children: React.React
           <div className="size-8" />
         </div>
 
-        <PullToRefresh
+        <PullToRefreshIndicator distance={pull.distance} refreshing={pull.refreshing} />
+        <div
           ref={scrollRef}
           onScroll={updateFade}
-          onRefresh={() => window.location.reload()}
-          labels={{
-            pulling: "Tarik untuk menyegarkan",
-            release: "Lepaskan untuk menyegarkan",
-            refreshing: "Menyegarkan…",
-          }}
-          className="relative min-h-0 flex-1 overflow-x-hidden scrollbar-none scroll-smooth"
+          className="relative min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-y-contain scrollbar-none scroll-smooth"
         >
           <div aria-hidden className="pointer-events-none sticky top-0 z-10 -mb-8 h-8 bg-gradient-to-b from-background via-background/60 to-transparent backdrop-blur-[6px] [mask-image:linear-gradient(to_bottom,black_0%,black_35%,transparent_100%)] transition-opacity duration-300" style={{ opacity: showTopFade ? 1 : 0 }} />
           <div data-main-content className="min-h-full p-4 lg:p-8">
             <AsciiPage className="min-h-full">{children}</AsciiPage>
           </div>
           <div aria-hidden className="pointer-events-none sticky bottom-0 z-10 -mt-8 h-8 bg-gradient-to-t from-background via-background/60 to-transparent backdrop-blur-[6px] [mask-image:linear-gradient(to_top,black_0%,black_35%,transparent_100%)] transition-opacity duration-300" style={{ opacity: showBottomFade ? 1 : 0 }} />
-        </PullToRefresh>
+        </div>
 
       </div>
       <PageTransition />

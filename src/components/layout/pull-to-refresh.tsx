@@ -22,10 +22,10 @@ type Options = {
 /**
  * Pull-to-refresh NON-INVASIF.
  *
- * Sengaja tidak membungkus konten dengan motion/AnimatePresence dan tidak
- * memakai setPointerCapture: keduanya menyebabkan node DOM dihapus saat React
- * masih commit saat navigasi (removeChild null) dan membuat klik berikutnya
- * tertahan sampai halaman di-refresh.
+ * Sengaja tidak membungkus konten dengan animator apa pun dan tidak mengambil
+ * pointer capture: keduanya menyebabkan node DOM dihapus saat React masih
+ * commit saat navigasi (removeChild null) dan membuat klik berikutnya tertahan
+ * sampai halaman di-refresh.
  */
 export function usePullToRefresh(
   scrollRef: RefObject<HTMLElement | null>,

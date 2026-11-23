@@ -16,7 +16,7 @@ import { CompactMenuSheet } from "@/components/layout/compact-menu-sheet";
 import { CompactBottomBar } from "@/components/layout/compact-bottom-bar";
 import { CompactDockNav } from "@/components/layout/compact-dock-nav";
 import { PageTransition } from "@/components/layout/page-transition";
-import { PullToRefresh } from "@/components/motion/pull-to-refresh";
+import { PullToRefreshIndicator, usePullToRefresh } from "@/components/layout/pull-to-refresh";
 import { BranchProvider } from "@/lib/branch-context";
 import { TenantProvider } from "@/lib/tenant-context";
 import { LocaleProvider } from "@/lib/localization-context";
@@ -108,7 +108,12 @@ function CompactShellInner({
   const [dockHidden, setDockHidden] = useState(false);
   const lastScrollTop = useRef(0);
   const scrollDelta = useRef(0);
+  const contentRef = useRef<HTMLElement | null>(null);
   const pathname = usePathname();
+  const pull = usePullToRefresh(contentRef, {
+    onRefresh: () => window.location.reload(),
+    rebindKey: pathname,
+  });
   const t = useTranslations("nav");
   const role = normalizeAppRole(actor.role);
 
@@ -284,23 +289,17 @@ function CompactShellInner({
         </div>
       </header>
 
-      <main key={pathname} className="flex min-h-0 flex-1 flex-col">
-        <PullToRefresh
-          onScroll={handleContentScroll}
-          onRefresh={() => window.location.reload()}
-          labels={{
-            pulling: "Tarik untuk menyegarkan",
-            release: "Lepaskan untuk menyegarkan",
-            refreshing: "Menyegarkan…",
-          }}
-          className="min-h-0 flex-1"
-          contentClassName="pt-[calc(3.25rem_+_env(safe-area-inset-top))] pb-[calc(5rem_+_env(safe-area-inset-bottom))] lg:pt-0 lg:pb-32"
-        >
+      <PullToRefreshIndicator distance={pull.distance} refreshing={pull.refreshing} />
+      <main
+        key={pathname}
+        ref={contentRef}
+        onScroll={handleContentScroll}
+        className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-y-auto pt-[calc(3.25rem_+_env(safe-area-inset-top))] pb-[calc(5rem_+_env(safe-area-inset-bottom))] lg:pt-0 lg:pb-32"
+      >
           {/* `h-full` menjaga rantai tinggi halaman (POS mengisi sisa `main`). */}
           <MainNavTransitionOutlet pageClassName="h-full">
             {children}
           </MainNavTransitionOutlet>
-        </PullToRefresh>
       </main>
 
       <CompactDockNav role={actor.role} hidden={dockHidden} />

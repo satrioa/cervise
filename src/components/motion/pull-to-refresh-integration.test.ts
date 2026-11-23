@@ -10,21 +10,24 @@ const SHELLS = [
   "src/components/owner/owner-shell.tsx",
 ];
 
-describe("pull to refresh memakai komponen @beui", () => {
-  it("terpasang di semua shell PWA", () => {
+describe("pull to refresh tidak mengganggu navigasi & klik", () => {
+  it("semua shell memakai hook ringan, bukan wrapper motion", () => {
     for (const path of SHELLS) {
       const source = read(path);
-      expect(source, path).toContain('from "@/components/motion/pull-to-refresh"');
-      expect(source, path).toContain("<PullToRefresh");
-      expect(source, path).toContain("onRefresh={() => window.location.reload()}");
-      expect(source, path).not.toContain("usePullToRefresh(");
-      expect(source, path).not.toContain("PullToRefreshIndicator");
+      expect(source, path).toContain('from "@/components/layout/pull-to-refresh"');
+      expect(source, path).toContain("usePullToRefresh(");
+      expect(source, path).toContain("<PullToRefreshIndicator");
+      expect(source, path).not.toContain('from "@/components/motion/pull-to-refresh"');
+      expect(source, path).not.toContain("<PullToRefresh\n");
     }
   });
 
-  it("komponen vendored meneruskan ref & onScroll untuk logika fade/dock", () => {
-    const source = read("src/components/motion/pull-to-refresh.tsx");
-    expect(source).toContain("ref={setRootRef}");
-    expect(source).toContain("onScroll={onScroll}");
+  it("hook tidak memakai AnimatePresence / pointer capture", () => {
+    const source = read("src/components/layout/pull-to-refresh.tsx");
+    expect(source).not.toContain("AnimatePresence");
+    expect(source).not.toContain("setPointerCapture");
+    expect(source).not.toContain("motion.div");
+    expect(source).toContain("touchmove");
+    expect(source).toContain("passive: false");
   });
 });
