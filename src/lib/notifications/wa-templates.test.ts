@@ -61,7 +61,7 @@ describe("custom WA template registry", () => {
       servis_status_customer: "en",
       servis_created_technician: "en",
       shift_open: "id",
-      shift_closed: "en",
+      shift_closed: "id",
     };
     for (const [key, language] of Object.entries(expected)) {
       expect(getWaTemplate(key as WaTemplateKey).language).toBe(language);
@@ -91,8 +91,9 @@ describe("custom WA template registry", () => {
       "tenant", "cabang", "user_open", "date_open", "saldo_awal",
     ]);
     expect(names(buildShiftClosedParameters(shift))).toEqual([
-      "tenant", "cabang", "user_open", "shift_open_time",
-      "user_close", "shift_close_time", "saldo_awal", "saldo_akhir",
+      "tenant", "cabang", "tanggal", "user_buka", "jam_buka",
+      "user_tutup", "jam_tutup", "saldo_awal", "servis", "penjualan",
+      "kas_manual", "kas_diharapkan", "saldo_akhir", "selisih",
     ]);
   });
 

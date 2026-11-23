@@ -59,7 +59,7 @@ const REGISTRY: Record<WaTemplateKey, RegistryEntry> = {
   },
   shift_closed: {
     envKey: "META_WA_TEMPLATE_SHIFT_CLOSE",
-    language: "en",
+    language: "id",
     build: (input) => buildShiftClosedParameters(input as ShiftMessageInput),
   },
 };
