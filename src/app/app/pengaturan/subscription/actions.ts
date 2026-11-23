@@ -1,6 +1,5 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { getActiveTenantForBilling } from "@/lib/supabase/actor";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { canAccessActor } from "@/lib/rbac";
@@ -165,7 +164,6 @@ export async function requestPackage(packageId: string) {
   });
   if (error) throw error;
 
-  revalidatePath("/app/pengaturan/subscription");
   return { invoiceId: data as string };
 }
 
