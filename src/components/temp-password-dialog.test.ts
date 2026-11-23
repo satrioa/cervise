@@ -26,12 +26,22 @@ describe("salin kredensial akun baru", () => {
 });
 
 describe("modal akun baru", () => {
-  it("global dan karyawan memakai builder yang sama dengan satu tombol Salin", () => {
-    for (const [name, source] of [["global", shared], ["karyawan", karyawan]] as const) {
-      expect(source, name).toContain("buildAccountCredentialsText");
-      expect(source.match(/onClick=\{copy\}/g), name).toHaveLength(1);
-      expect(source, name).not.toContain("writeText(password)");
-    }
+  it("global memakai CopyButton @uiarc dengan fallback clipboard", () => {
+    expect(shared).toContain("buildAccountCredentialsText");
+    expect(shared).toContain('from "@/components/arc/copy-button/copy-button"');
+    expect(shared).toContain("<CopyButton");
+    expect(shared).toContain('label="Salin"');
+    expect(shared).not.toContain("navigator.clipboard.writeText");
+
+    const helper = read("src/components/arc/lib/use-copy-feedback.ts");
+    expect(helper).toContain("document.execCommand");
+    expect(helper).toContain("navigator.clipboard");
+  });
+
+  it("karyawan memakai modal global, bukan dialog salin ganda", () => {
+    expect(karyawan).toContain('from "@/components/temp-password-dialog"');
+    expect(karyawan).not.toContain("export function TempPasswordDialog");
+    expect(list).toContain('from "@/components/temp-password-dialog"');
   });
 
   it("karyawan meneruskan PIN dari form ke modal", () => {

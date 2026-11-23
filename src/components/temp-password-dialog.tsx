@@ -1,9 +1,8 @@
 "use client";
 
-import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { toast } from "sonner";
+import { CopyButton } from "@/components/arc/copy-button/copy-button";
 
 /** Baris yang disalin sekaligus: email + password (+ PIN jika ada). */
 export function buildAccountCredentialsText(input: {
@@ -34,18 +33,6 @@ export function TempPasswordDialog({
   password: string;
   pin?: string | null;
 }) {
-  const [copied, setCopied] = useState(false);
-
-  const copy = async () => {
-    try {
-      await navigator.clipboard.writeText(buildAccountCredentialsText({ email, password, pin }));
-      setCopied(true);
-      toast.success("Email, password, dan PIN disalin");
-    } catch {
-      toast.error("Tidak bisa menyalin otomatis. Pilih dan salin manual.");
-    }
-  };
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[440px]">
@@ -66,9 +53,12 @@ export function TempPasswordDialog({
           tidak perlu dimasukkan lagi.
         </p>
         <DialogFooter>
-          <Button variant="outline" onClick={copy}>
-            {copied ? "Tersalin" : "Salin"}
-          </Button>
+          <CopyButton
+            value={buildAccountCredentialsText({ email, password, pin })}
+            label="Salin"
+            copiedLabel="Tersalin"
+            errorLabel="Gagal salin"
+          />
           <Button onClick={() => onOpenChange(false)}>Selesai</Button>
         </DialogFooter>
       </DialogContent>
