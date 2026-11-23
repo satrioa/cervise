@@ -34,6 +34,10 @@ export function CreateTenantDialog() {
         ownerEmail: ownerEmail.trim(),
         ownerPhone: ownerPhone.trim(),
       });
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
       setName("");
       setOwnerEmail("");
       setOwnerPhone("");

@@ -16,6 +16,7 @@ import { buildOwnerAccountRows } from "@/lib/platform/owner-accounts";
 import { resolveSubscriptionAccessState, type SubscriptionLifecycleStatus } from "@/lib/billing/renewal";
 import { verifyMetaPhoneNumber } from "@/lib/meta-wa";
 import { parsePromoList } from "@/lib/pricing/promo";
+import { friendlyCreateTenantError } from "@/lib/platform/create-tenant-error";
 import {
   incidentServices,
   parseIncidentUpdates,
@@ -495,12 +496,30 @@ export async function updateTenantMetaPhoneNumber(input: {
   return { ok: true, displayName };
 }
 
+export type CreateTenantResult =
+  | { ok: true; id: string; ownerEmail: string; tempPassword: string; reusedExistingAccount: false }
+  | { ok: false; error: string };
+
 export async function createTenant(input: {
   name: string;
   slug?: string;
   ownerEmail: string;
   ownerPhone: string;
-}) {
+}): Promise<CreateTenantResult> {
+  try {
+    return await createTenantInner(input);
+  } catch (error) {
+    console.error("createTenant gagal:", error);
+    return { ok: false, error: friendlyCreateTenantError(error) };
+  }
+}
+
+async function createTenantInner(input: {
+  name: string;
+  slug?: string;
+  ownerEmail: string;
+  ownerPhone: string;
+}): Promise<CreateTenantResult> {
   const { supabase } = await requirePlatformAdmin();
   const tenantInput = parseCreateTenantInput(input);
   const admin = createAdminClient();
@@ -510,7 +529,19 @@ export async function createTenant(input: {
   // harus mendapat akun owner sendiri dengan password generated. Memakai ulang
   // akun lama juga berisiko memberi akses tenant ke pemilik email tersebut.
   if (existing) {
-    throw new Error("Email sudah terdaftar. Gunakan email lain untuk owner tenant.");
+    return { ok: false, error: "Email sudah terdaftar. Gunakan email lain untuk owner tenant." };
+  }
+
+  // Slug unik: nama yang sama tidak boleh menggagalkan pembuatan tenant.
+  let slug = tenantInput.slug;
+  for (let suffix = 2; suffix <= 50; suffix += 1) {
+    const { data: taken } = await supabase
+      .from("organizations")
+      .select("id")
+      .eq("slug", slug)
+      .maybeSingle();
+    if (!taken) break;
+    slug = `${tenantInput.slug}-${suffix}`;
   }
 
   // Setiap tenant baru selalu dibuatkan auth user dengan password sementara.
@@ -527,7 +558,7 @@ export async function createTenant(input: {
 
   const { data: organizationId, error } = await supabase.rpc("platform_create_tenant", {
     tenant_name: tenantInput.name,
-    tenant_slug: tenantInput.slug,
+    tenant_slug: slug,
     owner_user_id: ownerId,
     owner_email: tenantInput.ownerEmail,
     owner_phone: tenantInput.ownerPhone,
@@ -553,6 +584,7 @@ export async function createTenant(input: {
   revalidatePath("/owner");
   revalidatePath("/owner/tenants");
   return {
+    ok: true,
     id: organizationId as string,
     ownerEmail: tenantInput.ownerEmail,
     tempPassword,
