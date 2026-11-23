@@ -91,7 +91,9 @@ describe("custom WA template registry", () => {
       "tenant", "cabang", "user_open", "date_open", "saldo_awal",
     ]);
     expect(names(buildShiftClosedParameters(shift))).toEqual([
-      "tenant", "cabang", "waktu", "kas", "saldo_akhir", "selisih",
+      "tenant", "cabang", "tanggal", "user_buka", "jam_buka",
+      "user_tutup", "jam_tutup", "saldo_awal", "servis", "penjualan",
+      "kas_manual", "kas_diharapkan", "saldo_akhir", "selisih",
     ]);
   });
 
