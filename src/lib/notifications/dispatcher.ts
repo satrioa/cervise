@@ -1,5 +1,6 @@
 import { MetaWaError, sendMetaWA, type TemplateParameter } from "@/lib/meta-wa";
 import { toFonnteTarget } from "@/lib/phone";
+import { finalizeQuota, releaseQuota, reserveQuota } from "@/lib/payments/quota";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { ServiceMessageInput, ShiftMessageInput } from "./service-message";
 import { getWaTemplate, type WaTemplateKey } from "./wa-templates";
@@ -59,6 +60,7 @@ export type DispatchOptions = {
 type OutboxRow = {
   id: string;
   branch_id: string;
+  organization_id: string | null;
   servis_id: string | null;
   event: string;
   to_kind: string;
@@ -95,6 +97,7 @@ type TechnicianRow = {
 };
 type CustomerRow = { id: string; name: string | null; phone: string | null };
 type OwnerOrg = {
+  id: string;
   name: string;
   owner_phone: string | null;
   contact_phone: string | null;
@@ -122,6 +125,7 @@ type Resolved =
       language: "id" | "en";
       parameters: TemplateParameter[];
       phoneNumberId: string;
+      buttonUrl?: string;
     }
   | { skip: string };
 
@@ -238,6 +242,12 @@ function resolveRow(
       language: template.language,
       parameters: template.build(input),
       phoneNumberId,
+      // URL button di template Meta berbentuk https://kaggo.app/{{1}}, jadi yang
+      // dikirim hanya path-nya -- bukan URL penuh (nanti dobel) dan bukan origin.
+      buttonUrl:
+        key === "servis_created_customer" && input.tenantSlug && input.trackingCode
+          ? `${input.tenantSlug}/lacak/${input.trackingCode}`
+          : undefined,
     };
   }
 
@@ -370,7 +380,7 @@ export async function dispatchPendingNotifications(
   if (ownerBranchIds.length) {
     const { data: branchRows, error: branchError } = await admin
       .from("branches")
-      .select("id, organizations(name, owner_phone, contact_phone, meta_phone_number_id)")
+      .select("id, organizations(id, name, owner_phone, contact_phone, meta_phone_number_id)")
       .in("id", ownerBranchIds);
     if (branchError) {
       throw new Error(`Pengambilan data tenant gagal: ${branchError.message}`);
@@ -418,6 +428,39 @@ export async function dispatchPendingNotifications(
       // karena claim tidak menyentuhnya.
       const attempts = row.attempts + 1;
 
+      // Reservasi kuota terjadi SEBELUM kirim, memakai wallet tenant (shared
+      // lintas cabang). kunci idempotensi per baris + percobaan: kalau kirim
+      // gagal, reservasinya di-refund, jadi retry tidak pernah dipotong dua kali.
+      const organizationId =
+        row.organization_id ??
+        servis?.branches?.organization_id ??
+        ownerOrgsById.get(row.branch_id)?.id ??
+        null;
+      const idempotencyKey = `outbox:${row.id}:attempt:${attempts}`;
+      let quotaReserved = false;
+      if (organizationId) {
+        const reservation = await reserveQuota({
+          organizationId,
+          branchId: row.branch_id,
+          idempotencyKey,
+          messageType: row.event,
+        });
+        if (!reservation.allowed) {
+          const { error: patchError } = await admin
+            .from("cervise_notification_outbox")
+            .update({
+              state: "pending",
+              last_error: "wa_quota_exhausted",
+              next_attempt_at: new Date(now.getTime() + 60 * 60 * 1000).toISOString(),
+            })
+            .eq("id", row.id);
+          if (patchError) throw new Error(`Patch baris ${row.id} gagal: ${patchError.message}`);
+          result.skipped += 1;
+          continue;
+        }
+        quotaReserved = true;
+      }
+
       let response: Awaited<ReturnType<typeof sendMetaWA>>;
       try {
         response = await sendMetaWA(
@@ -426,6 +469,7 @@ export async function dispatchPendingNotifications(
           resolved.parameters,
           resolved.phoneNumberId,
           resolved.language,
+          resolved.buttonUrl,
         );
       } catch (error) {
         // Hanya kegagalan yang memang soal nomor atau isi pesannya yang
@@ -433,6 +477,8 @@ export async function dispatchPendingNotifications(
         // infrastruktur: pesannya masih layak, jadi dicoba lagi sampai
         // anggaran habis. Error yang bukan MetaWaError diperlakukan sama --
         // bug di kode ini sendiri tidak boleh membuang notifikasi.
+        // Pesan gagal tidak boleh permanen memotong kuota.
+        if (quotaReserved) await releaseQuota(idempotencyKey);
         const terminal = error instanceof MetaWaError && error.scope === "message";
         const lastError = errorText(error);
 
@@ -477,6 +523,7 @@ export async function dispatchPendingNotifications(
         // "tidak dikirim pada run ini", bukan "selesai" -- dua makna itu berbeda
         // dan mencampurkannya yang dulu menghancurkan antrean. Kalau kredensial
         // dipasang, baris ini dikirim sendiri tanpa campur tangan.
+        if (quotaReserved) await releaseQuota(idempotencyKey);
         const { error: patchError } = await admin
           .from("cervise_notification_outbox")
           .update({
@@ -509,6 +556,18 @@ export async function dispatchPendingNotifications(
         // pending, pesannya akan dikirim lagi. Hitung `failed` supaya log cron
         // menunjukkan ada yang perlu dilihat.
         throw new Error(`Patch baris ${row.id} gagal: ${patchError.message}`);
+      }
+      // Konfirmasi reservasi menjadi pemakaian final setelah Meta menerima pesan.
+      if (quotaReserved) {
+        try {
+          await finalizeQuota({
+            idempotencyKey,
+            providerMessageId: providerMessageIdOf(response.detail),
+            status: "sent",
+          });
+        } catch (error) {
+          console.error(`Gagal mengfinalisasi kuota WA ${idempotencyKey}: ${errorText(error)}`);
+        }
       }
       result.sent += 1;
     } catch (error) {

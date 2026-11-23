@@ -46,8 +46,9 @@ describe("servis baru dari dashboard", () => {
     }
   });
 
-  it("route /app/servis/baru tetap dipakai bottom-nav AppShell", () => {
+  it("AppShell tidak lagi memuat bottom-nav", () => {
     const shell = read("src/components/layout/app-shell.tsx");
-    expect(shell).toContain('href: "/app/servis/baru"');
+    expect(shell).not.toContain('href: "/app/servis/baru"');
+    expect(shell).not.toContain("KaggoBottomNav");
   });
 });

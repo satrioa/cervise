@@ -153,7 +153,13 @@
       transform: translate(calc(100% * var(--tx-4, -1)), calc(100% * var(--ty-4, -1)));
     }
   }
-}
+  --animate-caret-blink: 1s ease-out infinite caret-blink
+;
+  @keyframes caret-blink {
+  0%, 70%, to {
+    opacity: 1;}
+  20%, 50% {
+    opacity: 0;}}}
 
 /*
  * `.lacak-light` dan `.lacak-dark` di baris pertama mengikuti blok di bawah
@@ -199,6 +205,26 @@
   --chart-4: oklch(0.56 0.17 305);
   --chart-5: oklch(0.5 0.16 20);
   --radius: 0.625rem;
+  /* Token untuk @uiarc/swipe-actions, dipetakan ke token shadcn yang ada. */
+  --surface: var(--card);
+  --surface-muted: var(--muted);
+  --surface-raised: var(--popover);
+  --radius-panel: var(--radius);
+  --radius-control: var(--radius);
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --text-xs: 0.75rem;
+  --text-sm: 0.875rem;
+  --leading-body: 1.5;
+  --tracking-body: 0;
+  --duration-instant: 100ms;
+  --duration-fast: 150ms;
+  --duration-standard: 200ms;
+  --duration-spring: 300ms;
+  --ease-enter: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-spring: cubic-bezier(0.22, 1, 0.36, 1);
+  --shadow-floating: 0 10px 30px -12px rgb(0 0 0 / 0.35);
   /* Efek ASCII (`ascii-reveal`): skeleton Dither + reveal Blueprint.
      Aksen memakai brand tenant; skeleton diturunkan dari warna teks supaya
      ikut terang/gelap tanpa blok warna terpisah. */
@@ -1164,3 +1190,10 @@ html[data-ui-world="toy"] [data-shell="compact"] .bg-background {
   background-color: var(--toy-surface-2);
 }
 
+/* Dock compact: wrap transparan dengan fade hitam, tanpa outline/background tema. */
+html[data-ui-world] [data-compact-dock],
+html[data-ui-world] [data-compact-dock] > div {
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+}

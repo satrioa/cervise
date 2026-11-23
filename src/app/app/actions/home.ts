@@ -80,6 +80,8 @@ export async function getHomeData(): Promise<HomeData> {
         kpi: null,
         session: null,
         lastClosingBalance: null,
+        lastClosedAt: null,
+        lastClosedAuto: false,
         report: null,
         error,
       };
@@ -103,6 +105,8 @@ async function loadFrontlinerHome(
       stale: null,
       lastClosingBalance: null,
       lastClosedToday: null,
+      lastClosedAt: null,
+      lastClosedAuto: false,
     }),
   ]);
 
@@ -117,6 +121,8 @@ async function loadFrontlinerHome(
     kpi: kpi.value,
     session: current,
     lastClosingBalance: cash.value.lastClosingBalance,
+    lastClosedAt: cash.value.lastClosedAt,
+    lastClosedAuto: cash.value.lastClosedAuto,
     report: report.value,
     error: queue.error ?? kpi.error ?? cash.error ?? report.error,
   };

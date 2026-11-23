@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { operationalEntries } from "@/lib/nav/compact-menu";
 import { playCue } from "@/lib/sound";
@@ -45,7 +44,7 @@ export function MenuOperational({
 }: {
   role: string;
   permissions?: readonly string[] | null;
-  onNavigate?: () => void;
+  onNavigate?: (href?: string) => void;
 }) {
   const t = useTranslations("nav");
   const { world } = useStyleWorld();
@@ -66,12 +65,11 @@ export function MenuOperational({
         const Icon = entry.icon;
         const labelKey = TILE_LABEL_KEY[entry.href];
         return (
-          <Link
+          <a
             key={entry.href}
             href={entry.href}
             onClick={() => {
               playCue("tap");
-              onNavigate?.();
             }}
             className="flex min-h-[5.25rem] flex-col items-start justify-between rounded-[18px] border border-black/5 bg-white p-3 shadow-[0_10px_24px_-22px_rgba(0,0,0,0.35)] transition-transform active:scale-[0.98] dark:border-white/10 dark:bg-neutral-800"
           >
@@ -88,7 +86,7 @@ export function MenuOperational({
             <span className="mt-2 min-w-0 line-clamp-2 text-[12.5px] font-medium leading-tight text-neutral-900 dark:text-neutral-100">
               {t(`items.${labelKey ?? entry.key}`)}
             </span>
-          </Link>
+          </a>
         );
       })}
     </div>

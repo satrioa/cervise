@@ -1,14 +1,6 @@
 "use client";
 
-import {
-  ChevronsUpDown,
-  Settings,
-  Wrench,
-  LogOut,
-  PlusIcon,
-  HomeIcon,
-  Package,
-} from "lucide-react";
+import { ChevronsUpDown, LayoutGrid, LogOut, Settings } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState, useEffect, useRef, useCallback } from "react";
@@ -49,6 +41,21 @@ export const ROLE_LABEL: Record<string, string> = {
 
 function roleLabel(role: string) {
   return ROLE_LABEL[role.toUpperCase()] ?? role;
+}
+
+/** Kode paket lama masih tersimpan di organizations.paket; tampilkan nama saat ini. */
+const PAKET_LABEL: Record<string, string> = {
+  trial: "Trial",
+  starter: "Starter",
+  business: "Business",
+  custom: "Custom",
+  basic: "Starter",
+  pro: "Business",
+};
+
+function paketLabel(paket: string | null | undefined): string {
+  const key = (paket ?? "").trim().toLowerCase();
+  return PAKET_LABEL[key] ?? (key ? paket! : "Trial");
 }
 
 function TenantSwitcher({ canSwitchTenant: canSwitchTenantValue }: { canSwitchTenant: boolean }) {
@@ -96,7 +103,7 @@ function TenantSwitcher({ canSwitchTenant: canSwitchTenantValue }: { canSwitchTe
     id: tenant.id,
     name: tenant.name,
     description: `${tenant.paket ?? "tenant"} · Organization`,
-    plan: tenant.paket ?? "trial",
+    plan: paketLabel(tenant.paket),
     // Dipakai MultipleAccounts untuk merender AvatarImage. Sebelumnya field ini
     // ada di tipe tapi tidak pernah diisi, jadi Logo tenant tidak pernah tampil.
     avatarUrl: tenant.logoUrl ?? undefined,
@@ -119,13 +126,16 @@ function TenantSwitcher({ canSwitchTenant: canSwitchTenantValue }: { canSwitchTe
   );
 }
 
-function BranchSwitcher({ canSwitch }: { canSwitch: boolean }) {
+function BranchSwitcher({ canSwitch, compact = false }: { canSwitch: boolean; compact?: boolean }) {
   const { branch, setBranch, branches } = useBranch();
   const t = useTranslations("nav");
   const [open, setOpen] = useState(false);
+  const shellClass = compact
+    ? "flex h-8 max-w-[150px] items-center gap-1.5 rounded-full border border-border/60 bg-white px-2.5 text-xs dark:bg-card"
+    : "flex h-12 w-full items-center rounded-xl border border-border/60 bg-white px-2.5 dark:bg-card";
   if (!canSwitch) {
     return (
-      <div className="flex h-12 w-full items-center rounded-xl border border-border/60 bg-white px-2.5 dark:bg-card">
+      <div className={shellClass}>
         <div className="min-w-0 flex-1 truncate font-semibold text-sm">{branch.label}</div>
       </div>
     );
@@ -133,12 +143,7 @@ function BranchSwitcher({ canSwitch }: { canSwitch: boolean }) {
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger
-        render={
-          <button
-            type="button"
-            className="flex h-12 w-full items-center justify-between gap-2 rounded-xl border border-border/60 bg-white px-2.5 dark:bg-card"
-          />
-        }
+        render={<button type="button" className={cn(shellClass, "justify-between")} />}
       >
         <div className="min-w-0 flex-1 truncate font-semibold text-sm text-left">{branch.label}</div>
         <ChevronsUpDown className="size-3.5 opacity-60 shrink-0" />
@@ -301,8 +306,7 @@ function SidebarContent({
           onClick={async () => {
             const supabase = createClient();
             await supabase.auth.signOut();
-            router.push("/login");
-            router.refresh();
+            window.location.assign("/login");
           }}
           className="rounded-md p-1.5 text-muted-foreground hover:bg-foreground/[0.04]"
           aria-label="Logout"
@@ -335,139 +339,6 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
   );
 }
 
-type BottomTab = { key: string; label: string; href?: string; icon: React.ComponentType<{ className?: string; strokeWidth?: number }>; isCenter?: boolean; badge?: number };
-
-const BOTTOM_TABS: BottomTab[] = [
-  { key: "dashboard", label: "Beranda", href: "/app", icon: HomeIcon },
-  { key: "servis", label: "Servis", href: "/app/servis", icon: Wrench },
-  { key: "create", label: "Tambah", href: "/app/servis/baru", icon: PlusIcon, isCenter: true },
-  { key: "inventory", label: "Inventori", href: "/app/inventori", icon: Package },
-  { key: "lainnya", label: "Lainnya", icon: Settings },
-];
-
-/**
- * Tab yang punya `href` hanya dirender bila role boleh membukanya. Tanpa ini
- * bottom-nav akan menampilkan tautan yang sidebar menyembunyikan.
- * `/app/servis/baru` adalah halaman anak, bukan entri manifest, jadi
- * kelayakannya mengikuti `/app/servis`.
- */
-function bottomTabsForRole(role: string, permissions?: readonly string[] | null): BottomTab[] {
-  return BOTTOM_TABS.filter((tab) => {
-    if (tab.key === "lainnya") return true;
-    if (tab.key === "create") return canAccessActor({ role, permissions }, "/app/servis");
-    return canAccessActor({ role, permissions }, tab.href ?? "");
-  });
-}
-
-function bottomTabKey(key: string): string {
-  switch (key) {
-    case "dashboard":
-      return "bottomTabs.home";
-    case "servis":
-      return "bottomTabs.service";
-    case "create":
-      return "bottomTabs.add";
-    case "inventory":
-      return "bottomTabs.inventory";
-    case "lainnya":
-      return "bottomTabs.more";
-    default:
-      return key;
-  }
-}
-function KaggoBottomNav({ pathname, role, permissions }: { pathname: string; role: string; permissions?: readonly string[] | null }) {
-  const [sheetOpen, setSheetOpen] = useState(false);
-  const t = useTranslations("nav");
-  const tabs = bottomTabsForRole(role);
-  return (
-    <>
-      <nav className="h-[72px] border-t border-border/60 bg-background flex items-stretch justify-around relative shrink-0 sticky bottom-0 z-30 lg:hidden safe-area-pb">
-        {tabs.map((tab) => {
-          const isActive = tab.href ? pathname === tab.href || (tab.href !== "/app" && pathname.startsWith(tab.href)) : false;
-          const isCenter = !!tab.isCenter;
-          const label = t(bottomTabKey(tab.key));
-          if (tab.key === "lainnya") {
-            return (
-              <button
-                key={tab.key}
-                type="button"
-                onClick={() => setSheetOpen(true)}
-                aria-label={label}
-                className="relative flex flex-col items-center justify-center gap-0.5 flex-1 py-2 cursor-pointer transition-colors text-muted-foreground"
-              >
-                <tab.icon className="size-5" strokeWidth={2} />
-                <span className="text-[10px]">{label}</span>
-              </button>
-            );
-          }
-          if (isCenter) {
-            return (
-              <Link
-                key={tab.key}
-                href={tab.href!}
-                aria-label={label}
-                className="flex flex-col items-center justify-center gap-0.5 flex-1 py-2 cursor-pointer"
-              >
-                <span className="flex size-12 items-center justify-center rounded-full bg-foreground text-background -translate-y-3 shadow-md">
-                  <PlusIcon className="size-5" />
-                </span>
-                <span className={`text-[10px] -mt-2 ${isActive ? "text-foreground" : "text-muted-foreground"}`}>{label}</span>
-              </Link>
-            );
-          }
-          const Icon = tab.icon;
-          return (
-            <Link
-              key={tab.key}
-              href={tab.href!}
-              aria-label={label}
-              aria-current={isActive ? "page" : undefined}
-              // Ganti tab navigasi → undo.wav. Tab aktif diklik ulang: hening.
-              onClick={() => {
-                if (!isActive) sfx.tab();
-              }}
-              className={`relative flex flex-col items-center justify-center gap-0.5 flex-1 py-2 cursor-pointer transition-colors ${isActive ? "text-foreground" : "text-muted-foreground"}`}
-            >
-              {isActive ? <span className="absolute top-0 left-1/2 -translate-x-1/2 h-0.5 w-6 rounded-full bg-foreground" /> : null}
-              <span className="relative">
-                <Icon className="size-5" strokeWidth={isActive ? 2.4 : 2} />
-                {tab.badge ? (
-                  <span className="absolute -top-1.5 -right-2 min-w-[16px] h-4 px-1 rounded-full bg-foreground text-background text-[9px] font-medium flex items-center justify-center">
-                    {tab.badge}
-                  </span>
-                ) : null}
-              </span>
-              <span className="text-[10px]">{label}</span>
-            </Link>
-          );
-        })}
-      </nav>
-      <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
-        <SheetContent side="bottom" className="h-auto">
-          <div className="grid grid-cols-3 gap-2 pt-2 pb-6">
-            {navFor(role, "legacy", { permissions }).map((block) =>
-              block.entries.map((entry) => {
-                const Icon = entry.icon;
-                return (
-                  <Link
-                    key={entry.href}
-                    href={entry.href}
-                    onClick={() => setSheetOpen(false)}
-                    className="flex flex-col items-center gap-2 rounded-lg border p-3 text-xs"
-                  >
-                    <Icon className="size-5" />
-                    {t(`items.${entry.key}`)}
-                  </Link>
-                );
-              }),
-            )}
-          </div>
-        </SheetContent>
-      </Sheet>
-    </>
-  );
-}
-
 export type AppShellActor = {
   role: string;
   permissions?: readonly string[] | null;
@@ -484,6 +355,8 @@ export type AppShellActor = {
 
 function AppShellInner({ children, actor }: { children: React.ReactNode; actor: AppShellActor }) {
   const [open, setOpen] = useState(false);
+  const { tenants, activeOrgId } = useTenant();
+  const activeTenant = tenants.find((tenant) => tenant.id === activeOrgId) ?? tenants[0];
   const pathname = usePathname();
   const scrollRef = useRef<HTMLDivElement>(null);
   const [showTopFade, setShowTopFade] = useState(false);
@@ -532,7 +405,7 @@ function AppShellInner({ children, actor }: { children: React.ReactNode; actor: 
         <div className="lg:hidden sticky top-0 z-40 flex h-16 shrink-0 items-center justify-start gap-2 border-b border-border/60 bg-background px-3">
           <Sheet open={open} onOpenChange={setOpen}>
             <SheetTrigger render={<Button variant="ghost" size="icon" className="size-8" />}>
-              <Wrench className="size-5" />
+              <LayoutGrid className="size-5" fill="currentColor" />
             </SheetTrigger>
             <SheetContent side="left" className="w-[280px] p-0 flex flex-col">
               <SheetHeader className="sr-only">
@@ -547,16 +420,24 @@ function AppShellInner({ children, actor }: { children: React.ReactNode; actor: 
               />
             </SheetContent>
           </Sheet>
-          <div className="flex items-center gap-2 font-semibold text-sm">
-            <span className="flex size-7 items-center justify-center rounded-md bg-primary text-primary-foreground">C</span>
-            Kaggo
+          <div className="flex min-w-0 items-center gap-2 font-semibold text-sm">
+            <TenantLogo
+              logoUrl={activeTenant?.logoUrl}
+              name={activeTenant?.name}
+              title={`Tenant: ${activeTenant?.name ?? "Tenant"}`}
+              className="size-7 text-xs"
+            />
+            <span className="truncate">{activeTenant?.name ?? "Kaggo"}</span>
+          </div>
+          <div className="ml-auto">
+            <BranchSwitcher canSwitch={canSwitchBranch(actor.role)} compact />
           </div>
         </div>
 
         <div
           ref={scrollRef}
           onScroll={updateFade}
-          className="relative flex-1 overflow-y-auto overflow-x-hidden scrollbar-none scroll-smooth"
+          className="relative min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-y-contain scrollbar-none scroll-smooth"
         >
           {/* progressive blur — top */}
           <div
@@ -565,7 +446,7 @@ function AppShellInner({ children, actor }: { children: React.ReactNode; actor: 
             style={{ opacity: showTopFade ? 1 : 0 }}
           />
           <div data-main-content className="min-h-full">
-            <AsciiPage className="min-h-full">{children}</AsciiPage>
+            <AsciiPage className="min-h-full" reveal={false}>{children}</AsciiPage>
           </div>
           {/* progressive blur — bottom */}
           <div
@@ -575,7 +456,6 @@ function AppShellInner({ children, actor }: { children: React.ReactNode; actor: 
           />
         </div>
 
-        <KaggoBottomNav pathname={pathname} role={actor.role} permissions={actor.permissions} />
       </div>
     </div>
   );

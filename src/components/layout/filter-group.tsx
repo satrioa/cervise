@@ -36,6 +36,7 @@ export function FilterGroup({
   clearHref,
   onClear,
   breakpoint = "sm",
+  alwaysVisible = false,
   className,
 }: {
   children: React.ReactNode;
@@ -44,6 +45,8 @@ export function FilterGroup({
   clearHref?: string;
   onClear?: () => void;
   breakpoint?: keyof typeof BP;
+  /** Tampilkan kontrol langsung tanpa tombol lipat (dipakai dashboard /app). */
+  alwaysVisible?: boolean;
   className?: string;
 }) {
   const [open, setOpen] = useState(false);
@@ -52,25 +55,27 @@ export function FilterGroup({
 
   return (
     <>
-      <Button
-        type="button"
-        variant="outline"
-        size="icon-sm"
-        aria-label={count > 0 ? `Filter (${count} aktif)` : "Filter"}
-        aria-expanded={open}
-        aria-controls={id}
-        onClick={() => setOpen((value) => !value)}
-        className={cn("relative order-2 shrink-0", bp.trigger)}
-      >
-        <SlidersHorizontalIcon className="size-4" />
-        {count > 0 ? (
-          <span className="absolute -right-1 -top-1 flex size-4 items-center justify-center rounded-full bg-primary text-[10px] font-medium leading-none text-primary-foreground">
-            {count}
-          </span>
-        ) : null}
-      </Button>
+      {alwaysVisible ? null : (
+        <Button
+          type="button"
+          variant="outline"
+          size="icon-sm"
+          aria-label={count > 0 ? `Filter (${count} aktif)` : "Filter"}
+          aria-expanded={open}
+          aria-controls={id}
+          onClick={() => setOpen((value) => !value)}
+          className={cn("relative order-2 shrink-0", bp.trigger)}
+        >
+          <SlidersHorizontalIcon className="size-4" />
+          {count > 0 ? (
+            <span className="absolute -right-1 -top-1 flex size-4 items-center justify-center rounded-full bg-primary text-[10px] font-medium leading-none text-primary-foreground">
+              {count}
+            </span>
+          ) : null}
+        </Button>
+      )}
 
-      {count > 0 ? (
+      {!alwaysVisible && count > 0 ? (
         <div className={cn("order-4 flex w-full min-w-0 items-center gap-2", bp.summary)}>
           <p className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
             {summary ?? `${count} filter aktif`}
@@ -96,7 +101,7 @@ export function FilterGroup({
         className={cn(
           "order-5 w-full min-w-0 [&>*]:min-w-0",
           bp.child,
-          open ? "grid grid-cols-2 items-center gap-2" : "hidden",
+          alwaysVisible ? "flex flex-wrap items-center gap-2" : open ? "grid grid-cols-2 items-center gap-2" : "hidden",
           bp.panel,
           className,
         )}

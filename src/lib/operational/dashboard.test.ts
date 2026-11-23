@@ -6,6 +6,7 @@ import {
   buildProblems,
   buildRecentActivity,
   buildTechnicians,
+  hitungPiutang,
   summarizeDashboard,
   type DashboardFinance,
   type DashboardService,
@@ -445,5 +446,40 @@ describe("buildDashboardFeed", () => {
 
     expect(result.map((item) => item.id)).toEqual(["session-close:cash-1", "tx:tx-1"]);
     expect(result[1].amount).toBe(150000);
+  });
+});
+
+describe("piutang servis selesai", () => {
+  const selesai = (id: string, price: number, status = "Selesai") =>
+    service({ id, status, price, created_at: longAgo });
+
+  it("mengabaikan servis berjalan dan batal", () => {
+    expect(
+      hitungPiutang([
+        selesai("a", 100000),
+        service({ id: "b", status: "Dikerjakan", price: 50000, created_at: longAgo }),
+        service({ id: "c", status: "Batal", price: 70000, created_at: longAgo }),
+      ]),
+    ).toBe(100000);
+  });
+
+  it("memakai sisa tagihan untuk sale lunas, DP, dan tanpa sale", () => {
+    const services = [selesai("a", 100000), selesai("b", 200000), selesai("c", 150000, "Sudah Diambil")];
+    const sales = [
+      { servis_id: "a", total: 100000, paid: 100000 },
+      { servis_id: "b", total: 200000, paid: 50000 },
+    ];
+    expect(hitungPiutang(services, sales)).toBe(300000);
+  });
+
+  it("summary memakai piutangSales dan tidak terikat periode", () => {
+    const summary = summarizeDashboard({
+      services: [selesai("a", 100000)],
+      finance: [],
+      piutangSales: [{ servis_id: "a", total: 100000, paid: 25000, created_at: longAgo }],
+      period: "hari ini",
+      now: NOW,
+    });
+    expect(summary.piutang).toBe(75000);
   });
 });

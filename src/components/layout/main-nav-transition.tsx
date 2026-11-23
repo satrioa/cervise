@@ -184,7 +184,7 @@ export function MainNavTransitionOutlet({
 
   if (!dir || reduce) {
     return (
-      <div key={pathname} data-main-nav-content className="h-full min-h-0 bg-canvas">
+      <div data-main-nav-content className="h-full min-h-0 bg-canvas">
         {page}
       </div>
     );
@@ -192,7 +192,6 @@ export function MainNavTransitionOutlet({
 
   return (
     <motion.div
-      key={pathname}
       data-main-nav-content
       className="h-full min-h-0 bg-canvas"
       initial={{ x: offset }}

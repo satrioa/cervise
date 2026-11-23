@@ -158,7 +158,9 @@ function AnalyticsContent({
               Analitik servis
             </div>
             <div className="mt-1 flex flex-wrap items-baseline gap-2">
-              <span className="font-heading text-3xl">{formatNumberPlain(totalMasuk)}</span>
+              <span className="min-w-0 truncate font-heading text-[clamp(1rem,5vw,1.875rem)] leading-tight">
+                {formatNumberPlain(totalMasuk)}
+              </span>
               <span className="font-mono text-[10px] text-muted-foreground">servis masuk</span>
             </div>
           </div>

@@ -178,7 +178,7 @@ function VariantCard({
       <DialogPrimitive.Root open={open} onOpenChange={setOpen}>
         <DialogPrimitive.Portal>
           <DialogPrimitive.Backdrop className="fixed inset-0 z-50 bg-black/30 backdrop-blur-sm" />
-          <DialogPrimitive.Popup className="fixed inset-x-0 bottom-0 z-50 flex max-h-[92dvh] flex-col overflow-hidden rounded-t-3xl border bg-background shadow-2xl outline-none sm:left-1/2 sm:right-auto sm:top-1/2 sm:bottom-auto sm:w-[420px] sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-3xl">
+          <DialogPrimitive.Popup className="fixed inset-x-0 bottom-0 z-50 flex max-h-[92dvh] flex-col overflow-hidden rounded-t-3xl border bg-background shadow-2xl outline-none transition-transform duration-300 ease-[linear(0,0.35,0.85,1.06,1.02,0.995,1)] max-sm:data-[starting-style]:translate-y-full max-sm:data-[ending-style]:translate-y-full sm:left-1/2 sm:right-auto sm:top-1/2 sm:bottom-auto sm:w-[420px] sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-3xl">
             <div className="relative aspect-[4/3] w-full shrink-0 overflow-hidden bg-muted/40">
               <ProductImage
                 src={sheetPhoto}
@@ -196,7 +196,7 @@ function VariantCard({
               </DialogPrimitive.Close>
             </div>
 
-            <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
+            <div className="min-h-0 flex-1 overflow-y-auto px-5 pt-4 pb-[calc(1.5rem+env(safe-area-inset-bottom))] sm:pb-4">
               <div className="flex items-center gap-2">
                 <span className="text-lg font-semibold leading-tight">{group.parent.name}</span>
                 <Badge

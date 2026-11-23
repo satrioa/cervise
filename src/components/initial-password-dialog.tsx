@@ -60,8 +60,7 @@ export function InitialPasswordDialog({ mustChange }: { mustChange: boolean }) {
       toast.success("Password berhasil diganti. Silakan masuk dengan password baru.");
       const supabase = createClient();
       await supabase.auth.signOut();
-      router.replace("/login?password=updated");
-      router.refresh();
+      window.location.assign("/login?password=updated");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Gagal mengganti password.");
     } finally {

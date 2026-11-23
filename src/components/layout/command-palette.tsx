@@ -181,8 +181,7 @@ export function KaggoCommandPalette({ open, onOpenChange, role, permissions }: P
   const handleLogout = async () => {
     close();
     await createClient().auth.signOut();
-    router.replace("/login");
-    router.refresh();
+    window.location.assign("/login");
   };
 
   // ---- Aksi cepat -----------------------------------------------------------

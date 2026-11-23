@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
-import { getCabangMembers, toggleCabangIntensif, updateCabang, updateCabangCardVisibility, updateCabangIntensif, updateCabangTarget } from "@/app/app/cabang/actions";
+import { getCabangMembers, toggleCabangIntensif, updateCabang, updateCabangCardVisibility, updateCabangIntensif, updateCabangTarget, updateCabangWorkHours } from "@/app/app/cabang/actions";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Switch } from "@/components/ui/switch";
@@ -30,6 +30,8 @@ type BranchItem = {
   target_value?: number | null;
   show_target_to_teknisi?: boolean;
   show_intensif_to_teknisi?: boolean;
+  check_in_time?: string;
+  check_out_time?: string;
   created_at: string;
   teknisiCount: number;
 };
@@ -104,6 +106,9 @@ export function CabangDrawer({ branch, open, onOpenChange }: { branch: BranchIte
   const [showTarget, setShowTarget] = useState(true);
   const [showIntensif, setShowIntensif] = useState(true);
   const [savingTarget, setSavingTarget] = useState(false);
+  const [checkIn, setCheckIn] = useState("08:00");
+  const [checkOut, setCheckOut] = useState("17:00");
+  const [savingHours, setSavingHours] = useState(false);
 
   useEffect(() => {
     if (!open || !branch) return;
@@ -121,6 +126,8 @@ export function CabangDrawer({ branch, open, onOpenChange }: { branch: BranchIte
     setTargetValue(branch.target_value ? String(branch.target_value) : "");
     setShowTarget(branch.show_target_to_teknisi ?? true);
     setShowIntensif(branch.show_intensif_to_teknisi ?? true);
+    setCheckIn(branch.check_in_time ?? "08:00");
+    setCheckOut(branch.check_out_time ?? "17:00");
     setLoading(true);
     getCabangMembers(branch.id)
       .then((rows) => setMembers(rows as Member[]))
@@ -294,6 +301,42 @@ export function CabangDrawer({ branch, open, onOpenChange }: { branch: BranchIte
                 </div>
               </div>
             )}
+          </div>
+
+          <div className="space-y-2 rounded-xl border bg-card p-4 shadow-xs/5">
+            <div>
+              <div className="font-heading text-sm font-semibold">Jam kerja cabang</div>
+              <p className="text-xs text-muted-foreground">Dipakai untuk status Terlambat dan Pulang awal pada absensi.</p>
+            </div>
+            <div className="flex gap-2">
+              <div className="flex-1 space-y-1">
+                <Label htmlFor="check-in-time">Jam masuk</Label>
+                <Input id="check-in-time" type="time" value={checkIn} onChange={(e) => setCheckIn(e.target.value)} />
+              </div>
+              <div className="flex-1 space-y-1">
+                <Label htmlFor="check-out-time">Jam pulang</Label>
+                <Input id="check-out-time" type="time" value={checkOut} onChange={(e) => setCheckOut(e.target.value)} />
+              </div>
+            </div>
+            <Button
+              size="sm"
+              disabled={savingHours || !branch}
+              onClick={async () => {
+                if (!branch) return;
+                setSavingHours(true);
+                try {
+                  await updateCabangWorkHours(branch.id, { checkInTime: checkIn, checkOutTime: checkOut });
+                  toast.success("Jam kerja tersimpan");
+                  router.refresh();
+                } catch (e) {
+                  toast.error(e instanceof Error ? e.message : "Gagal menyimpan jam kerja");
+                } finally {
+                  setSavingHours(false);
+                }
+              }}
+            >
+              {savingHours ? "Menyimpan..." : "Simpan jam kerja"}
+            </Button>
           </div>
 
           {/* Intensif per cabang — Q1 % or fixed, Q3 per cabang, Q4 Selesai+Sudah Diambil */}

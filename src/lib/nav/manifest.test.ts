@@ -12,6 +12,7 @@ import {
   entryForMenuKey,
   navFor,
   normalizeAppRole,
+  permissionsForSystemRole,
   surfaceFor,
   type AppRole,
   type NavEntry,
@@ -542,5 +543,21 @@ describe("pemilihan shell", () => {
   it("role yang tidak dikenal dapat legacy, bukan compact", () => {
     expect(surfaceFor("super_owner")).toBe(LEGACY);
     expect(surfaceFor(null)).toBe(LEGACY);
+  });
+});
+
+describe("laporan absensi", () => {
+  it("hanya untuk manajer dan butuh izin reports.attendance", () => {
+    for (const role of ["MASTER_ADMIN", "ADMIN"] as const) {
+      expect(canAccess(role, "laporan_absensi")).toBe(true);
+      expect(canAccess(role, "/app/laporan/absensi")).toBe(true);
+      expect(permissionsForSystemRole(role)).toContain("reports.attendance");
+      expect(sidebarHrefsFor(role, LEGACY)).toContain("/app/laporan/absensi");
+    }
+    for (const role of ["FRONTLINER", "TECHNICIAN"] as const) {
+      expect(canAccess(role, "laporan_absensi")).toBe(false);
+      expect(permissionsForSystemRole(role)).not.toContain("reports.attendance");
+      expect(sidebarHrefsFor(role, "compact")).not.toContain("/app/laporan/absensi");
+    }
   });
 });

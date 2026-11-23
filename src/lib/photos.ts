@@ -13,9 +13,12 @@ export const PHOTO_BUCKET = "cervise-photos";
 /** Batas ini juga dikunci di level bucket (file_size_limit), bukan hanya di sini. */
 export const MAX_PHOTO_BYTES = 2 * 1024 * 1024;
 
+/** File mentah boleh lebih besar karena akan dikompres sebelum masuk Storage. */
+export const MAX_RAW_PHOTO_BYTES = 10 * 1024 * 1024;
+
 export const ALLOWED_PHOTO_TYPES = ["image/jpeg", "image/png", "image/webp"] as const;
 
-export type PhotoKind = "avatar" | "tenant-logo";
+export type PhotoKind = "avatar" | "tenant-logo" | "attendance";
 
 export type PhotoFileLike = {
   name: string;
@@ -45,7 +48,10 @@ export function formatBytes(bytes: number): string {
  * sebenarnya tetap relies on bucket: Supabase menolak berkas yang tipe-nya di
  * luar allowed_mime_types.
  */
-export function validatePhotoFile(file: PhotoFileLike): PhotoValidation {
+export function validatePhotoFile(
+  file: PhotoFileLike,
+  maxBytes = MAX_PHOTO_BYTES,
+): PhotoValidation {
   const extension = EXTENSION_BY_MIME[file.type?.trim().toLowerCase() ?? ""];
   if (!extension) {
     return {
@@ -56,10 +62,10 @@ export function validatePhotoFile(file: PhotoFileLike): PhotoValidation {
   if (file.size <= 0) {
     return { ok: false, error: "File kosong." };
   }
-  if (file.size > MAX_PHOTO_BYTES) {
+  if (file.size > maxBytes) {
     return {
       ok: false,
-      error: `Ukuran maksimal ${formatBytes(MAX_PHOTO_BYTES)}. File ini ${formatBytes(file.size)}.`,
+      error: `Ukuran maksimal ${formatBytes(maxBytes)}. File ini ${formatBytes(file.size)}.`,
     };
   }
   return { ok: true, extension };
@@ -96,6 +102,17 @@ export function productPhotoPath(productId: string, extension: string): string {
   return `products/${productId}/${randomSegment()}.${extension}`;
 }
 
+/** Selfie absen: `{org}/{karyawan}/{tanggal}-{in|out}-{acak}.{ext}`. */
+export function attendancePhotoPath(
+  organizationId: string,
+  employeeId: string,
+  date: string,
+  kind: "in" | "out",
+  extension: string,
+): string {
+  return `attendance/${organizationId}/${employeeId}/${date}-${kind}-${randomSegment()}.${extension}`;
+}
+
 /**
  * Path yang tersimpan di kolom database kembali ke browser dan dipakai untuk
  * menyusun URL. Kalau nilainya bisa disuntik (mis. "../" atau "http://"),
@@ -107,7 +124,8 @@ export function isSafeObjectPath(path: string | null | undefined): path is strin
   if (path.length > 200) return false;
   if (path.includes("..")) return false;
   if (path.startsWith("/") || path.includes("\\")) return false;
-  if (!/^(avatars|tenant-logos|products)\/[A-Za-z0-9_-]+\/[A-Za-z0-9_-]+\.[A-Za-z0-9]+$/.test(path)) return false;
+  if (!/^(avatars|tenant-logos|products)\/[A-Za-z0-9_-]+\/[A-Za-z0-9_-]+\.[A-Za-z0-9]+$/.test(path) &&
+      !/^attendance\/[A-Za-z0-9_-]+\/[A-Za-z0-9_-]+\/[A-Za-z0-9_-]+\.[A-Za-z0-9]+$/.test(path)) return false;
   return true;
 }
 

@@ -18,13 +18,17 @@ describe("command palette", () => {
 
   it("logout menutup sesi, bukan hanya pindah halaman", () => {
     expect(source).toContain("auth.signOut()");
-    expect(source).toContain('router.replace("/login")');
-    expect(source).toContain("router.refresh()");
+    expect(source).toContain('window.location.assign("/login")');
   });
 
   it("mencari servis nyata dan membuka halaman servis dengan query", () => {
     expect(source).toContain("getServisList");
     expect(source).toContain("/app/servis?q=");
+  });
+
+  it("popover command memakai placeholder statis", () => {
+    expect(source).toMatch(/<CommandInput placeholder="Cari menu, servis, atau ketik aksi\.\.\." \/>/);
+    expect(source).not.toMatch(/useTypewriter/);
   });
 
   it("menyediakan aksi cepat tambah servis, stok, dan karyawan", () => {

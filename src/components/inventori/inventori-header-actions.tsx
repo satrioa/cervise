@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { DownloadIcon, PackageCheckIcon, PackageIcon, UploadIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { RefreshDataButton } from "@/components/layout/refresh-data-button";
 import { Button as CossButton } from "@/components/ui/coss-button";
 import type { InventoryGroup } from "@/lib/operational/inventori";
 import { ProductVariantDialog } from "./product-variant-dialog";
@@ -25,6 +26,7 @@ export function InventoriHeaderActions({
 
   return (
     <>
+      <RefreshDataButton onRefresh={() => router.refresh()} />
       <Button variant="outline" asChild>
         <Link href="/app/inventori/opname">
           <PackageCheckIcon data-icon="inline-start" />

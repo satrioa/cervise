@@ -45,7 +45,7 @@ describe("shell chrome", () => {
     // search, profil) menempel di atas layar, sedangkan tab halaman di bawah.
     expect(compactShell).toMatch(/<header[^>]*hidden[^>]*lg:block/);
     expect(compactBottomBar).toMatch(/fixed inset-x-0 top-0/);
-    expect(compactBottomBar).toMatch(/CommandSearchTrigger/);
+    expect(compactBottomBar).not.toMatch(/CommandSearchTrigger/);
     expect(compactDockNav).toMatch(/fixed inset-x-0 bottom-0/);
     expect(compactDockNav).not.toMatch(/CommandSearchTrigger/);
   });
@@ -55,7 +55,16 @@ describe("shell chrome", () => {
     // didorong ke kanan dengan `ml-auto`. Tombol cari `lg:hidden` tidak
     // menggeser profil ke tengah.
     expect(compactBottomBar).toMatch(/ml-auto flex shrink-0 items-center gap-2/);
-    expect(compactBottomBar).toMatch(/aria-label="Menu akun"/);
+    // Pill profil lama (Popover + "Menu akun") diganti ProfileDropdown dari
+    // KokonutUI: menu Profil, tema via next-themes, dan Keluar.
+    expect(compactBottomBar).toMatch(/ProfileDropdown/);
+    expect(compactBottomBar).not.toMatch(/aria-label="Menu akun"/);
+    expect(compactBottomBar).toMatch(/href: "\/app\/pengaturan\/profil"/);
+    expect(compactBottomBar).toMatch(/useTheme/);
+    expect(compactBottomBar).toMatch(/onSignOut/);
+    expect(compactBottomBar).toMatch(/auth\.signOut\(\)/);
+    expect(compactBottomBar).toMatch(/avatarUrl,/);
+    expect(compactShell).toMatch(/avatarUrl=\{actor\.avatarUrl\}/);
   });
 
   it("bottom nav berisi Home, Servis, item role-aware, dan Menu", () => {
@@ -65,17 +74,20 @@ describe("shell chrome", () => {
     expect(compactDockNav).toMatch(/\/app\/penjualan/);
     expect(compactDockNav).toMatch(/\/app\/sparepart/);
     expect(compactDockNav).toMatch(/TECHNICIAN/);
-    expect(compactDockNav).toMatch(/t\("menu\.title"\)/);
+    expect(compactDockNav).not.toMatch(/t\("menu\.title"\)/);
+    expect(compactDockNav).not.toMatch(/onOpenMenu/);
+    expect(compactDockNav).toMatch(/fill=\{active \? "currentColor" : "none"\}/);
+    expect(compactDockNav).toMatch(/size-12 rounded-xl shadow-none/);
     // Overlay mengambang di atas isi halaman.
     expect(compactDockNav).toMatch(/z-30/);
-    expect(compactDockNav).toMatch(/pt-2 pb-\[calc\(1rem\+env\(safe-area-inset-bottom\)\)\]/);
+    expect(compactDockNav).toMatch(/pt-2 pb-\[calc\(1\.5rem\+env\(safe-area-inset-bottom\)\)\]/);
   });
 
-  it("chrome compact tidak auto-hide lagi", () => {
-    // Search ada di bar yang dulu memudar setelah 5 detik; kalau auto-hide
-    // dikembalikan, fitur utamanya ikut hilang dari layar.
+  it("dock compact hilang saat scroll turun dan muncul saat scroll naik", () => {
     expect(compactShell).not.toMatch(/useIdleVisibility/);
-    expect(compactShell).toMatch(/menuOpen=\{open\}/);
+    expect(compactShell).toMatch(/<CompactDockNav role=\{actor\.role\} hidden=\{dockHidden\} \/>/);
+    expect(compactShell).toMatch(/setDockHidden\(true\)/);
+    expect(compactShell).toMatch(/setDockHidden\(false\)/);
   });
 
   it("tombol layar penuh memakai Fullscreen API dan sinkron dengan Esc", () => {
@@ -103,9 +115,18 @@ describe("shell chrome", () => {
   it("sidebar compact memakai ikon fill, sidebar legacy tetap garis", () => {
     const compactSidebar = read("src/components/layout/compact-sidebar.tsx");
     expect(compactSidebar).toMatch(/fill="currentColor"/);
-    // Sidebar legacy ikut membaca manifest, jadi ikon di sana tidak boleh ikut
-    // terisi -- hanya rail compact yang diminta berubah.
-    expect(legacyShell).not.toMatch(/fill="currentColor"/);
+    // Tombol pengaturan di profil sidebar legacy memakai ikon gear.
+    expect(legacyShell).toMatch(/<Settings className="size-4" \/>/);
+  });
+
+  it("tombol menu header legacy memakai grid terisi, bukan wrench", () => {
+    expect(legacyShell).toMatch(/<LayoutGrid className="size-5" fill="currentColor" \/>/);
+    expect(legacyShell).not.toMatch(/<Wrench className="size-5" \/>/);
+  });
+
+  it("header legacy memakai logo tenant dan branch switcher", () => {
+    expect(legacyShell).toMatch(/<TenantLogo/);
+    expect(legacyShell).toMatch(/<BranchSwitcher canSwitch=\{canSwitchBranch\(actor\.role\)\} compact \/>/);
   });
 
   it("CompactShell membungkus anak-anaknya dengan ShellChromeProvider", () => {

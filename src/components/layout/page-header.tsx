@@ -19,6 +19,8 @@ export type PageHeaderProps = {
   filterClearHref?: string;
   /** Halaman client: tombol hapus filter memanggil state lokal. */
   onClearFilters?: () => void;
+  /** Filter langsung tampil di mobile, tanpa tombol lipat. */
+  filtersAlwaysVisible?: boolean;
   actions?: ReactNode;
   titleClassName?: string;
   containerClassName?: string;
@@ -36,6 +38,7 @@ export function PageHeader({
   filterSummary,
   filterClearHref,
   onClearFilters,
+  filtersAlwaysVisible = false,
   actions,
   titleClassName,
   containerClassName,
@@ -52,18 +55,24 @@ export function PageHeader({
     <header
       className={cn(
         "border-b border-border/60 bg-white dark:bg-[#0f0f0f]",
-        sticky ? "sticky top-0 z-30" : "relative",
+        // Shell compact memakai warna canvas yang sama dengan latar halaman,
+        // supaya header tidak tampil sebagai bilah putih yang menonjol.
+        "group-data-[shell=compact]/shell:bg-canvas group-data-[shell=compact]/shell:dark:bg-canvas",
+        "group-data-[shell=compact]/shell:border-b-0 lg:group-data-[shell=compact]/shell:border-b lg:group-data-[shell=compact]/shell:border-border/30",
+        sticky
+          ? "sticky top-0 z-30 group-data-[shell=compact]/shell:relative lg:group-data-[shell=compact]/shell:sticky"
+          : "relative",
         className,
       )}
     >
       <PageHeaderContainer className="flex min-h-16 flex-row items-center justify-between gap-4">
-        <div className="min-w-0 flex-1">
+        <div className="min-w-0 flex-1 group-data-[shell=compact]/shell:hidden lg:group-data-[shell=compact]/shell:block">
           <PageBreadcrumb title={title} titleClassName={titleClassName} />
         </div>
         <ShellChrome />
       </PageHeaderContainer>
       {hasRow2 ? (
-        <div className="border-t border-border/40">
+        <div className="border-t border-border/40 group-data-[shell=compact]/shell:border-t-0 lg:group-data-[shell=compact]/shell:border-t lg:group-data-[shell=compact]/shell:border-border/20">
           {/* Mobile: search + tombol filter + aksi di baris pertama. Panel
               filter dibuka lewat ikon dan ditata grid 2 kolom supaya semua
               kontrol terlihat tanpa scroll horizontal. */}
@@ -88,6 +97,7 @@ export function PageHeader({
                 summary={filterSummary}
                 clearHref={filterClearHref}
                 onClear={onClearFilters}
+                alwaysVisible={filtersAlwaysVisible}
                 className="sm:flex-1 sm:justify-end"
               >
                 {filters}

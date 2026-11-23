@@ -1,6 +1,7 @@
 import {
   Building2Icon,
   CreditCardIcon,
+  HistoryIcon,
   LayoutDashboardIcon,
   PackageIcon,
   Settings2Icon,
@@ -37,7 +38,10 @@ export const OWNER_NAV_GROUPS: OwnerNavGroup[] = [
   },
   {
     label: "System",
-    items: [{ label: "Settings", href: "/owner/settings", icon: Settings2Icon }],
+    items: [
+      { label: "Settings", href: "/owner/settings", icon: Settings2Icon },
+      { label: "Changelog", href: "/changelog", icon: HistoryIcon },
+    ],
   },
 ];
 

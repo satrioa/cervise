@@ -55,7 +55,7 @@ const SEGMENT_LABEL: Record<string, string> = {
   usage: "Usage",
 };
 
-function labelFor(segment: string): string {
+export function labelFor(segment: string): string {
   return (
     SEGMENT_LABEL[segment] ??
     segment
@@ -65,7 +65,7 @@ function labelFor(segment: string): string {
 }
 
 /** Entri menu untuk path ini, atau induk terdekatnya untuk rute detail. */
-function matchEntry(pathname: string): NavEntry | undefined {
+export function matchEntry(pathname: string): NavEntry | undefined {
   const exact = NAV_ENTRIES.find((entry) => entry.href === pathname);
   if (exact) return exact;
   return NAV_ENTRIES.filter((entry) => pathname.startsWith(`${entry.href}/`)).sort(
@@ -145,12 +145,14 @@ export function PageBreadcrumb({
       <BreadcrumbList className="min-w-0 flex-nowrap overflow-hidden">
         {links.map((crumb) => (
           <Fragment key={crumb.href}>
-            <BreadcrumbItem className={cn(crumb.hideOnMobile && "hidden sm:inline-flex")}>
+            {/* Mobile hanya menampilkan nama halaman saat ini; semua tautan
+                dan pemisahnya baru tampil mulai breakpoint sm. */}
+            <BreadcrumbItem className="hidden sm:inline-flex">
               <BreadcrumbLink render={<Link href={crumb.href} />}>
                 {crumb.label}
               </BreadcrumbLink>
             </BreadcrumbItem>
-            <BreadcrumbSeparator className={cn(crumb.hideOnMobile && "hidden sm:block")} />
+            <BreadcrumbSeparator className="hidden sm:block" />
           </Fragment>
         ))}
         <BreadcrumbItem className="min-w-0">

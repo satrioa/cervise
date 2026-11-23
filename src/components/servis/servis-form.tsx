@@ -248,7 +248,12 @@ export function ServisForm({ onSuccess, onCancel }: ServisFormProps) {
 
   const handleKondisiSave = async (data: KondisiAwal) => {
     if (!savedId) return;
-    await updateKondisiAwal(savedId, data);
+    try {
+      await updateKondisiAwal(savedId, data);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Gagal menyimpan kondisi awal");
+      return;
+    }
     playPageTransition();
     finish();
   };

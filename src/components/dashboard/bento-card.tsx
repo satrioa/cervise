@@ -81,7 +81,7 @@ const BENTO_EASE = [0.215, 0.61, 0.355, 1] as const;
  *   tidak muat, `main` shell yang menggulir.
  */
 export const BENTO_GRID_CLASS =
-  "mt-6 grid grid-cols-2 gap-3 sm:min-h-0 sm:flex-1 sm:grid-cols-4 sm:gap-4 sm:grid-rows-[12rem_12rem_minmax(10.5rem,1fr)]";
+  "mt-6 grid grid-cols-2 gap-3 [&>*]:min-w-0 sm:min-h-0 sm:flex-1 sm:grid-cols-4 sm:gap-4 sm:grid-rows-[12rem_12rem_minmax(10.5rem,1fr)]";
 
 /**
  * Jarak naik kartu, dalam px.
@@ -257,7 +257,7 @@ export function BentoCard({
     // `h-full` + `min-h-0`: mengisi sel grid, dan boleh menyusut kalau
     // isinya sendiri yang butuh scroll, bukan kartunya. `hug` membalik ini -
     // kartu ikut tinggi isinya dan tidak meregang sampai tinggi sel.
-    "group/bento relative flex min-h-0 w-full flex-col overflow-hidden rounded-[22px] p-4 sm:p-5",
+    "group/bento relative flex min-h-0 w-full min-w-0 flex-col overflow-hidden rounded-[22px] p-4 sm:p-5",
     hug ? "h-fit" : "h-full",
     // Hover netral sengaja datar: kartu hanya sedikit lebih terang. Versi
     // lama mengangkat kartu dengan `hover:shadow-lg` + bayangan 28px, dan

@@ -74,7 +74,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     orgId: actor.orgId,
     branchId: actor.branchId,
     fullName: actor.fullName,
+    email: actor.email,
     avatarUrl: actor.avatarUrl,
+    mustChangePassword: Boolean(actor.mustChangePassword),
     branches: branchOptions,
     branchScope,
   };

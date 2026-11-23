@@ -39,7 +39,7 @@ export function haptic(pattern: number | number[] = 50) {
       document.head.appendChild(label)
       label.click()
     } finally {
-      document.head.removeChild(label)
+      label.remove()
     }
   } catch {}
 }

@@ -1,12 +1,6 @@
 import { getActiveTenant } from "@/lib/supabase/actor";
 import { NAV_ENTRIES, canAccessActor, normalizeAppRole, type NavEntry, type NavGroup } from "@/lib/nav/manifest";
-import {
-  SettingsMobileNav,
-  SettingsNav,
-  SettingsSectionHeader,
-  SettingsTabsProvider,
-  type SettingsNavGroup,
-} from "@/components/layout/settings-nav";
+import { SettingsTabsProvider, type SettingsNavGroup } from "@/components/layout/settings-nav";
 
 /**
  * Sub-sidebar pengaturan.
@@ -35,6 +29,12 @@ const GROUP_LABEL: Partial<Record<NavGroup, string>> = {
 const GROUP_ORDER: NavGroup[] = ["akun", "pengaturan"];
 
 /**
+ * Halaman tagihan tetap bisa dibuka lewat URL/redirect (jalur pemulihan
+ * pembayaran), tapi tidak lagi dipajang sebagai menu pengaturan.
+ */
+const HIDDEN_SETTINGS_HREFS = new Set(["/app/pengaturan/subscription"]);
+
+/**
  * Bentuk payload untuk Client Component, dibangun di sini dari `NavEntry`.
  *
  * Dipisah sebagai fungsi murni supaya bisa diuji tanpa `getActiveTenant()`.
@@ -44,7 +44,7 @@ export function buildSettingsGroups(entries: NavEntry[]): SettingsNavGroup[] {
     group,
     label: GROUP_LABEL[group],
     entries: entries
-      .filter((entry) => entry.group === group)
+      .filter((entry) => entry.group === group && !HIDDEN_SETTINGS_HREFS.has(entry.href))
       .map(({ href, label }) => ({ href, label })),
   })).filter((block) => block.entries.length > 0);
 }
@@ -79,23 +79,7 @@ export default async function PengaturanLayout({ children }: { children: React.R
     );
   }
 
-  return (
-    <div className="flex min-h-0 flex-1">
-      <aside className="hidden w-[232px] shrink-0 border-r border-border/60 bg-muted/10 lg:flex flex-col">
-        <div className="border-b border-border/50 px-4 py-4">
-          <SettingsSectionHeader groups={groups} />
-        </div>
-        <SettingsNav groups={groups} />
-      </aside>
-
-      <div className="flex flex-1 flex-col min-w-0">
-        <div className="lg:hidden border-b border-border/60 bg-muted/10 px-3 py-2 overflow-x-auto scrollbar-none">
-          <SettingsMobileNav groups={groups} />
-        </div>
-        <div className="flex-1 min-h-0 overflow-y-auto">
-          {children}
-        </div>
-      </div>
-    </div>
-  );
+  // Teknisi/frontliner membuka pengaturan lewat drawer grid. Sub-sidebar dan
+  // nav strip mobile hanya menambah lapis navigasi kedua di shell compact.
+  return <div className="flex-1 min-h-0 overflow-y-auto">{children}</div>;
 }

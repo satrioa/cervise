@@ -43,6 +43,7 @@
       "reportPerformance": "Technician Performance",
       "reportSales": "Sales",
       "reportShift": "Shift Report",
+      "attendanceReport": "Attendance Report",
       "analyticsService": "Service Analytics",
       "auditLog": "Audit Log",
       "warranty": "Warranty",

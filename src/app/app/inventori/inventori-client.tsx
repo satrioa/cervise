@@ -4,7 +4,14 @@ import { useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
+import {
+  Card,
+  CardFrame,
+  CardFrameAction,
+  CardFrameHeader,
+  CardFrameTitle,
+  CardPanel,
+} from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Pagination } from "@/components/ui/pagination";
 import { Select, SelectItem, SelectPopup, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -38,9 +45,9 @@ type View = "kartu" | "tabel";
  * berbeda artinya.
  */
 function stockBadgeClass(stock: number): string {
-  if (stock <= 0) return "border-destructive text-destructive";
-  if (stock < STOCK_MENIPIS_MAX) return "border-amber-500 text-amber-700";
-  return "border-emerald-500 text-emerald-700";
+  if (stock <= 0) return "border-destructive bg-destructive text-white";
+  if (stock < STOCK_MENIPIS_MAX) return "border-amber-600 bg-amber-600 text-white";
+  return "border-emerald-600 bg-emerald-600 text-white";
 }
 
 function StockBadge({ stock }: { stock: number }) {
@@ -97,7 +104,7 @@ function BekasRow({ variant, onEdit, onPrint }: { variant: InventoryProduct; onE
         </div>
       </div>
       <HoverActions product={variant} onEdit={onEdit} onPrint={onPrint} />
-      <Badge variant="outline" size="sm" className={stock > 0 ? "border-emerald-500 text-emerald-700" : "border-zinc-400 text-zinc-500"}>
+      <Badge variant="outline" size="sm" className={stock > 0 ? "border-emerald-600 bg-emerald-600 text-white" : "border-zinc-500 bg-zinc-500 text-white"}>
         {stock > 0 ? "Tersedia" : "Terjual"}
       </Badge>
     </div>
@@ -108,19 +115,26 @@ function CardView({ groups, onEdit, onEditGroup, onPrint }: { groups: InventoryG
   return (
     <div className="space-y-4">
       {groups.map((group) => (
-        <Card key={group.key} className="overflow-hidden">
-          <CardHeader className="pb-3">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <CardTitle className="text-base">{group.name}</CardTitle>
-                <CardDescription>{groupSummaryText(group)}</CardDescription>
-              </div>
-              <Badge variant="secondary" className="font-mono text-xs">
-                {group.items.length} varian
-              </Badge>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-4">
+        <CardFrame key={group.key}>
+          <CardFrameHeader>
+            <CardFrameTitle>
+              {group.name}
+              <span className="ml-1 font-normal italic text-muted-foreground">({group.totalStok})</span>
+            </CardFrameTitle>
+            <CardFrameAction>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={group.items.length === 0}
+                onClick={() => onEditGroup(group, group.baru.length > 0 ? "BARU" : "BEKAS")}
+              >
+                <PencilIcon className="size-3.5" />
+                Edit
+              </Button>
+            </CardFrameAction>
+          </CardFrameHeader>
+          <Card>
+            <CardPanel className="space-y-4">
             {group.baru.length > 0 ? (
               <div>
                 <div className="mb-2 flex items-center justify-between gap-2">
@@ -175,8 +189,9 @@ function CardView({ groups, onEdit, onEditGroup, onPrint }: { groups: InventoryG
                 </div>
               </div>
             ) : null}
-          </CardContent>
-        </Card>
+            </CardPanel>
+          </Card>
+        </CardFrame>
       ))}
     </div>
   );

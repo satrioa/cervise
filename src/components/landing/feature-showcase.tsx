@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Image from "next/image";
 import { cn } from "@/lib/utils";
 
 const FEATURES = [
@@ -16,6 +17,14 @@ const FEATURES = [
     title: "Laporan Lengkap",
     description: "Laporan Shift harian, laporan keuangan, cashflow, laporan stok dan lainya.",
   },
+] as const;
+
+// Urutan harus sejajar dengan FEATURES: klik teks mengarah ke gambar index
+// yang sama, dan IntersectionObserver menyorot teks sesuai gambar terlihat.
+const FEATURE_IMAGES = [
+  "/originkit/feature-tampilan.png",
+  "/originkit/feature-wa.png",
+  "/originkit/feature-laporan.png",
 ] as const;
 
 export function FeatureShowcase() {
@@ -48,46 +57,74 @@ export function FeatureShowcase() {
   };
 
   return (
-    <section className="border-t px-4 py-16 lg:px-8">
-      <div className="mx-auto grid max-w-6xl gap-10 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] lg:gap-16">
-        <div className="lg:sticky lg:top-24 lg:self-start">
-          <div className="flex flex-col divide-y divide-border">
-            {FEATURES.map((feature, index) => (
-              <button
-                key={feature.title}
-                type="button"
-                onClick={() => goTo(index)}
-                aria-current={active === index ? "step" : undefined}
-                className="py-5 text-left transition-colors"
-              >
-                <h3
-                  className={cn(
-                    "text-base font-medium md:text-lg",
-                    active === index ? "text-foreground" : "text-muted-foreground",
-                  )}
-                >
-                  {feature.title}
-                </h3>
+    <section className="border-t px-4 pt-16 pb-24 lg:px-8">
+      <div className="mx-auto max-w-6xl">
+        {/* Mobile: gambar lalu teks biasa, berpasangan sesuai urutan fitur. */}
+        <div className="flex flex-col gap-10 lg:hidden">
+          {FEATURES.map((feature, index) => (
+            <figure key={feature.title} className="flex flex-col gap-4">
+              <div className="relative aspect-[4/3] w-full overflow-hidden rounded-xl border bg-muted/40">
+                <Image
+                  src={FEATURE_IMAGES[index]}
+                  alt={feature.title}
+                  fill
+                  className="object-cover"
+                  sizes="100vw"
+                />
+              </div>
+              <figcaption>
+                <h3 className="text-base font-medium">{feature.title}</h3>
                 <p className="mt-2 text-sm text-muted-foreground">{feature.description}</p>
-              </button>
-            ))}
-          </div>
+              </figcaption>
+            </figure>
+          ))}
         </div>
 
-        <div className="flex flex-col gap-6">
-          {FEATURES.map((feature, index) => (
-            <div
-              key={feature.title}
-              ref={(element) => {
-                imageRefs.current[index] = element;
-              }}
-              className="flex aspect-[4/3] w-full items-center justify-center overflow-hidden rounded-xl border bg-muted/40"
-            >
-              <span className="font-mono text-xs uppercase tracking-[0.25em] text-muted-foreground">
-                Placeholder {index + 1}
-              </span>
+        {/* Desktop: daftar teks clickable sticky di kiri, gambar di kanan. */}
+        <div className="hidden lg:grid lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] lg:gap-16">
+          <div className="lg:sticky lg:top-24 lg:self-start">
+            <div className="flex flex-col divide-y divide-border">
+              {FEATURES.map((feature, index) => (
+                <button
+                  key={feature.title}
+                  type="button"
+                  onClick={() => goTo(index)}
+                  aria-current={active === index ? "step" : undefined}
+                  className="py-5 text-left transition-colors"
+                >
+                  <h3
+                    className={cn(
+                      "text-base font-medium md:text-lg",
+                      active === index ? "text-foreground" : "text-muted-foreground",
+                    )}
+                  >
+                    {feature.title}
+                  </h3>
+                  <p className="mt-2 text-sm text-muted-foreground">{feature.description}</p>
+                </button>
+              ))}
             </div>
-          ))}
+          </div>
+
+          <div className="flex flex-col gap-6">
+            {FEATURES.map((feature, index) => (
+              <div
+                key={feature.title}
+                ref={(element) => {
+                  imageRefs.current[index] = element;
+                }}
+                className="relative flex aspect-[4/3] w-full items-center justify-center overflow-hidden rounded-xl border bg-muted/40"
+              >
+                <Image
+                  src={FEATURE_IMAGES[index]}
+                  alt={feature.title}
+                  fill
+                  className="object-cover"
+                  sizes="50vw"
+                />
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     </section>

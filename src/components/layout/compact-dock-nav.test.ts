@@ -8,28 +8,54 @@ const source = readFileSync(
 );
 
 describe("dock mobile tema normal", () => {
-  it("terang di light mode dan gelap di dark mode", () => {
-    expect(source).toContain("bg-white/95");
-    expect(source).toContain("dark:bg-neutral-900/95");
-    expect(source).toContain("ring-black/5");
-    expect(source).toContain("dark:ring-white/10");
-    // Urutan invers (gelap di light, terang di dark) tidak boleh kembali.
-    expect(source).not.toMatch(/["' ]bg-neutral-900\/95/);
-    expect(source).not.toContain("dark:bg-white/95");
+  it("wrap transparan dengan fade hitam di belakangnya", () => {
+    expect(source).toMatch(/bg-gradient-to-t from-black\/40 via-black\/20 to-transparent/);
+    expect(source).not.toContain("bg-white/95");
+    expect(source).not.toContain("dark:bg-neutral-900/95");
+    expect(source).not.toContain("ring-black/5");
+    expect(source).not.toContain("dark:ring-white/10");
+  });
+
+  it("tombol menu candy putih ber-radius tanpa label dan tanpa shadow", () => {
+    expect(source).toContain('variant="candy"');
+    expect(source).toMatch(/\[--btn:#fff\]/);
+    expect(source).toMatch(/rounded-xl/);
+    expect(source).toMatch(/size-12/);
+    expect(source).toMatch(/shadow-none \[&_svg\]:drop-shadow-none/);
+    expect(source).not.toMatch(/\{item\.label\}<\/span>/);
+  });
+
+  it("ikon aktif di-fill, ikon non-aktif berbentuk line", () => {
+    expect(source).toMatch(/fill=\{active \? "currentColor" : "none"\}/);
+  });
+
+  it("ikon dan label hitam saat normal, biru saat aktif, tanpa opacity", () => {
+    expect(source).toMatch(/\[--btn-fg:#111827\]/);
+    expect(source).toMatch(/active \? "\[--btn-fg:var\(--color-brand\)\] dark:\[--btn-fg:#93C5FD\]" : ""/);
+    expect(source).not.toMatch(/opacity-80/);
+  });
+
+
+  it("dark mode memakai tombol gelap, teks terang, dan aktif biru muda", () => {
+    expect(source).toMatch(/dark:\[--btn:var\(--card\)\]/);
+    expect(source).toMatch(/dark:\[--btn-hover:var\(--muted\)\]/);
+    expect(source).toMatch(/dark:\[--btn-fg:#e5e7eb\]/);
+    expect(source).toMatch(/dark:\[--btn-fg:#93C5FD\]/);
+  });
+
+  it("menu berdekatan dan fade hitam lembut", () => {
+    expect(source).toMatch(/justify-center gap-3/);
+    expect(source).toMatch(/from-black\/40 via-black\/20 to-transparent/);
   });
 
   it("melekat di bawah tanpa radius", () => {
-    expect(source).toContain("fixed inset-x-0 bottom-0 z-30 lg:hidden");
+    expect(source).toContain("fixed inset-x-0 bottom-0 z-30");
+    expect(source).toContain("lg:hidden");
     expect(source).not.toContain("rounded-full");
     expect(source).not.toMatch(/px-3 pb-\[max/);
   });
 
   it("gap bawah lebih besar dari gap atas", () => {
-    expect(source).toContain("pt-2 pb-[calc(1rem+env(safe-area-inset-bottom))]");
-  });
-
-  it("warna teks mengikuti tema halaman", () => {
-    expect(source).toContain("text-neutral-500 hover:text-neutral-900");
-    expect(source).toContain("dark:text-neutral-400 dark:hover:text-white");
+    expect(source).toContain("pt-2 pb-[calc(1.5rem+env(safe-area-inset-bottom))]");
   });
 });

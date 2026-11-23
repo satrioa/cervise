@@ -1,0 +1,85 @@
+{
+  "releases": [
+    {
+      "version": "1.1.0",
+      "date": "2026-11-22",
+      "title": "Perbaikan masuk & kredensial akun",
+      "summary": "Rilis minor: perbaikan alur login/logout, penyempurnaan halaman harga, dan kemudahan menyalin kredensial akun baru.",
+      "changes": {
+        "added": [
+          "Section 'Mengapa UMKM butuh aplikasi kasir digital?' di landing page",
+          "Tabel 'Bandingkan Fitur' dikelompokkan per kategori agar lebih mudah dibaca",
+          "Satu tombol Salin untuk email, password, dan PIN saat membuat akun"
+        ],
+        "changed": [
+          "Kuota WhatsApp paket disesuaikan: Trial 50, Starter 100, Business 300, Pay as You Grow 150 pesan/bulan",
+          "Tiket servis sekarang unlimited di semua paket",
+          "Kalkulator Pay as You Grow kini hanya mengatur jumlah cabang",
+          "Pembelian kuota WhatsApp dipindah ke halaman tersendiri dengan alur transfer & bukti"
+        ],
+        "fixed": [
+          "Login langsung masuk dashboard tanpa perlu refresh atau klik ulang",
+          "Logout langsung kembali ke halaman login tanpa menyisakan tampilan dashboard",
+          "Gambar screen mockup tidak lagi keluar dari frame melengkung di Safari",
+          "Warna toolbar browser mengikuti tema halaman (terang di landing, gelap/terang di aplikasi)"
+        ]
+      },
+      "highlight": true
+    },
+    {
+      "version": "1.0.0",
+      "date": "2026-11-21",
+      "title": "Riwayat pembaruan hadir",
+      "summary": "Sekarang Anda bisa melihat daftar pembaruan Kaggo dari satu tempat, lengkap dengan versi dan tanggal rilis.",
+      "changes": {
+        "added": [
+          "Halaman Changelog berisi riwayat versi, tanggal, dan ringkasan perubahan",
+          "Tautan Changelog di footer landing dan menu Platform Owner"
+        ],
+        "changed": [],
+        "fixed": []
+      },
+      "highlight": false
+    },
+    {
+      "version": "0.9.0",
+      "date": "2026-11-20",
+      "title": "Kelola tenant lebih tenang",
+      "summary": "Tenant yang diarsipkan dipisahkan dari yang aktif, dan bisa dihapus permanen bila memang tidak diperlukan lagi.",
+      "changes": {
+        "added": [
+          "Tabel khusus tenant yang diarsipkan, terpisah dari daftar tenant aktif",
+          "Filter status, filter paket, pencarian, dan pagination di daftar tenant",
+          "Hapus permanen tenant arsip dengan konfirmasi nama tenant"
+        ],
+        "changed": [
+          "Warna toolbar browser sekarang mengikuti tema halaman",
+          "Kartu daftar tenant memakai tampilan CardFrame yang lebih rapi"
+        ],
+        "fixed": [
+          "Tombol arsip tenant tidak lagi gagal karena izin database",
+          "Angka KPI tidak lagi keluar dari kartu di layar kecil"
+        ]
+      },
+      "highlight": true
+    },
+    {
+      "version": "0.8.0",
+      "date": "2026-11-20",
+      "title": "Harga & paket lebih fleksibel",
+      "summary": "Paket Pay as You Grow kini dihitung dari basis Starter dan bisa diatur langsung dari halaman Platform Owner.",
+      "changes": {
+        "added": [
+          "Kalkulator Pay as You Grow dengan slider jumlah cabang, karyawan, dan tiket",
+          "Kartu paket ditampilkan dalam grid tiga kolom dengan aksi edit dan hapus"
+        ],
+        "changed": [
+          "Harga paket diambil dari database, bukan nilai yang ditanam di kode",
+          "Perhitungan tahunan memakai faktor 10 kali harga bulanan"
+        ],
+        "fixed": []
+      },
+      "highlight": false
+    }
+  ]
+}

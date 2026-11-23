@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useId, useState } from "react";
-import Link from "next/link";
+
 import { ArrowUpRight } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { getDashboardData, type DashboardData } from "@/app/app/actions";
@@ -22,7 +22,7 @@ type Totals = { masuk: number; diambil: number; batal: number };
 
 const EMPTY_TOTALS: Totals = { masuk: 0, diambil: 0, batal: 0 };
 
-export function MenuAnalytic({ onNavigate }: { onNavigate?: () => void }) {
+export function MenuAnalytic({ onNavigate }: { onNavigate?: (href?: string) => void }) {
   const t = useTranslations("nav.menu");
   const [data, setData] = useState<DashboardData | null>(null);
   const [failed, setFailed] = useState(false);
@@ -78,17 +78,16 @@ export function MenuAnalytic({ onNavigate }: { onNavigate?: () => void }) {
         </div>
       </div>
 
-      <Link
+      <a
         href="/app/analitik-servis"
         onClick={() => {
           playCue("tap");
-          onNavigate?.();
         }}
         className="mt-2.5 inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-[11px] font-medium text-neutral-900 shadow-sm ring-1 ring-black/5 transition-colors hover:bg-white dark:bg-neutral-800 dark:text-neutral-100 dark:ring-white/10"
       >
         {t("detail")}
         <ArrowUpRight className="size-3.5" />
-      </Link>
+      </a>
     </>
   );
 }

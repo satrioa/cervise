@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/sonner";
 import { SoundLayer } from "@/components/layout/sound-layer";
+import { ThemeColorSync } from "@/components/layout/theme-color-sync";
 import { NextIntlClientProvider } from "next-intl";
 import { getLocale, getMessages } from "next-intl/server";
 import { ThemeProvider } from "next-themes";
@@ -31,7 +32,12 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#0a0a0a",
+  // Chrome/Android & PWA: warna toolbar mengikuti preferensi sistem.
+  // ThemeColorSync di bawah menyesuaikan lagi saat user ganti tema manual.
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#ffffff" },
+    { media: "(prefers-color-scheme: dark)", color: "#0a0a0a" },
+  ],
 };
 
 /**
@@ -76,6 +82,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
           scriptProps={{ type: "application/json" }}
         >
           <NextIntlClientProvider messages={messages}>{children}</NextIntlClientProvider>
+          <ThemeColorSync />
           <SoundLayer />
           <Toaster richColors position="top-right" />
         </ThemeProvider>

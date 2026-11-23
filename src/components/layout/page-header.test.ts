@@ -19,6 +19,7 @@ const readCode = (relative: string) =>
 const pageHeader = readCode("src/components/layout/page-header.tsx");
 const shellChrome = readCode("src/components/layout/shell-chrome.tsx");
 const pageBreadcrumb = readCode("src/components/layout/page-breadcrumb.tsx");
+const filterGroup = readCode("src/components/layout/filter-group.tsx");
 const pageHeaderContainer = readCode("src/components/layout/page-header-container.tsx");
 
 /**
@@ -111,10 +112,15 @@ describe("PageBreadcrumb", () => {
     expect(pageBreadcrumb).toMatch(/label: entry\.label, href: entry\.href, hideOnMobile: true/);
   });
 
-  it("crumb grup dan induk disembunyikan di mobile", () => {
-    expect(pageBreadcrumb).toContain("hideOnMobile: true");
-    expect(pageBreadcrumb).toContain('crumb.hideOnMobile && "hidden sm:inline-flex"');
-    expect(pageBreadcrumb).toContain('crumb.hideOnMobile && "hidden sm:block"');
+  it("mobile hanya menampilkan nama halaman saat ini", () => {
+    expect(pageBreadcrumb).toContain('className="hidden sm:inline-flex"');
+    expect(pageBreadcrumb).toContain('className="hidden sm:block"');
+    expect(pageBreadcrumb).not.toContain('crumb.hideOnMobile && "hidden sm:inline-flex"');
+  });
+
+  it("dashboard bisa memaksa filter tampil tanpa tombol", () => {
+    expect(pageHeader).toContain("filtersAlwaysVisible");
+    expect(filterGroup).toContain("alwaysVisible");
   });
 });
 

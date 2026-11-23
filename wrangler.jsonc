@@ -22,5 +22,8 @@
   },
   "observability": {
     "enabled": true
+  },
+  "vars": {
+    "MIDTRANS_IS_PRODUCTION": "true"
   }
 }

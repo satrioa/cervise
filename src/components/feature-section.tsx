@@ -106,7 +106,7 @@ const features: FeatureType[] = [
 	{
 		title: "Data Customer",
 		icon: <Users />,
-		description: "Riwayat servis per customer, notifikasi WA Fonnte otomatis.",
+		description: "Riwayat servis per customer, notifikasi WhatsApp otomatis.",
 	},
 	{
 		title: "Data Karyawan",

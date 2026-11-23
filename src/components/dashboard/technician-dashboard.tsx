@@ -246,7 +246,7 @@ function StatTile({
   return (
     <BentoCard className={className}>
       <p className="text-[15px] font-medium leading-snug">{label}</p>
-      <p className="font-heading mt-auto text-5xl font-normal leading-none tracking-[-0.04em] tabular-nums sm:text-6xl">
+      <p className="font-heading mt-auto truncate text-4xl font-normal leading-none tracking-[-0.04em] tabular-nums sm:text-6xl">
         {value === undefined ? "—" : String(value)}
       </p>
     </BentoCard>
@@ -275,7 +275,7 @@ function TargetCabangTile({ kpi, cards }: { kpi: TechnicianKpi; cards: Technicia
     <>
       <p className="text-[15px] font-medium">Target Cabang</p>
       <div className="mt-auto flex flex-wrap items-baseline gap-2">
-        <p className="text-2xl font-medium tabular-nums">
+        <p className="min-w-0 break-all text-[clamp(0.875rem,4vw,1.5rem)] font-medium tabular-nums">
           {cards.targetType === "penghasilan" ? formatCurrencyPlain(progress.current) : progress.current}
           <span className="text-sm text-muted-foreground">
             {" / "}
@@ -311,7 +311,9 @@ function IntensifTile({ kpi, cards }: { kpi: TechnicianKpi; cards: TechnicianHom
   return (
     <>
       <p className="text-[15px] font-medium">Intensif Saya</p>
-      <p className="font-heading mt-auto text-3xl font-normal tabular-nums">{formatCurrencyPlain(estimate)}</p>
+      <p className="font-heading mt-auto break-all text-[clamp(1rem,5vw,1.875rem)] font-normal tabular-nums">
+        {formatCurrencyPlain(estimate)}
+      </p>
       <p className="mt-1 text-[11px] text-muted-foreground">
         Estimasi bulan ini ·{" "}
         {cards.intensifMode === "fixed"

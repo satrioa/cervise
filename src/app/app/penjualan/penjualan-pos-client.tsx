@@ -533,7 +533,11 @@ export function PenjualanPOSClient({ initialRows, receiptContext }: { initialRow
               riwayatAction={riwayatPopover(riwayatOpen, setRiwayatOpen)}
             />
           ) : (
-            <PenjualanPaymentPanel
+            <>
+              {/* Menandai shell bahwa dock bawah harus disembunyikan agar panel
+                  pembayaran tidak tertutup di mobile. */}
+              <span data-hide-dock aria-hidden className="hidden" />
+              <PenjualanPaymentPanel
               metode={metode}
               onMetodeChange={setMetode}
               subtotal={subtotal}
@@ -543,7 +547,8 @@ export function PenjualanPOSClient({ initialRows, receiptContext }: { initialRow
               onBack={() => setStage("cart")}
               customerName={customer?.name ?? newCustomer?.name?.trim() ?? undefined}
               itemCount={cart.length}
-            />
+              />
+            </>
           )}
         </div>
       </div>

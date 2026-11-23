@@ -90,6 +90,7 @@ export type Actor = {
   mustChangePassword?: boolean;
   /** Identitas akun, untuk sidebar dan header. Boleh null kalau belum diisi. */
   fullName: string | null;
+  email: string | null;
   avatarUrl: string | null;
   subscription: {
     status: SubscriptionLifecycleStatus;
@@ -437,6 +438,7 @@ async function resolveTenant(options: { allowExpiredSubscription: boolean }): Pr
     // Dibaca dari select profil yang sudah ada, bukan query terpisah.
     mustChangePassword: Boolean(profile.must_change_password),
     fullName: (profile.full_name as string | null) ?? null,
+    email: (profile.email as string | null) ?? auth.user.email ?? null,
     // Path dari database tidak pernah dipakai mentah: divalidasi bentuknya dulu
     // supaya nilai yang tersuntik tidak bisa mengubah host URL.
     avatarUrl: publicPhotoUrl(process.env.NEXT_PUBLIC_SUPABASE_URL ?? "", profile.avatar_url as string | null),

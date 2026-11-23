@@ -226,13 +226,13 @@ export function KaryawanList({ rows, branches }: { rows: KaryawanRow[]; branches
 
 export function KaryawanHeaderActions({ initialCreateOpen = false }: { branches: { id: string; name: string }[]; initialCreateOpen?: boolean }) {
   const [open, setOpen] = useState(initialCreateOpen);
-  const [temp, setTemp] = useState<{ email: string; password: string } | null>(null);
+  const [temp, setTemp] = useState<{ email: string; password: string; pin?: string } | null>(null);
   const router = useRouter();
   return (
     <>
       <Button size="sm" onClick={() => setOpen(true)}>Tambah Karyawan</Button>
-      <KaryawanFormDialog open={open} onOpenChange={setOpen} editing={null} onDone={(info) => { router.refresh(); if (info?.tempPassword) setTemp({ email: info.email!, password: info.tempPassword }); }} />
-      <TempPasswordDialog open={!!temp} onOpenChange={(v) => !v && setTemp(null)} email={temp?.email ?? ""} password={temp?.password ?? ""} />
+      <KaryawanFormDialog open={open} onOpenChange={setOpen} editing={null} onDone={(info) => { router.refresh(); if (info?.tempPassword) setTemp({ email: info.email!, password: info.tempPassword, pin: info.pin }); }} />
+      <TempPasswordDialog open={!!temp} onOpenChange={(v) => !v && setTemp(null)} email={temp?.email ?? ""} password={temp?.password ?? ""} pin={temp?.pin} />
     </>
   );
 }

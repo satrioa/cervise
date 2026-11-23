@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { SaveIcon } from "lucide-react";
 import { toast } from "sonner";
 import { updateTenantMetaPhoneNumber } from "@/app/owner/actions";
@@ -17,12 +18,14 @@ export function MetaPhoneNumberForm({
 }) {
   const [value, setValue] = useState(phoneNumberId ?? "");
   const [saving, setSaving] = useState(false);
+  const router = useRouter();
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setSaving(true);
     try {
       await updateTenantMetaPhoneNumber({ organizationId, phoneNumberId: value });
+      router.refresh();
       toast.success("Nomor pengirim WhatsApp tenant diperbarui");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Gagal menyimpan nomor pengirim");

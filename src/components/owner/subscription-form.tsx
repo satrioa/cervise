@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { SaveIcon } from "lucide-react";
 import { toast } from "sonner";
 import { adjustTenantSubscription } from "@/app/owner/actions";
@@ -25,12 +26,14 @@ export function SubscriptionForm({
   const [customPrice, setCustomPrice] = useState(subscription?.custom_monthly_price === null || !subscription ? "" : String(subscription.custom_monthly_price));
   const [graceDays, setGraceDays] = useState(String(subscription?.grace_days ?? 3));
   const [saving, setSaving] = useState(false);
+  const router = useRouter();
 
   const saveSettings = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setSaving(true);
     try {
       await adjustTenantSubscription({ organizationId, packageId, customPrice, graceDays });
+      router.refresh();
       playPageTransition();
       toast.success("Paket, harga, dan grace diperbarui");
     } catch (error) {

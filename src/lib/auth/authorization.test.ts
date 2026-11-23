@@ -72,6 +72,9 @@ describe("authorization helpers", () => {
   it("detects protected paths after locale prefixes", () => {
     expect(getProtectedPathKind("/en/app")).toBe("app");
     expect(getProtectedPathKind("/id/dashboard/tenant/acme")).toBe("tenant");
+    expect(getProtectedPathKind("/absensi")).toBeNull();
+    expect(getProtectedPathKind("/absensi/riwayat")).toBeNull();
+    expect(getProtectedPathKind("/id/absensi")).toBeNull();
     expect(getProtectedPathKind("/login")).toBeNull();
   });
 });

@@ -2,13 +2,24 @@ import { createClient } from "@/lib/supabase/server";
 import { fetchLoginAccess } from "@/lib/auth/login-access";
 import Hero02 from "@/components/originkit/hero-02";
 import BentoSection from "@/components/landing/bento-section";
+import { WhyDigitalPos } from "@/components/landing/why-digital-pos";
 import { FeatureSection } from "@/components/feature-section";
 import FeatureShowcase from "@/components/landing/feature-showcase";
 import FooterSimple from "@/components/ui/smoothui/footer-1";
 import CustomPackageCta from "@/components/landing/custom-package-cta";
+import { FaqSection } from "@/components/landing/faq-section";
 import { LandingSmoothScroll } from "@/components/layout/landing-smooth-scroll";
 import { publicPhotoUrl } from "@/lib/photos";
 import { PricingThreeTier } from "@/components/pricing-three-tier";
+import { getPublicPackages, getPublicPromo } from "@/lib/pricing/public";
+import SpecialPromoSection from "@/components/landing/special-promo-section";
+import type { Viewport } from "next";
+
+// Landing selalu terang (`.landing-light`), jadi toolbar browser tetap putih
+// walaupun tema aplikasi sedang dark.
+export const viewport: Viewport = {
+  themeColor: "#ffffff",
+};
 
 export default async function LandingPage() {
   const supabase = await createClient();
@@ -57,12 +68,17 @@ export default async function LandingPage() {
     }
   }
 
+  const packages = await getPublicPackages();
+  const promo = await getPublicPromo();
+
   return (
     <div className="flex min-h-svh flex-col bg-background text-foreground landing-light">
       <LandingSmoothScroll />
       <Hero02 isLoggedIn={isLoggedIn} user={heroUser} dashboardHref={dashboardHref} />
 
       <BentoSection />
+
+      <WhyDigitalPos />
 
       <section id="fitur" className="border-t bg-muted/20 px-4 py-16 lg:px-8">
         <FeatureSection />
@@ -71,10 +87,14 @@ export default async function LandingPage() {
       <FeatureShowcase />
 
       <section id="harga">
-        <PricingThreeTier />
+        <PricingThreeTier packages={packages} isLoggedIn={isLoggedIn} />
       </section>
 
+      {promo ? <SpecialPromoSection promo={promo} /> : null}
+
       <CustomPackageCta />
+
+      <FaqSection />
 
       <FooterSimple
         companyName="Kaggo"
@@ -85,11 +105,13 @@ export default async function LandingPage() {
           product: [
             { name: "Fitur", url: "#fitur" },
             { name: "Harga", url: "#harga" },
+            { name: "FAQ", url: "#faq" },
             { name: "Mulai Trial", url: "/signup" },
           ],
           company: [
             { name: "Masuk", url: "/login" },
             { name: "Dashboard", url: "/app" },
+            { name: "Changelog", url: "/changelog" },
           ],
         }}
         copyright="© 2026 Kaggo • Manajemen Servis Gadget Multibranch"

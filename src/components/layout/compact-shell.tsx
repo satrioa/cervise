@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type ReactNode, type UIEvent } from "react";
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode, type UIEvent } from "react";
 import { usePathname } from "next/navigation";
 import {
   MainNavLink,
@@ -48,15 +48,12 @@ export type CompactShellActor = {
   orgId: string;
   branchId: string | null;
   fullName: string | null;
+  email: string | null;
   avatarUrl: string | null;
+  mustChangePassword?: boolean;
 };
 
-const MENU_MAX_DVH = 95;
-const MENU_MIN_DVH = 70;
-const MENU_RANGE_PX = 160;
-
-// Desktop: panel kiri mengambang, tinggi tetap - bentuk lama sebelum drawer
-// mobile masuk. Mobile: bottom sheet yang tingginya ikut scroll.
+// Desktop: panel kiri mengambang, tinggi tetap. Mobile: sheet langsung penuh.
 const MENU_SHEET_DESKTOP =
   "gap-0 overflow-hidden rounded-[28px] bg-[#F1F1F1] p-0 shadow-[0_30px_80px_-32px_rgba(0,0,0,0.55)] duration-300 ease-[linear(0,0.35,0.85,1.06,1.02,0.995,1)] dark:bg-neutral-950 data-[side=left]:inset-y-4 data-[side=left]:left-4 data-[side=left]:h-[calc(100%-2rem)] data-[side=left]:w-[calc(100%-2rem)] data-[side=left]:border-0 data-[side=left]:sm:max-w-[340px] data-[side=left]:data-starting-style:translate-x-[-110%]! data-[side=left]:data-ending-style:translate-x-[-110%]!";
 const MENU_SHEET_MOBILE =
@@ -107,26 +104,50 @@ function CompactShellInner({
   // desktop. Popup sheet baru dirender saat dibuka, jadi nilai `matchMedia`
   // ini sudah final ketika dipakai - tidak ada kedipan saat hidrasi.
   const [desktop, setDesktop] = useState(false);
-  // Drawer menu: tinggi mengikuti nilai scroll konten, bukan snap. Paling atas
-  // 70dvh, membesar linear sampai 95dvh setelah 160px scroll.
-  const [menuHeight, setMenuHeight] = useState(MENU_MIN_DVH);
+  const [dragY, setDragY] = useState(0);
+  const [dockHidden, setDockHidden] = useState(false);
+  const lastScrollTop = useRef(0);
+  const scrollDelta = useRef(0);
+  const contentRef = useRef<HTMLElement | null>(null);
   const pathname = usePathname();
   const t = useTranslations("nav");
   const role = normalizeAppRole(actor.role);
 
-  // scrollTop kembali 0 saat drawer dibuka tanpa memicu event scroll.
   function setMenuOpen(next: boolean) {
     setOpen(next);
-    if (next) setMenuHeight(MENU_MIN_DVH);
   }
 
-  function handleMenuScroll(event: UIEvent<HTMLDivElement>) {
+  useEffect(() => {
+    if (open) setDragY(0);
+  }, [open]);
+
+  // Tutup sheet SETELAH commit navigasi. Menutup portal di handler klik yang
+  // sama dengan navigasi membuat cleanup exit-animation Base UI menghapus node
+  // yang sedang dipindah React (removeChild null) dan konten lama tertahan.
+  useEffect(() => {
+    setOpen(false);
+  }, [pathname]);
+
+  function handleDragEnd(delta: number) {
+    if (delta > 100) setOpen(false);
+    else setDragY(0);
+  }
+
+  // Dock hilang saat konten di-scroll ke bawah, muncul lagi saat scroll ke atas.
+  // Akumulator 8px mencegah kedip karena scroll halus.
+  function handleContentScroll(event: UIEvent<HTMLElement>) {
     const top = event.currentTarget.scrollTop;
-    // Scroll ke bawah -> drawer drag-naik mengikuti nilai scroll, batas atas
-    // 95dvh; scroll ke atas -> drag-balik turun ke 70dvh.
-    setMenuHeight(
-      Math.min(MENU_MAX_DVH, MENU_MIN_DVH + (top / MENU_RANGE_PX) * (MENU_MAX_DVH - MENU_MIN_DVH)),
-    );
+    const delta = top - lastScrollTop.current;
+    lastScrollTop.current = top;
+    if (Math.abs(delta) < 2) return;
+    scrollDelta.current += delta;
+    if (scrollDelta.current > 8 && top > 120) {
+      setDockHidden(true);
+      scrollDelta.current = 0;
+    } else if (scrollDelta.current < -8) {
+      setDockHidden(false);
+      scrollDelta.current = 0;
+    }
   }
 
   useEffect(() => {
@@ -158,8 +179,10 @@ function CompactShellInner({
         ];
 
   // Saldo awal hanya untuk role yang menjalankan shift kas. TECHNICIAN punya
-  // To-Do sendiri dan tidak pernah membuka laci.
-  const needsCashSession = role === "FRONTLINER";
+  // To-Do sendiri dan tidak pernah membuka laci. Urutan wajib: ganti password
+  // dulu (dialog di app layout), relogin, baru saldo awal — jadi jangan buka
+  // dialog kas selama akun masih memakai password sementara.
+  const needsCashSession = role === "FRONTLINER" && !actor.mustChangePassword;
   const { openCashDialog } = useCashDialog();
 
   useEffect(() => {
@@ -230,16 +253,30 @@ function CompactShellInner({
             <SheetContent
               side={desktop ? "left" : "bottom"}
               showCloseButton={false}
-              // Tinggi mengikuti scroll hanya di mobile (lihat
-              // `handleMenuScroll`); di desktop panel kiri tingginya tetap.
-              style={desktop ? undefined : { height: `${menuHeight}dvh` }}
-              className={desktop ? MENU_SHEET_DESKTOP : MENU_SHEET_MOBILE}
+              // Transform ada di POPUP: konten di belakang tetap terlihat saat
+              // sheet ditarik ke bawah. Backdrop sengaja transparan.
+              style={
+                desktop
+                  ? undefined
+                  : ({ height: "95dvh", "--drag-y": `${dragY}px` } as CSSProperties)
+              }
+              overlayClassName={
+                desktop ? undefined : "bg-transparent! backdrop-blur-none!"
+              }
+              slideDownOnClose={!desktop}
+              className={cn(
+                desktop ? MENU_SHEET_DESKTOP : MENU_SHEET_MOBILE,
+                !desktop && "data-[side=bottom]:translate-y-[var(--drag-y)]",
+                dragY > 0 && "transition-none",
+              )}
             >
               <CompactMenuSheet
                 role={actor.role}
                 permissions={actor.permissions}
+                actor={actor}
                 onNavigate={() => setOpen(false)}
-                onScroll={desktop ? undefined : handleMenuScroll}
+                onDragYChange={setDragY}
+                onDragEnd={handleDragEnd}
               />
             </SheetContent>
           </Sheet>
@@ -258,26 +295,24 @@ function CompactShellInner({
       </header>
 
       <main
-        key={pathname}
-        className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden pt-[calc(3.25rem_+_env(safe-area-inset-top))] pb-[calc(5rem_+_env(safe-area-inset-bottom))] lg:pt-0 lg:pb-32"
+        ref={contentRef}
+        onScroll={handleContentScroll}
+        className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-y-auto pt-[calc(3.25rem_+_env(safe-area-inset-top))] pb-[calc(5rem_+_env(safe-area-inset-bottom))] lg:pt-0 lg:pb-32"
       >
-        {/* `h-full` menjaga rantai tinggi halaman (POS mengisi sisa `main`).
-            Reveal hanya membungkus isi halaman, bukan chrome shell. */}
-        <MainNavTransitionOutlet pageClassName="h-full">
-          {children}
-        </MainNavTransitionOutlet>
+          {/* `h-full` menjaga rantai tinggi halaman (POS mengisi sisa `main`). */}
+          <MainNavTransitionOutlet pageClassName="h-full">
+            {children}
+          </MainNavTransitionOutlet>
       </main>
 
-      <CompactDockNav
-        role={actor.role}
-        menuOpen={open}
-        onOpenMenu={() => setMenuOpen(true)}
-      />
+      <CompactDockNav role={actor.role} hidden={dockHidden} />
 
       <CompactBottomBar
         role={actor.role}
         fullName={actor.fullName}
+        email={actor.email}
         avatarUrl={actor.avatarUrl}
+        onOpenMenu={() => setMenuOpen(true)}
       />
 
       </div>

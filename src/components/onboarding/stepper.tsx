@@ -31,7 +31,7 @@ function validateTelepon(value: string): string | null {
 
 const TENANT_HINT = "Dipakai untuk URL tenant, jadi huruf dan angka saja.";
 
-export function OnboardingStepper() {
+export function OnboardingStepper({ trialDays }: { trialDays: number }) {
   const router = useRouter();
   const reduceMotion = useReducedMotion();
   const [step, setStep] = useState<1 | 2 | 3>(1);
@@ -75,7 +75,7 @@ export function OnboardingStepper() {
     setSaving(true);
     try {
       await completeOnboarding({ tenantName, branchName, alamat, telepon });
-      toast.success("Tenant dibuat dengan trial 14 hari");
+      toast.success(`Tenant dibuat dengan trial ${trialDays} hari`);
       router.push("/app");
       router.refresh();
     } catch (error) {
@@ -184,7 +184,7 @@ export function OnboardingStepper() {
                 </div>
               </div>
             ) : null}
-              {step === 3 ? <div className="p-6"><CardHeader className="px-0 pt-0"><CardTitle className="text-slate-950">Tenant siap dicoba</CardTitle><CardDescription className="text-slate-600">Setiap tenant baru mendapatkan trial gratis 14 hari sebelum memilih paket paid.</CardDescription></CardHeader><div className="mt-5 rounded-xl border border-slate-200 bg-slate-50 p-4"><div className="font-medium text-slate-950">Trial 14 hari</div><div className="mt-1 text-sm text-slate-600">1 branch pusat aktif. Pilih paket paid setelah selesai trial melalui Billing; admin akan mengaktifkan setelah pembayaran WhatsApp diverifikasi.</div></div><div className="mt-6 flex justify-between"><Button variant="ghost" className="text-slate-700 hover:bg-slate-100 hover:text-slate-950" onClick={() => setStep(2)} disabled={saving}>Kembali</Button><Button onClick={submit} loading={saving}>{saving ? "Memproses…" : "Selesai — Buka Dashboard"}</Button></div></div> : null}
+              {step === 3 ? <div className="p-6"><CardHeader className="px-0 pt-0"><CardTitle className="text-slate-950">Tenant siap dicoba</CardTitle><CardDescription className="text-slate-600">Setiap tenant baru mendapatkan trial gratis {trialDays} hari sebelum memilih paket paid.</CardDescription></CardHeader><div className="mt-5 rounded-xl border border-slate-200 bg-slate-50 p-4"><div className="font-medium text-slate-950">Trial {trialDays} hari</div><div className="mt-1 text-sm text-slate-600">1 branch pusat aktif. Pilih paket paid setelah selesai trial melalui Billing; paket aktif otomatis setelah pembayaran diterima.</div></div><div className="mt-6 flex justify-between"><Button variant="ghost" className="text-slate-700 hover:bg-slate-100 hover:text-slate-950" onClick={() => setStep(2)} disabled={saving}>Kembali</Button><Button onClick={submit} loading={saving}>{saving ? "Memproses…" : "Selesai — Buka Dashboard"}</Button></div></div> : null}
             </Card>
           </motion.div>
         </AnimatePresence>

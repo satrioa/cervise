@@ -9,8 +9,8 @@ import {
   isSafeObjectPath,
   productPhotoPath,
   publicPhotoUrl,
-  validatePhotoFile,
 } from "@/lib/photos";
+import { COMPRESSED_PHOTO_EXTENSION, preparePhoto } from "@/lib/photo-compress";
 
 /**
  * Foto produk memakai bucket yang sama dengan avatar. Bucket ini tidak punya
@@ -48,14 +48,13 @@ export async function uploadProductPhoto(productId: string, formData: FormData) 
   if (!(entry instanceof File)) throw new Error("File tidak ditemukan");
   if (entry.size === 0) throw new Error("File kosong");
 
-  const validation = validatePhotoFile(entry);
-  if (!validation.ok) throw new Error(validation.error);
+  const photo = await preparePhoto(entry);
 
-  const path = productPhotoPath(product.id, validation.extension);
+  const path = productPhotoPath(product.id, COMPRESSED_PHOTO_EXTENSION);
   const admin = createAdminClient();
   const { error: uploadError } = await admin.storage
     .from(PHOTO_BUCKET)
-    .upload(path, entry, { contentType: entry.type, upsert: false });
+    .upload(path, photo, { contentType: photo.type, upsert: false });
   if (uploadError) throw new Error(`Gagal mengunggah foto: ${uploadError.message}`);
 
   const { error: writeError } = await admin

@@ -7,6 +7,7 @@ import {
   parseCreateTenantInput,
   parseInvoiceDecisionInput,
   parsePackageInput,
+  parseTopupPackageInput,
 } from "@/lib/platform/validation";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { findAuthUserByEmail } from "@/lib/supabase/admin-users";
@@ -14,6 +15,18 @@ import { generateTempPassword } from "@/lib/auth/password";
 import { buildOwnerAccountRows } from "@/lib/platform/owner-accounts";
 import { resolveSubscriptionAccessState, type SubscriptionLifecycleStatus } from "@/lib/billing/renewal";
 import { verifyMetaPhoneNumber } from "@/lib/meta-wa";
+import { parsePromoList } from "@/lib/pricing/promo";
+import { friendlyCreateTenantError } from "@/lib/platform/create-tenant-error";
+import {
+  incidentServices,
+  parseIncidentUpdates,
+  revenueSeries,
+  waSeries,
+  waTotals,
+  REVENUE_SEGMENTS,
+  WA_SEGMENTS,
+  type OwnerIncident,
+} from "@/lib/owner/dashboard-widgets";
 
 type PackageRow = {
   id: string;
@@ -22,9 +35,18 @@ type PackageRow = {
   description: string | null;
   monthly_price: number;
   branch_limit: number;
-  user_limit: number | null;
   is_active: boolean;
   sort_order: number;
+  annual_price: number | null;
+  trial_days: number | null;
+  ticket_quota: number | null;
+  whatsapp_quota: number | null;
+  extra_branch_price: number | null;
+  extra_ticket_block_price: number | null;
+  ticket_block_size: number | null;
+  wa_per_ticket_block: number | null;
+  annual_multiplier: number | null;
+  is_recommended: boolean;
 };
 
 type SubscriptionRow = {
@@ -90,7 +112,7 @@ export async function getOwnerDashboard() {
         .from("invoices")
         .select("id, organization_id, status, amount, invoice_type, period_start, period_end")
         .order("created_at", { ascending: false })
-        .limit(500),
+        .limit(2000),
       supabase.from("manual_subscription_payments").select("amount"),
     ]);
 
@@ -112,6 +134,8 @@ export async function getOwnerDashboard() {
     organization_id: string;
     status: string;
     amount: number;
+    period_start: string | null;
+    invoice_type: string | null;
   }[];
 
   const subscriptionsByOrg = new Map(
@@ -163,6 +187,42 @@ export async function getOwnerDashboard() {
     };
   });
 
+  const admin = createAdminClient();
+  const since180 = new Date(Date.now() - 180 * 86_400_000).toISOString();
+  const [outboxResult, incidentsResult, metricsResult] = await Promise.all([
+    admin
+      .from("cervise_notification_outbox")
+      .select("created_at,to_kind,state")
+      .gte("created_at", since180)
+      .limit(20_000),
+    admin
+      .from("platform_incidents")
+      .select("occurred_on,service,status,minutes,title,updates")
+      .gte("occurred_on", since180.slice(0, 10))
+      .order("occurred_on", { ascending: true })
+      .limit(2_000),
+    admin.rpc("owner_platform_metrics"),
+  ]);
+  if (outboxResult.error) throw outboxResult.error;
+  if (incidentsResult.error) throw incidentsResult.error;
+  if (metricsResult.error) throw metricsResult.error;
+
+  const outboxRows = (outboxResult.data ?? []) as { created_at: string; to_kind: string | null; state: string }[];
+  const incidents = (incidentsResult.data ?? []) as OwnerIncident[];
+  const metrics = (metricsResult.data ?? {}) as {
+    storage?: { bucket: string; objects: number; bytes: number }[];
+    db_bytes?: number;
+    users?: number;
+  };
+
+  const packageByOrg = new Map(tenants.map((tenant) => [tenant.id, tenant.package?.name ?? "Lainnya"]));
+  const byPackage = new Map<string, number>();
+  for (const invoice of invoices) {
+    if (invoice.status !== "approved") continue;
+    const name = packageByOrg.get(invoice.organization_id) ?? "Lainnya";
+    byPackage.set(name, (byPackage.get(name) ?? 0) + Number(invoice.amount ?? 0));
+  }
+
   return {
     tenants,
     stats: {
@@ -178,6 +238,18 @@ export async function getOwnerDashboard() {
           .reduce((total, invoice) => total + invoice.amount, 0) +
         (manualPaymentsResult.data ?? []).reduce((total, payment) => total + payment.amount, 0),
     },
+    widgets: {
+      revenueSegments: [...REVENUE_SEGMENTS],
+      revenueSeries: revenueSeries(invoices),
+      revenueByPackage: [...byPackage].map(([name, amount]) => ({ name, amount })),
+      waSegments: [...WA_SEGMENTS],
+      waSeries: waSeries(outboxRows),
+      waTotals: waTotals(outboxRows),
+      uptimeServices: incidentServices(incidents),
+      storage: metrics.storage ?? [],
+      dbBytes: Number(metrics.db_bytes ?? 0),
+      users: Number(metrics.users ?? 0),
+    },
   };
 }
 
@@ -190,7 +262,7 @@ export async function getPackages() {
   const { supabase } = await requirePlatformAdmin();
   const { data, error } = await supabase
     .from("packages")
-    .select("id, code, name, description, monthly_price, branch_limit, user_limit, is_active, sort_order")
+    .select("id, code, name, description, monthly_price, branch_limit, is_active, sort_order, annual_price, trial_days, ticket_quota, whatsapp_quota, extra_branch_price, extra_ticket_block_price, ticket_block_size, wa_per_ticket_block, annual_multiplier, is_recommended")
     .order("sort_order", { ascending: true });
   if (error) throw error;
   return (data ?? []) as PackageRow[];
@@ -203,7 +275,18 @@ export async function savePackage(input: {
   description?: string;
   monthlyPrice: string | number;
   branchLimit: string | number;
-  userLimit?: string | number | null;
+  annualPrice?: string | number | null;
+  trialDays?: string | number | null;
+  ticketQuota?: string | number | null;
+  whatsappQuota?: string | number | null;
+  extraBranchPrice?: string | number | null;
+  extraTicketBlockPrice?: string | number | null;
+  ticketBlockSize?: string | number | null;
+  waPerTicketBlock?: string | number | null;
+  annualMultiplier?: string | number | null;
+  isActive?: string | number | boolean;
+  sortOrder?: string | number;
+  isRecommended?: string | number | boolean;
 }) {
   const { supabase } = await requirePlatformAdmin();
   const packageInput = parsePackageInput(input);
@@ -213,7 +296,18 @@ export async function savePackage(input: {
     description: packageInput.description,
     monthly_price: packageInput.monthlyPrice,
     branch_limit: packageInput.branchLimit,
-    user_limit: packageInput.userLimit,
+    annual_price: packageInput.annualPrice,
+    trial_days: packageInput.trialDays,
+    ticket_quota: packageInput.ticketQuota,
+    whatsapp_quota: packageInput.whatsappQuota,
+    extra_branch_price: packageInput.extraBranchPrice,
+    extra_ticket_block_price: packageInput.extraTicketBlockPrice,
+    ticket_block_size: packageInput.ticketBlockSize,
+    wa_per_ticket_block: packageInput.waPerTicketBlock,
+    annual_multiplier: packageInput.annualMultiplier,
+    is_active: packageInput.isActive,
+    sort_order: packageInput.sortOrder,
+    is_recommended: packageInput.isRecommended,
   };
 
   const query = input.id
@@ -224,7 +318,36 @@ export async function savePackage(input: {
 
   revalidatePath("/owner/packages");
   revalidatePath("/owner");
+  revalidatePath("/");
   return { id: input.id ?? null };
+}
+
+export async function deletePackage(id: string) {
+  const { supabase } = await requirePlatformAdmin();
+  if (!id) throw new Error("ID paket tidak valid");
+
+  // Paket yang sudah dipakai tidak boleh dihapus: FK ke tiga tabel ini
+  // mengunci riwayat subscription & invoice tenant.
+  const checks = await Promise.all([
+    supabase.from("tenant_subscriptions").select("id", { count: "exact", head: true }).eq("package_id", id),
+    supabase.from("invoices").select("id", { count: "exact", head: true }).eq("package_id", id),
+    supabase.from("manual_subscription_payments").select("id", { count: "exact", head: true }).eq("package_id", id),
+  ]);
+  for (const result of checks) {
+    if (result.error) throw new Error(result.error.message);
+  }
+  const used = checks.reduce((total, result) => total + (result.count ?? 0), 0);
+  if (used > 0) {
+    throw new Error("Paket masih digunakan oleh subscription atau invoice. Nonaktifkan saja.");
+  }
+
+  const { error } = await supabase.from("packages").delete().eq("id", id);
+  if (error) throw error;
+
+  revalidatePath("/owner/packages");
+  revalidatePath("/owner");
+  revalidatePath("/");
+  return { ok: true };
 }
 
 export async function getInvoices() {
@@ -233,7 +356,7 @@ export async function getInvoices() {
     supabase
       .from("invoices")
       .select(
-        "id, organization_id, invoice_number, invoice_type, status, amount, period_start, period_end, due_date, whatsapp_sent_at, decision_note, organization:organizations!inner(id, name), package:packages!inner(name)",
+        "id, organization_id, invoice_number, invoice_type, status, amount, period_start, period_end, due_date, whatsapp_sent_at, wa_confirmation_sent_at, decision_note, organization:organizations!inner(id, name), package:packages!inner(name)",
       )
       .order("created_at", { ascending: false })
       .limit(500),
@@ -373,44 +496,69 @@ export async function updateTenantMetaPhoneNumber(input: {
   return { ok: true, displayName };
 }
 
+export type CreateTenantResult =
+  | { ok: true; id: string; ownerEmail: string; tempPassword: string; reusedExistingAccount: false }
+  | { ok: false; error: string };
+
 export async function createTenant(input: {
   name: string;
   slug?: string;
   ownerEmail: string;
   ownerPhone: string;
-}) {
+}): Promise<CreateTenantResult> {
+  try {
+    return await createTenantInner(input);
+  } catch (error) {
+    console.error("createTenant gagal:", error);
+    return { ok: false, error: friendlyCreateTenantError(error) };
+  }
+}
+
+async function createTenantInner(input: {
+  name: string;
+  slug?: string;
+  ownerEmail: string;
+  ownerPhone: string;
+}): Promise<CreateTenantResult> {
   const { supabase } = await requirePlatformAdmin();
   const tenantInput = parseCreateTenantInput(input);
   const admin = createAdminClient();
   const existing = await findAuthUserByEmail(admin, tenantInput.ownerEmail);
 
-  let ownerId: string;
-  let tempPassword: string | null = null;
-
+  // Email yang sudah dipakai akun lain tidak boleh dipakai ulang: tenant baru
+  // harus mendapat akun owner sendiri dengan password generated. Memakai ulang
+  // akun lama juga berisiko memberi akses tenant ke pemilik email tersebut.
   if (existing) {
-    // Emailnya sudah punya akun. Password existing TIDAK diubah - diam-diam
-    // menimpa password seseorang akan mengunci mereka dari akunnya sendiri.
-    ownerId = existing.id;
-  } else {
-    // Dulu createUser dipanggil tanpa password sama sekali, jadi setiap owner
-    // yang dibuat dari console ini punya akun yang mustahil login: aplikasi ini
-    // tidak punya magic link, login murni password. Sekarang dibuat dengan
-    // password sementara yang dikembalikan sekali ke pemanggil.
-    const generated = generateTempPassword();
-    const { data, error } = await admin.auth.admin.createUser({
-      email: tenantInput.ownerEmail,
-      phone: tenantInput.ownerPhone,
-      password: generated,
-      email_confirm: true,
-    });
-    if (error) throw error;
-    ownerId = data.user.id;
-    tempPassword = generated;
+    return { ok: false, error: "Email sudah terdaftar. Gunakan email lain untuk owner tenant." };
   }
+
+  // Slug unik: nama yang sama tidak boleh menggagalkan pembuatan tenant.
+  let slug = tenantInput.slug;
+  for (let suffix = 2; suffix <= 50; suffix += 1) {
+    const { data: taken } = await supabase
+      .from("organizations")
+      .select("id")
+      .eq("slug", slug)
+      .maybeSingle();
+    if (!taken) break;
+    slug = `${tenantInput.slug}-${suffix}`;
+  }
+
+  // Setiap tenant baru selalu dibuatkan auth user dengan password sementara.
+  // Aplikasi ini tidak punya magic link, jadi tanpa password akun mustahil login.
+  const tempPassword = generateTempPassword();
+  const { data: createdUser, error: createUserError } = await admin.auth.admin.createUser({
+    email: tenantInput.ownerEmail,
+    phone: tenantInput.ownerPhone,
+    password: tempPassword,
+    email_confirm: true,
+  });
+  if (createUserError) throw createUserError;
+  const ownerId = createdUser.user.id;
 
   const { data: organizationId, error } = await supabase.rpc("platform_create_tenant", {
     tenant_name: tenantInput.name,
-    tenant_slug: tenantInput.slug,
+    tenant_slug: slug,
     owner_user_id: ownerId,
     owner_email: tenantInput.ownerEmail,
     owner_phone: tenantInput.ownerPhone,
@@ -418,36 +566,93 @@ export async function createTenant(input: {
   if (error) {
     // Tenant gagal dibuat. Kalau akun auth baru saja dibuat untuk ini, ikut
     // dibersihkan supaya tidak ada akun yatim tanpa tenant.
-    if (tempPassword) await admin.auth.admin.deleteUser(ownerId);
+    await admin.auth.admin.deleteUser(ownerId);
     throw error;
   }
 
-  // Akun owner yang BARU dibuat memakai password generated, jadi dashboard-nya
-  // harus meminta password sendiri saat pertama masuk. Akun yang dipakai ulang
-  // (tempPassword null) sengaja tidak disentuh: password-nya sudah dia punya.
-  //
-  // Kegagalan di sini tidak menggagalkan pembuatan tenant - tenantnya sudah
-  // ada, dan melempar error hanya akan membuat operator mengulang dan mendapat
-  // "email sudah terdaftar". Dicatat supaya tetap bisa ditelusuri.
-  if (tempPassword) {
-    const { error: flagError } = await admin
-      .from("profiles")
-      .update({ must_change_password: true })
-      .eq("id", ownerId);
-    if (flagError) {
-      console.warn("gagal menandai must_change_password untuk owner", ownerId, flagError.message);
-    }
+  // Akun owner memakai password generated, jadi dashboard akan meminta password
+  // baru saat pertama masuk. Kegagalan menandai ini tidak membatalkan tenant yang
+  // sudah dibuat — dicatat supaya tetap bisa ditelusuri.
+  const { error: flagError } = await admin
+    .from("profiles")
+    .update({ must_change_password: true })
+    .eq("id", ownerId);
+  if (flagError) {
+    console.warn("gagal menandai must_change_password untuk owner", ownerId, flagError.message);
   }
 
   revalidatePath("/owner");
   revalidatePath("/owner/tenants");
   return {
+    ok: true,
     id: organizationId as string,
     ownerEmail: tenantInput.ownerEmail,
-    // null = emailnya sudah punya akun, jadi password tidak diubah.
-    tempPassword: tempPassword ?? undefined,
-    reusedExistingAccount: !tempPassword,
+    tempPassword,
+    reusedExistingAccount: false,
   };
+}
+
+export async function archiveTenant(input: { organizationId: string; confirmName: string }) {
+  const { supabase } = await requirePlatformAdmin();
+  if (!input.organizationId) throw new Error("ID tenant tidak valid");
+
+  const { data: organization, error: readError } = await supabase
+    .from("organizations")
+    .select("id, name, status")
+    .eq("id", input.organizationId)
+    .maybeSingle();
+  if (readError) throw readError;
+  if (!organization) throw new Error("Tenant tidak ditemukan");
+  if (organization.status === "cancelled") throw new Error("Tenant sudah diarsipkan");
+  if (input.confirmName.trim() !== organization.name.trim()) {
+    throw new Error("Nama tenant tidak cocok");
+  }
+
+  // Soft delete: status cancelled langsung memblokir akses lewat
+  // is_tenant_subscription_active(), tapi seluruh riwayat tetap tersimpan.
+  // Role authenticated tidak punya grant UPDATE di organizations, jadi pakai
+  // admin client — otorisasi sudah dicek requirePlatformAdmin() di atas.
+  const { error } = await createAdminClient()
+    .from("organizations")
+    .update({ status: "cancelled", updated_at: new Date().toISOString() })
+    .eq("id", input.organizationId);
+  if (error) throw error;
+
+  revalidatePath("/owner");
+  revalidatePath("/owner/tenants");
+  revalidatePath(`/owner/tenants/${input.organizationId}`);
+  return { ok: true };
+}
+
+export async function deleteTenantPermanently(input: { organizationId: string; confirmName: string }) {
+  await requirePlatformAdmin();
+  if (!input.organizationId) throw new Error("ID tenant tidak valid");
+
+  // Role authenticated tidak punya grant DELETE di organizations — sama seperti
+  // archiveTenant, otorisasi sudah dicek requirePlatformAdmin() di atas.
+  const admin = createAdminClient();
+  const { data: organization, error: readError } = await admin
+    .from("organizations")
+    .select("id, name, status")
+    .eq("id", input.organizationId)
+    .maybeSingle();
+  if (readError) throw readError;
+  if (!organization) throw new Error("Tenant tidak ditemukan");
+  if (organization.status !== "cancelled") {
+    throw new Error("Hanya tenant yang diarsipkan yang bisa dihapus permanen");
+  }
+  if (input.confirmName.trim() !== organization.name.trim()) {
+    throw new Error("Nama tenant tidak cocok");
+  }
+
+  // FK cascade menghapus data tenant (invoice, subscription, staf, dll).
+  // Akun auth owner sengaja tidak dihapus: email yang sama bisa dipakai tenant lain.
+  const { error } = await admin.from("organizations").delete().eq("id", input.organizationId);
+  if (error) throw error;
+
+  revalidatePath("/owner");
+  revalidatePath("/owner/tenants");
+  return { ok: true };
 }
 
 export async function approveInvoice(input: { invoiceId: string; note: string }) {
@@ -707,7 +912,7 @@ export async function getPlatformSettings() {
   const { supabase } = await requirePlatformAdmin();
   const { data, error } = await supabase
     .from("platform_settings")
-    .select("renewal_lead_days, default_grace_days, owner_whatsapp, owner_email")
+    .select("renewal_lead_days, default_grace_days, owner_whatsapp, owner_email, bank_name, bank_account_name, bank_account_number, promo_title, promo_headline, promo_subtext, promo_price, promo_included, promo_separate, promo_note, promo_ends_at")
     .eq("id", true)
     .single();
   if (error) throw error;
@@ -719,6 +924,9 @@ export async function updatePlatformSettings(input: {
   defaultGraceDays: string | number;
   ownerWhatsapp: string;
   ownerEmail: string;
+  bankName: string;
+  bankAccountName: string;
+  bankAccountNumber: string;
 }) {
   const { supabase } = await requirePlatformAdmin();
   const renewalLeadDays = Number(input.renewalLeadDays);
@@ -737,10 +945,190 @@ export async function updatePlatformSettings(input: {
       default_grace_days: defaultGraceDays,
       owner_whatsapp: input.ownerWhatsapp.trim() || null,
       owner_email: input.ownerEmail.trim() || null,
+      bank_name: input.bankName.trim() || null,
+      bank_account_name: input.bankAccountName.trim() || null,
+      bank_account_number: input.bankAccountNumber.trim() || null,
     })
     .eq("id", true);
   if (error) throw error;
 
   revalidatePath("/owner/settings");
   return { ok: true };
+}
+
+export async function updatePromoSettings(input: {
+  endsAtLocal: string;
+  title: string;
+  headline: string;
+  subtext: string;
+  price: string;
+  included: string;
+  separate: string;
+  note: string;
+}) {
+  const { supabase } = await requirePlatformAdmin();
+  const endsAt = new Date(input.endsAtLocal);
+  if (Number.isNaN(endsAt.getTime())) throw new Error("Tanggal berakhir promo tidak valid");
+
+  const included = parsePromoList(input.included);
+  const separate = parsePromoList(input.separate);
+  if (!included || !separate) throw new Error("Daftar poin promo tidak valid (maksimal 160 karakter per baris)");
+
+  const title = input.title.trim();
+  const headline = input.headline.trim();
+  const price = input.price.trim();
+  if (!title || !headline || !price) throw new Error("Judul, headline, dan harga wajib diisi");
+
+  const { error } = await supabase
+    .from("platform_settings")
+    .update({
+      promo_title: title.slice(0, 80),
+      promo_headline: headline.slice(0, 120),
+      promo_subtext: input.subtext.trim().slice(0, 240),
+      promo_price: price.slice(0, 60),
+      promo_included: included,
+      promo_separate: separate,
+      promo_note: input.note.trim().slice(0, 400),
+      promo_ends_at: endsAt.toISOString(),
+    })
+    .eq("id", true);
+  if (error) throw error;
+
+  revalidatePath("/");
+  revalidatePath("/owner/settings");
+  return { ok: true };
+}
+
+export async function createPlatformIncident(input: {
+  occurredOn: string;
+  service: string;
+  status: string;
+  minutes: string | number;
+  title: string;
+  updates: string;
+}) {
+  await requirePlatformAdmin();
+  const occurredOn = new Date(`${input.occurredOn}T00:00:00Z`);
+  if (Number.isNaN(occurredOn.getTime())) throw new Error("Tanggal insiden tidak valid");
+  const minutes = Number(input.minutes);
+  if (!Number.isInteger(minutes) || minutes < 1 || minutes > 1440) {
+    throw new Error("Durasi insiden harus 1–1440 menit");
+  }
+  const title = input.title.trim();
+  if (!title) throw new Error("Judul insiden wajib diisi");
+  const updates = parseIncidentUpdates(input.updates);
+  if (!updates) throw new Error("Format update harus HH:MM|Label|Catatan (opsional)");
+
+  const { error } = await createAdminClient().from("platform_incidents").insert({
+    occurred_on: occurredOn.toISOString().slice(0, 10),
+    service: input.service,
+    status: input.status,
+    minutes,
+    title,
+    updates,
+  });
+  if (error) throw error;
+
+  revalidatePath("/owner");
+  revalidatePath("/owner/settings");
+  return { ok: true };
+}
+
+// ---------------------------------------------------------------------------
+// Paket top-up WhatsApp & penyesuaian kuota (Platform Owner)
+// ---------------------------------------------------------------------------
+
+export async function saveTopupPackage(input: {
+  id?: string;
+  code: string;
+  name: string;
+  messageQuantity: number | string;
+  priceIdr: number | string;
+  isActive?: boolean;
+  sortOrder?: number | string;
+}) {
+  await requirePlatformAdmin();
+  const value = parseTopupPackageInput(input);
+  const admin = createAdminClient();
+  const row = {
+    code: value.code,
+    name: value.name,
+    message_quantity: value.messageQuantity,
+    price_idr: value.priceIdr,
+    is_active: value.isActive,
+    sort_order: value.sortOrder,
+  };
+
+  if (value.id) {
+    const { error } = await admin.from("wa_topup_packages").update(row).eq("id", value.id);
+    if (error) throw error;
+  } else {
+    const { error } = await admin.from("wa_topup_packages").insert(row);
+    if (error) throw error;
+  }
+
+  const actor = await admin.auth.getUser();
+  await admin.from("platform_audit_logs").insert({
+    actor_user_id: actor.data.user?.id ?? null,
+    action: value.id ? "wa_topup_package.updated" : "wa_topup_package.created",
+    entity_type: "wa_topup_package",
+    entity_id: value.id ?? null,
+    metadata: row as never,
+  });
+
+  revalidatePath("/owner/settings");
+  revalidatePath("/app/pengaturan/usage");
+  return { ok: true };
+}
+
+export async function setTopupPackageActive(id: string, isActive: boolean) {
+  await requirePlatformAdmin();
+  if (!id) throw new Error("ID paket tidak valid");
+  const { error } = await createAdminClient()
+    .from("wa_topup_packages")
+    .update({ is_active: isActive })
+    .eq("id", id);
+  if (error) throw error;
+  revalidatePath("/owner/settings");
+  revalidatePath("/app/pengaturan/usage");
+  return { ok: true };
+}
+
+export async function adjustTenantWaQuota(
+  organizationId: string,
+  amount: number,
+  reason: string,
+) {
+  const { supabase } = await requirePlatformAdmin();
+  if (!organizationId || !Number.isInteger(amount) || amount === 0) {
+    throw new Error("Data penyesuaian tidak valid");
+  }
+  // auth.uid() diverifikasi RPC, jadi pakai client sesi owner.
+  const { error } = await supabase.rpc("platform_adjust_wa_quota", {
+    p_organization_id: organizationId,
+    p_amount: amount,
+    p_reason: reason,
+  });
+  if (error) throw error;
+  revalidatePath(`/owner/tenants/${organizationId}`);
+  revalidatePath("/app/pengaturan/usage");
+  return { ok: true };
+}
+
+export async function retryPaymentFulfillment(invoiceId: string) {
+  const { supabase } = await requirePlatformAdmin();
+  if (!invoiceId) throw new Error("Invoice tidak valid");
+  const { error } = await supabase.rpc("platform_retry_fulfillment", {
+    p_invoice_id: invoiceId,
+  });
+  if (error) throw error;
+  revalidatePath("/owner/billing");
+  revalidatePath("/app/pengaturan/usage");
+  return { ok: true };
+}
+
+export async function getOwnerProofUrl(storagePath: string) {
+  await requirePlatformAdmin();
+  const { getProofSignedUrl } = await import("@/lib/payments/payment-service");
+  return getProofSignedUrl(storagePath);
 }

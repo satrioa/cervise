@@ -34,7 +34,6 @@ type RegistryEntry = {
 /**
  * Nama template dibaca SAAT PAKAI, bukan saat modul dimuat, supaya test dan
  * proses yang mengubah env setelah import tetap memakai nilai terbaru.
- * Env lama tetap jadi fallback untuk tiga template servis.
  */
 const REGISTRY: Record<WaTemplateKey, RegistryEntry> = {
   servis_created_customer: {
@@ -44,14 +43,12 @@ const REGISTRY: Record<WaTemplateKey, RegistryEntry> = {
     build: (input) => buildServisMasukParameters(input),
   },
   servis_status_customer: {
-    envKey: "META_WA_TEMPLATE_SERVIS_SIAP",
-    fallbackKey: "META_WA_TEMPLATE_STATUS",
+    envKey: "META_WA_TEMPLATE_STATUS",
     language: "id",
     build: (input) => buildServisStatusParameters(input),
   },
   servis_created_technician: {
-    envKey: "META_WA_TEMPLATE_TEKNISI",
-    fallbackKey: "META_WA_TEMPLATE_TECHNICIAN",
+    envKey: "META_WA_TEMPLATE_TECHNICIAN",
     language: "en",
     build: (input) => buildTechnicianParameters(input),
   },

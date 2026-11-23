@@ -2,10 +2,12 @@
 
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { formatCurrencyPlain, formatNumberPlain } from "@/lib/format";
-import { SearchIcon, CalendarIcon, XIcon, TableIcon, LayoutGridIcon, ArrowDownIcon, ArrowUpDownIcon, ArrowUpIcon } from "lucide-react";
+import { SearchIcon, CalendarIcon, XIcon, TableIcon, LayoutGridIcon, ArrowDownIcon, ArrowUpDownIcon, ArrowUpIcon, PencilIcon, PrinterIcon, Trash2Icon, WalletIcon } from "lucide-react";
+import { SwipeActions, SwipeActionsRow, type SwipeAction } from "@/components/arc/swipe-actions/swipe-actions";
 import { format } from "date-fns";
 import { id as localeId } from "date-fns/locale";
 import { playPageTransition } from "@/components/layout/page-transition";
+import { recordManualWaSend } from "./wa-actions";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -42,6 +44,7 @@ import { cn } from "@/lib/utils";
 import { SparepartPickDialog, CancelSparepartDialog } from "@/components/servis/sparepart-dialogs";
 import { PickupSignatureDialog } from "@/components/servis/pickup-signature-dialog";
 import { PageHeader } from "@/components/layout/page-header";
+import { RefreshDataButton } from "@/components/layout/refresh-data-button";
 import { Button as CossButton } from "@/components/ui/coss-button";
 import { Pagination } from "@/components/ui/pagination";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -577,7 +580,7 @@ export default function ServisPage() {
     w.document.close();
   };
 
-  const handleInvoice = (s: ServisItem) => {
+  const handleInvoice = async (s: ServisItem) => {
     if (s.price === 0) {
       alert("Harga belum diisi, tidak bisa kirim invoice");
       return;
@@ -589,9 +592,38 @@ export default function ServisPage() {
       return;
     }
     const tracking = publicTrackingUrl(printContext.tenantSlug, s.trackingCode);
+    try {
+      // Kuota dipotong sekali per invoice di server sebelum tautan dibuka.
+      await recordManualWaSend(s.id);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Gagal mencatat pemakaian kuota WA");
+      return;
+    }
     const msg = `Halo, invoice servis *${servisLabel(s)}* Kaggo\nDevice: ${s.device}\nNominal: ${formatCurrencyPlain(s.price)}\nStatus: ${s.status}\nTeknisi: ${s.teknisi}${tracking ? `\nLacak progres: ${tracking}` : ""}\nTerima kasih — Garansi 3 bulan`;
     window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`, "_blank");
   };
+
+  // Swipe kanan (leading) = Bayar, hanya untuk servis yang belum lunas.
+  const leadingActions = (s: ServisItem): SwipeAction[] =>
+    getPaymentStatus(s) === "Lunas"
+      ? []
+      : [
+          {
+            label: "Bayar",
+            icon: <WalletIcon className="size-5" />,
+            tone: "accent",
+            keepRow: true,
+            onSelect: () => handleBayar(s),
+          },
+        ];
+
+  // Swipe kiri (trailing) = Edit, Print, Delete. Semua membuka modal/sheet,
+  // jadi baris tidak boleh hilang sebelum aksinya selesai.
+  const trailingActions = (s: ServisItem): SwipeAction[] => [
+    { label: "Edit", icon: <PencilIcon className="size-5" />, keepRow: true, onSelect: () => handleEdit(s) },
+    { label: "Print", icon: <PrinterIcon className="size-5" />, keepRow: true, onSelect: () => void handlePrint(s, "Thermal") },
+    { label: "Delete", icon: <Trash2Icon className="size-5" />, tone: "danger", keepRow: true, onSelect: () => handleDelete(s) },
+  ];
 
   // Bulk derived
   const selectedCount = selectedIds.size;
@@ -756,7 +788,7 @@ export default function ServisPage() {
     setBulkPrintOpen(false);
   };
 
-  const handleBulkInvoice = () => {
+  const handleBulkInvoice = async () => {
     const data = selectedData.filter((s) => s.price > 0);
     if (data.length === 0) {
       alert("Tidak ada servis dengan harga untuk dikirim invoice");
@@ -769,6 +801,17 @@ export default function ServisPage() {
       if (!phone) continue;
       if (!groups.has(phone)) groups.set(phone, []);
       groups.get(phone)!.push(s);
+    }
+    try {
+      // Satu pesan gabungan per nomor = satu unit kuota.
+      await Promise.all(
+        [...groups.entries()].map(([, items]) =>
+          recordManualWaSend(`bulk:${items.map((s) => s.id).join(",")}`),
+        ),
+      );
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Gagal mencatat pemakaian kuota WA");
+      return;
     }
     for (const [phone, items] of groups) {
       const msg = `Halo, invoice servis Kaggo:\n` + items.map((s) => {
@@ -883,6 +926,7 @@ export default function ServisPage() {
         onClearFilters={() => { setDateRange({}); setTeknisiFilter("Semua"); setPaymentFilter("Semua"); }}
         actions={
           <>
+            <RefreshDataButton onRefresh={loadServis} />
             <Tabs value={view} onValueChange={(v) => setView(v as "table" | "kanban")} className="shrink-0">
               <TabsList><TabsTrigger value="table" aria-label="Table view" className="px-2.5"><TableIcon className="size-4" /></TabsTrigger><TabsTrigger value="kanban" aria-label="Kanban view" className="px-2.5"><LayoutGridIcon className="size-4" /></TabsTrigger></TabsList>
             </Tabs>
@@ -976,11 +1020,16 @@ export default function ServisPage() {
           </div>
           {/* Tabel tujuh kolom tidak muat di ponsel; kartu memuat informasi
               yang sama dan tap-nya membuka bottom sheet aksi. */}
-          <ul className="mt-3 space-y-2 md:hidden">
+          <SwipeActions label="Daftar servis" className="mt-3 md:hidden">
             {pageItems.map((r) => (
               <ServisContextMenu key={r.id} servis={r} onViewDetails={handleViewDetails} onStatusChange={handleStatusChange} onEdit={handleEdit} onPrint={handlePrint} onInvoice={handleInvoice} onBayar={handleBayar} onDelete={handleDelete}>
-                <li className="rounded-xl border bg-card p-3 active:bg-muted/50">
-                  <div className="flex items-start gap-3">
+                <SwipeActionsRow
+                  label={servisLabel(r)}
+                  leading={leadingActions(r)}
+                  trailing={trailingActions(r)}
+                  fullSwipe={false}
+                >
+                  <div className="flex items-start gap-3 p-3 active:bg-muted/50">
                     <Checkbox
                       aria-label={`Select ${servisLabel(r)}`}
                       checked={selectedIds.has(r.id)}
@@ -1005,15 +1054,15 @@ export default function ServisPage() {
                       </div>
                     </div>
                   </div>
-                </li>
+                </SwipeActionsRow>
               </ServisContextMenu>
             ))}
             {pageItems.length === 0 && (
-              <li className="rounded-xl border bg-card py-8 text-center text-sm text-muted-foreground">
+              <li className="py-8 text-center text-sm text-muted-foreground">
                 Tidak ada data
               </li>
             )}
-          </ul>
+          </SwipeActions>
           {filteredTable.length > PAGE_SIZE && (
             <div className="mt-4 flex justify-center">
               <Pagination page={pageSafe} pageCount={totalPages} onPageChange={setPage} />
@@ -1226,7 +1275,7 @@ export default function ServisPage() {
               <DialogPrimitive.Title className="font-heading text-lg font-semibold">Tambah Servis</DialogPrimitive.Title>
               <DialogPrimitive.Description className="text-sm text-muted-foreground">Isi data servis baru — status awal Masuk</DialogPrimitive.Description>
             </div>
-            <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain">
+            <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain scrollbar-none">
               <div className="px-4 sm:px-6 py-4">
                 <ServisForm onSuccess={() => setOpenServis(false)} onCancel={() => setOpenServis(false)} />
               </div>
@@ -1286,7 +1335,7 @@ export default function ServisPage() {
               <DialogPrimitive.Title className="font-heading text-lg font-semibold">Edit Servis {selectedServis?.serviceNumber ?? selectedServis?.id}</DialogPrimitive.Title>
               <DialogPrimitive.Description className="text-sm text-muted-foreground">Form lengkap sama seperti create — siapa yang input terkunci, kondisi awal readonly.</DialogPrimitive.Description>
             </div>
-            <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain">
+            <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain scrollbar-none">
               <div className="px-4 sm:px-6 py-4">
                 {detailLoading ? (
                   <ServisFormSkeleton />

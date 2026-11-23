@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
 import { XIcon } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
-import { searchSparepartStock, useSparepartsForServis, addSparepartsToServis, cancelServisWithSpareparts, getServisSpareparts, type SparepartStockRow } from "@/app/app/servis/sparepart-actions";
+import { searchSparepartStock, useSparepartsForServis, addSparepartsToServis, updateServisStatus, cancelServisWithSpareparts, getServisSpareparts, type SparepartStockRow } from "@/app/app/servis/sparepart-actions";
 import { playPageTransition } from "@/components/layout/page-transition";
 
 type Selected = { row: SparepartStockRow; qty: number };
@@ -76,12 +76,18 @@ export function SparepartPickDialog({
     setError(null);
     try {
       const items = opts?.skip ? [] : selected.map((s) => ({ sparepart_id: s.row.id, qty: s.qty }));
-      // validate qty <= stock client side
-      for (const s of selected) {
+      // validate qty <= stock client side (Lewati sengaja mengabaikan pilihan)
+      for (const s of opts?.skip ? [] : selected) {
         if (s.qty > s.row.qty) throw new Error(`Stok ${s.row.name} sisa ${s.row.qty}, diminta ${s.qty}`);
       }
       if (mode === "transition") {
-        await useSparepartsForServis(servis.id, items);
+        if (opts?.skip) {
+          // RPC consume_service_spareparts menolak items kosong, jadi jalur
+          // "Lewati" harus memakai action status murni seperti bulk update.
+          await updateServisStatus(servis.id, "Dikerjakan");
+        } else {
+          await useSparepartsForServis(servis.id, items);
+        }
       } else {
         if (items.length === 0) throw new Error("Pilih minimal 1 sparepart");
         await addSparepartsToServis(servis.id, items);

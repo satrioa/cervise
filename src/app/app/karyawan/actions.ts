@@ -12,6 +12,16 @@ import { publicPhotoUrl } from "@/lib/photos";
 import { validatePhone } from "@/lib/phone";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { findAuthUserByEmail } from "@/lib/supabase/admin-users";
+import { validPin } from "@/lib/attendance/pin";
+
+async function applyPin(employeeId: string, rawPin: string | undefined): Promise<void> {
+  if (!rawPin || rawPin.trim() === "") return;
+  const pin = rawPin.trim();
+  if (!validPin(pin)) throw new Error("PIN harus 6 digit angka");
+  const admin = createAdminClient();
+  const { error } = await admin.rpc("set_employee_pin", { p_employee_id: employeeId, p_pin: pin });
+  if (error) throw new Error(error.message);
+}
 
 type BranchUser = { supabase: Actor["supabase"]; userId: string; employeeId: string; organizationId: string; branchId: string; role: string; permissions?: readonly string[] | null };
 
@@ -97,7 +107,7 @@ export async function getKaryawanBranches(): Promise<{ id: string; name: string 
   return ((data ?? []) as any[]).map((b) => ({ id: b.id as string, name: b.name as string }));
 }
 
-export type CreateKaryawanInput = { fullName: string; email: string; phone?: string; role: string; roleKey?: string | null; branchId: string };
+export type CreateKaryawanInput = { fullName: string; email: string; phone?: string; role: string; roleKey?: string | null; branchId: string; pin?: string };
 
 /**
  * Menentukan role dasar dan role key untuk sebuah assignment karyawan.
@@ -147,12 +157,41 @@ async function resolveEmployeeRole(
   return { role: base, roleKey: key };
 }
 
+async function countActiveEmployees(
+  supabase: Awaited<ReturnType<typeof getBranchUser>>["supabase"],
+  organizationId: string,
+) {
+  const { count } = await supabase
+    .from("employees")
+    .select("id", { count: "exact", head: true })
+    .eq("organization_id", organizationId)
+    .eq("is_active", true);
+  return count ?? 0;
+}
+
 export async function createKaryawan(input: CreateKaryawanInput): Promise<{ employeeId: string; profileId: string; tempPassword: string }> {
   const { supabase, organizationId, role } = await getBranchUser();
   // Gate mengikuti policy employees_insert, bukan requireManager() yang juga
   // menerima ADMIN - ADMIN akan lolos di sini lalu ditolak RLS diam-diam.
   if (!canManageEmployees(role)) throw new Error("Hanya Master Admin yang bisa menambah karyawan.");
   requireManager(role);
+
+  // Cek lebih awal, sebelum auth user dibuat, supaya gagalnya tidak perlu
+  // rollback. Trigger DB tetap jadi backstop untuk jalur lain.
+  const { data: subscription } = await supabase
+    .from("tenant_subscriptions")
+    .select("packages(user_limit)")
+    .eq("organization_id", organizationId)
+    .maybeSingle();
+  const employeeLimit =
+    ((subscription?.packages as Array<{ user_limit: number | null }> | null)?.[0]?.user_limit) ?? null;
+  if (employeeLimit) {
+    const count = await countActiveEmployees(supabase, organizationId);
+    if (count >= employeeLimit) {
+      throw new Error("Batas karyawan paket Anda sudah tercapai. Silakan upgrade paket.");
+    }
+  }
+
   const email = input.email.trim().toLowerCase();
   const fullName = input.fullName.trim();
   if (!fullName) throw new Error("Nama wajib");
@@ -231,11 +270,12 @@ export async function createKaryawan(input: CreateKaryawanInput): Promise<{ empl
     }
     throw new Error(detail);
   }
+  await applyPin(employee.id as string, input.pin);
   revalidatePath("/app/karyawan");
   return { employeeId: employee.id as string, profileId: uid, tempPassword };
 }
 
-export type UpdateKaryawanInput = { profileId: string; employeeId: string; fullName: string; phone?: string; email?: string; role: string; roleKey?: string | null; branchId: string };
+export type UpdateKaryawanInput = { profileId: string; employeeId: string; fullName: string; phone?: string; email?: string; role: string; roleKey?: string | null; branchId: string; pin?: string };
 
 export async function updateKaryawan(input: UpdateKaryawanInput) {
   const { supabase, organizationId, role } = await getBranchUser();
@@ -415,6 +455,7 @@ export async function updateKaryawan(input: UpdateKaryawanInput) {
     }
   }
 
+  await applyPin(input.employeeId, input.pin);
   revalidatePath("/app/karyawan");
   return { ok: true as const };
 }

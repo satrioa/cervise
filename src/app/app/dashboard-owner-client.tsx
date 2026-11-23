@@ -77,6 +77,18 @@ export default function DashboardOwnerClient() {
 
   const summary = data?.summary;
 
+  const omzetChange = (() => {
+    if (!data || !summary) return { delta: "", trend: "neutral" as const };
+    const previous = data.previousOmzet;
+    if (previous <= 0) return { delta: "Belum ada data sebelumnya", trend: "neutral" as const };
+    const pct = Math.round(((summary.omzet - previous) / previous) * 100);
+    const comparison = period === "hari ini" ? "dibandingkan kemarin" : `dibanding ${PERIOD_LABEL[period]} sebelumnya`;
+    return {
+      delta: `${pct >= 0 ? "Naik" : "Turun"} ${Math.abs(pct)}% ${comparison}`,
+      trend: (pct >= 0 ? "up" : "down") as "up" | "down",
+    };
+  })();
+
   const cards = summary
     ? [
         {
@@ -90,8 +102,8 @@ export default function DashboardOwnerClient() {
         {
           label: `Omzet ${PERIOD_LABEL[period]}`,
           value: formatCurrencyPlain(summary.omzet),
-          delta: `Keluar ${formatCurrencyPlain(summary.pengeluaran)}`,
-          trend: summary.omzet >= summary.pengeluaran ? ("up" as const) : ("down" as const),
+          delta: omzetChange.delta,
+          trend: omzetChange.trend,
           sub: data?.branchLabel ?? branch.label,
           sparkline: summary.buckets.map((b) => b.masuk),
         },
@@ -111,6 +123,14 @@ export default function DashboardOwnerClient() {
           sub: data?.branchLabel ?? branch.label,
           sparkline: summary.buckets.map((b) => b.masuk),
         },
+        {
+          label: "Piutang",
+          value: formatCurrencyPlain(summary.piutang),
+          delta: summary.piutang > 0 ? "perlu ditagih" : "aman",
+          trend: summary.piutang > 0 ? ("down" as const) : ("up" as const),
+          sub: "saldo berjalan",
+          sparkline: summary.buckets.map((b) => b.masuk),
+        },
       ]
     : [];
 
@@ -124,6 +144,7 @@ export default function DashboardOwnerClient() {
         filterCount={period !== "30d" ? 1 : 0}
         filterSummary={period !== "30d" ? `Periode: ${period}` : undefined}
         onClearFilters={() => setPeriod("30d")}
+        filtersAlwaysVisible
       />
 
       <main className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-8">
@@ -133,9 +154,9 @@ export default function DashboardOwnerClient() {
           </div>
         ) : null}
 
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-5">
           {loading && !summary
-            ? Array.from({ length: 4 }, (_, index) => (
+            ? Array.from({ length: 5 }, (_, index) => (
                 <div
                   key={index}
                   aria-hidden
@@ -179,7 +200,7 @@ export default function DashboardOwnerClient() {
         <DialogPrimitive.Portal>
           <DialogPrimitive.Backdrop className="fixed inset-0 z-50 bg-black/20 backdrop-blur-sm" />
           <DialogPrimitive.Popup className="fixed left-1/2 top-1/2 z-50 flex max-h-[90vh] w-[95vw] max-w-3xl -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-2xl border bg-background shadow-xl">
-            <div className="overflow-y-auto p-6">
+            <div className="overflow-y-auto scrollbar-none p-6">
               <ServisForm onSuccess={() => setOpenServis(false)} onCancel={() => setOpenServis(false)} />
             </div>
             <DialogPrimitive.Close className="absolute right-3 top-3 rounded-md p-1 text-muted-foreground hover:bg-muted" aria-label="Tutup">
@@ -237,22 +258,27 @@ function StatCard({
 }) {
   const Up = trend === "up";
   return (
-    <div className="rounded-xl border border-border/60 bg-background/40 p-4">
+    <div className="min-w-0 overflow-hidden rounded-xl border border-border/60 bg-background/40 p-4">
       <div className="flex items-center justify-between">
         <div className="font-mono text-[10px] text-muted-foreground uppercase tracking-[0.25em]">{label}</div>
         <button type="button" className="text-muted-foreground/60 transition-colors hover:text-foreground">
           <MoreHorizontalIcon className="size-4" />
         </button>
       </div>
-      <div className="mt-2 font-heading text-3xl tracking-tight">{value}</div>
-      <div className="mt-1 flex items-center gap-1.5 text-xs">
+      <div
+        title={value}
+        className="mt-2 min-w-0 truncate font-heading text-[clamp(1rem,5vw,1.875rem)] leading-tight tracking-tight tabular-nums"
+      >
+        {value}
+      </div>
+      <div className="mt-1 flex min-w-0 items-center gap-1.5 text-xs">
         {trend === "neutral" ? (
-          <span className="inline-flex items-center gap-0.5 rounded bg-foreground/[0.06] px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
+          <span className="inline-flex min-w-0 items-start gap-0.5 rounded bg-foreground/[0.06] px-1.5 py-0.5 font-mono text-[10px] leading-snug text-muted-foreground">
             {delta}
           </span>
         ) : (
           <span
-            className={`inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 font-mono text-[10px] ${Up ? "bg-emerald-500/12 text-emerald-600 dark:text-emerald-400" : "bg-rose-500/12 text-rose-600 dark:text-rose-400"}`}
+            className={`inline-flex min-w-0 items-start gap-0.5 rounded px-1.5 py-0.5 font-mono text-[10px] leading-snug ${Up ? "bg-emerald-500/12 text-emerald-600 dark:text-emerald-400" : "bg-rose-500/12 text-rose-600 dark:text-rose-400"}`}
           >
             {Up ? <ArrowUpRightIcon className="size-3" /> : <ArrowDownRightIcon className="size-3" />}
             {delta}
@@ -303,7 +329,7 @@ function ChartCard({
           <div className="font-mono text-[10px] text-muted-foreground uppercase tracking-[0.25em]">Servis masuk · {period === "hari ini" ? "per jam" : period === "90d" ? "per minggu" : "harian"}</div>
           <div className="mt-1 flex items-baseline gap-2">
             <span className="font-heading text-2xl">{total}</span>
-            <span className="inline-flex items-center gap-0.5 rounded bg-foreground/[0.06] px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
+            <span className="inline-flex min-w-0 items-start gap-0.5 rounded bg-foreground/[0.06] px-1.5 py-0.5 font-mono text-[10px] leading-snug text-muted-foreground">
               {periodTitle[period]}
             </span>
           </div>

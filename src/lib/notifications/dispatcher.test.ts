@@ -113,6 +113,7 @@ const SERVIS = {
 };
 
 const ORIGIN = "https://app.kaggo.id";
+const LACAK_PATH = "servisin/lacak/F5FB0DFCB6";
 
 /**
  * `.eq()` mengembalikan objek yang bisa di-await, seperti PostgrestFilterBuilder
@@ -125,6 +126,15 @@ function stubAdmin() {
   return {
     rpc: async (fn: string, args: unknown) => {
       state.rpcCalls.push({ fn, args });
+      if (fn === "wa_quota_reserve") {
+        return {
+          data: { allowed: true, already_accounted: false, quota_source: "included", reservation_id: "res-1" },
+          error: null,
+        };
+      }
+      if (fn === "wa_quota_finalize" || fn === "wa_quota_release") {
+        return { data: { ok: true }, error: null };
+      }
       return { data: state.claimed, error: state.rpcError };
     },
     from: (table: string) => {
@@ -271,6 +281,7 @@ describe("dispatchPendingNotifications", () => {
         ]),
         "global-phone-id",
         "id",
+        LACAK_PATH,
       );
       expect(patchFor("o1")).toMatchObject({ state: "sent", last_error: null });
     });
@@ -299,6 +310,7 @@ describe("dispatchPendingNotifications", () => {
         expect.any(Array),
         "tenant-phone-id",
         "id",
+        LACAK_PATH,
       );
     });
 
@@ -315,6 +327,7 @@ describe("dispatchPendingNotifications", () => {
         expect.any(Array),
         "global-phone-id",
         "id",
+        LACAK_PATH,
       );
     });
 
@@ -389,6 +402,7 @@ describe("dispatchPendingNotifications", () => {
         expect.arrayContaining([expect.objectContaining({ value: "SRV-2026-0012" })]),
         "global-phone-id",
         "id",
+        undefined,
       );
     });
 
@@ -420,6 +434,7 @@ describe("dispatchPendingNotifications", () => {
         ]),
         "global-phone-id",
         "id",
+        LACAK_PATH,
       );
     });
   });
@@ -541,6 +556,7 @@ describe("dispatchPendingNotifications", () => {
         expect.arrayContaining([expect.objectContaining({ value: "SRV-2026-0012" })]),
         "global-phone-id",
         "en",
+        undefined,
       );
     });
 

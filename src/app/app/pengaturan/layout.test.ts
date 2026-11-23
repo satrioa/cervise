@@ -76,8 +76,15 @@ describe("isi sub-sidebar", () => {
     expect(hrefs).toContain("/app/pengaturan");
     expect(hrefs).toContain("/app/pengaturan/tampilan");
     expect(hrefs).toContain("/app/pengaturan/nota");
-    expect(hrefs).toContain("/app/pengaturan/subscription");
+    expect(hrefs).not.toContain("/app/pengaturan/subscription");
     expect(hrefs).toContain("/app/pengaturan/usage");
+  });
+
+  it("subscription tidak dipajang di menu, tapi entri & halamannya tetap ada", () => {
+    const groups = buildSettingsGroups(entriesForRole("MASTER_ADMIN"));
+    expect(groups.flatMap((b) => b.entries.map((e) => e.href))).not.toContain("/app/pengaturan/subscription");
+    // Guard billing dan redirect trial masih bergantung pada entri ini.
+    expect(NAV_ENTRIES.some((e) => e.href === "/app/pengaturan/subscription")).toBe(true);
   });
 
   it("Akun dan Pengaturan Tenant dipisah dengan label yang jelas", () => {
@@ -95,7 +102,6 @@ describe("isi sub-sidebar", () => {
       "/app/pengaturan",
       "/app/pengaturan/tampilan",
       "/app/pengaturan/nota",
-      "/app/pengaturan/subscription",
       "/app/pengaturan/usage",
       "/app/pengaturan/role",
     ]);
@@ -143,8 +149,20 @@ describe("sub-menu pengaturan master admin (tabs horizontal)", () => {
     expect(pageHeaderSource).toContain("<SettingsHeaderTabs />");
   });
 
-  it("teknisi/frontliner tetap memakai sidebar lama", () => {
+  it("tabs dibatasi lebar induknya supaya scroll internal, bukan scroll halaman", () => {
+    const body = navSource.slice(navSource.indexOf("export function SettingsHeaderTabs"));
+    const tabsList = body.slice(body.indexOf("<TabsList"), body.indexOf("</TabsList>"));
+    expect(tabsList).toContain("overflow-x-auto");
+    // w-fit (default TabsList) membuat elemen ikut lebar konten, jadi
+    // overflow-x-auto tidak pernah jalan dan halaman yang bergeser.
+    expect(tabsList).toMatch(/\bw-full\b/);
+  });
+
+  it("teknisi/frontliner tidak memakai sub-sidebar pengaturan", () => {
     expect(layoutSource).toMatch(/role === "TECHNICIAN" \|\| role === "FRONTLINER"/);
-    expect(layoutSource).toContain("<SettingsNav groups={groups} />");
+    const compactBranch = layoutSource.slice(layoutSource.indexOf("if (!isCompact)"));
+    expect(compactBranch).not.toContain("<SettingsNav groups={groups} />");
+    expect(compactBranch).not.toContain("<SettingsMobileNav");
+    expect(compactBranch).toContain("{children}");
   });
 });

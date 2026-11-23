@@ -1,41 +1,41 @@
 "use client";
 
-import { useState } from "react";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useTranslations } from "next-intl";
-import { LogOut, UserRound } from "lucide-react";
-import { CommandSearchTrigger } from "@/components/layout/command-palette-provider";
-import { IdentityAvatar } from "@/components/identity-avatar";
+import { usePathname, useRouter } from "next/navigation";
+import { LayoutGrid, UserRound } from "lucide-react";
+import { useTheme } from "next-themes";
 import { TenantLogo } from "@/components/layout/tenant-logo";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { labelFor, matchEntry } from "@/components/layout/page-breadcrumb";
+import ProfileDropdown from "@/components/kokonutui/profile-dropdown";
 import { useBranch } from "@/lib/branch-context";
 import { useTenant } from "@/lib/tenant-context";
 import { createClient } from "@/lib/supabase/client";
 import { normalizeAppRole, ROLE_LABEL } from "@/lib/nav/manifest";
 
 /**
- * Bar identitas: tenant + cabang, pencarian, profil.
+ * Bar identitas compact.
  *
- * Di mobile bar ini menempel di ATAS layar (menggantikan header yang dihapus),
- * sementara di `lg` tetap mengambang di bawah seperti semula. Search ada di
- * tengah supaya terbaca sebagai pintu command palette, dan profil membuka
- * popover berisi tautan akun + keluar.
+ * Mobile: SATU header transparan di atas — logo tenant di kiri, judul halaman
+ * di tengah, tombol grid berisi di kanan yang membuka drawer menu. Desktop:
+ * bar mengambang di bawah seperti sebelumnya (tenant + cari + profil).
  */
 export function CompactBottomBar({
   role,
   fullName,
+  email,
   avatarUrl,
+  onOpenMenu,
 }: {
   role: string;
   fullName: string | null;
+  email: string | null;
   avatarUrl: string | null;
+  onOpenMenu: () => void;
 }) {
   const { tenants, activeOrgId } = useTenant();
   const { branch } = useBranch();
   const router = useRouter();
-  const t = useTranslations("nav");
-  const [accountOpen, setAccountOpen] = useState(false);
+  const pathname = usePathname();
+  const { theme: appTheme, setTheme } = useTheme();
 
   const tenant =
     tenants.find((item) => item.id === activeOrgId) ??
@@ -43,13 +43,58 @@ export function CompactBottomBar({
   const tenantName = tenant?.name ?? "Kaggo";
   const branchLabel = branch?.label ?? null;
   const normalized = normalizeAppRole(role);
-  // Label dari map bersama, bukan rantai `if` lokal: role yang belum punya
-  // label akan jatuh ke "Anggota", bukan diam-diam jadi "Teknisi".
   const roleLabel = normalized ? ROLE_LABEL[normalized] : "Anggota";
 
+  const entry = matchEntry(pathname);
+  const tail = entry && pathname.startsWith(`${entry.href}/`)
+    ? pathname.slice(entry.href.length).split("/").filter(Boolean)
+    : [];
+  const pageTitle =
+    pathname === "/app"
+      ? "Home"
+      : tail.length > 0
+        ? labelFor(tail[tail.length - 1])
+        : (entry?.label ?? "Kaggo");
+
   return (
-    <div className="pointer-events-none fixed inset-x-0 top-0 z-40 px-3 pt-[max(0.5rem,env(safe-area-inset-top))] sm:px-6 lg:top-auto lg:bottom-0 lg:px-8 lg:pt-0 lg:pb-4" data-compact-bar="">
-      <div className="flex w-full items-center gap-2">
+    <div
+      className="pointer-events-none fixed inset-x-0 top-0 z-40 px-3 pt-[max(0.5rem,env(safe-area-inset-top))] sm:px-6 lg:top-auto lg:bottom-0 lg:px-8 lg:pt-0 lg:pb-4"
+      data-compact-bar=""
+    >
+      {/* Mobile: header transparan, judul di tengah, grid di kanan. */}
+      <div className="relative lg:hidden">
+        {/* Blur progresif di belakang navbar: konten yang lewat jadi blur
+            bertahap, tanpa menambah lapisan gelap di atasnya. */}
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-x-0 -mx-3 -top-[max(0.5rem,env(safe-area-inset-top))] z-0 h-[calc(4rem+env(safe-area-inset-top))] backdrop-blur-md [mask-image:linear-gradient(to_bottom,black_0%,black_45%,transparent_100%)] sm:-mx-6"
+        />
+        <div className="relative z-10 flex w-full items-center gap-2">
+        <div className="pointer-events-auto shrink-0">
+          <TenantLogo
+            logoUrl={tenant?.logoUrl ?? null}
+            name={tenantName}
+            title={tenantName}
+            className="size-8 rounded-full bg-white shadow-[0_16px_38px_-24px_rgba(0,0,0,0.55)] ring-1 ring-black/5 dark:bg-neutral-900 dark:ring-white/10"
+          />
+        </div>
+        <h1 className="min-w-0 flex-1 truncate text-center text-sm font-medium text-neutral-900 dark:text-neutral-100">
+          {pageTitle}
+        </h1>
+        <button
+          type="button"
+          aria-label="Buka menu"
+          title="Buka menu"
+          onClick={onOpenMenu}
+          className="pointer-events-auto flex size-9 shrink-0 items-center justify-center rounded-full bg-white text-neutral-700 shadow-[0_16px_38px_-24px_rgba(0,0,0,0.55)] ring-1 ring-black/5 dark:bg-neutral-900 dark:text-neutral-200 dark:ring-white/10"
+        >
+          <LayoutGrid fill="currentColor" className="size-[18px]" />
+        </button>
+        </div>
+      </div>
+
+      {/* Desktop: bar bawah berisi tenant, cari, dan profil. */}
+      <div className="hidden w-full items-center gap-2 lg:flex">
         <div className="pointer-events-auto flex min-w-0 items-center gap-2 rounded-full bg-white p-1.5 pr-2 shadow-[0_16px_38px_-24px_rgba(0,0,0,0.55)] ring-1 ring-black/5 dark:bg-neutral-900 dark:ring-white/10 sm:pr-3">
           <TenantLogo
             logoUrl={tenant?.logoUrl ?? null}
@@ -68,66 +113,35 @@ export function CompactBottomBar({
         </div>
 
         <div className="pointer-events-auto ml-auto flex shrink-0 items-center gap-2">
-          <CommandSearchTrigger
-            aria-label={t("search.placeholder")}
-            className="flex size-9 items-center justify-center rounded-full border-0 bg-white p-0 shadow-[0_16px_38px_-24px_rgba(0,0,0,0.55)] ring-1 ring-black/5 hover:bg-white lg:hidden dark:bg-neutral-900 dark:ring-white/10 dark:hover:bg-neutral-800 [&>kbd]:hidden"
+          <ProfileDropdown
+            accounts={[
+              {
+                id: "staff",
+                name: fullName ?? "Pengguna",
+                email: email ?? "",
+                avatarUrl,
+                plan: roleLabel,
+              },
+            ]}
+            defaultAccountId="staff"
+            items={[
+              {
+                label: "Profil",
+                icon: <UserRound className="size-4" />,
+                href: "/app/pengaturan/profil",
+              },
+            ]}
+            theme={appTheme === "light" || appTheme === "dark" ? appTheme : "system"}
+            onThemeChange={(next) => setTheme(next)}
+            onSignOut={() => {
+              void (async () => {
+                const supabase = createClient();
+                await supabase.auth.signOut();
+                window.location.assign("/login");
+              })();
+            }}
+            className="pointer-events-auto [&>button]:w-auto [&>button]:rounded-full [&>button]:border-black/5 [&>button]:bg-white [&>button]:p-1.5 [&>button]:pr-3 [&>button]:shadow-[0_16px_38px_-24px_rgba(0,0,0,0.55)] dark:[&>button]:border-white/10 dark:[&>button]:bg-neutral-900"
           />
-
-          <div className="rounded-full bg-white p-1.5 shadow-[0_16px_38px_-24px_rgba(0,0,0,0.55)] ring-1 ring-black/5 dark:bg-neutral-900 dark:ring-white/10">
-            <Popover open={accountOpen} onOpenChange={setAccountOpen}>
-              <PopoverTrigger
-                render={
-                  <button
-                    type="button"
-                    aria-label="Menu akun"
-                    className="flex items-center gap-1 rounded-full text-left"
-                  />
-                }
-              >
-                <IdentityAvatar
-                  photoUrl={avatarUrl}
-                  name={fullName ?? "?"}
-                  className="size-6 bg-neutral-900 text-[11px] text-white dark:bg-white dark:text-neutral-900"
-                />
-                <span className="hidden max-w-[10rem] pl-1 md:block">
-                  <span className="block truncate text-[11px] font-medium leading-none">
-                    {fullName ?? "Pengguna"}
-                  </span>
-                  <span className="mt-0.5 block truncate text-[9px] leading-none text-muted-foreground">
-                    {roleLabel}
-                  </span>
-                </span>
-              </PopoverTrigger>
-              <PopoverContent side="top" align="end" className="w-56 p-1">
-                <div className="px-2.5 py-2">
-                  <p className="truncate text-sm font-medium">{fullName ?? "Pengguna"}</p>
-                  <p className="text-[11px] text-muted-foreground">{roleLabel}</p>
-                </div>
-                <Link
-                  href="/app/pengaturan/profil"
-                  onClick={() => setAccountOpen(false)}
-                  className="flex items-center gap-2 rounded-md px-2.5 py-2 text-sm text-muted-foreground transition-colors hover:bg-foreground/[0.04] hover:text-foreground"
-                >
-                  <UserRound className="size-4" />
-                  Profil
-                </Link>
-                <button
-                  type="button"
-                  onClick={async () => {
-                    setAccountOpen(false);
-                    const supabase = createClient();
-                    await supabase.auth.signOut();
-                    router.push("/login");
-                    router.refresh();
-                  }}
-                  className="flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-left text-sm text-destructive transition-colors hover:bg-destructive/10"
-                >
-                  <LogOut className="size-4" />
-                  Keluar
-                </button>
-              </PopoverContent>
-            </Popover>
-          </div>
         </div>
       </div>
     </div>

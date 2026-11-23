@@ -37,6 +37,7 @@ const SALE_ROW_CAP = 5000;
 export type DashboardData = {
   period: DashboardPeriod;
   branchLabel: string;
+  previousOmzet: number;
   summary: DashboardSummary;
   technicians: DashboardTechnician[];
   problems: DashboardProblem[];
@@ -60,6 +61,16 @@ function periodStartIso(period: DashboardPeriod, now: Date): string {
   return start.toISOString();
 }
 
+/** Awal periode sebelumnya, mengikuti periode filter yang dipilih. */
+function previousPeriodStart(period: DashboardPeriod, now: Date): Date {
+  const start = new Date(periodStartIso(period, now));
+  if (period === "hari ini") start.setDate(start.getDate() - 1);
+  else if (period === "7d") start.setDate(start.getDate() - 7);
+  else if (period === "30d") start.setDate(start.getDate() - 30);
+  else start.setDate(start.getDate() - 90);
+  return start;
+}
+
 export async function getDashboardData(period: DashboardPeriod): Promise<DashboardData> {
   const { supabase, actor } = await getActiveTenantBranch();
   const allScope = isAllBranchScope(actor);
@@ -75,6 +86,12 @@ export async function getDashboardData(period: DashboardPeriod): Promise<Dashboa
     supabase
       .from("cervise_finance_tx")
       .select("id, branch_id, type, amount, kas_date, created_at, description, metode, servis_id, created_by"),
+    actor,
+  );
+  const previousFinanceQuery = applyBranchScope(
+    supabase
+      .from("cervise_finance_tx")
+      .select("type, amount, kas_date"),
     actor,
   );
   const logsQuery = applyBranchScope(
@@ -93,6 +110,14 @@ export async function getDashboardData(period: DashboardPeriod): Promise<Dashboa
     supabase.from("cervise_sales").select("id, created_at"),
     actor,
   );
+  // Saldo piutang memakai semua sale bertanda servis_id, tanpa filter periode.
+  const piutangSalesQuery = applyBranchScope(
+    supabase
+      .from("cervise_sales")
+      .select("servis_id, total, paid, payment_status")
+      .not("servis_id", "is", null),
+    actor,
+  );
   const branchQuery = allScope
     ? supabase
         .from("branches")
@@ -106,6 +131,8 @@ export async function getDashboardData(period: DashboardPeriod): Promise<Dashboa
         .maybeSingle();
 
   const since = periodStartIso(period, now);
+  const previousSince = toLocalDateString(previousPeriodStart(period, now));
+  const currentSinceLocal = toLocalDateString(new Date(since));
   const activitySince = activityStartIso(period, now);
 
   // Feed menyediakan filter Hari ini/Kemarin, jadi sumbernya minimal sejak awal
@@ -115,28 +142,39 @@ export async function getDashboardData(period: DashboardPeriod): Promise<Dashboa
   feedStart.setDate(feedStart.getDate() - 1);
   const feedSince = new Date(Math.min(new Date(since).getTime(), feedStart.getTime()));
 
-  const [servicesResult, financeResult, branchResult, logsResult, sessionsResult, salesResult] = await Promise.all([
+  const [servicesResult, financeResult, previousFinanceResult, branchResult, logsResult, sessionsResult, salesResult, piutangSalesResult] = await Promise.all([
     servicesQuery.order("created_at", { ascending: false }).limit(SERVICE_ROW_CAP),
     financeQuery
       .gte("kas_date", toLocalDateString(feedSince))
       .lte("kas_date", toLocalDateString(now))
       .limit(FINANCE_ROW_CAP),
+    previousFinanceQuery
+      .gte("kas_date", previousSince)
+      .lt("kas_date", currentSinceLocal)
+      .limit(FINANCE_ROW_CAP),
     branchQuery,
     logsQuery.gte("created_at", feedSince.toISOString()).order("created_at", { ascending: false }).limit(200),
     sessionsQuery.gte("open_at", feedSince.toISOString()).order("open_at", { ascending: false }).limit(50),
     salesQuery.gte("created_at", activitySince).order("created_at", { ascending: false }).limit(SALE_ROW_CAP),
+    piutangSalesQuery.limit(SALE_ROW_CAP),
   ]);
 
   if (servicesResult.error) throw new Error(servicesResult.error.message);
   if (financeResult.error) throw new Error(financeResult.error.message);
+  if (previousFinanceResult.error) throw new Error(previousFinanceResult.error.message);
   if (branchResult.error) throw new Error(branchResult.error.message);
   if (logsResult.error) throw new Error(logsResult.error.message);
   if (sessionsResult.error) throw new Error(sessionsResult.error.message);
   if (salesResult.error) throw new Error(salesResult.error.message);
+  if (piutangSalesResult.error) throw new Error(piutangSalesResult.error.message);
 
   const services = (servicesResult.data ?? []) as DashboardService[];
   const finance = (financeResult.data ?? []) as DashboardFinance[];
+  const previousOmzet = ((previousFinanceResult.data ?? []) as Pick<DashboardFinance, "type" | "amount">[])
+    .filter((tx) => tx.type === "pemasukan")
+    .reduce((total, tx) => total + Number(tx.amount ?? 0), 0);
   const sales = (salesResult.data ?? []) as DashboardSale[];
+  const piutangSales = (piutangSalesResult.data ?? []) as DashboardSale[];
   const logs = (logsResult.data ?? []) as DashboardServiceLog[];
   const sessions = (sessionsResult.data ?? []) as DashboardCashSession[];
   const branchRows = allScope
@@ -160,11 +198,12 @@ export async function getDashboardData(period: DashboardPeriod): Promise<Dashboa
     : { data: [], error: null };
   if (profilesResult.error) throw new Error(profilesResult.error.message);
 
-  const summary = summarizeDashboard({ services, finance, sales, profiles: (profilesResult.data ?? []) as DashboardProfile[], period, now });
+  const summary = summarizeDashboard({ services, finance, sales, piutangSales, profiles: (profilesResult.data ?? []) as DashboardProfile[], period, now });
   summary.branchTrend = buildBranchRevenueTrend({ finance, branches: branchRows, period, now });
   return {
     period,
     branchLabel: allScope ? "Semua cabang" : branchRows[0]?.name ?? "—",
+    previousOmzet,
     summary,
     technicians: buildTechnicians({
       services,

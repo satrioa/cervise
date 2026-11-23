@@ -135,6 +135,8 @@ type FrontlinerState = {
   kpi: FrontlinerKpi | null;
   session: CashSessionRow | null;
   lastClosingBalance: number | null;
+  lastClosedAt: string | null;
+  lastClosedAuto: boolean;
   report: ShiftReport | null;
 };
 
@@ -144,6 +146,8 @@ function frontlinerState(data: FrontlinerHomeData): FrontlinerState {
     kpi: data.kpi,
     session: data.session,
     lastClosingBalance: data.lastClosingBalance,
+    lastClosedAt: data.lastClosedAt,
+    lastClosedAuto: data.lastClosedAuto,
     report: data.report,
   };
 }
@@ -183,12 +187,19 @@ export function FrontlinerDashboard({
     setData(frontlinerState(initialData));
   }
 
-  const { queue, kpi, session, lastClosingBalance, report } = data;
+  const { queue, kpi, session, lastClosingBalance, lastClosedAt, lastClosedAuto, report } = data;
 
   // Shift yang dibuka kemarin dan belum ditutup tetap menjadi `session` aktif:
   // index unik hanya mengizinkan satu sesi terbuka per karyawan. Rekapnya benar
   // - ia memuat transaksi sejak shift dibuka - tapi judulnya tidak boleh
   // berbunyi "Hari ini", dan pengguna perlu tahu kenapa.
+  const lastClosedTime = lastClosedAt
+    ? new Date(lastClosedAt).toLocaleTimeString("id-ID", {
+        hour: "2-digit",
+        minute: "2-digit",
+        timeZone: "Asia/Jakarta",
+      })
+    : null;
   const shiftDate = report?.date ?? null;
   const staleDate = shiftDate && shiftDate !== kalenderWIB() ? shiftDate : null;
   const pendingHandover = session?.pendingHandover ?? null;
@@ -245,6 +256,8 @@ export function FrontlinerDashboard({
       kpi: kpiResult.ok ? kpiResult.data : prev.kpi,
       session: sessionResult.ok ? sessionResult.data.current : prev.session,
       lastClosingBalance: sessionResult.ok ? sessionResult.data.lastClosingBalance : prev.lastClosingBalance,
+      lastClosedAt: sessionResult.ok ? sessionResult.data.lastClosedAt : prev.lastClosedAt,
+      lastClosedAuto: sessionResult.ok ? sessionResult.data.lastClosedAuto : prev.lastClosedAuto,
       report: sessionResult.ok && !sessionResult.data.current ? null : prev.report,
     }));
 
@@ -328,7 +341,9 @@ export function FrontlinerDashboard({
 
           {!session && lastClosingBalance !== null ? (
             <p className="mt-2 text-xs text-muted-foreground">
-              Shift hari ini sudah ditutup · saldo akhir {rupiah(lastClosingBalance)}. Buka shift baru bila laci dipakai lagi.
+              Shift sebelumnya ditutup{lastClosedAuto ? " oleh sistem" : ""}
+              {lastClosedTime ? ` pukul ${lastClosedTime}` : ""} · saldo akhir{" "}
+              {rupiah(lastClosingBalance)}. Buka shift baru bila laci dipakai lagi.
             </p>
           ) : null}
 
@@ -647,7 +662,9 @@ function RingkasanHariIni({
         <div className={cn("my-2 h-px", world === "scifi" ? "bg-[var(--scifi-canvas)]/25" : "bg-black/[0.08] dark:bg-white/10")} />
         <div className="flex items-baseline justify-between gap-2 px-0.5">
           <span className="text-xs font-medium">Harus ada di laci</span>
-          <span className="text-lg font-semibold leading-none tabular-nums">{rupiah(report.expectedCash)}</span>
+          <span className="min-w-0 truncate text-right text-base font-semibold leading-none tabular-nums sm:text-lg">
+            {rupiah(report.expectedCash)}
+          </span>
         </div>
       </div>
         </FramePanel>
@@ -673,8 +690,8 @@ function RingkasanHariIni({
 function TotalRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-center justify-between gap-2 px-0.5 py-1 text-xs">
-      <span className="opacity-65">{label}</span>
-      <span className="font-medium tabular-nums">{value}</span>
+      <span className="min-w-0 truncate opacity-65">{label}</span>
+      <span className="min-w-0 truncate text-right font-medium tabular-nums">{value}</span>
     </div>
   );
 }
@@ -683,8 +700,8 @@ function TotalRow({ label, value }: { label: string; value: string }) {
 function Row({ label, value }: { label: string; value: string }) {
   return (
     <li className="flex items-center justify-between gap-2 rounded-lg bg-black/[0.04] px-2.5 py-2 dark:bg-white/[0.06]">
-      <span className="text-xs opacity-65">{label}</span>
-      <span className="font-medium tabular-nums">{value}</span>
+      <span className="min-w-0 truncate text-xs opacity-65">{label}</span>
+      <span className="min-w-0 truncate text-right font-medium tabular-nums">{value}</span>
     </li>
   );
 }

@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { getWaTemplate, type WaTemplateKey } from "./wa-templates";
 import {
   buildServisMasukParameters,
@@ -42,7 +42,19 @@ const shift: ShiftMessageInput = {
 
 const names = (params: { parameter_name: string }[]) => params.map((p) => p.parameter_name);
 
+afterEach(() => vi.unstubAllEnvs());
+
 describe("custom WA template registry", () => {
+  it("membaca nama template dari env lama STATUS/TECHNICIAN", () => {
+    vi.stubEnv("META_WA_TEMPLATE_STATUS", "status-lama-v1");
+    vi.stubEnv("META_WA_TEMPLATE_TECHNICIAN", "teknisi-lama-v1");
+    vi.stubEnv("META_WA_TEMPLATE_SERVIS_SIAP", "status-baru-v1");
+    vi.stubEnv("META_WA_TEMPLATE_TEKNISI", "teknisi-baru-v1");
+
+    expect(getWaTemplate("servis_status_customer").name).toBe("status-lama-v1");
+    expect(getWaTemplate("servis_created_technician").name).toBe("teknisi-lama-v1");
+  });
+
   it("bahasa per template sesuai template Meta", () => {
     const expected: Record<WaTemplateKey, "id" | "en"> = {
       servis_created_customer: "id",
