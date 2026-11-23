@@ -41,6 +41,12 @@ export type ShiftMessageInput = {
   shiftCloseTime: string;
   saldoAwal: number;
   saldoAkhir: number;
+  /** Rincian laporan shift versi lengkap (template tutup detail). */
+  servis?: number;
+  penjualan?: number;
+  kasManual?: number;
+  kasDiharapkan?: number;
+  selisih?: number;
 };
 
 /** Nilai yang siap ditampilkan: null kalau kosong, string kalau isi. */
@@ -259,15 +265,25 @@ export function buildShiftOpenParameters(input: ShiftMessageInput): TemplatePara
 }
 
 /** Template `shift_close_v1`. */
+/**
+ * Template tutup shift versi lengkap (14 variabel). Teks statis sengaja
+ * panjang supaya rasio variabel terhadap panjang pesan masih diterima Meta.
+ */
 export function buildShiftClosedParameters(input: ShiftMessageInput): TemplateParameter[] {
   return [
     param("tenant", input.tenant),
     param("cabang", input.cabang),
-    param("user_open", input.userOpen),
-    param("shift_open_time", input.shiftOpenTime),
-    param("user_close", input.userClose),
-    param("shift_close_time", input.shiftCloseTime),
+    param("tanggal", input.date),
+    param("user_buka", input.userOpen),
+    param("jam_buka", input.shiftOpenTime),
+    param("user_tutup", input.userClose),
+    param("jam_tutup", input.shiftCloseTime),
     { type: "text", parameter_name: "saldo_awal", value: rupiahValue(input.saldoAwal) },
+    { type: "text", parameter_name: "servis", value: rupiahValue(input.servis ?? 0) },
+    { type: "text", parameter_name: "penjualan", value: rupiahValue(input.penjualan ?? 0) },
+    { type: "text", parameter_name: "kas_manual", value: rupiahValue(input.kasManual ?? 0) },
+    { type: "text", parameter_name: "kas_diharapkan", value: rupiahValue(input.kasDiharapkan ?? input.saldoAwal) },
     { type: "text", parameter_name: "saldo_akhir", value: rupiahValue(input.saldoAkhir) },
+    { type: "text", parameter_name: "selisih", value: rupiahValue(input.selisih ?? 0) },
   ];
 }

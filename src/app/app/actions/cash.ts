@@ -299,6 +299,11 @@ export async function closeCashSession(input: {
       shiftCloseTime: wibTime(report.closingAt),
       saldoAwal: report.openingBalance,
       saldoAkhir: closing,
+      servis: report.totals.services,
+      penjualan: report.totals.sales,
+      kasManual: report.totals.manualNet,
+      kasDiharapkan: report.expectedCash,
+      selisih: closing - report.expectedCash,
     });
 
     revalidatePath("/app");
