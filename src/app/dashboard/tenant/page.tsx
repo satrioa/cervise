@@ -5,6 +5,7 @@ import { PageTransition } from "@/components/layout/page-transition";
 import { CreateTenantDialog, type TenantCreatePackage } from "@/components/tenant/create-tenant-dialog";
 import { TenantSelectTile } from "@/components/tenant/tenant-select-tile";
 import { selectTenant } from "./actions";
+import { getTrialDays } from "@/lib/pricing/public";
 
 type OrganizationRow = {
   id: string;
@@ -25,7 +26,7 @@ export default async function TenantSelectorPage() {
   const { data: auth } = await supabase.auth.getUser();
   if (!auth.user) redirect("/login?next=/dashboard/tenant");
 
-  const [platformAdminResult, employeesResult, packagesResult] = await Promise.all([
+  const [platformAdminResult, employeesResult, packagesResult, trialDays] = await Promise.all([
     supabase
       .from("platform_admins")
       .select("profile_id")
@@ -42,6 +43,7 @@ export default async function TenantSelectorPage() {
       .select("id, code, name, monthly_price, branch_limit")
       .eq("is_active", true)
       .order("sort_order", { ascending: true }),
+    getTrialDays(),
   ]);
   if (platformAdminResult.error) throw platformAdminResult.error;
   if (employeesResult.error) throw employeesResult.error;
@@ -89,7 +91,7 @@ export default async function TenantSelectorPage() {
 
           {organizationIds.length < MAX_TENANTS ? (
             <div className="flex w-32 sm:w-36">
-              <CreateTenantDialog packages={packages} asTile />
+              <CreateTenantDialog packages={packages} asTile trialDays={trialDays} />
             </div>
           ) : null}
         </div>

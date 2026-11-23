@@ -2,9 +2,10 @@ import { Building2Icon } from "lucide-react";
 import { getOwnerDashboard } from "../actions";
 import { CreateTenantDialog } from "@/components/owner/create-tenant-dialog";
 import { TenantDirectory } from "@/components/owner/tenant-directory";
+import { getTrialDays } from "@/lib/pricing/public";
 
 export default async function OwnerTenantsPage() {
-  const { tenants } = await getOwnerDashboard();
+  const [{ tenants }, trialDays] = await Promise.all([getOwnerDashboard(), getTrialDays()]);
   const activeTenants = tenants.filter((tenant) => tenant.status !== "cancelled");
   const archivedTenants = tenants.filter((tenant) => tenant.status === "cancelled");
 
@@ -18,7 +19,7 @@ export default async function OwnerTenantsPage() {
           <h1 className="mt-1 font-heading text-3xl">Tenants</h1>
           <p className="mt-1 text-sm text-muted-foreground">Semua tenant Kaggo yang berada di bawah platform Anda.</p>
         </div>
-        <CreateTenantDialog />
+        <CreateTenantDialog trialDays={trialDays} />
       </div>
       <TenantDirectory tenants={activeTenants} archivedTenants={archivedTenants} />
     </div>

@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { fetchLoginAccess, resolveLoginAccess } from "@/lib/auth/login-access";
 import { redirect } from "next/navigation";
 import { OnboardingStepper } from "@/components/onboarding/stepper";
+import { getTrialDays } from "@/lib/pricing/public";
 
 export default async function OnboardingPage() {
   const supabase = await createClient();
@@ -25,5 +26,5 @@ export default async function OnboardingPage() {
   if (decision.kind === "denied") redirect(`/login?error=${decision.reason}`);
   if (decision.destination !== "/onboarding") redirect(decision.destination);
 
-  return <OnboardingStepper />;
+  return <OnboardingStepper trialDays={await getTrialDays()} />;
 }

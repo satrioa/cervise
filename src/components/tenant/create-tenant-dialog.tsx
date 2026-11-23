@@ -23,9 +23,11 @@ export type TenantCreatePackage = {
 export function CreateTenantDialog({
   packages,
   asTile = false,
+  trialDays = 5,
 }: {
   packages: TenantCreatePackage[];
   asTile?: boolean;
+  trialDays?: number;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -93,7 +95,7 @@ export function CreateTenantDialog({
               </div>
               <div>
                 <DialogPrimitive.Title className="font-heading text-base font-semibold">Buat Tenant Baru</DialogPrimitive.Title>
-                <DialogPrimitive.Description className="text-xs text-muted-foreground">Tenant baru mendapat trial 14 hari.</DialogPrimitive.Description>
+                <DialogPrimitive.Description className="text-xs text-muted-foreground">Tenant baru mendapat trial {trialDays} hari.</DialogPrimitive.Description>
               </div>
             </div>
             <div className="space-y-4 px-6 py-4">
@@ -120,7 +122,7 @@ export function CreateTenantDialog({
                   ))}
                 </select>
               </div>
-              <p className="rounded-lg bg-muted/50 p-3 text-xs text-muted-foreground">Trial 14 hari dibuat otomatis. Paket berbayar membuat invoice dan aktif setelah pembayaran diverifikasi platform admin.</p>
+              <p className="rounded-lg bg-muted/50 p-3 text-xs text-muted-foreground">Trial {trialDays} hari dibuat otomatis. Paket berbayar aktif otomatis setelah pembayaran diterima.</p>
             </div>
             <div className="flex justify-end gap-2 border-t bg-muted/20 px-6 py-3">
               <Button variant="outline" onClick={() => setOpen(false)} disabled={saving}>Batal</Button>

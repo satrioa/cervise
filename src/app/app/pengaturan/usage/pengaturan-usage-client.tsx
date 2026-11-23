@@ -137,9 +137,7 @@ export default function UsagePage({
     status: invoiceStatus(inv.status),
   }));
 
-  const note = billing.contact.owner_whatsapp
-    ? `Transfer lalu kirim bukti ke WhatsApp ${billing.contact.owner_whatsapp}. Tagihan aktif setelah pembayaran diverifikasi platform owner.`
-    : "Transfer lalu kirim bukti pembayaran ke platform owner. Tagihan aktif setelah pembayaran diverifikasi.";
+  const note = "Bayar tagihan secara online. Tagihan aktif otomatis setelah pembayaran diterima.";
 
   const last7 = useMemo(() => {
     const map = new Map<string, number>();
@@ -300,7 +298,10 @@ export default function UsagePage({
               ) : (
                 branchCounts.map(([branch, cnt]) => (
                   <div key={branch} className="flex items-center justify-between rounded-lg border p-3">
-                    <span className="font-mono text-xs">{branch.slice(0, 8)}</span>
+                    <span className="text-xs">
+                      {branches.find((b) => b.id === branch)?.name ??
+                        (branch === "pusat" ? "Cabang Pusat" : "Cabang tidak dikenal")}
+                    </span>
                     <Badge variant="secondary" className="font-mono">{cnt} servis</Badge>
                   </div>
                 ))

@@ -19,11 +19,12 @@ import {
   type CustomPricingInput,
 } from "@/lib/pricing/v2";
 import { requestCustomQuote, type PublicPackage } from "@/lib/pricing/public";
+import { DEFAULT_TRIAL_DAYS } from "@/lib/pricing/trial-days";
 
 type Period = "monthly" | "annual";
 
 function priceFor(pkg: PublicPackage, period: Period) {
-  if (pkg.code === "trial") return { amount: 0, cadence: `${pkg.trial_days ?? 5} hari gratis` };
+  if (pkg.code === "trial") return { amount: 0, cadence: `${pkg.trial_days ?? DEFAULT_TRIAL_DAYS} hari gratis` };
   // Custom tidak menampilkan angka: harga dihitung dari kebutuhan tenant.
   if (pkg.code === "custom") return { amount: null, cadence: "Custom" };
   if (period === "monthly") return { amount: pkg.monthly_price, cadence: "/bulan" };
@@ -163,7 +164,7 @@ export function PricingThreeTier({ packages, isLoggedIn }: { packages: PublicPac
         <div className="font-mono text-[10px] text-muted-foreground uppercase tracking-[0.3em]">Harga</div>
         <h2 className="mt-2 font-heading text-4xl tracking-tight md:text-5xl">Harga Transparan &amp; Fleksibel</h2>
         <p className="mx-auto mt-3 max-w-xl text-balance text-muted-foreground text-sm">
-          Mulai gratis {trial?.trial_days ?? 5} hari. Bayar bulanan atau tahunan — kapasitas tetap di-reset tiap bulan. Upgrade kapan saja.
+          Mulai gratis {trial?.trial_days ?? DEFAULT_TRIAL_DAYS} hari. Bayar bulanan atau tahunan — kapasitas tetap di-reset tiap bulan. Upgrade kapan saja.
         </p>
         <div className="mt-6 inline-flex rounded-full border p-1">
           {(["monthly", "annual"] as const).map((value) => (

@@ -3,6 +3,7 @@ import { ArrowRightIcon, Building2Icon, CircleDollarSignIcon, Clock3Icon, Packag
 import { getOwnerDashboard } from "./actions";
 import { formatRupiah } from "@/lib/format";
 import { CreateTenantDialog } from "@/components/owner/create-tenant-dialog";
+import { getTrialDays } from "@/lib/pricing/public";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -39,7 +40,10 @@ function statusVariant(status: string) {
 
 export default async function OwnerDashboard({ searchParams }: { searchParams?: Promise<{ page?: string; pageSize?: string }> }) {
   const sp = (await searchParams) ?? {};
-  const { tenants: allTenants, stats, widgets } = await getOwnerDashboard();
+  const [{ tenants: allTenants, stats, widgets }, trialDays] = await Promise.all([
+    getOwnerDashboard(),
+    getTrialDays(),
+  ]);
   const storageBytes = widgets.storage.reduce((total, bucket) => total + Number(bucket.bytes ?? 0), 0);
   const storageObjects = widgets.storage.reduce((total, bucket) => total + Number(bucket.objects ?? 0), 0);
   const pageSize = [10, 20, 50].includes(Number(sp.pageSize)) ? Number(sp.pageSize) : 10;
@@ -55,7 +59,7 @@ export default async function OwnerDashboard({ searchParams }: { searchParams?: 
           <h1 className="mt-1 font-heading text-3xl">Owner overview</h1>
           <p className="mt-1 text-sm text-muted-foreground">Kelola tenant Kaggo, paket, renewal, dan akses staff dari satu tempat.</p>
         </div>
-        <CreateTenantDialog />
+        <CreateTenantDialog trialDays={trialDays} />
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -151,7 +155,7 @@ export default async function OwnerDashboard({ searchParams }: { searchParams?: 
             <TableHeader><TableRow><TableHead>Tenant</TableHead><TableHead>Paket</TableHead><TableHead>Status</TableHead><TableHead>Harga / bulan</TableHead><TableHead>Cabang</TableHead><TableHead>Periode / trial</TableHead><TableHead /></TableRow></TableHeader>
             <TableBody>
               {tenants.length === 0 ? (
-                <TableRow><TableCell colSpan={7} className="py-10 text-center text-sm text-muted-foreground">Belum ada tenant. Buat tenant pertama untuk memulai trial 14 hari.</TableCell></TableRow>
+                <TableRow><TableCell colSpan={7} className="py-10 text-center text-sm text-muted-foreground">Belum ada tenant. Buat tenant pertama untuk memulai trial {trialDays} hari.</TableCell></TableRow>
               ) : tenants.map((tenant) => (
                 <TableRow key={tenant.id}>
                   <TableCell><div className="font-medium">{tenant.name}</div><div className="font-mono text-xs text-muted-foreground">{tenant.owner_email ?? tenant.slug}</div></TableCell>

@@ -8,7 +8,7 @@ describe("logo Kaggo", () => {
   it("dipakai pada brand mark login, signup, navbar landing, dan footer menu compact", () => {
     for (const file of [
       "src/app/login/page.tsx",
-      "src/app/signup/page.tsx",
+      "src/app/signup/signup-form.tsx",
       "src/components/originkit/hero-02.tsx",
       "src/components/layout/compact-menu-sheet.tsx",
     ]) {
@@ -18,7 +18,7 @@ describe("logo Kaggo", () => {
   });
 
   it("logo di login/signup menuju landing page", () => {
-    for (const file of ["src/app/login/page.tsx", "src/app/signup/page.tsx"]) {
+    for (const file of ["src/app/login/page.tsx", "src/app/signup/signup-form.tsx"]) {
       const src = read(file);
       expect(src, file).toMatch(/href="\/"[\s\S]*?aria-label="Ke beranda Kaggo"/);
       expect(src, file).toContain("/Logo/IconLogo.png?v=2");

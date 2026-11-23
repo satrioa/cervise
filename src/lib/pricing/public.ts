@@ -9,6 +9,7 @@ import {
   type CustomPricingInput,
 } from "./v2";
 import { buildCustomQuoteWhatsAppUrl } from "@/lib/custom-package-whatsapp";
+import { DEFAULT_TRIAL_DAYS } from "./trial-days";
 
 export type PublicPackage = {
   code: string;
@@ -30,6 +31,19 @@ export type PublicPackage = {
   wa_per_ticket_block: number | null;
   annual_multiplier: number | null;
 };
+
+/** Durasi trial dari paket `trial` di database; 5 hanya fallback. */
+export async function getTrialDays(): Promise<number> {
+  const supabase = createAdminClient();
+  const { data } = await supabase
+    .from("packages")
+    .select("trial_days")
+    .eq("code", "trial")
+    .eq("is_active", true)
+    .maybeSingle();
+  const days = Number(data?.trial_days);
+  return Number.isFinite(days) && days > 0 ? days : DEFAULT_TRIAL_DAYS;
+}
 
 export async function getPublicPackages(): Promise<PublicPackage[]> {
   const supabase = createAdminClient();

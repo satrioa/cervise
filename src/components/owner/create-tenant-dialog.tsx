@@ -12,7 +12,7 @@ import { createTenant } from "@/app/owner/actions";
 import { TempPasswordDialog } from "@/components/temp-password-dialog";
 import { playPageTransition } from "@/components/layout/page-transition";
 
-export function CreateTenantDialog() {
+export function CreateTenantDialog({ trialDays = 5 }: { trialDays?: number }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
@@ -70,7 +70,7 @@ export function CreateTenantDialog() {
               </div>
               <div>
                 <DialogPrimitive.Title className="font-heading text-base font-semibold">Buat Tenant Baru</DialogPrimitive.Title>
-                <DialogPrimitive.Description className="text-xs text-muted-foreground">Tenant otomatis mendapat trial 14 hari.</DialogPrimitive.Description>
+                <DialogPrimitive.Description className="text-xs text-muted-foreground">Tenant otomatis mendapat trial {trialDays} hari.</DialogPrimitive.Description>
               </div>
             </div>
             <div className="space-y-4 px-6 py-4">
@@ -86,7 +86,7 @@ export function CreateTenantDialog() {
                 <Label htmlFor="owner-phone">WhatsApp Owner *</Label>
                 <Input id="owner-phone" value={ownerPhone} onChange={(event) => setOwnerPhone(event.target.value)} placeholder="08xxxxxxxxxx" inputMode="tel" />
               </div>
-              <p className="rounded-lg bg-muted/50 p-3 text-xs text-muted-foreground">Trial 14 hari dibuat otomatis. Pembayaran renewal dan aktivasi paket dikonfirmasi lewat WhatsApp.</p>
+              <p className="rounded-lg bg-muted/50 p-3 text-xs text-muted-foreground">Trial {trialDays} hari dibuat otomatis. Paket aktif otomatis setelah pembayaran diterima.</p>
               <p className="rounded-lg bg-muted/50 p-3 text-xs text-muted-foreground">
                 Akun owner dibuat dengan password sementara yang ditampilkan sekali setelah tenant
         dibuat. Saat pertama masuk, sistem akan meminta password baru; password sementara

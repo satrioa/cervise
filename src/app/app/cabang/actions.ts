@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { getActiveTenant } from "@/lib/supabase/actor";
 import { canAccessActor } from "@/lib/rbac";
+import { normalizeAppRole } from "@/lib/nav/manifest";
 import { validWorkHours } from "./work-hours";
 
 function requireCabangAccess(actor: { role: string; permissions?: readonly string[] | null }) {
@@ -34,9 +35,9 @@ export async function getCabangList() {
   const ids = (branches ?? []).map((b: any) => b.id);
   let counts = new Map<string, number>();
   if (ids.length) {
-    const { data: emps } = await supabase.from("employees").select("branch_id").eq("organization_id", orgId).eq("is_active", true).in("branch_id", ids);
+    const { data: emps } = await supabase.from("employees").select("branch_id, role").eq("organization_id", orgId).eq("is_active", true).in("branch_id", ids);
     for (const e of (emps ?? []) as any[]) {
-      if (!e.branch_id) continue;
+      if (!e.branch_id || normalizeAppRole(e.role) !== "TECHNICIAN") continue;
       counts.set(e.branch_id, (counts.get(e.branch_id) ?? 0) + 1);
     }
   }

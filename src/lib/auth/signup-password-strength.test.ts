@@ -23,7 +23,7 @@ function readCode(relativePath: string): string {
     .join("\n");
 }
 
-const signupPage = readCode("src/app/signup/page.tsx");
+const signupPage = readCode("src/app/signup/signup-form.tsx");
 const signupActions = readCode("src/app/signup/actions.ts");
 
 describe("signup password policy is shared, not duplicated", () => {

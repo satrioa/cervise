@@ -92,7 +92,7 @@ export function CompactMenuSheet({
   role: string;
   permissions?: readonly string[] | null;
   actor?: { fullName: string | null; email: string | null; avatarUrl: string | null; role: string };
-  onNavigate?: () => void;
+  onNavigate?: (href?: string) => void;
   onDragYChange?: (value: number) => void;
   onDragEnd?: (delta: number) => void;
 }) {

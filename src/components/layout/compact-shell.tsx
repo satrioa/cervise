@@ -51,6 +51,7 @@ export type CompactShellActor = {
   fullName: string | null;
   email: string | null;
   avatarUrl: string | null;
+  mustChangePassword?: boolean;
 };
 
 // Desktop: panel kiri mengambang, tinggi tetap. Mobile: sheet langsung penuh.
@@ -176,8 +177,10 @@ function CompactShellInner({
         ];
 
   // Saldo awal hanya untuk role yang menjalankan shift kas. TECHNICIAN punya
-  // To-Do sendiri dan tidak pernah membuka laci.
-  const needsCashSession = role === "FRONTLINER";
+  // To-Do sendiri dan tidak pernah membuka laci. Urutan wajib: ganti password
+  // dulu (dialog di app layout), relogin, baru saldo awal — jadi jangan buka
+  // dialog kas selama akun masih memakai password sementara.
+  const needsCashSession = role === "FRONTLINER" && !actor.mustChangePassword;
   const { openCashDialog } = useCashDialog();
 
   useEffect(() => {
