@@ -282,6 +282,7 @@ describe("dispatchPendingNotifications", () => {
         "global-phone-id",
         "id",
         LACAK_PATH,
+        undefined,
       );
       expect(patchFor("o1")).toMatchObject({ state: "sent", last_error: null });
     });
@@ -311,6 +312,7 @@ describe("dispatchPendingNotifications", () => {
         "tenant-phone-id",
         "id",
         LACAK_PATH,
+        undefined,
       );
     });
 
@@ -328,6 +330,7 @@ describe("dispatchPendingNotifications", () => {
         "global-phone-id",
         "id",
         LACAK_PATH,
+        undefined,
       );
     });
 
@@ -401,7 +404,8 @@ describe("dispatchPendingNotifications", () => {
         "status-template",
         expect.arrayContaining([expect.objectContaining({ value: "SRV-2026-0012" })]),
         "global-phone-id",
-        "id",
+        "en",
+        undefined,
         undefined,
       );
     });
@@ -435,6 +439,7 @@ describe("dispatchPendingNotifications", () => {
         "global-phone-id",
         "id",
         LACAK_PATH,
+        undefined,
       );
     });
   });
@@ -556,7 +561,8 @@ describe("dispatchPendingNotifications", () => {
         expect.arrayContaining([expect.objectContaining({ value: "SRV-2026-0012" })]),
         "global-phone-id",
         "en",
-        undefined,
+        expect.stringContaining("/lacak/"),
+        { parameter_name: "nama_teknisi", value: expect.any(String) },
       );
     });
 

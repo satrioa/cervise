@@ -58,7 +58,7 @@ describe("custom WA template registry", () => {
   it("bahasa per template sesuai template Meta", () => {
     const expected: Record<WaTemplateKey, "id" | "en"> = {
       servis_created_customer: "id",
-      servis_status_customer: "id",
+      servis_status_customer: "en",
       servis_created_technician: "en",
       shift_open: "id",
       shift_closed: "en",
@@ -74,25 +74,25 @@ describe("custom WA template registry", () => {
     ]);
   });
 
-  it("placeholder status memakai nama_customer", () => {
+  it("placeholder status sesuai servis_status_customer_v1 (2 param body)", () => {
     expect(names(buildServisStatusParameters(servis))).toEqual([
-      "nama_customer", "device", "service_number",
+      "device", "service_number",
     ]);
   });
 
-  it("placeholder teknisi sesuai servis_baru_teknisi_v1", () => {
+  it("placeholder teknisi sesuai servis_baru_teknisi_v1 (nama di header)", () => {
     expect(names(buildTechnicianParameters(servis))).toEqual([
-      "nama_teknisi", "device", "complaint", "service_number",
+      "device", "complaint", "service_number",
     ]);
   });
 
-  it("placeholder shift open dan close (termasuk date dan user-open)", () => {
+  it("placeholder shift open dan close sesuai template Meta", () => {
     expect(names(buildShiftOpenParameters(shift))).toEqual([
-      "tenant", "cabang", "user-open", "date_open", "saldo_awal",
+      "tenant", "cabang", "user_open", "date_open", "saldo_awal",
     ]);
     expect(names(buildShiftClosedParameters(shift))).toEqual([
-      "tenant", "cabang", "date", "user-open", "shift_open_time",
-      "user-close", "shift_close_time", "saldo_awal", "saldo_akhir",
+      "tenant", "cabang", "user_open", "shift_open_time",
+      "user_close", "shift_close_time", "saldo_awal", "saldo_akhir",
     ]);
   });
 

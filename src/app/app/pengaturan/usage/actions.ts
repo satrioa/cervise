@@ -40,9 +40,6 @@ export async function createTopupOrderAction(packageId: string) {
     .select("invoice_number, amount, wa_message_quantity")
     .eq("id", invoiceId)
     .maybeSingle();
-  revalidatePath("/app/pengaturan/usage");
-  revalidatePath("/app/pengaturan/subscription");
-  revalidatePath("/app/pengaturan/usage/beli");
   return {
     invoiceId,
     invoiceNumber: invoice?.invoice_number ?? "",

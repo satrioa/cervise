@@ -346,7 +346,7 @@ function Breakdown({
   // The charted segment takes the ink, so its swatch matches the line.
   const swatch = (i: number) => SWATCHES[focus === i ? 0 : i % SWATCHES.length];
   return (
-    <div className="mt-4 border-zinc-100 border-t pt-4 dark:border-zinc-900">
+    <div className="mt-auto border-zinc-100 border-t pt-4 dark:border-zinc-900">
       <div aria-hidden className="flex h-1.5 gap-0.5">
         {segments.map((name, i) => (
           <span
@@ -624,7 +624,7 @@ export default function MetricCard({
   return (
     <div
       className={cn(
-        "w-full max-w-md select-none rounded-3xl border border-zinc-200 bg-white p-5 text-zinc-900 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-100",
+        "flex h-full w-full max-w-md flex-col select-none rounded-3xl border border-zinc-200 bg-white p-5 text-zinc-900 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-100",
         className
       )}
     >

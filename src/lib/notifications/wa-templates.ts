@@ -44,7 +44,7 @@ const REGISTRY: Record<WaTemplateKey, RegistryEntry> = {
   },
   servis_status_customer: {
     envKey: "META_WA_TEMPLATE_STATUS",
-    language: "id",
+    language: "en",
     build: (input) => buildServisStatusParameters(input),
   },
   servis_created_technician: {

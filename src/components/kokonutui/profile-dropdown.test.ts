@@ -24,6 +24,18 @@ describe("ProfileDropdown membuka sesuai posisi pill", () => {
   });
 });
 
+describe("HoldSignOut memberi haptic saat tahan selesai", () => {
+  it("haptic dipanggil sebelum onComplete di timer hold", () => {
+    expect(source).toContain('import { haptic } from "@/lib/haptic"');
+    const start = source.indexOf("timer.current = window.setTimeout");
+    expect(start).toBeGreaterThan(-1);
+    const end = source.indexOf("onComplete(via)", start);
+    expect(end).toBeGreaterThan(start);
+    const body = source.slice(start, end);
+    expect(body).toContain("haptic()");
+  });
+});
+
 describe("Avatar ProfileDropdown memakai foto profil", () => {
   it("Account menerima avatarUrl dan avatar merender gambar", () => {
     expect(source).toMatch(/avatarUrl\?: string \| null;/);

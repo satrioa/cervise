@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { CheckIcon } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Stepper, StepperItem } from "@/components/stepper";
 import type { GaransiState } from "@/lib/operational/garansi-meta";
@@ -29,13 +31,14 @@ function formatDateTime(value: string) {
 }
 
 /**
- * Strip status horizontal: semua tahapan servis ditampilkan, tahap aktif
- * berada di tengah (strip digeser ke posisi aktif) dan teks panjang di
- *-clip dengan efek fade di kiri dan kanan.
+ * Strip status horizontal: delapan tahapan dengan kolom yang sama lebar,
+ * connector sejajar dengan tengah lingkaran, dan label dibatasi dua baris.
+ * Di layar kecil strip tetap bisa digeser dan otomatis memusatkan tahap aktif.
  */
 function StatusStrip({ stage }: { stage: Stage }) {
   const stripRef = useRef<HTMLDivElement>(null);
   const current = stageIndex(stage);
+  const cancelled = stage === "Batal";
 
   useEffect(() => {
     const strip = stripRef.current;
@@ -48,21 +51,51 @@ function StatusStrip({ stage }: { stage: Stage }) {
     <div
       ref={stripRef}
       data-stage-strip
-      className="overflow-x-auto scrollbar-none rounded-xl border bg-muted/40 p-3"
-      style={{
-        maskImage: "linear-gradient(to right, transparent 0%, black 14%, black 86%, transparent 100%)",
-        WebkitMaskImage: "linear-gradient(to right, transparent 0%, black 14%, black 86%, transparent 100%)",
-      }}
+      className="overflow-x-auto scrollbar-none rounded-xl border bg-muted/30 px-3 py-3"
     >
-      <Stepper orientation="horizontal" className="w-max min-w-full">
-        {STAGES.map((entry, index) => (
-          <StepperItem
-            key={entry.key}
-            title={entry.label}
-            status={index === current ? "active" : index < current ? "completed" : "default"}
-          />
-        ))}
-      </Stepper>
+      <div className="grid min-w-[34rem] grid-cols-8 sm:min-w-0">
+        {STAGES.map((entry, index) => {
+          const done = index < current && !cancelled;
+          const active = index === current;
+          const future = !done && !active;
+          return (
+            <div
+              key={entry.key}
+              data-status={active ? "active" : done ? "completed" : "default"}
+              className="relative flex flex-col items-center gap-1.5 px-0.5 text-center"
+            >
+              {index > 0 ? (
+                <span
+                  aria-hidden
+                  className={cn(
+                    "absolute left-0 right-1/2 top-3.5 h-0.5",
+                    index <= current && !cancelled ? "bg-primary/60" : "bg-border",
+                  )}
+                />
+              ) : null}
+              <span
+                className={cn(
+                  "relative z-10 flex size-7 shrink-0 items-center justify-center rounded-full border-2 text-[11px] font-semibold transition-colors",
+                  done && "border-primary bg-primary text-primary-foreground",
+                  active && !cancelled && "border-primary bg-primary/10 text-primary ring-4 ring-primary/10",
+                  active && cancelled && "border-destructive bg-destructive/10 text-destructive ring-4 ring-destructive/10",
+                  future && "border-border bg-background text-muted-foreground",
+                )}
+              >
+                {done ? <CheckIcon className="size-3.5" strokeWidth={3} /> : index + 1}
+              </span>
+              <span
+                className={cn(
+                  "min-h-8 max-w-[5.5rem] break-words text-[11px] font-medium leading-tight",
+                  active ? "text-foreground" : "text-muted-foreground",
+                )}
+              >
+                {entry.label}
+              </span>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }

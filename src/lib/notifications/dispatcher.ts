@@ -126,6 +126,7 @@ type Resolved =
       parameters: TemplateParameter[];
       phoneNumberId: string;
       buttonUrl?: string;
+      header?: { parameter_name: string; value: string };
     }
   | { skip: string };
 
@@ -270,6 +271,10 @@ function resolveRow(
     language: template.language,
     parameters: template.build(input),
     phoneNumberId,
+    header: { parameter_name: "nama_teknisi", value: input.technicianName || "-" },
+    buttonUrl: input.trackingCode
+      ? `${input.tenantSlug ?? "app"}/lacak/${input.trackingCode}`
+      : undefined,
   };
 }
 
@@ -470,6 +475,7 @@ export async function dispatchPendingNotifications(
           resolved.phoneNumberId,
           resolved.language,
           resolved.buttonUrl,
+          resolved.header,
         );
       } catch (error) {
         // Hanya kegagalan yang memang soal nomor atau isi pesannya yang

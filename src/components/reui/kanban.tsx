@@ -31,6 +31,7 @@ import {
   MeasuringStrategy,
   MouseSensor,
   TouchSensor,
+  useDndContext,
   useSensor,
   useSensors,
   type DraggableAttributes,
@@ -860,9 +861,11 @@ function KanbanColumnContent({
   value,
   className,
   render,
+  children,
   ...props
 }: KanbanColumnContentProps) {
-  const { columns, getItemId } = useContext(KanbanContext)
+  const { columns, getItemId, isColumn } = useContext(KanbanContext)
+  const { active, over } = useDndContext()
 
   const itemIds = useMemo(() => {
     const items = columns[value]
@@ -875,10 +878,30 @@ function KanbanColumnContent({
     return items.map(getItemId)
   }, [columns, getItemId, value])
 
+  // dnd-kit tidak membuat placeholder untuk kontainer kosong: tanpa ini tidak
+  // ada petunjuk drop sama sekali saat kartu melintas di kolom yang kosong.
+  const isOver = over?.id === value && active != null && !isColumn(active.id)
+  const content =
+    itemIds.length === 0 ? (
+      <div
+        data-slot="kanban-column-placeholder"
+        className={cn(
+          "pointer-events-none flex min-h-20 items-center justify-center rounded-lg border border-dashed px-3 text-center text-xs transition-colors",
+          isOver
+            ? "border-primary bg-primary/5 text-primary"
+            : "border-border text-muted-foreground/60"
+        )}
+      >
+        Lepas kartu di sini
+      </div>
+    ) : (
+      children
+    )
+
   const defaultProps = {
     "data-slot": "kanban-column-content",
     className: cn("flex flex-col gap-2", className),
-    children: props.children,
+    children: content,
   }
 
   return (
@@ -927,7 +950,7 @@ function KanbanOverlay({ children, className, ...props }: KanbanOverlayProps) {
     <DragOverlay
       dropAnimation={dropAnimationConfig}
       modifiers={modifiers}
-      className={cn("z-50", activeId && "cursor-grabbing", className)}
+      className={cn("z-40", activeId && "cursor-grabbing", className)}
       {...props}
     >
       <IsOverlayContext.Provider value={true}>

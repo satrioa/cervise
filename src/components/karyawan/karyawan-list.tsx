@@ -13,7 +13,8 @@ import { Select, SelectItem, SelectPopup, SelectTrigger, SelectValue } from "@/c
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Pagination } from "@/components/ui/pagination";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { KaryawanFormDialog, TempPasswordDialog } from "./karyawan-form-dialog";
+import { KaryawanFormDialog } from "./karyawan-form-dialog";
+import { TempPasswordDialog } from "@/components/temp-password-dialog";
 import { deleteKaryawan, resetKaryawanPassword, setKaryawanActive, updateKaryawan } from "@/app/app/karyawan/actions";
 import type { KaryawanRow } from "@/app/app/karyawan/actions";
 import { playPageTransition } from "@/components/layout/page-transition";

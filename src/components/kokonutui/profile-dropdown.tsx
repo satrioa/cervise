@@ -44,6 +44,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { haptic } from "@/lib/haptic";
 import { cn } from "@/lib/utils";
 
 export interface Account {
@@ -405,6 +406,7 @@ function HoldSignOut({
       timer.current = undefined;
       setHolding(false);
       setDone(true);
+      haptic();
       onComplete(via);
     }, duration);
   };
