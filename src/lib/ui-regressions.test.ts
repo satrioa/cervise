@@ -30,6 +30,12 @@ describe("regresi UI", () => {
     expect(layout).toContain("mustChangePassword: Boolean(actor.mustChangePassword)");
   });
 
+  it("bar bawah kartu KPI menempel di tepi bawah kartu", () => {
+    const source = read("src/components/kokonutui/metric-card.tsx");
+    expect(source).toContain('"flex h-full w-full max-w-md flex-col select-none');
+    expect(source).toContain('className="mt-auto border-zinc-100 border-t pt-4');
+  });
+
   it("semua link internal di shell dipaksa navigasi penuh (tidak memicu removeChild SPA)", () => {
     for (const file of [
       "src/components/layout/compact-shell.tsx",
