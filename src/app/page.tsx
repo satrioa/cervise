@@ -87,7 +87,7 @@ export default async function LandingPage() {
       <FeatureShowcase />
 
       <section id="harga">
-        <PricingThreeTier packages={packages} />
+        <PricingThreeTier packages={packages} isLoggedIn={isLoggedIn} />
       </section>
 
       {promo ? <SpecialPromoSection promo={promo} /> : null}

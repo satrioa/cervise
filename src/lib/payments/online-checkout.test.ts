@@ -67,6 +67,7 @@ describe(" UI tidak menyebut nama gateway", () => {
   const files = [
     "src/components/billing/topup-purchase-flow.tsx",
     "src/components/billing/wa-topup-panel.tsx",
+    "src/components/billing/tenant-billing-view.tsx",
     "src/app/app/pengaturan/usage/beli/page.tsx",
     "src/app/owner/settings/page.tsx",
   ];

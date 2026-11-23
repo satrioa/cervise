@@ -11,6 +11,7 @@ export type CheckoutInput = {
   firstName: string;
   email: string;
   phone?: string | null;
+  returnPath?: string;
 };
 
 export type CheckoutConfig = {
@@ -35,7 +36,8 @@ export function checkoutEndpoint(isProduction: boolean) {
 
 export function buildCheckoutPayload(input: CheckoutInput) {
   const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL ?? "https://kaggo.app").replace(/\/$/, "");
-  const returnUrl = `${siteUrl}/app/pengaturan/usage/beli`;
+  const returnPath = input.returnPath?.startsWith("/") ? input.returnPath : "/app/pengaturan/usage/beli";
+  const returnUrl = `${siteUrl}${returnPath}`;
   return {
     transaction_details: {
       order_id: input.orderId,

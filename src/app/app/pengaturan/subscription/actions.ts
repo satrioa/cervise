@@ -4,6 +4,10 @@ import { revalidatePath } from "next/cache";
 import { getActiveTenantForBilling } from "@/lib/supabase/actor";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { canAccessActor } from "@/lib/rbac";
+import {
+  createCheckoutRedirect,
+  readCheckoutConfig,
+} from "@/lib/payments/online-checkout";
 
 function requireSubscriptionAccess(actor: { role: string; permissions?: readonly string[] | null }) {
   if (!canAccessActor(actor, "pengaturan_subscription")) {
@@ -163,4 +167,45 @@ export async function requestPackage(packageId: string) {
 
   revalidatePath("/app/pengaturan/subscription");
   return { invoiceId: data as string };
+}
+
+/** Membuat sesi checkout online untuk invoice paket yang masih pending. */
+export async function createSubscriptionCheckoutAction(invoiceId: string) {
+  const actor = await getActiveTenantForBilling();
+  if (!canAccessActor(actor, "pengaturan_subscription")) {
+    throw new Error("Role tidak diizinkan mengakses billing");
+  }
+  if (!invoiceId) throw new Error("Invoice tidak valid");
+
+  const config = readCheckoutConfig();
+  if (!config) throw new Error("Pembayaran online belum tersedia. Hubungi admin.");
+
+  const admin = createAdminClient();
+  const [{ data: invoice, error: invoiceError }, { data: profile }] = await Promise.all([
+    admin
+      .from("invoices")
+      .select("id, invoice_number, amount, status, invoice_type, organization_id")
+      .eq("id", invoiceId)
+      .eq("organization_id", actor.orgId)
+      .in("invoice_type", ["upgrade", "renewal"])
+      .maybeSingle(),
+    admin.from("profiles").select("full_name, email, phone").eq("id", actor.userId ?? "").maybeSingle(),
+  ]);
+  if (invoiceError) throw invoiceError;
+  if (!invoice) throw new Error("Invoice paket tidak ditemukan");
+  if (invoice.status !== "pending") throw new Error("Invoice sudah diproses");
+
+  const redirectUrl = await createCheckoutRedirect(
+    {
+      orderId: invoice.invoice_number,
+      grossAmount: invoice.amount,
+      firstName: profile?.full_name ?? "Pelanggan Kaggo",
+      email: profile?.email ?? "",
+      phone: profile?.phone,
+      returnPath: "/app/pengaturan/subscription",
+    },
+    config,
+  );
+
+  return { redirectUrl };
 }

@@ -104,7 +104,7 @@ export function ShiftExportBar({
         document.body.appendChild(area);
         area.select();
         document.execCommand("copy");
-        document.body.removeChild(area);
+        area.remove();
       }
       toast.success("Teks laporan disalin");
     } catch (cause) {

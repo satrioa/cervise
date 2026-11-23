@@ -2,7 +2,6 @@
 // beui.dev/components/motion/pull-to-refresh
 
 import {
-  AnimatePresence,
   animate,
   type MotionValue,
   motion,
@@ -535,18 +534,17 @@ export function PullToRefresh({
           reduce={Boolean(reduce)}
         />
         <span className="relative h-4 min-w-24 text-center">
-          <AnimatePresence initial={false} mode="wait">
-            <motion.span
-              key={status}
-              initial={reduce ? { opacity: 0 } : { opacity: 0, y: 3 }}
-              animate={reduce ? { opacity: 1 } : { opacity: 1, y: 0 }}
-              exit={reduce ? { opacity: 0 } : { opacity: 0, y: -3 }}
-              transition={LABEL_SWAP}
-              className="absolute inset-x-0 whitespace-nowrap"
-            >
-              {label}
-            </motion.span>
-          </AnimatePresence>
+          {/* Tanpa AnimatePresence: exit animation yang tertunda bisa membuang
+              node saat parent sudah unmount (removeChild dari null). */}
+          <motion.span
+            key={status}
+            initial={reduce ? { opacity: 0 } : { opacity: 0, y: 3 }}
+            animate={reduce ? { opacity: 1 } : { opacity: 1, y: 0 }}
+            transition={LABEL_SWAP}
+            className="absolute inset-x-0 whitespace-nowrap"
+          >
+            {label}
+          </motion.span>
         </span>
       </motion.div>
 

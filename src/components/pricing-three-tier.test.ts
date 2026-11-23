@@ -65,6 +65,19 @@ describe("kalkulator Pay as You Grow", () => {
   });
 });
 
+describe("CTA paket berbayar", () => {
+  it("tidak membuka WhatsApp admin", () => {
+    expect(source).not.toContain("wa.me");
+    expect(source).not.toContain("NEXT_PUBLIC_CONTACT_WHATSAPP");
+  });
+
+  it("mengarahkan ke alur pembayaran di dalam aplikasi", () => {
+    expect(source).toContain(': "/app/pengaturan/subscription"');
+    expect(source).toContain('? "/signup"');
+    expect(source).toContain("isLoggedIn: boolean");
+  });
+});
+
 describe("tabel perbandingan paket", () => {
   it("dibungkus Card dengan header dan panel", () => {
     expect(source).toMatch(/import \{[\s\S]*?Card,[\s\S]*?CardHeader,[\s\S]*?CardPanel[\s\S]*?\} from "@\/components\/ui\/card"/);

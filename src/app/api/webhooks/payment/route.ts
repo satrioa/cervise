@@ -9,7 +9,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 
 export const runtime = "nodejs";
 
-/** Webhook pembayaran: verifikasi tanda tangan, lalu setujui invoice & isi kuota. */
+/** Webhook pembayaran: verifikasi tanda tangan, lalu setujui invoice & aplikasikan fulfillment. */
 export async function POST(request: Request) {
   const serverKey = process.env.MIDTRANS_SERVER_KEY?.trim();
   if (!serverKey) {
@@ -64,13 +64,13 @@ export async function POST(request: Request) {
     .from("invoices")
     .select("id, invoice_number, amount, status, invoice_type, organization_id")
     .eq("invoice_number", orderId)
-    .eq("invoice_type", "topup")
+    .in("invoice_type", ["topup", "upgrade", "renewal"])
     .maybeSingle();
   if (invoiceError) {
     return NextResponse.json({ error: "lookup_failed" }, { status: 500 });
   }
   if (!invoice) {
-    // Bukan invoice top-up kita — abaikan supaya gateway tidak retry.
+    // Bukan invoice pembayaran kita — abaikan supaya gateway tidak retry.
     return NextResponse.json({ received: true, ignored: true });
   }
   if (invoice.amount !== paidAmount) {
@@ -105,6 +105,7 @@ export async function POST(request: Request) {
 
   revalidatePath("/app/pengaturan/usage");
   revalidatePath("/app/pengaturan/usage/beli");
+  revalidatePath("/app/pengaturan/subscription");
   revalidatePath("/owner/billing");
   return NextResponse.json({ received: true, approved: true });
 }

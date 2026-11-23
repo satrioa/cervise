@@ -22,8 +22,6 @@ import { requestCustomQuote, type PublicPackage } from "@/lib/pricing/public";
 
 type Period = "monthly" | "annual";
 
-const CONTACT = process.env.NEXT_PUBLIC_CONTACT_WHATSAPP;
-
 function priceFor(pkg: PublicPackage, period: Period) {
   if (pkg.code === "trial") return { amount: 0, cadence: `${pkg.trial_days ?? 5} hari gratis` };
   // Custom tidak menampilkan angka: harga dihitung dari kebutuhan tenant.
@@ -120,7 +118,7 @@ function GroupRows({ group, packages }: { group: FeatureGroup; packages: PublicP
   );
 }
 
-export function PricingThreeTier({ packages }: { packages: PublicPackage[] }) {
+export function PricingThreeTier({ packages, isLoggedIn }: { packages: PublicPackage[]; isLoggedIn: boolean }) {
   const [period, setPeriod] = useState<Period>("monthly");
   const [calculatorPeriod, setCalculatorPeriod] = useState<Period>("monthly");
   const trial = packages.find((p) => p.code === "trial");
@@ -255,8 +253,11 @@ export function PricingThreeTier({ packages }: { packages: PublicPackage[] }) {
                   className="mt-6 w-full"
                   render={
                     <Link
-                      href={pkg.code === "trial" ? "/signup" : CONTACT ? `https://wa.me/${CONTACT.replace(/\D/g, "")}` : "#harga"}
-                      target={pkg.code === "trial" ? undefined : "_blank"}
+                      href={
+                        pkg.code === "trial" || !isLoggedIn
+                          ? "/signup"
+                          : "/app/pengaturan/subscription"
+                      }
                     >
                       {pkg.code === "trial" ? "Mulai Trial" : "Pilih Paket"}
                     </Link>
