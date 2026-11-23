@@ -265,20 +265,26 @@ export function buildShiftOpenParameters(input: ShiftMessageInput): TemplatePara
 }
 
 /** Template `shift_close_v1`. */
+/**
+ * Template tutup shift versi ringkas: 6 variabel. Meta membatasi rasio
+ * jumlah variabel terhadap panjang pesan, jadi nilai yang berhubungan
+ * digabung dalam satu variabel teks.
+ */
 export function buildShiftClosedParameters(input: ShiftMessageInput): TemplateParameter[] {
+  const rupiah = (value: number) => rupiahValue(value);
+  const waktu = `${input.date} | ${input.shiftOpenTime}-${input.shiftCloseTime} | buka ${input.userOpen} | tutup ${input.userClose}`;
+  const kas = [
+    `Awal ${rupiah(input.saldoAwal)}`,
+    `Servis ${rupiah(input.servis ?? 0)}`,
+    `Penjualan ${rupiah(input.penjualan ?? 0)}`,
+    `Kas manual ${rupiah(input.kasManual ?? 0)}`,
+    `Diharapkan ${rupiah(input.kasDiharapkan ?? input.saldoAwal)}`,
+  ].join(" | ");
   return [
     param("tenant", input.tenant),
     param("cabang", input.cabang),
-    param("tanggal", input.date),
-    param("user_buka", input.userOpen),
-    param("jam_buka", input.shiftOpenTime),
-    param("user_tutup", input.userClose),
-    param("jam_tutup", input.shiftCloseTime),
-    { type: "text", parameter_name: "saldo_awal", value: rupiahValue(input.saldoAwal) },
-    { type: "text", parameter_name: "servis", value: rupiahValue(input.servis ?? 0) },
-    { type: "text", parameter_name: "penjualan", value: rupiahValue(input.penjualan ?? 0) },
-    { type: "text", parameter_name: "kas_manual", value: rupiahValue(input.kasManual ?? 0) },
-    { type: "text", parameter_name: "kas_diharapkan", value: rupiahValue(input.kasDiharapkan ?? input.saldoAwal) },
+    param("waktu", waktu),
+    param("kas", kas),
     { type: "text", parameter_name: "saldo_akhir", value: rupiahValue(input.saldoAkhir) },
     { type: "text", parameter_name: "selisih", value: rupiahValue(input.selisih ?? 0) },
   ];
