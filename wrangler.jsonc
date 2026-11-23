@@ -24,6 +24,6 @@
     "enabled": true
   },
   "vars": {
-    "MIDTRANS_IS_PRODUCTION": "false"
+    "MIDTRANS_IS_PRODUCTION": "true"
   }
 }
