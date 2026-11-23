@@ -362,6 +362,21 @@ function AppShellInner({ children, actor }: { children: React.ReactNode; actor: 
   const [showTopFade, setShowTopFade] = useState(false);
   const [showBottomFade, setShowBottomFade] = useState(false);
 
+  // Sama seperti compact shell: soft navigation memicu removeChild saat commit.
+  useEffect(() => {
+    const handler = (event: MouseEvent) => {
+      if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+      const anchor = (event.target as HTMLElement | null)?.closest("a");
+      if (!anchor) return;
+      const href = anchor.getAttribute("href");
+      if (!href || href.startsWith("#") || href.startsWith("http") || href.startsWith("mailto:") || href.startsWith("tel:")) return;
+      event.preventDefault();
+      window.location.assign(href);
+    };
+    document.addEventListener("click", handler, true);
+    return () => document.removeEventListener("click", handler, true);
+  }, []);
+
   const updateFade = useCallback(() => {
     const el = scrollRef.current;
     if (!el) return;

@@ -30,14 +30,17 @@ describe("regresi UI", () => {
     expect(layout).toContain("mustChangePassword: Boolean(actor.mustChangePassword)");
   });
 
-  it("link menu sheet memakai navigasi penuh (tidak memicu removeChild SPA)", () => {
+  it("semua link internal di shell dipaksa navigasi penuh (tidak memicu removeChild SPA)", () => {
     for (const file of [
-      "src/components/layout/menu-operational.tsx",
-      "src/components/layout/menu-analytic.tsx",
+      "src/components/layout/compact-shell.tsx",
+      "src/components/layout/app-shell.tsx",
     ]) {
       const source = read(file);
-      expect(source, file).not.toContain('from "next/link"');
-      expect(source, file).toContain("<a");
+      expect(source, file).toContain('document.addEventListener("click", handler, true)');
+      expect(source, file).toContain("window.location.assign(href)");
     }
+    expect(read("src/components/layout/command-palette.tsx")).toContain(
+      "window.location.assign(href)",
+    );
   });
 });

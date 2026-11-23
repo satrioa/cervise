@@ -5,7 +5,7 @@ import { join } from "node:path";
 const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8");
 const component = read("src/components/owner/tenant-danger-zone.tsx");
 const actions = read("src/app/owner/actions.ts");
-const page = read("src/app/owner/tenants/[id]/page.tsx");
+const page = read("src/app/owner/tenants/[id]/page.tsx").replace(/\r\n/g, "\n");
 
 describe("archiveTenant", () => {
   const action = () => {
