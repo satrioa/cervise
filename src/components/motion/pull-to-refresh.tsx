@@ -228,6 +228,12 @@ function RefreshBuddy({
   );
 }
 
+/** Pull-to-refresh hanya untuk perangkat sentuh; desktop memakai scroll biasa. */
+function isTouchPullEnabled(): boolean {
+  if (typeof window === "undefined") return false;
+  return window.matchMedia("(pointer: coarse)").matches;
+}
+
 export function PullToRefresh({
   onRefresh,
   children,
@@ -377,6 +383,7 @@ export function PullToRefresh({
 
     const onTouchStart = (event: TouchEvent) => {
       if (
+        !isTouchPullEnabled() ||
         event.touches.length !== 1 ||
         root.scrollTop > 0 ||
         disabledRef.current ||
@@ -439,6 +446,7 @@ export function PullToRefresh({
     // which can `preventDefault` the page scroll a passive React handler
     // cannot. A pen fires no touch events at all, so this is its only route.
     if (
+      !isTouchPullEnabled() ||
       event.pointerType === "touch" ||
       event.button !== 0 ||
       event.currentTarget.scrollTop > 0 ||
@@ -502,10 +510,9 @@ export function PullToRefresh({
         // only the pull itself suppresses selection, and only while it runs,
         // so dragging the page down cannot highlight it on the way.
         TOUCH_GESTURE_CONTENT_CLASS,
-        status === "pulling" || status === "ready"
-          ? "cursor-grabbing select-none"
-          : "cursor-grab",
-        (disabled || isRefreshing) && "cursor-default",
+        "cursor-default [@media(pointer:coarse)]:cursor-grab",
+        (status === "pulling" || status === "ready") &&
+          "[@media(pointer:coarse)]:cursor-grabbing [@media(pointer:coarse)]:select-none",
         className,
       )}
     >
