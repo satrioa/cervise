@@ -37,6 +37,9 @@ export interface SwipeActionsRowProps {
   fullSwipe?: boolean;
   children: ReactNode;
   className?: string;
+  /** Diteruskan dari pembungkus (mis. ServisContextMenu) untuk tap biasa. */
+  onClick?: (event: ReactMouseEvent<HTMLDivElement>) => void;
+  onContextMenu?: (event: ReactMouseEvent<HTMLElement>) => void;
 }
 
 type Side = "leading" | "trailing";
@@ -87,7 +90,7 @@ function velocityOf(samples: [number, number][]) {
   return elapsed > 0 ? (last[1] - first[1]) / elapsed : 0;
 }
 
-export function SwipeActionsRow({ label, leading = [], trailing = [], fullSwipe = true, children, className }: SwipeActionsRowProps) {
+export function SwipeActionsRow({ label, leading = [], trailing = [], fullSwipe = true, children, className, onClick, onContextMenu }: SwipeActionsRowProps) {
   const { openId, setOpenId, rows } = useContext(GroupContext);
   const id = useId();
   const reduced = useReducedMotion() ?? false;
@@ -285,7 +288,7 @@ export function SwipeActionsRow({ label, leading = [], trailing = [], fullSwipe 
     ? { opacity: 0, transition: { duration: motionTokens.duration.fast } }
     : { height: 0, opacity: 0, transition: { height: { ...motionTokens.spring.smooth, delay: .12 }, opacity: { duration: motionTokens.duration.instant, delay: .34 } } };
 
-  return <motion.li ref={rowRef} className={[styles.row, className].filter(Boolean).join(" ")} style={{ "--swipe-action-width": `${ACTION}px` } as CSSProperties}
+  return <motion.li ref={rowRef} onContextMenu={onContextMenu} className={[styles.row, className].filter(Boolean).join(" ")} style={{ "--swipe-action-width": `${ACTION}px` } as CSSProperties}
     initial={reduced ? { opacity: 0 } : { height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={collapse}
     transition={reduced ? { duration: motionTokens.duration.fast } : { height: motionTokens.spring.smooth, opacity: { duration: motionTokens.duration.standard, ease: [...motionTokens.ease.enter] } }}>
     {(["leading", "trailing"] as const).map(side => actionsOf(side).map((action, index) => {
@@ -294,7 +297,7 @@ export function SwipeActionsRow({ label, leading = [], trailing = [], fullSwipe 
       const coverRank = covering?.side === side ? (side === "leading" ? count - 1 - covering.index : covering.index) : null;
       return <ActionLayer key={`${side}-${index}`} action={action} side={side} rank={rank} count={count} coverRank={coverRank} x={x} cover={cover} onPress={() => commit(side, index)} />;
     }))}
-    <motion.div className={styles.content} style={{ x }} onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerEnd} onPointerCancel={onPointerEnd} onClickCapture={onClickCapture}>
+    <motion.div className={styles.content} style={{ x }} onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerEnd} onPointerCancel={onPointerEnd} onClickCapture={onClickCapture} onClick={onClick}>
       <div className={styles.body}>{children}</div>
       {menuItems.length > 0 && <Menu.Root open={menuOpen} onOpenChange={setMenuOpen}>
         {/* Opens on click rather than on press, so a swipe that starts on the button still moves the row. */}
