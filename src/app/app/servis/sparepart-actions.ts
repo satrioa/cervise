@@ -1,6 +1,5 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { servisBill, servisOutstanding } from "@/lib/operational/servis-price";
 import { getActiveTenant } from "@/lib/supabase/actor";
 import { sanitizeSearchTerm } from "@/lib/search-term";
@@ -157,7 +156,6 @@ export async function useSparepartsForServis(servisId: string, items: SparepartU
     p_set_status: true,
   });
 
-  revalidatePath("/app/servis");
   return { ok: true };
 }
 
@@ -172,7 +170,6 @@ export async function addSparepartsToServis(servisId: string, items: SparepartUs
     p_set_status: false,
   });
 
-  revalidatePath("/app/servis");
   return { ok: true };
 }
 
@@ -186,7 +183,6 @@ export async function removeServisSparepart(sparepartId: string, reason: string)
     p_reason: note,
   });
 
-  revalidatePath("/app/servis");
   return { ok: true };
 }
 
@@ -211,7 +207,6 @@ export async function cancelServisWithSpareparts(
     p_note: note,
   });
 
-  revalidatePath("/app/servis");
   return { ok: true };
 }
 
@@ -264,7 +259,6 @@ export async function confirmServisPickup(servisId: string, signature: string, n
     p_note: note?.trim() ? note.trim() : null,
   });
 
-  revalidatePath("/app/servis");
   return { ok: true };
 }
 
@@ -282,6 +276,5 @@ export async function updateServisStatus(servisId: string, nextStatus: string, n
     p_note: note?.trim() ? note.trim() : null,
   });
 
-  revalidatePath("/app/servis");
   return { ok: true };
 }
