@@ -30,6 +30,11 @@ describe("regresi UI", () => {
     expect(layout).toContain("mustChangePassword: Boolean(actor.mustChangePassword)");
   });
 
+  it("action servis tidak revalidate saat dipanggil dari client transition", () => {
+    const source = read("src/app/app/servis/sparepart-actions.ts");
+    expect(source).not.toContain("revalidatePath");
+  });
+
   it("swipe action meneruskan onClick agar tap kartu membuka sheet", () => {
     const source = read("src/components/arc/swipe-actions/swipe-actions.tsx");
     expect(source).toContain("onClick?: (event: ReactMouseEvent<HTMLDivElement>) => void");
