@@ -57,6 +57,12 @@ function toCalendarDate(date: Date): string {
   return kalenderWIB(date);
 }
 
+/** Format tanggal pada template WA tutup shift: DD-MM-YYYY (WIB). */
+function toWaCalendarDate(date: Date): string {
+  const [year, month, day] = toCalendarDate(date).split("-");
+  return `${day}-${month}-${year}`;
+}
+
 function wibDate(value: string | Date): string {
   return new Intl.DateTimeFormat("id-ID", {
     dateStyle: "medium",
@@ -294,7 +300,7 @@ export async function closeCashSession(input: {
       ...closeNames,
       userOpen: report.employeeName ?? "",
       userClose: closedByName ?? "",
-      date: toCalendarDate(new Date(report.date)),
+      date: toWaCalendarDate(new Date(report.date)),
       shiftOpenTime: wibTime(report.openAt),
       shiftCloseTime: wibTime(report.closingAt),
       saldoAwal: report.openingBalance,
