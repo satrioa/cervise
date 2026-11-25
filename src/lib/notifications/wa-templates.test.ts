@@ -82,7 +82,7 @@ describe("custom WA template registry", () => {
 
   it("placeholder teknisi sesuai servis_baru_teknisi_v1 (nama di header)", () => {
     expect(names(buildTechnicianParameters(servis))).toEqual([
-      "teknisi", "device", "complaint", "service_number",
+      "nama_teknisi", "device", "complaint", "service_number",
     ]);
   });
 
