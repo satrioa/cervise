@@ -111,6 +111,45 @@ async function createCheckoutInner(invoiceId: string): Promise<CheckoutResult> {
   return { ok: true, redirectUrl };
 }
 
+export type CancelTopupResult = { ok: true } | { ok: false; error: string };
+
+/** Batalkan invoice top-up yang belum dibayar. Tidak menyentuh saldo kuota. */
+export async function cancelTopupOrderAction(invoiceId: string): Promise<CancelTopupResult> {
+  if (!invoiceId) return { ok: false, error: "Invoice tidak valid" };
+
+  try {
+    const actor = await requireUsageActor();
+    const admin = createAdminClient();
+    const { data: invoice, error: lookupError } = await admin
+      .from("invoices")
+      .select("id, status, invoice_type, organization_id")
+      .eq("id", invoiceId)
+      .eq("organization_id", actor.orgId)
+      .eq("invoice_type", "topup")
+      .maybeSingle();
+    if (lookupError) return { ok: false, error: actionErrorMessage(lookupError, "Gagal memeriksa invoice") };
+    if (!invoice) return { ok: false, error: "Invoice top-up tidak ditemukan" };
+    if (invoice.status !== "pending") return { ok: false, error: "Invoice sudah diproses" };
+
+    // Gunakan update bersyarat supaya dua klik bersamaan tidak keduanya sukses.
+    const { data: updated, error: updateError } = await admin
+      .from("invoices")
+      .update({ status: "voided", decision_note: "Dibatalkan oleh tenant" })
+      .eq("id", invoiceId)
+      .eq("organization_id", actor.orgId)
+      .eq("invoice_type", "topup")
+      .eq("status", "pending")
+      .select("id");
+    if (updateError) return { ok: false, error: actionErrorMessage(updateError, "Gagal membatalkan invoice") };
+    if (!updated || updated.length === 0) {
+      return { ok: false, error: "Invoice sudah dibatalkan atau diproses" };
+    }
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, error: actionErrorMessage(error, "Gagal membatalkan invoice") };
+  }
+}
+
 export async function uploadPaymentProofAction(formData: FormData) {
   const actor = await requireUsageActor();
   const invoiceId = String(formData.get("invoiceId") ?? "");

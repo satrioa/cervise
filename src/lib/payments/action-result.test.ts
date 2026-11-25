@@ -31,4 +31,17 @@ describe("hasil aksi pembelian", () => {
     expect(topup).toContain("toast.error(result.error)");
     expect(billing).toContain("toast.error(result.error)");
   });
+
+  it("invoice top-up bisa dibatalkan hanya saat pending", () => {
+    const action = read("src/app/app/pengaturan/usage/actions.ts");
+    expect(action).toContain("cancelTopupOrderAction");
+    expect(action).toContain('.eq("status", "pending")');
+    expect(action).toContain('status: "voided"');
+    expect(action).toContain('if (invoice.status !== "pending")');
+
+    const ui = read("src/components/billing/topup-purchase-flow.tsx");
+    expect(ui).toContain("cancelTopupOrderAction");
+    expect(ui).toContain("Batalkan");
+    expect(ui).toContain('invoice.status === "voided" ? "Dibatalkan"');
+  });
 });
