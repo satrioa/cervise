@@ -26,8 +26,6 @@ import { jam, logStatus, logStatusLabel, type LogRow, workDuration } from "./kio
 
 export function KioskClient({ name, today, rows }: { name: string; today: string; rows: LogRow[] }) {
   const videoRef = useRef<HTMLVideoElement>(null);
-  const fileRef = useRef<HTMLInputElement>(null);
-  const pendingKindRef = useRef<"check_in" | "check_out" | null>(null);
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [lokasi, setLokasi] = useState<{ lat: number; lng: number } | null>(null);
   const [pending, startTransition] = useTransition();
@@ -108,15 +106,8 @@ export function KioskClient({ name, today, rows }: { name: string; today: string
     );
   }
 
-  function absen(kind: "check_in" | "check_out", chosenFile?: File) {
-    // Tanpa kamera, tombol absen membuka pemilih foto. Server tetap
-    // memvalidasi file yang sama seperti hasil tangkapan kamera.
-    if (!chosenFile && cameraError) {
-      pendingKindRef.current = kind;
-      fileRef.current?.click();
-      return;
-    }
-    void (chosenFile ? Promise.resolve(chosenFile) : capture()).then((file) => {
+  function absen(kind: "check_in" | "check_out") {
+    void capture().then((file) => {
       if (!file) {
         toast.error("Selfie belum siap. Coba lagi.");
         return;
@@ -164,27 +155,7 @@ export function KioskClient({ name, today, rows }: { name: string; today: string
           className="h-full w-full object-cover"
         />
       </div>
-      <input
-        ref={fileRef}
-        type="file"
-        accept="image/jpeg,image/png,image/webp"
-        className="hidden"
-        onChange={(e) => {
-          const file = e.target.files?.[0];
-          const kind = pendingKindRef.current;
-          pendingKindRef.current = null;
-          e.target.value = "";
-          if (file && kind) absen(kind, file);
-        }}
-      />
-      {cameraError ? (
-        <div className="space-y-1 text-center">
-          <p className="text-sm text-destructive">{cameraError}</p>
-          <p className="text-xs text-muted-foreground">
-            Ketuk tombol Absen Masuk / Pulang untuk memilih foto selfie dari galeri.
-          </p>
-        </div>
-      ) : null}
+      {cameraError ? <p className="text-center text-sm text-destructive">{cameraError}</p> : null}
 
       <div className="grid grid-cols-2 gap-3">
         <Button disabled={pending || sudahMasuk} onClick={() => absen("check_in")}>
