@@ -82,8 +82,15 @@ describe("custom WA template registry", () => {
 
   it("placeholder teknisi sesuai servis_baru_teknisi_v1 (nama di header)", () => {
     expect(names(buildTechnicianParameters(servis))).toEqual([
-      "teknisi", "device", "complaint", "service_number",
+      "device", "complaint", "service_number",
     ]);
+    const template = getWaTemplate("servis_created_technician");
+    expect(template.header?.({ ...servis, technicianName: "Budi" })).toEqual({
+      parameter_name: "nama_teknisi", value: "Budi",
+    });
+    expect(template.button?.({ ...servis, tenantSlug: "ekaservice", trackingCode: "ABC123" })).toBe(
+      "ekaservice/lacak/ABC123",
+    );
   });
 
   it("placeholder shift open dan close sesuai template Meta", () => {

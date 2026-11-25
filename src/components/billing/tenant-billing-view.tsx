@@ -55,10 +55,15 @@ export function TenantBillingView({ data, trialDays }: { data: BillingData; tria
   const checkoutInvoice = async (invoiceId: string, loadingKey: string) => {
     setLoadingPackage(loadingKey);
     try {
-      const { redirectUrl } = await createSubscriptionCheckoutAction(invoiceId);
+      const result = await createSubscriptionCheckoutAction(invoiceId);
+      if (!result.ok) {
+        toast.error(result.error);
+        setLoadingPackage(null);
+        return;
+      }
       playPageTransition();
       // Redirect penuh ke halaman pembayaran; bukan router.push (gateway di luar app).
-      window.location.assign(redirectUrl);
+      window.location.assign(result.redirectUrl);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Gagal membuka pembayaran");
       setLoadingPackage(null);
@@ -68,8 +73,13 @@ export function TenantBillingView({ data, trialDays }: { data: BillingData; tria
   const choosePackage = async (packageId: string) => {
     setLoadingPackage(packageId);
     try {
-      const { invoiceId } = await requestPackage(packageId);
-      await checkoutInvoice(invoiceId, packageId);
+      const request = await requestPackage(packageId);
+      if (!request.ok) {
+        toast.error(request.error);
+        setLoadingPackage(null);
+        return;
+      }
+      await checkoutInvoice(request.invoiceId, packageId);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Gagal membuat permintaan paket");
       setLoadingPackage(null);

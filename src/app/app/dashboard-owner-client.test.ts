@@ -19,8 +19,25 @@ describe("KPI Omzet dashboard owner", () => {
 
   it("menampilkan trend perubahan dibanding periode sebelumnya", () => {
     expect(source).toMatch(/Naik|Turun/);
-    expect(source).toContain("dibandingkan kemarin");
+    expect(source).toContain("vs kemarin");
+    expect(source).toContain("vs ${PERIOD_LABEL[period]} lalu");
     expect(source).not.toContain("Keluar ${formatCurrencyPlain(summary.pengeluaran)}");
+  });
+
+  it("judul KPI selalu satu baris", () => {
+    expect(source).toContain('label: "Konfirmasi"');
+    expect(source).not.toContain('label: "Menunggu konfirmasi"');
+    expect(source).toContain("min-w-0 truncate font-mono text-[10px] uppercase tracking-[0.25em]");
+    expect(source).toContain('title={label}');
+  });
+
+  it("meta KPI satu baris tanpa pill warna-warni", () => {
+    expect(source).not.toContain('trend: "up"');
+    expect(source).not.toContain('trend: "down"');
+    expect(source).not.toContain("dibanding ${PERIOD_LABEL[period]} sebelumnya");
+    expect(source).toContain("tone: \"neutral\" as const");
+    expect(source).toContain("<span className=\"truncate\">{meta}</span>");
+    expect(source).toContain("mt-0.5 truncate text-xs text-muted-foreground/70");
   });
 
   it("mengambil omzet periode sebelumnya dari server", () => {

@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { CheckIcon, CreditCardIcon } from "lucide-react";
 import { toast } from "sonner";
 import {
+  cancelTopupOrderAction,
   createCheckoutAction,
   createTopupOrderAction,
 } from "@/app/app/pengaturan/usage/actions";
@@ -60,6 +61,10 @@ export function TopupPurchaseFlow({
     startTransition(async () => {
       try {
         const result = await createTopupOrderAction(item.id);
+        if (!result.ok) {
+          toast.error(result.error);
+          return;
+        }
         setSelected(item);
         setOrder({
           invoiceId: result.invoiceId,
@@ -83,6 +88,10 @@ export function TopupPurchaseFlow({
     startTransition(async () => {
       try {
         const result = await createCheckoutAction(order.invoiceId);
+        if (!result.ok) {
+          toast.error(result.error);
+          return;
+        }
         window.location.assign(result.redirectUrl);
       } catch (error) {
         toast.error(error instanceof Error ? error.message : "Pembayaran tidak dapat dimulai");
@@ -104,6 +113,26 @@ export function TopupPurchaseFlow({
       quantity: invoice.wa_message_quantity,
     });
     setStep(1);
+  };
+
+  const cancelOrder = (invoice: InvoiceItem) => {
+    if (!window.confirm(`Batalkan invoice ${invoice.invoice_number}? Tindakan ini tidak bisa dibatalkan.`)) return;
+    setBusy(true);
+    startTransition(async () => {
+      const result = await cancelTopupOrderAction(invoice.id);
+      setBusy(false);
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
+      toast.success("Invoice dibatalkan");
+      if (order?.invoiceId === invoice.id) {
+        setOrder(null);
+        setSelected(null);
+        setStep(0);
+      }
+      playPageTransition();
+    });
   };
 
   return (
@@ -193,13 +222,18 @@ export function TopupPurchaseFlow({
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Badge variant={invoice.status === "approved" ? "success" : invoice.status === "rejected" ? "destructive" : "warning"}>
-                    {invoice.status === "approved" ? "Lunas" : invoice.status === "rejected" ? "Ditolak" : "Menunggu pembayaran"}
+                  <Badge variant={invoice.status === "approved" ? "success" : invoice.status === "rejected" ? "destructive" : invoice.status === "voided" ? "outline" : "warning"}>
+                    {invoice.status === "approved" ? "Lunas" : invoice.status === "rejected" ? "Ditolak" : invoice.status === "voided" ? "Dibatalkan" : "Menunggu pembayaran"}
                   </Badge>
                   {invoice.status === "pending" ? (
-                    <Button size="sm" variant="ghost" onClick={() => continueOrder(invoice)}>
-                      Lanjut bayar
-                    </Button>
+                    <>
+                      <Button size="sm" variant="ghost" disabled={busy} onClick={() => continueOrder(invoice)}>
+                        Lanjut bayar
+                      </Button>
+                      <Button size="sm" variant="outline" disabled={busy} onClick={() => cancelOrder(invoice)}>
+                        Batalkan
+                      </Button>
+                    </>
                   ) : null}
                 </div>
               </div>

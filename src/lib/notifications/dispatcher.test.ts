@@ -561,8 +561,8 @@ describe("dispatchPendingNotifications", () => {
         expect.arrayContaining([expect.objectContaining({ value: "SRV-2026-0012" })]),
         "global-phone-id",
         "en",
-        undefined,
-        undefined,
+        expect.any(String),
+        expect.objectContaining({ parameter_name: "nama_teknisi" }),
       );
     });
 

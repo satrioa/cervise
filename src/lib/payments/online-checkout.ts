@@ -19,12 +19,21 @@ export type CheckoutConfig = {
   isProduction: boolean;
 };
 
+/**
+ * Kunci sandbox selalu diawali `SB-Mid-`. Kalau flag produksi salah nyala,
+ * prefix kunci tetap menang supaya request tidak dikirim ke endpoint produksi.
+ */
+export function resolveIsProduction(serverKey: string, flag: string | undefined): boolean {
+  if (serverKey.startsWith("SB-Mid-")) return false;
+  return flag === "true";
+}
+
 export function readCheckoutConfig(): CheckoutConfig | null {
   const serverKey = process.env.MIDTRANS_SERVER_KEY?.trim();
   if (!serverKey) return null;
   return {
     serverKey,
-    isProduction: process.env.MIDTRANS_IS_PRODUCTION === "true",
+    isProduction: resolveIsProduction(serverKey, process.env.MIDTRANS_IS_PRODUCTION),
   };
 }
 
@@ -62,23 +71,35 @@ export async function createCheckoutRedirect(
   input: CheckoutInput,
   config: CheckoutConfig,
 ): Promise<string> {
-  const response = await fetch(checkoutEndpoint(config.isProduction), {
-    method: "POST",
-    headers: {
-      Accept: "application/json",
-      "Content-Type": "application/json",
-      Authorization: `Basic ${Buffer.from(`${config.serverKey}:`).toString("base64")}`,
-    },
-    body: JSON.stringify(buildCheckoutPayload(input)),
-    cache: "no-store",
-  });
+  let response: Response;
+  try {
+    response = await fetch(checkoutEndpoint(config.isProduction), {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+        Authorization: `Basic ${Buffer.from(`${config.serverKey}:`).toString("base64")}`,
+      },
+      body: JSON.stringify(buildCheckoutPayload(input)),
+      cache: "no-store",
+    });
+  } catch {
+    throw new Error("Gagal menghubungi gateway pembayaran. Coba lagi beberapa saat.");
+  }
 
   const body = (await response.json().catch(() => ({}))) as {
     redirect_url?: string;
     error_messages?: string[];
   };
   if (!response.ok || !body.redirect_url) {
-    throw new Error("Pembayaran belum bisa diproses. Coba lagi beberapa saat.");
+    // Sertakan status + pesan gateway (tanpa kunci/header) supaya penyebab
+    // terlihat di toast, bukan React error #441 yang samar.
+    const detail = Array.isArray(body.error_messages)
+      ? body.error_messages.join("; ").slice(0, 300)
+      : "";
+    throw new Error(
+      `Pembayaran belum bisa diproses (HTTP ${response.status})${detail ? `: ${detail}` : ""}. Hubungi admin bila berlanjut.`,
+    );
   }
   return body.redirect_url;
 }

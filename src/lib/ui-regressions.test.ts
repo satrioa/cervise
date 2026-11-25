@@ -30,6 +30,16 @@ describe("regresi UI", () => {
     expect(layout).toContain("mustChangePassword: Boolean(actor.mustChangePassword)");
   });
 
+  it("halaman notifikasi WA tersedia di navigasi platform owner", () => {
+    const nav = read("src/components/owner/owner-navigation.tsx");
+    expect(nav).toContain('href: "/owner/notifications"');
+    expect(nav).toContain("Notifikasi WA");
+    const page = read("src/app/owner/notifications/page.tsx");
+    expect(page).toContain("requirePlatformAdmin()");
+    expect(page).toContain("createAdminClient()");
+    expect(page).toContain("cervise_notification_outbox");
+  });
+
   it("action servis tidak revalidate saat dipanggil dari client transition", () => {
     const source = read("src/app/app/servis/sparepart-actions.ts");
     expect(source).not.toContain("revalidatePath");

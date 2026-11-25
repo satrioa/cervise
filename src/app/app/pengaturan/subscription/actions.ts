@@ -7,6 +7,7 @@ import {
   createCheckoutRedirect,
   readCheckoutConfig,
 } from "@/lib/payments/online-checkout";
+import { actionErrorMessage } from "@/lib/payments/action-result";
 
 function requireSubscriptionAccess(actor: { role: string; permissions?: readonly string[] | null }) {
   if (!canAccessActor(actor, "pengaturan_subscription")) {
@@ -144,7 +145,19 @@ export async function getTenantBilling() {
   };
 }
 
-export async function requestPackage(packageId: string) {
+export type PackageRequestResult =
+  | { ok: true; invoiceId: string }
+  | { ok: false; error: string };
+
+export async function requestPackage(packageId: string): Promise<PackageRequestResult> {
+  try {
+    return await requestPackageInner(packageId);
+  } catch (error) {
+    return { ok: false, error: actionErrorMessage(error, "Gagal mengajukan paket") };
+  }
+}
+
+async function requestPackageInner(packageId: string): Promise<PackageRequestResult> {
   // `getActiveTenantForBilling`, bukan `Strict`: tenant yang trial-nya habis
   // harus tetap bisa membuat invoice. Aktivasi paketnya nanti dilakukan
   // platform owner lewat `approveInvoice`, yang tidak bergantung pada
@@ -164,11 +177,23 @@ export async function requestPackage(packageId: string) {
   });
   if (error) throw error;
 
-  return { invoiceId: data as string };
+  return { ok: true, invoiceId: data as string };
 }
 
+export type SubscriptionCheckoutResult =
+  | { ok: true; redirectUrl: string }
+  | { ok: false; error: string };
+
 /** Membuat sesi checkout online untuk invoice paket yang masih pending. */
-export async function createSubscriptionCheckoutAction(invoiceId: string) {
+export async function createSubscriptionCheckoutAction(invoiceId: string): Promise<SubscriptionCheckoutResult> {
+  try {
+    return await createSubscriptionCheckoutInner(invoiceId);
+  } catch (error) {
+    return { ok: false, error: actionErrorMessage(error, "Pembayaran tidak dapat dimulai") };
+  }
+}
+
+async function createSubscriptionCheckoutInner(invoiceId: string): Promise<SubscriptionCheckoutResult> {
   const actor = await getActiveTenantForBilling();
   if (!canAccessActor(actor, "pengaturan_subscription")) {
     throw new Error("Role tidak diizinkan mengakses billing");
@@ -205,5 +230,5 @@ export async function createSubscriptionCheckoutAction(invoiceId: string) {
     config,
   );
 
-  return { redirectUrl };
+  return { ok: true, redirectUrl };
 }

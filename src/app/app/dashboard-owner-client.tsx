@@ -25,6 +25,7 @@ import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
 import { ServisForm } from "@/components/servis/servis-form";
 import { useBranch } from "@/lib/branch-context";
 import { formatCurrencyPlain, formatNumberPlain } from "@/lib/format";
+import { cn } from "@/lib/utils";
 import { getDashboardData, type DashboardData } from "@/app/app/actions";
 import {
   DASHBOARD_PERIODS,
@@ -78,14 +79,14 @@ export default function DashboardOwnerClient() {
   const summary = data?.summary;
 
   const omzetChange = (() => {
-    if (!data || !summary) return { delta: "", trend: "neutral" as const };
+    if (!data || !summary) return { meta: "", tone: "neutral" as const };
     const previous = data.previousOmzet;
-    if (previous <= 0) return { delta: "Belum ada data sebelumnya", trend: "neutral" as const };
+    if (previous <= 0) return { meta: "Belum ada data sebelumnya", tone: "neutral" as const };
     const pct = Math.round(((summary.omzet - previous) / previous) * 100);
-    const comparison = period === "hari ini" ? "dibandingkan kemarin" : `dibanding ${PERIOD_LABEL[period]} sebelumnya`;
+    const comparison = period === "hari ini" ? "vs kemarin" : `vs ${PERIOD_LABEL[period]} lalu`;
     return {
-      delta: `${pct >= 0 ? "Naik" : "Turun"} ${Math.abs(pct)}% ${comparison}`,
-      trend: (pct >= 0 ? "up" : "down") as "up" | "down",
+      meta: `${pct >= 0 ? "Naik" : "Turun"} ${Math.abs(pct)}% · ${comparison}`,
+      tone: (pct >= 0 ? "positive" : "negative") as "positive" | "negative",
     };
   })();
 
@@ -94,40 +95,40 @@ export default function DashboardOwnerClient() {
         {
           label: "Total servis",
           value: formatNumberPlain(summary.totalServis),
-          delta: `${formatNumberPlain(summary.pendingKonfirmasi)} menunggu`,
-          trend: "neutral" as const,
+          meta: `${formatNumberPlain(summary.pendingKonfirmasi)} menunggu konfirmasi`,
+          tone: "neutral" as const,
           sub: PERIOD_LABEL[period],
           sparkline: summary.buckets.map((b) => b.masuk),
         },
         {
           label: `Omzet ${PERIOD_LABEL[period]}`,
           value: formatCurrencyPlain(summary.omzet),
-          delta: omzetChange.delta,
-          trend: omzetChange.trend,
+          meta: omzetChange.meta,
+          tone: omzetChange.tone,
           sub: data?.branchLabel ?? branch.label,
           sparkline: summary.buckets.map((b) => b.masuk),
         },
         {
           label: "Garansi aktif",
           value: formatNumberPlain(summary.garansiAktif),
-          delta: "berlaku",
-          trend: "neutral" as const,
+          meta: "masih berlaku",
+          tone: "neutral" as const,
           sub: "belum expired",
           sparkline: summary.buckets.map((b) => b.masuk),
         },
         {
-          label: "Menunggu konfirmasi",
+          label: "Konfirmasi",
           value: formatNumberPlain(summary.pendingKonfirmasi),
-          delta: summary.pendingKonfirmasi > 0 ? "perlu follow up" : "aman",
-          trend: summary.pendingKonfirmasi > 0 ? ("down" as const) : ("up" as const),
+          meta: summary.pendingKonfirmasi > 0 ? "perlu follow up" : "tidak ada yang tertunda",
+          tone: summary.pendingKonfirmasi > 0 ? ("negative" as const) : ("positive" as const),
           sub: data?.branchLabel ?? branch.label,
           sparkline: summary.buckets.map((b) => b.masuk),
         },
         {
           label: "Piutang",
           value: formatCurrencyPlain(summary.piutang),
-          delta: summary.piutang > 0 ? "perlu ditagih" : "aman",
-          trend: summary.piutang > 0 ? ("down" as const) : ("up" as const),
+          meta: summary.piutang > 0 ? "perlu ditagih" : "lunas",
+          tone: summary.piutang > 0 ? ("negative" as const) : ("positive" as const),
           sub: "saldo berjalan",
           sparkline: summary.buckets.map((b) => b.masuk),
         },
@@ -167,8 +168,8 @@ export default function DashboardOwnerClient() {
                     <Skeleton className="size-4 rounded-full" />
                   </div>
                   <Skeleton className="mt-2 h-8 w-28" />
-                  <div className="mt-2 flex items-center gap-1.5">
-                    <Skeleton className="h-4 w-16 rounded" />
+                  <div className="mt-2 flex flex-col gap-1.5">
+                    <Skeleton className="h-3 w-24" />
                     <Skeleton className="h-3 w-20" />
                   </div>
                 </div>
@@ -244,24 +245,28 @@ function PeriodFilter({
 function StatCard({
   label,
   value,
-  delta,
-  trend,
+  meta,
+  tone,
   sub,
   sparkline,
 }: {
   label: string;
   value: string;
-  delta: string;
-  trend: "up" | "down" | "neutral";
+  meta: string;
+  tone: "positive" | "negative" | "neutral";
   sub: string;
   sparkline?: number[];
 }) {
-  const Up = trend === "up";
   return (
     <div className="min-w-0 overflow-hidden rounded-xl border border-border/60 bg-background/40 p-4">
-      <div className="flex items-center justify-between">
-        <div className="font-mono text-[10px] text-muted-foreground uppercase tracking-[0.25em]">{label}</div>
-        <button type="button" className="text-muted-foreground/60 transition-colors hover:text-foreground">
+      <div className="flex min-w-0 items-center justify-between gap-2">
+        <span
+          title={label}
+          className="min-w-0 truncate font-mono text-[10px] uppercase tracking-[0.25em] text-muted-foreground"
+        >
+          {label}
+        </span>
+        <button type="button" className="shrink-0 text-muted-foreground/60 transition-colors hover:text-foreground">
           <MoreHorizontalIcon className="size-4" />
         </button>
       </div>
@@ -271,21 +276,20 @@ function StatCard({
       >
         {value}
       </div>
-      <div className="mt-1 flex min-w-0 items-center gap-1.5 text-xs">
-        {trend === "neutral" ? (
-          <span className="inline-flex min-w-0 items-start gap-0.5 rounded bg-foreground/[0.06] px-1.5 py-0.5 font-mono text-[10px] leading-snug text-muted-foreground">
-            {delta}
-          </span>
-        ) : (
-          <span
-            className={`inline-flex min-w-0 items-start gap-0.5 rounded px-1.5 py-0.5 font-mono text-[10px] leading-snug ${Up ? "bg-emerald-500/12 text-emerald-600 dark:text-emerald-400" : "bg-rose-500/12 text-rose-600 dark:text-rose-400"}`}
-          >
-            {Up ? <ArrowUpRightIcon className="size-3" /> : <ArrowDownRightIcon className="size-3" />}
-            {delta}
-          </span>
+      {/* Satu baris meta, tanpa pill: arah tren cukup ditandai ikon kecil. */}
+      <div
+        className={cn(
+          "mt-1 flex min-w-0 items-center gap-1 text-xs",
+          tone === "positive" && "text-emerald-600 dark:text-emerald-400",
+          tone === "negative" && "text-rose-600 dark:text-rose-400",
+          tone === "neutral" && "text-muted-foreground",
         )}
-        <span className="text-muted-foreground">{sub}</span>
+      >
+        {tone === "positive" ? <ArrowUpRightIcon className="size-3 shrink-0" /> : null}
+        {tone === "negative" ? <ArrowDownRightIcon className="size-3 shrink-0" /> : null}
+        <span className="truncate">{meta}</span>
       </div>
+      <div className="mt-0.5 truncate text-xs text-muted-foreground/70">{sub}</div>
       {sparkline && sparkline.length > 1 ? (
         <div className="mt-2 h-8">
           <BarSparkline data={sparkline.map((v, i) => ({ v, i }))} dataKey="v" height={32} />
