@@ -94,15 +94,6 @@ function initials(name?: string | null) {
   return name.trim().split(/\s+/).slice(0, 2).map((w) => w[0]?.toUpperCase()).join("") || "?";
 }
 
-function formatInvoiceNo(createdAt: string | null, id: string) {
-  try {
-    const d = createdAt ? new Date(createdAt) : new Date();
-    return `INV-${format(d, "ddMMyyyyHHmmss")}`;
-  } catch {
-    return `INV-${id.slice(0, 8).toUpperCase()}`;
-  }
-}
-
 type TimelineSeverity = "info" | "warn" | "danger";
 interface TimelineEvent {
   actor: string;
@@ -202,7 +193,6 @@ export function ServisDetailView({ data }: Props) {
   // `price` DB tidak pernah diisi lewat UI; nominal sebenarnya ada di estimasi.
   const price = servisPrice(d.price, d.price_estimasi);
   const createdAt = d.created_at ?? d.date ?? null;
-  const invoiceNo = formatInvoiceNo(createdAt, id);
   const merk = d.merk ?? d.device?.split(" ")[0] ?? "—";
   const tipe = d.tipe ?? d.device?.split(" ").slice(1).join(" ") ?? "—";
   const imei1 = d.imei1 ?? "—";
@@ -302,7 +292,7 @@ export function ServisDetailView({ data }: Props) {
                   <CalendarIcon className="size-3" />
                   {createdAt ? format(new Date(createdAt), "d MMM yyyy", { locale: localeId }) : "—"}
                 </span>
-                <span className="font-mono text-xs rounded bg-muted px-2 py-1 border border-primary/20">Nomor Invoice: {invoiceNo}</span>
+                <span className="font-mono text-xs rounded bg-muted px-2 py-1 border border-primary/20">Nomor Servis: {serviceNumber}</span>
                 <Badge variant={status === "Sudah Diambil" ? "default" : status === "Selesai" ? "secondary" : "outline"} className="capitalize">
                   {status}
                 </Badge>

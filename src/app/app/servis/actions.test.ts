@@ -1,19 +1,55 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { deleteServis, getServisDeleteImpact } from "./actions";
+import { createServis, deleteServis, getServisDeleteImpact, type CreateServisPayload } from "./actions";
 
 const mocks = vi.hoisted(() => {
   const state = {
     service: null as { id: string; device: string; kerusakan: string[] } | null,
+    priorService: null as { id: string } | null,
+    createdId: "servis-new",
+    insertError: null as { code?: string; message: string } | null,
+    existingCustomer: null as { id: string } | null,
     tag: null as { id: string; usage_count: number } | null,
     financeRows: [] as { amount: number }[],
     parts: [] as { id: string; name: string; qty: number }[],
   };
 
-  const serviceSingle = { get data() { return state.service; }, error: null };
-  const serviceSelect = vi.fn(() => ({
-    eq: () => ({ eq: () => ({ maybeSingle: async () => serviceSingle }) }),
+  const serviceSelect = vi.fn(() => {
+    const columns: string[] = [];
+    const chain: any = {
+      eq: (column: string) => {
+        columns.push(column);
+        return chain;
+      },
+      maybeSingle: async () => ({
+        data: columns.includes("idempotency_key") ? state.priorService : state.service,
+        error: null,
+      }),
+      single: async () => ({ data: state.service, error: null }),
+    };
+    return chain;
+  });
+  const serviceInsert = vi.fn(() => ({
+    select: () => ({
+      single: async () => {
+        if (state.insertError) {
+          // Race: dua pengiriman lolos cek awal, indeks unik menolak yang kedua.
+          state.priorService = { id: "servis-race" };
+          return { data: null, error: state.insertError };
+        }
+        return { data: { id: state.createdId }, error: null };
+      },
+    }),
   }));
   const serviceDelete = vi.fn(() => ({ eq: () => ({ eq: async () => ({ error: null }) }) }));
+
+  const customerSelect = vi.fn(() => ({
+    eq: () => ({ eq: () => ({ maybeSingle: async () => ({ data: state.existingCustomer, error: null }) }) }),
+  }));
+  const customerInsert = vi.fn(() => ({
+    select: () => ({ single: async () => ({ data: { id: "cust-new" }, error: null }) }),
+  }));
+  const customerUpdate = vi.fn(() => ({ eq: async () => ({ error: null }) }));
+  const logInsert = vi.fn(async () => ({ error: null }));
 
   const tagSelect = vi.fn(() => ({
     eq: () => ({ ilike: () => ({ maybeSingle: async () => ({ data: state.tag, error: null }) }) }),
@@ -29,12 +65,20 @@ const mocks = vi.hoisted(() => {
   }));
 
   // Counter tag sekarang lewat RPC, bukan baca-sulis di tabel.
-  const rpc = vi.fn(async () => ({ data: 0, error: null }));
+  const rpc = vi.fn(async (name: string) => {
+    if (name === "reserve_service_ticket") return { data: { allowed: true }, error: null };
+    if (name === "next_service_number") return { data: "SRV-2026-0001", error: null };
+    return { data: 0, error: null };
+  });
 
   const from = vi.fn((table: string) => {
     switch (table) {
       case "cervise_services":
-        return { select: serviceSelect, delete: serviceDelete };
+        return { select: serviceSelect, insert: serviceInsert, delete: serviceDelete };
+      case "cervise_customers":
+        return { select: customerSelect, insert: customerInsert, update: customerUpdate };
+      case "cervise_service_logs":
+        return { insert: logInsert };
       case "cervise_service_tags":
         return { select: tagSelect, update: tagUpdate };
       case "cervise_finance_tx":
@@ -46,7 +90,7 @@ const mocks = vi.hoisted(() => {
     }
   });
 
-  return { state, from, serviceDelete, tagUpdate, rpc, getActiveTenant: vi.fn() };
+  return { state, from, serviceDelete, serviceInsert, customerInsert, logInsert, tagUpdate, rpc, getActiveTenant: vi.fn() };
 });
 
 vi.mock("@/lib/supabase/actor", () => ({ getActiveTenant: mocks.getActiveTenant }));
@@ -181,5 +225,65 @@ describe("getServisDeleteImpact", () => {
     mocks.getActiveTenant.mockResolvedValue(actorStub("FRONTLINER"));
 
     await expect(getServisDeleteImpact("servis-1")).rejects.toThrow("Hanya admin yang boleh menghapus servis");
+  });
+});
+
+describe("createServis idempotency", () => {
+  const payload = (overrides: Partial<CreateServisPayload> = {}): CreateServisPayload => ({
+    idempotencyKey: "key-1",
+    teknisi_id: "p1",
+    merk: "Apple",
+    tipe: "iPhone 12",
+    kerusakan: ["Layar pecah"],
+    kelengkapan: [],
+    password_type: "PIN",
+    password_value: "1234",
+    customer_name: "Raka",
+    customer_phone: "08123456789",
+    garansi_value: 30,
+    garansi_unit: "hari",
+    ...overrides,
+  });
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.getActiveTenant.mockResolvedValue(actorStub("ADMIN"));
+    mocks.state.service = null;
+    mocks.state.priorService = null;
+    mocks.state.insertError = null;
+    mocks.state.existingCustomer = { id: "cust-1" };
+  });
+
+  it("mengembalikan tiket lama tanpa efek samping saat kunci sama", async () => {
+    mocks.state.priorService = { id: "servis-lama" };
+
+    await expect(createServis(payload())).resolves.toEqual({ id: "servis-lama" });
+    expect(mocks.rpc).not.toHaveBeenCalled();
+    expect(mocks.serviceInsert).not.toHaveBeenCalled();
+    expect(mocks.logInsert).not.toHaveBeenCalled();
+  });
+
+  it("menyimpan kunci di baris baru", async () => {
+    await expect(createServis(payload())).resolves.toEqual({ id: "servis-new" });
+    expect(mocks.serviceInsert).toHaveBeenCalledWith(
+      expect.objectContaining({ idempotency_key: "key-1" }),
+    );
+    expect(mocks.rpc).toHaveBeenCalledWith("reserve_service_ticket", { p_organization_id: "org-1" });
+  });
+
+  it("mengembalikan tiket yang menang race saat indeks unik menolak duplikat", async () => {
+    mocks.state.insertError = { code: "23505", message: "duplicate key" };
+
+    await expect(createServis(payload())).resolves.toEqual({ id: "servis-race" });
+    expect(mocks.logInsert).not.toHaveBeenCalled();
+  });
+
+  it("tetap membuat tiket baru bila tanpa kunci", async () => {
+    await createServis(payload({ idempotencyKey: undefined }));
+
+    expect(mocks.serviceInsert).toHaveBeenCalledWith(
+      expect.objectContaining({ idempotency_key: null }),
+    );
+    expect(mocks.logInsert).toHaveBeenCalled();
   });
 });

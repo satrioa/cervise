@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -35,6 +35,8 @@ type ServisFormProps = {
 
 export function ServisForm({ onSuccess, onCancel }: ServisFormProps) {
   const router = useRouter();
+  // Satu kunci per percobaan simpan: retry aksi yang sama tidak membuat tiket kedua.
+  const idempotencyKeyRef = useRef<string | null>(null);
   const branchCtx = useBranchOptional();
   const tenantCtx = useTenantOptional();
   const activeTenant = useMemo(
@@ -200,8 +202,10 @@ export function ServisForm({ onSuccess, onCancel }: ServisFormProps) {
     }
     setLoading(true);
     setError(null);
+    idempotencyKeyRef.current ??= crypto.randomUUID();
     try {
       const res = await createServis({
+        idempotencyKey: idempotencyKeyRef.current,
         teknisi_id: teknisiId,
         merk: merk.trim(),
         tipe: tipe.trim(),

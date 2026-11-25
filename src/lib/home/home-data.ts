@@ -124,13 +124,15 @@ export async function loadTechnicianHome(
         .eq("branch_id", branchId)
         .eq("teknisi_id", userId)
         .in("status", ATTENTION_STATUSES)
-        .order("updated_at", { ascending: true }),
+        .order("updated_at", { ascending: true })
+        .limit(200),
       supabase
         .from("cervise_services")
         .select(TECHNICIAN_SERVICE_COLUMNS)
         .eq("branch_id", branchId)
         .eq("teknisi_id", userId)
-        .gte("created_at", monthStart),
+        .gte("created_at", monthStart)
+        .limit(200),
       supabase
         .from("cervise_services")
         .select(TECHNICIAN_SERVICE_COLUMNS)
@@ -139,7 +141,8 @@ export async function loadTechnicianHome(
         .gte("completed_at", monthStart)
         // Yang dibuat bulan ini sudah ikut query di atas; jangan dihitung dua
         // kali saat barisnya digabung.
-        .lt("created_at", monthStart),
+        .lt("created_at", monthStart)
+        .limit(200),
       supabase
         .from("cervise_services")
         .select(TECHNICIAN_SERVICE_COLUMNS)

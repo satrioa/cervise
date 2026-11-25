@@ -141,7 +141,7 @@ export function RekapClient({
                     {row.selfieUrl ? (
                       <img src={row.selfieUrl} alt="Selfie" className="h-10 w-10 rounded object-cover" />
                     ) : (
-                      "-"
+                      "Tidak ada selfie"
                     )}
                   </td>
                   <td className="px-3 py-2">{row.lokasi}</td>

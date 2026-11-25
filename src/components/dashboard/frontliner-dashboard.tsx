@@ -69,7 +69,8 @@ import {
 } from "@/app/app/actions/cash";
 import { confirmServisPickup } from "@/app/app/servis/sparepart-actions";
 import type { FrontlinerHomeData, PickupServiceItem } from "@/lib/home/types";
-import { rupiah, type ShiftReport } from "@/lib/operational/laporan-shift";
+import { type ShiftReport } from "@/lib/operational/laporan-shift";
+import { formatCurrencyPlain } from "@/lib/format";
 import { servisOutstanding } from "@/lib/operational/servis-price";
 import { kalenderWIB } from "@/lib/operational/periode-bulan";
 import { cn } from "@/lib/utils";
@@ -343,7 +344,7 @@ export function FrontlinerDashboard({
             <p className="mt-2 text-xs text-muted-foreground">
               Shift sebelumnya ditutup{lastClosedAuto ? " oleh sistem" : ""}
               {lastClosedTime ? ` pukul ${lastClosedTime}` : ""} · saldo akhir{" "}
-              {rupiah(lastClosingBalance)}. Buka shift baru bila laci dipakai lagi.
+              {formatCurrencyPlain(lastClosingBalance)}. Buka shift baru bila laci dipakai lagi.
             </p>
           ) : null}
 
@@ -603,7 +604,7 @@ function RingkasanHariIni({
           {/* Hanya daftar ini yang menggulir. Blok total di bawah sengaja berada
               di luar `<ul>` supaya tetap terlihat saat daftar transaksi panjang. */}
           <ul className="flex min-h-0 flex-1 flex-col overflow-y-auto pr-1 text-[13px] scrollbar-thin">
-        <Row label="Saldo Awal" value={rupiah(report.openingBalance)} />
+        <Row label="Saldo Awal" value={formatCurrencyPlain(report.openingBalance)} />
 
         <GroupLabel
           icon={WrenchIcon}
@@ -612,7 +613,7 @@ function RingkasanHariIni({
           items={layananTerbayar.map((line) => ({
             key: line.id,
             text: `${line.label} · ${line.status}`,
-            value: rupiah(line.amount),
+            value: formatCurrencyPlain(line.amount),
           }))}
           empty={queue.length ? "Belum ada servis lunas" : "Belum ada servis hari ini"}
         />
@@ -624,7 +625,7 @@ function RingkasanHariIni({
           items={produkTerbayar.map((line) => ({
             key: line.id,
             text: line.label,
-            value: rupiah(line.amount),
+            value: formatCurrencyPlain(line.amount),
           }))}
           empty="Belum ada penjualan"
         />
@@ -636,7 +637,7 @@ function RingkasanHariIni({
           items={report.cashTx.map((line) => ({
             key: line.id,
             text: line.label,
-            value: rupiah(line.amount),
+            value: formatCurrencyPlain(line.amount),
           }))}
           empty="Belum ada transaksi kas"
         />
@@ -656,14 +657,14 @@ function RingkasanHariIni({
             : "bg-black/[0.04] ring-black/5 dark:bg-white/[0.06] dark:ring-white/10",
         )}
       >
-        <TotalRow label="Omzet servis" value={rupiah(report.totals.services)} />
-        <TotalRow label="Omzet Penjualan" value={rupiah(report.totals.sales)} />
-        <TotalRow label="Transaksi Manual" value={rupiah(report.totals.manualNet)} />
+        <TotalRow label="Omzet servis" value={formatCurrencyPlain(report.totals.services)} />
+        <TotalRow label="Omzet Penjualan" value={formatCurrencyPlain(report.totals.sales)} />
+        <TotalRow label="Transaksi Manual" value={formatCurrencyPlain(report.totals.manualNet)} />
         <div className={cn("my-2 h-px", world === "scifi" ? "bg-[var(--scifi-canvas)]/25" : "bg-black/[0.08] dark:bg-white/10")} />
         <div className="flex items-baseline justify-between gap-2 px-0.5">
           <span className="text-xs font-medium">Harus ada di laci</span>
           <span className="min-w-0 truncate text-right text-base font-semibold leading-none tabular-nums sm:text-lg">
-            {rupiah(report.expectedCash)}
+            {formatCurrencyPlain(report.expectedCash)}
           </span>
         </div>
       </div>
@@ -873,7 +874,7 @@ function ServisSelesaiBelumDibayar({ queue }: { queue: FrontlinerQueueItem[] }) 
                     <span className="block truncate text-[11px] opacity-60">{item.device}</span>
                   </span>
                   <span className="shrink-0 text-[12px] font-medium tabular-nums">
-                    {item.price > 0 ? rupiah(item.price) : "Belum diisi"}
+                    {item.price > 0 ? formatCurrencyPlain(item.price) : "Estimasi belum diisi"}
                   </span>
                   <ArrowRightIcon className="size-3.5 shrink-0 opacity-50" />
                 </Link>

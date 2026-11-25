@@ -8,6 +8,8 @@ export type KondisiStatus = "normal" | "tidak_normal";
 export type KondisiAwal = Record<string, { status: KondisiStatus; note: string }>;
 
 export type CreateServisPayload = {
+  // Sama untuk percobaan ulang aksi yang sama; tiket kedua dicegah di DB.
+  idempotencyKey?: string;
   teknisi_id: string;
   merk: string;
   tipe: string;
@@ -60,7 +62,7 @@ export async function getServisList(): Promise<ServisListRow[]> {
   );
   const { data: services, error: servicesError } = await servicesQuery
     .order("created_at", { ascending: false })
-    .limit(500);
+    .limit(200);
   if (servicesError) throw new Error(servicesError.message);
   const serviceRows = (services ?? []) as {
     id: string;
@@ -177,6 +179,18 @@ export async function getKelengkapanOptions() {
 export async function createServis(payload: CreateServisPayload) {
   const { supabase, userId, branchId, orgId } = await getBranchAndUser();
 
+  // Cek sebelum apa pun: replay harus mengembalikan tiket yang sama tanpa
+  // memesan kuota, menaikkan tag, atau menulis log lagi.
+  if (payload.idempotencyKey) {
+    const { data: prior } = await supabase
+      .from("cervise_services")
+      .select("id")
+      .eq("branch_id", branchId)
+      .eq("idempotency_key", payload.idempotencyKey)
+      .maybeSingle();
+    if (prior?.id) return { id: prior.id as string };
+  }
+
   // Kuota tiket dipesan lebih dulu di database (atomik). Gagal = jangan buat
   // servis baru; data lama tidak dihapus, tenant cukup Upgrade.
   const { data: quotaResult, error: quotaError } = await supabase.rpc(
@@ -276,6 +290,7 @@ export async function createServis(payload: CreateServisPayload) {
       branch_id: branchId,
       customer_id: customerId,
       service_number: (numberData as string | null) ?? null,
+      idempotency_key: payload.idempotencyKey ?? null,
       device: deviceLabel,
       complaint: kerusakanNorm.join(", "),
       status: "Masuk",
@@ -298,7 +313,19 @@ export async function createServis(payload: CreateServisPayload) {
     .select("id")
     .single();
 
-  if (svcErr) throw new Error(svcErr.message);
+  if (svcErr) {
+    // Dua pengiriman bersamaan bisa lolos cek awal; indeks unik yang menolak.
+    if (payload.idempotencyKey && svcErr.code === "23505") {
+      const { data: existing } = await supabase
+        .from("cervise_services")
+        .select("id")
+        .eq("branch_id", branchId)
+        .eq("idempotency_key", payload.idempotencyKey)
+        .maybeSingle();
+      if (existing?.id) return { id: existing.id as string };
+    }
+    throw new Error(svcErr.message);
+  }
   // log create
   await supabase.from("cervise_service_logs").insert({ branch_id: branchId, servis_id: svc.id, actor_id: userId, action: "create", to_value: deviceLabel, payload: { merk: payload.merk, tipe: payload.tipe, kerusakan: kerusakanNorm } });
   return { id: svc.id as string };

@@ -21,3 +21,16 @@ describe("dock keranjang penjualan", () => {
     expect(source).not.toContain("SwipeActionsRow");
   });
 });
+
+describe("pencarian customer POS", () => {
+  it("teks kosong hanya muncul saat hasil benar-benar kosong", () => {
+    expect(source).toContain('results.length === 0');
+    expect(source).toContain('Tidak ada yang cocok dengan "${query.trim()}" — isi nama dan nomor HP');
+    expect(source).toContain('Daftarkan sebagai customer baru');
+  });
+
+  it("hasil lama tidak menimpa hasil pencarian terbaru", () => {
+    expect(source).toContain("const seq = ++seqRef.current;");
+    expect(source).toContain("if (seq === seqRef.current) setResults(found);");
+  });
+});

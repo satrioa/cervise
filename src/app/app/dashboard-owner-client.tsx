@@ -45,6 +45,7 @@ export default function DashboardOwnerClient() {
   const [period, setPeriod] = useState<DashboardPeriod>("30d");
   const [openServis, setOpenServis] = useState(false);
   const [data, setData] = useState<DashboardData | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -74,7 +75,7 @@ export default function DashboardOwnerClient() {
     return () => {
       cancelled = true;
     };
-  }, [fetchKey, period]);
+  }, [fetchKey, period, reloadKey]);
 
   const summary = data?.summary;
 
@@ -202,7 +203,13 @@ export default function DashboardOwnerClient() {
           <DialogPrimitive.Backdrop className="fixed inset-0 z-50 bg-black/20 backdrop-blur-sm" />
           <DialogPrimitive.Popup className="fixed left-1/2 top-1/2 z-50 flex max-h-[90vh] w-[95vw] max-w-3xl -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-2xl border bg-background shadow-xl">
             <div className="overflow-y-auto scrollbar-none p-6">
-              <ServisForm onSuccess={() => setOpenServis(false)} onCancel={() => setOpenServis(false)} />
+              <ServisForm
+                onSuccess={() => {
+                  setOpenServis(false);
+                  setReloadKey((n) => n + 1);
+                }}
+                onCancel={() => setOpenServis(false)}
+              />
             </div>
             <DialogPrimitive.Close className="absolute right-3 top-3 rounded-md p-1 text-muted-foreground hover:bg-muted" aria-label="Tutup">
               <XIcon className="size-4" />

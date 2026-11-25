@@ -4,17 +4,7 @@ import { Button } from "@/components/ui/button";
 import { ServisDetailView } from "@/components/servis/servis-detail-view";
 import { getServisDetail } from "@/app/app/servis/actions";
 import { ChevronLeftIcon } from "lucide-react";
-import { format } from "date-fns";
 import { PageHeader } from "@/components/layout/page-header";
-
-function formatInvoiceNo(createdAt: string | null, id: string) {
-  try {
-    const d = createdAt ? new Date(createdAt) : new Date();
-    return `INV-${format(d, "ddMMyyyyHHmmss")}`;
-  } catch {
-    return `INV-${id.slice(0, 8).toUpperCase()}`;
-  }
-}
 
 export default async function ServisDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -25,12 +15,11 @@ export default async function ServisDetailPage({ params }: { params: Promise<{ i
     notFound();
   }
   if (!data) notFound();
-  const invoiceNo = formatInvoiceNo(data.created_at as any, data.id);
 
   return (
     <div className="bg-transparent text-foreground min-h-svh">
       <PageHeader
-        title={`Detail ${invoiceNo}`}
+        title={`Detail ${data.service_number ?? data.id.slice(0, 8).toUpperCase()}`}
         containerClassName="max-w-4xl"
         actions={
           <>

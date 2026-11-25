@@ -342,7 +342,7 @@ describe("grid bento delapan sel", () => {
     // Antrean dari getFrontlinerQueue sudah membuang servis yang punya nota,
     // jadi filter yang tersisa cukup status selesai.
     expect(frontliner).toMatch(/item\.status === "Selesai"/);
-    expect(frontliner).toMatch(/rupiah\(item\.price\)/);
+    expect(frontliner).toMatch(/formatCurrencyPlain\(item\.price\)/);
   });
 
   it("kartu data dirender server, bukan skeleton saat load pertama", () => {

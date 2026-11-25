@@ -530,6 +530,8 @@ export async function addCashAdjustment(input: {
       source: "kas_manual",
     });
     if (error) return fail(error.message);
+    revalidatePath("/app");
+    revalidatePath("/app/keuangan/arus-kas");
     return { ok: true, data: null };
   } catch (cause) {
     return fail(cause instanceof Error ? cause.message : "Gagal menyimpan transaksi kas");

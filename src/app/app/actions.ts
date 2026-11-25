@@ -30,9 +30,9 @@ import {
 } from "@/lib/supabase/branch-scope";
 
 // Keeps the payload bounded; the dashboard is a trend view, not an export.
-const SERVICE_ROW_CAP = 2000;
-const FINANCE_ROW_CAP = 5000;
-const SALE_ROW_CAP = 5000;
+const SERVICE_ROW_CAP = 500;
+const FINANCE_ROW_CAP = 1000;
+const SALE_ROW_CAP = 1000;
 
 export type DashboardData = {
   period: DashboardPeriod;

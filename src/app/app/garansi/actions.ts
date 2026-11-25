@@ -25,7 +25,7 @@ export async function getGaransiList(): Promise<GaransiListRow[]> {
   const query = applyBranchScope(
     supabase
       .from("cervise_services")
-      .select("id, device, status, garansi_value, garansi_unit, garansi_until, created_at, customer_id, branch_id"),
+      .select("id, service_number, device, status, garansi_value, garansi_unit, garansi_until, created_at, customer_id, branch_id"),
     actor,
   );
   const { data, error } = await query

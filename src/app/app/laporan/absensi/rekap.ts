@@ -40,7 +40,7 @@ type RawRow = {
 
 const time = (value: string | null) =>
   value
-    ? new Intl.DateTimeFormat("id-ID", {
+    ? new Intl.DateTimeFormat("en-GB", {
         timeZone: "Asia/Jakarta", hour: "2-digit", minute: "2-digit",
       }).format(new Date(value))
     : "-";

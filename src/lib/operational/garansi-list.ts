@@ -2,6 +2,7 @@ export type GaransiUnit = "hari" | "bulan" | "tahun";
 
 export type GaransiServiceInput = {
   id: string;
+  service_number?: string | null;
   device: string;
   status: string;
   garansi_value: number | null;
@@ -71,22 +72,6 @@ export function resolveGaransiUntil(service: {
   return addGaransiDays(created, toDays(value, normalizeGaransiUnit(service.garansi_unit)));
 }
 
-/** Same shape the service detail view uses, so both pages agree on an invoice number. */
-export function formatServisInvoiceNo(createdAt: string, fallbackId: string): string {
-  const date = new Date(createdAt);
-  if (Number.isNaN(date.getTime())) return `INV-${fallbackId.slice(0, 8).toUpperCase()}`;
-  const pad = (value: number) => String(value).padStart(2, "0");
-  const stamp = [
-    pad(date.getDate()),
-    pad(date.getMonth() + 1),
-    String(date.getFullYear()),
-    pad(date.getHours()),
-    pad(date.getMinutes()),
-    pad(date.getSeconds()),
-  ].join("");
-  return `INV-${stamp}`;
-}
-
 export function mapGaransiListRows(input: {
   services: GaransiServiceInput[];
   customers: { id: string; name: string; phone: string | null }[];
@@ -101,7 +86,7 @@ export function mapGaransiListRows(input: {
       const until = resolveGaransiUntil(service);
       return {
         id: service.id,
-        invoiceNo: formatServisInvoiceNo(service.created_at, service.id),
+        invoiceNo: service.service_number ?? service.id.slice(0, 8).toUpperCase(),
         createdAt: toLocalDateString(new Date(service.created_at)),
         garansiUntil: until ? toLocalDateString(until) : null,
         garansiValue: Number(service.garansi_value ?? 0),

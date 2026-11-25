@@ -84,20 +84,25 @@ function CartBody({
   const [searching, setSearching] = useState(false);
   const [focused, setFocused] = useState(false);
   const debounceRef = useRef<number | null>(null);
+  const seqRef = useRef(0);
 
   useEffect(() => {
     if (debounceRef.current) window.clearTimeout(debounceRef.current);
-    // Dropdown hanya tampil untuk >= 2 karakter, jadi hasil lama tidak perlu
-    // dibersihkan secara sinkron di sini.
-    if (query.trim().length < 2) return;
+    const seq = ++seqRef.current;
+    if (query.trim().length < 2) {
+      setResults([]);
+      setSearching(false);
+      return;
+    }
     debounceRef.current = window.setTimeout(async () => {
       setSearching(true);
       try {
-        setResults(await searchCustomersForPos(query));
+        const found = await searchCustomersForPos(query);
+        if (seq === seqRef.current) setResults(found);
       } catch {
-        setResults([]);
+        if (seq === seqRef.current) setResults([]);
       } finally {
-        setSearching(false);
+        if (seq === seqRef.current) setSearching(false);
       }
     }, 300);
     return () => {
@@ -205,7 +210,9 @@ function CartBody({
                   >
                     <span className="font-medium text-sm">+ Tambah customer baru</span>
                     <span className="text-xs text-muted-foreground">
-                      {results.length === 0 ? "Tidak ditemukan — isi nama dan nomor HP" : `Tidak ada yang cocok dengan "${query.trim()}"`}
+                      {results.length === 0
+                        ? `Tidak ada yang cocok dengan "${query.trim()}" — isi nama dan nomor HP`
+                        : "Daftarkan sebagai customer baru"}
                     </span>
                   </button>
                 </div>

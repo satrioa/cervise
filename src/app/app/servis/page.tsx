@@ -772,15 +772,20 @@ export default function ServisPage() {
       setReceiptAppearance(appearance);
     } catch {}
     const ctx = { ...printContext, receiptLogoUrl: appearance.logoUrl, receiptFooterText: appearance.footerText };
-    const printDatas = await Promise.all(
-      data.map(async (s) => {
-        let detail: any = null;
-        try {
-          detail = await getServisDetail(s.id);
-        } catch {}
-        return toPrintData(s, ctx, detail);
-      })
-    );
+    // Batasi konkurensi: cetak massal jangan membanjiri worker sekaligus.
+    const printDatas: ReturnType<typeof toPrintData>[] = [];
+    for (let i = 0; i < data.length; i += 5) {
+      const batch = await Promise.all(
+        data.slice(i, i + 5).map(async (s) => {
+          let detail: any = null;
+          try {
+            detail = await getServisDetail(s.id);
+          } catch {}
+          return toPrintData(s, ctx, detail);
+        })
+      );
+      printDatas.push(...batch);
+    }
     const htmlPages = printDatas
       .map((d) => {
         const html = type === "Jet" ? renderJetHtml(d) : type === "Dot Matrix" ? renderDotMatrixHtml(d) : renderThermalHtml(d);

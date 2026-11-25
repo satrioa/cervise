@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect, useCallback } from "react";
 import { ArrowUpRightIcon, ArrowDownRightIcon, WalletIcon, EllipsisIcon, ChevronDownIcon, SearchIcon, CalendarIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,7 @@ import { Pagination } from "@/components/ui/pagination";
 import { Menu, MenuItem, MenuPopup, MenuTrigger } from "@/components/ui/menu";
 import { ArusKasExport } from "@/components/arus-kas-export";
 import { PageHeader } from "@/components/layout/page-header";
+import { RefreshDataButton } from "@/components/layout/refresh-data-button";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { Select, SelectItem, SelectPopup, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -43,24 +44,27 @@ export default function ArusKasPage({ initialQuery = "" }: { initialQuery?: stri
   const [page, setPage] = useState(1);
   const pageSize = 5;
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      const { data, error } = await getFinanceLedger();
-      if (cancelled) return;
-      if (error) {
-        setLoadError(error);
-        setTxs([]);
-        setBranches([]);
-      } else {
-        setTxs(data.transactions);
-        setBranches(data.branches);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
+  const reload = useCallback(async () => {
+    const { data, error } = await getFinanceLedger();
+    if (error) {
+      setLoadError(error);
+      setTxs([]);
+      setBranches([]);
+    } else {
+      setLoadError(null);
+      setTxs(data.transactions);
+      setBranches(data.branches);
+    }
   }, []);
+
+  useEffect(() => {
+    void reload();
+    const onVisible = () => {
+      if (document.visibilityState === "visible") void reload();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, [reload]);
 
   const branchMap = useMemo(() => new Map(branches.map((b) => [b.id, b.name])), [branches]);
 
@@ -161,17 +165,20 @@ export default function ArusKasPage({ initialQuery = "" }: { initialQuery?: stri
         description="Grouped by hari · collapsed semua · multi open"
         containerClassName="max-w-5xl"
         actions={
-          <ArusKasExport
-            rows={groups.flatMap((g) =>
-              g.txs.map((t) => ({
-                date: g.kas_date,
-                masuk: t.type === "pemasukan" ? t.amount : 0,
-                keluar: t.type === "pengeluaran" ? t.amount : 0,
-                net: t.type === "pemasukan" ? t.amount : -t.amount,
-                status: t.type === "pemasukan" ? "Surplus" : "Defisit",
-              }))
-            )}
-          />
+          <>
+            <RefreshDataButton onRefresh={reload} />
+            <ArusKasExport
+              rows={groups.flatMap((g) =>
+                g.txs.map((t) => ({
+                  date: g.kas_date,
+                  masuk: t.type === "pemasukan" ? t.amount : 0,
+                  keluar: t.type === "pengeluaran" ? t.amount : 0,
+                  net: t.type === "pemasukan" ? t.amount : -t.amount,
+                  status: t.type === "pemasukan" ? "Surplus" : "Defisit",
+                }))
+              )}
+            />
+          </>
         }
         search={
           <InputGroup className="h-8 w-full">

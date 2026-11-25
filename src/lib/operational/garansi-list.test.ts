@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
   addGaransiDays,
-  formatServisInvoiceNo,
   mapGaransiListRows,
   normalizeGaransiUnit,
   resolveGaransiUntil,
@@ -13,6 +12,7 @@ import {
 function service(overrides: Partial<GaransiServiceInput> = {}): GaransiServiceInput {
   return {
     id: "11111111-2222-3333-4444-555555555555",
+    service_number: "SRV-2026-0001",
     device: "iPhone 13",
     status: "Selesai",
     garansi_value: 30,
@@ -99,15 +99,23 @@ describe("resolveGaransiUntil", () => {
   });
 });
 
-describe("formatServisInvoiceNo", () => {
-  it("is stable for the same creation timestamp", () => {
-    expect(formatServisInvoiceNo("2026-09-12T12:00:00", "abc")).toBe(
-      formatServisInvoiceNo("2026-09-12T12:00:00", "abc"),
-    );
+describe("nomor servis di garansi", () => {
+  it("memakai service_number yang tersimpan, bukan waktu render", () => {
+    const rows = mapGaransiListRows({
+      services: [service({ created_at: "2026-09-12T12:00:00.000Z" })],
+      customers: [{ id: "cust-1", name: "Citra", phone: "0812" }],
+      branches: [{ id: "branch-1", name: "Kaggo Pusat" }],
+    });
+    expect(rows[0].invoiceNo).toBe("SRV-2026-0001");
   });
 
-  it("falls back to the id prefix when the timestamp is invalid", () => {
-    expect(formatServisInvoiceNo("not-a-date", "abcdef123456")).toBe("INV-ABCDEF12");
+  it("jatuh ke prefiks id bila service_number belum ada", () => {
+    const rows = mapGaransiListRows({
+      services: [service({ id: "abcdef123456", service_number: null })],
+      customers: [],
+      branches: [],
+    });
+    expect(rows[0].invoiceNo).toBe("ABCDEF12");
   });
 });
 
