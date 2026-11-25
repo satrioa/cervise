@@ -3,6 +3,7 @@ import {
   CreditCardIcon,
   HistoryIcon,
   LayoutDashboardIcon,
+  MessageCircleIcon,
   PackageIcon,
   Settings2Icon,
   UsersIcon,
@@ -40,6 +41,7 @@ export const OWNER_NAV_GROUPS: OwnerNavGroup[] = [
     label: "System",
     items: [
       { label: "Settings", href: "/owner/settings", icon: Settings2Icon },
+      { label: "Notifikasi WA", href: "/owner/notifications", icon: MessageCircleIcon },
       { label: "Changelog", href: "/changelog", icon: HistoryIcon },
     ],
   },
