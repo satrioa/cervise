@@ -244,9 +244,10 @@ export function buildServisStatusParameters(input: ServiceMessageInput): Templat
   ];
 }
 
-/** Template `servis_baru_teknisi_v1`: nama teknisi ada di header, bukan body. */
+/** Template `notifikasi_teknisi_v2`: semua 4 variabel ada di body. */
 export function buildTechnicianParameters(input: ServiceMessageInput): TemplateParameter[] {
   return [
+    param("teknisi", input.technicianName),
     param("device", input.device),
     param("complaint", input.complaint),
     param("service_number", serviceRef(input)),

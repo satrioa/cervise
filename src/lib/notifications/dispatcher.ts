@@ -271,10 +271,6 @@ function resolveRow(
     language: template.language,
     parameters: template.build(input),
     phoneNumberId,
-    header: { parameter_name: "nama_teknisi", value: input.technicianName || "-" },
-    buttonUrl: input.trackingCode
-      ? `${input.tenantSlug ?? "app"}/lacak/${input.trackingCode}`
-      : undefined,
   };
 }
 
