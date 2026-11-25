@@ -22,6 +22,9 @@ export type WaTemplate = {
   name: string;
   language: "id" | "en";
   build: (input: TemplateInput) => TemplateParameter[];
+  /** Parameter header dan tombol URL, bila template memakainya. */
+  header?: (input: TemplateInput) => { parameter_name: string; value: string };
+  button?: (input: TemplateInput) => string;
 };
 
 type RegistryEntry = {
@@ -29,6 +32,8 @@ type RegistryEntry = {
   fallbackKey?: string;
   language: "id" | "en";
   build: (input: TemplateInput) => TemplateParameter[];
+  header?: (input: TemplateInput) => { parameter_name: string; value: string };
+  button?: (input: TemplateInput) => string;
 };
 
 /**
@@ -51,6 +56,12 @@ const REGISTRY: Record<WaTemplateKey, RegistryEntry> = {
     envKey: "META_WA_TEMPLATE_TECHNICIAN",
     language: "en",
     build: (input) => buildTechnicianParameters(input),
+    // servis_baru_teknisi_v1 memakai {{nama_teknisi}} di header dan tombol URL {{1}}.
+    header: (input) => ({ parameter_name: "nama_teknisi", value: input.technicianName ?? "" }),
+    button: (input) =>
+      input.tenantSlug && input.trackingCode
+        ? `${input.tenantSlug}/lacak/${input.trackingCode}`
+        : "",
   },
   shift_open: {
     envKey: "META_WA_TEMPLATE_SHIFT_OPEN",
@@ -70,5 +81,7 @@ export function getWaTemplate(key: WaTemplateKey): WaTemplate {
     name: process.env[entry.envKey] ?? (entry.fallbackKey ? process.env[entry.fallbackKey] ?? "" : ""),
     language: entry.language,
     build: entry.build,
+    header: entry.header,
+    button: entry.button,
   };
 }

@@ -271,6 +271,8 @@ function resolveRow(
     language: template.language,
     parameters: template.build(input),
     phoneNumberId,
+    header: template.header?.(input),
+    buttonUrl: template.button?.(input) || undefined,
   };
 }
 

@@ -244,10 +244,9 @@ export function buildServisStatusParameters(input: ServiceMessageInput): Templat
   ];
 }
 
-/** Template `servis_baru_teknisi_v1` (approved): nama teknisi ada di header. */
+/** Template `servis_baru_teknisi_v1` (approved): nama teknisi ada di header, bukan body. */
 export function buildTechnicianParameters(input: ServiceMessageInput): TemplateParameter[] {
   return [
-    param("nama_teknisi", input.technicianName),
     param("device", input.device),
     param("complaint", input.complaint),
     param("service_number", serviceRef(input)),
