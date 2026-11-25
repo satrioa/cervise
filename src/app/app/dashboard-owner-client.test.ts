@@ -24,6 +24,13 @@ describe("KPI Omzet dashboard owner", () => {
     expect(source).not.toContain("Keluar ${formatCurrencyPlain(summary.pengeluaran)}");
   });
 
+  it("judul KPI selalu satu baris", () => {
+    expect(source).toContain('label: "Konfirmasi"');
+    expect(source).not.toContain('label: "Menunggu konfirmasi"');
+    expect(source).toContain("min-w-0 truncate font-mono text-[10px] uppercase tracking-[0.25em]");
+    expect(source).toContain('title={label}');
+  });
+
   it("meta KPI satu baris tanpa pill warna-warni", () => {
     expect(source).not.toContain('trend: "up"');
     expect(source).not.toContain('trend: "down"');

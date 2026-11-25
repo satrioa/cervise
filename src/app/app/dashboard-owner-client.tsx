@@ -117,7 +117,7 @@ export default function DashboardOwnerClient() {
           sparkline: summary.buckets.map((b) => b.masuk),
         },
         {
-          label: "Menunggu konfirmasi",
+          label: "Konfirmasi",
           value: formatNumberPlain(summary.pendingKonfirmasi),
           meta: summary.pendingKonfirmasi > 0 ? "perlu follow up" : "tidak ada yang tertunda",
           tone: summary.pendingKonfirmasi > 0 ? ("negative" as const) : ("positive" as const),
@@ -259,9 +259,14 @@ function StatCard({
 }) {
   return (
     <div className="min-w-0 overflow-hidden rounded-xl border border-border/60 bg-background/40 p-4">
-      <div className="flex items-center justify-between">
-        <div className="font-mono text-[10px] text-muted-foreground uppercase tracking-[0.25em]">{label}</div>
-        <button type="button" className="text-muted-foreground/60 transition-colors hover:text-foreground">
+      <div className="flex min-w-0 items-center justify-between gap-2">
+        <span
+          title={label}
+          className="min-w-0 truncate font-mono text-[10px] uppercase tracking-[0.25em] text-muted-foreground"
+        >
+          {label}
+        </span>
+        <button type="button" className="shrink-0 text-muted-foreground/60 transition-colors hover:text-foreground">
           <MoreHorizontalIcon className="size-4" />
         </button>
       </div>
