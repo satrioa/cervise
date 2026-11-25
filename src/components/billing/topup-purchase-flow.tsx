@@ -60,6 +60,10 @@ export function TopupPurchaseFlow({
     startTransition(async () => {
       try {
         const result = await createTopupOrderAction(item.id);
+        if (!result.ok) {
+          toast.error(result.error);
+          return;
+        }
         setSelected(item);
         setOrder({
           invoiceId: result.invoiceId,
@@ -83,6 +87,10 @@ export function TopupPurchaseFlow({
     startTransition(async () => {
       try {
         const result = await createCheckoutAction(order.invoiceId);
+        if (!result.ok) {
+          toast.error(result.error);
+          return;
+        }
         window.location.assign(result.redirectUrl);
       } catch (error) {
         toast.error(error instanceof Error ? error.message : "Pembayaran tidak dapat dimulai");

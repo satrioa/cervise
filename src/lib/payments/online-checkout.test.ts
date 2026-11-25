@@ -6,6 +6,7 @@ import {
   buildCheckoutPayload,
   checkoutEndpoint,
   isPaidWebhook,
+  resolveIsProduction,
   verifyWebhookSignature,
 } from "./online-checkout";
 
@@ -31,6 +32,19 @@ describe("checkout online", () => {
   it("endpoint sandbox berubah saat production", () => {
     expect(checkoutEndpoint(false)).toContain("sandbox");
     expect(checkoutEndpoint(true)).not.toContain("sandbox");
+  });
+
+  it("kunci sandbox menang atas flag produksi yang salah", () => {
+    expect(resolveIsProduction("SB-Mid-server-abc", "true")).toBe(false);
+    expect(resolveIsProduction("Mid-server-abc", "true")).toBe(true);
+    expect(resolveIsProduction("Mid-server-abc", undefined)).toBe(false);
+  });
+
+  it("error gateway menyertakan status agar tidak jadi #441 samar", () => {
+    const source = read("src/lib/payments/online-checkout.ts");
+    expect(source).toContain("HTTP ${response.status}");
+    expect(source).toContain("error_messages");
+    expect(read("wrangler.jsonc")).toContain('"MIDTRANS_IS_PRODUCTION": "false"');
   });
 });
 

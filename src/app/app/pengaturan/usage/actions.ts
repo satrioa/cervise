@@ -9,6 +9,7 @@ import {
   uploadPaymentProof,
 } from "@/lib/payments/payment-service";
 import { ACTIVE_PAYMENT_PROVIDER } from "@/lib/payments/provider";
+import { actionErrorMessage } from "@/lib/payments/action-result";
 import {
   createCheckoutRedirect,
   readCheckoutConfig,
@@ -22,7 +23,19 @@ async function requireUsageActor() {
   return actor;
 }
 
-export async function createTopupOrderAction(packageId: string) {
+export type TopupOrderResult =
+  | { ok: true; invoiceId: string; invoiceNumber: string; amount: number; quantity: number }
+  | { ok: false; error: string };
+
+export async function createTopupOrderAction(packageId: string): Promise<TopupOrderResult> {
+  try {
+    return await createTopupOrderInner(packageId);
+  } catch (error) {
+    return { ok: false, error: actionErrorMessage(error, "Gagal membuat order top-up") };
+  }
+}
+
+async function createTopupOrderInner(packageId: string): Promise<TopupOrderResult> {
   const actor = await requireUsageActor();
   if (!packageId) throw new Error("Paket top-up tidak valid");
   if (ACTIVE_PAYMENT_PROVIDER.id !== "online_checkout") {
@@ -41,6 +54,7 @@ export async function createTopupOrderAction(packageId: string) {
     .eq("id", invoiceId)
     .maybeSingle();
   return {
+    ok: true,
     invoiceId,
     invoiceNumber: invoice?.invoice_number ?? "",
     amount: invoice?.amount ?? 0,
@@ -48,8 +62,20 @@ export async function createTopupOrderAction(packageId: string) {
   };
 }
 
+export type CheckoutResult =
+  | { ok: true; redirectUrl: string }
+  | { ok: false; error: string };
+
 /** Membuat sesi checkout online untuk invoice top-up yang masih pending. */
-export async function createCheckoutAction(invoiceId: string) {
+export async function createCheckoutAction(invoiceId: string): Promise<CheckoutResult> {
+  try {
+    return await createCheckoutInner(invoiceId);
+  } catch (error) {
+    return { ok: false, error: actionErrorMessage(error, "Pembayaran tidak dapat dimulai") };
+  }
+}
+
+async function createCheckoutInner(invoiceId: string): Promise<CheckoutResult> {
   const actor = await requireUsageActor();
   if (!invoiceId) throw new Error("Invoice tidak valid");
 
@@ -82,7 +108,7 @@ export async function createCheckoutAction(invoiceId: string) {
     config,
   );
 
-  return { redirectUrl };
+  return { ok: true, redirectUrl };
 }
 
 export async function uploadPaymentProofAction(formData: FormData) {

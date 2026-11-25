@@ -17,7 +17,7 @@ describe("checkout langganan memakai gateway yang sama dengan top-up", () => {
     expect(action).toContain("createSubscriptionCheckoutAction");
     expect(action).toContain('returnPath: "/app/pengaturan/subscription"');
     expect(view).toContain("createSubscriptionCheckoutAction");
-    expect(view).toContain("window.location.assign(redirectUrl)");
+    expect(view).toContain("window.location.assign(result.redirectUrl)");
     expect(view).not.toContain("Bayar via WhatsApp");
   });
 });
