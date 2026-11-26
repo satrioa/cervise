@@ -935,9 +935,20 @@ export async function deleteOwnerAccount(input: { userId: string }) {
   if (userId === actorId) throw new Error("Tidak bisa menghapus akun sendiri");
 
   // Hard delete: FK cascade pada profiles, employees, platform_admins, dll.
-  // Error FK (misal teknisi masih dipakai servis) sengaja diteruskan supaya
-  // pemanggil bisa menampilkan alasan kegagalan, bukan gagal diam-diam.
   const admin = createAdminClient();
+
+  // Dua FK masih NO ACTION karena kolomnya NOT NULL. Cek lebih awal supaya
+  // pemanggil mendapat alasan yang jelas, bukan "Database error deleting user".
+  const [cashSessions, handovers] = await Promise.all([
+    admin.from("cervise_cash_sessions").select("id", { count: "exact", head: true }).eq("employee_id", userId),
+    admin.from("cervise_cash_session_handovers").select("id", { count: "exact", head: true }).eq("handed_over_by", userId),
+  ]);
+  if (cashSessions.error) throw cashSessions.error;
+  if (handovers.error) throw handovers.error;
+  if ((cashSessions.count ?? 0) > 0 || (handovers.count ?? 0) > 0) {
+    throw new Error("Akun masih memiliki sesi kas atau serah terima kas. Nonaktifkan saja.");
+  }
+
   const { error } = await admin.auth.admin.deleteUser(userId);
   if (error) throw error;
 
