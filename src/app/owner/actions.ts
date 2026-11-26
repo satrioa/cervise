@@ -908,6 +908,45 @@ export async function setEmployeeActive(input: { employeeId: string; active: boo
   return { ok: true };
 }
 
+export async function setAccountActive(input: { userId: string; active: boolean }) {
+  const { userId: actorId } = await requirePlatformAdmin();
+  if (!input.userId) throw new Error("ID akun tidak valid");
+  if (input.userId === actorId) throw new Error("Tidak bisa mengubah status akun sendiri");
+
+  // Role authenticated tidak punya grant UPDATE di tabel-tabel ini, jadi pakai
+  // admin client — otorisasi sudah dicek requirePlatformAdmin() di atas.
+  const admin = createAdminClient();
+  const employeeUpdate = await admin.from("employees").update({ is_active: input.active }).eq("profile_id", input.userId);
+  if (employeeUpdate.error) throw employeeUpdate.error;
+  const platformAdminUpdate = await admin.from("platform_admins").update({ is_active: input.active }).eq("profile_id", input.userId);
+  if (platformAdminUpdate.error) throw platformAdminUpdate.error;
+  const profileUpdate = await admin.from("profiles").update({ is_active: input.active }).eq("id", input.userId);
+  if (profileUpdate.error) throw profileUpdate.error;
+
+  revalidatePath("/owner/accounts");
+  revalidatePath("/owner/tenants");
+  return { ok: true };
+}
+
+export async function deleteOwnerAccount(input: { userId: string }) {
+  const { userId: actorId } = await requirePlatformAdmin();
+  const userId = input.userId;
+  if (!userId) throw new Error("ID akun tidak valid");
+  if (userId === actorId) throw new Error("Tidak bisa menghapus akun sendiri");
+
+  // Hard delete: FK cascade pada profiles, employees, platform_admins, dll.
+  // Error FK (misal teknisi masih dipakai servis) sengaja diteruskan supaya
+  // pemanggil bisa menampilkan alasan kegagalan, bukan gagal diam-diam.
+  const admin = createAdminClient();
+  const { error } = await admin.auth.admin.deleteUser(userId);
+  if (error) throw error;
+
+  revalidatePath("/owner");
+  revalidatePath("/owner/accounts");
+  revalidatePath("/owner/tenants");
+  return { ok: true };
+}
+
 export async function getPlatformSettings() {
   const { supabase } = await requirePlatformAdmin();
   const { data, error } = await supabase

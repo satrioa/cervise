@@ -9,6 +9,7 @@ const MUTATING_COMPONENTS = [
   "meta-phone-number-form.tsx",
   "incident-form.tsx",
   "employee-active-toggle.tsx",
+  "owner-accounts-table.tsx",
   "invoice-review-table.tsx",
   "promo-settings-form.tsx",
   "settings-form.tsx",
