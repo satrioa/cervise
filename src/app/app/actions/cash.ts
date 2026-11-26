@@ -1,6 +1,5 @@
 ﻿"use server";
 
-import { revalidatePath } from "next/cache";
 import { getActiveTenant } from "@/lib/supabase/actor";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isManagerRole } from "@/lib/auth/authorization";
@@ -204,7 +203,6 @@ export async function openCashSession(input: { openingBalance: number }): Promis
       shiftOpenTime: wibTime(session.openAt),
       saldoAwal: session.openingBalance,
     });
-    revalidatePath("/app");
     return { ok: true, data: session };
   } catch (cause) {
     return fail(cause instanceof Error ? cause.message : "Gagal membuka sesi kas");
@@ -312,8 +310,6 @@ export async function closeCashSession(input: {
       selisih: closing - report.expectedCash,
     });
 
-    revalidatePath("/app");
-    revalidatePath("/app/laporan/shift");
     return {
       ok: true,
       data: {
@@ -362,7 +358,6 @@ export async function handoverCashSession(input: { sessionId: string }): Promise
       if (error.code === "23505") return fail("Shift ini sudah menunggu dilanjutkan petugas lain.");
       return fail(error.message);
     }
-    revalidatePath("/app");
     return { ok: true, data: null };
   } catch (cause) {
     return fail(cause instanceof Error ? cause.message : "Gagal menyerahkan shift");
@@ -400,7 +395,6 @@ export async function resumeCashSession(input: { sessionId: string }): Promise<C
     // Update yang cocok 0 baris tetap "sukses" di PostgREST; dua orang yang
     // menekan Lanjutkan bersamaan tidak boleh sama-sama merasa berhasil.
     if (!resumed) return fail("Serah terima sudah dilanjutkan orang lain. Muat ulang.");
-    revalidatePath("/app");
     return { ok: true, data: null };
   } catch (cause) {
     return fail(cause instanceof Error ? cause.message : "Gagal melanjutkan shift");
@@ -530,8 +524,6 @@ export async function addCashAdjustment(input: {
       source: "kas_manual",
     });
     if (error) return fail(error.message);
-    revalidatePath("/app");
-    revalidatePath("/app/keuangan/arus-kas");
     return { ok: true, data: null };
   } catch (cause) {
     return fail(cause instanceof Error ? cause.message : "Gagal menyimpan transaksi kas");

@@ -1,7 +1,6 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
-import { revalidatePath } from "next/cache";
 import { randomUUID } from "crypto";
 
 import { getActiveTenant } from "@/lib/supabase/actor";
@@ -203,8 +202,6 @@ export async function createProduct(input: {
     }
     throw new Error(error.message);
   }
-  revalidatePath("/app/penjualan");
-  revalidatePath("/app/inventori");
   return { id, sku };
 }
 
@@ -398,8 +395,6 @@ export async function createSale(input: {
     await supabase.from("cervise_customers").update({ tags: Array.from(tags) } as any).eq("id", input.customerId);
   }
 
-  revalidatePath("/app/penjualan");
-  revalidatePath("/app/laporan/penjualan");
   return { id: result.id, sale_number: result.sale_number ?? "" };
 }
 
@@ -537,7 +532,5 @@ export async function returnSaleItems(saleId: string, returns: { item_id: string
   if (returnError) throw new Error(returnError.message);
 
   const result = (returned ?? {}) as { items?: number; refund?: number };
-  revalidatePath("/app/penjualan");
-  revalidatePath("/app/laporan/penjualan");
   return { ok: true, items: Number(result.items ?? 0), refund: Number(result.refund ?? 0) };
 }
