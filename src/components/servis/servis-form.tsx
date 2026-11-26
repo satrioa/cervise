@@ -155,9 +155,12 @@ export function ServisForm({ onSuccess, onCancel }: ServisFormProps) {
     if (!custName.trim()) return "Nama customer wajib";
     if (!custPhone.trim()) return "Kontak WA wajib";
     if (!/^08\d{7,13}$/.test(custPhone.trim()) && !/^62\d{7,13}$/.test(custPhone.trim())) return "Format WA tidak valid (08xxx)";
-    if (passwordType === "PIN" && !/^\d{4,8}$/.test(passwordValue.trim())) return "PIN harus 4-8 digit angka";
-    if (passwordType === "POLA" && passwordValue.split(",").filter(Boolean).length < 4) return "Pola minimal 4 titik";
-    if (garansiVal === "" || Number(garansiVal) <= 0) return "Garansi wajib diisi (>0)";
+    // PIN/pola & garansi opsional: servis baru boleh tanpa keduanya.
+    if (passwordValue.trim()) {
+      if (passwordType === "PIN" && !/^\d{4,8}$/.test(passwordValue.trim())) return "PIN harus 4-8 digit angka";
+      if (passwordType === "POLA" && passwordValue.split(",").filter(Boolean).length < 4) return "Pola minimal 4 titik";
+    }
+    if (garansiVal !== "" && Number(garansiVal) <= 0) return "Garansi harus lebih dari 0";
     if (priceEstimasi !== "" && Number(priceEstimasi) < 0) return "Estimasi tidak valid";
     return null;
   };
@@ -214,12 +217,12 @@ export function ServisForm({ onSuccess, onCancel }: ServisFormProps) {
         kerusakan,
         kelengkapan,
         password_type: passwordType,
-        password_value: passwordValue.trim(),
+        password_value: passwordValue.trim() || undefined,
         customer_name: custName.trim(),
         customer_address: custAddr.trim() || undefined,
         customer_phone: custPhone.trim(),
-        garansi_value: Number(garansiVal),
-        garansi_unit: garansiUnit,
+        garansi_value: garansiVal === "" ? null : Number(garansiVal),
+        garansi_unit: garansiVal === "" ? undefined : garansiUnit,
         price_estimasi: priceEstimasi === "" ? null : Number(priceEstimasi),
       });
       playPageTransition();
@@ -356,7 +359,7 @@ export function ServisForm({ onSuccess, onCancel }: ServisFormProps) {
             <Separator />
 
             <div className="space-y-3">
-              <Label>Password Device *</Label>
+              <Label>Password Device (opsional)</Label>
               <div className="flex gap-2">
                 <button type="button" onClick={() => { setPasswordType("PIN"); setPasswordValue(""); }} className={`flex-1 rounded-lg border px-4 py-2 text-sm font-medium ${passwordType === "PIN" ? "bg-foreground text-background border-foreground" : "bg-background hover:bg-muted border-border"}`}>PIN</button>
                 <button type="button" onClick={() => { setPasswordType("POLA"); setPasswordValue(""); }} className={`flex-1 rounded-lg border px-4 py-2 text-sm font-medium ${passwordType === "POLA" ? "bg-foreground text-background border-foreground" : "bg-background hover:bg-muted border-border"}`}>POLA</button>
@@ -383,11 +386,11 @@ export function ServisForm({ onSuccess, onCancel }: ServisFormProps) {
         {/* Garansi */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Garansi *</CardTitle>
-            <CardDescription>Isi nilai + satuan. Akan override garansi 90 hari default saat status Sudah Diambil.</CardDescription>
+            <CardTitle className="text-base">Garansi (opsional)</CardTitle>
+            <CardDescription>Kosongkan untuk memakai garansi default saat status Sudah Diambil.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-1.5">
-            <Label>Garansi *</Label>
+            <Label>Garansi</Label>
             <GaransiField value={garansiVal} unit={garansiUnit} onValueChange={setGaransiVal} onUnitChange={setGaransiUnit} />
           </CardContent>
         </Card>

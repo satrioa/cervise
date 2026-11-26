@@ -22,12 +22,12 @@ export type CreateServisPayload = {
   kerusakan: string[];
   kelengkapan: string[];
   password_type: "PIN" | "POLA";
-  password_value: string;
+  password_value?: string | null;
   customer_name: string;
   customer_address?: string;
   customer_phone: string;
-  garansi_value: number;
-  garansi_unit: "hari" | "bulan" | "tahun";
+  garansi_value?: number | null;
+  garansi_unit?: "hari" | "bulan" | "tahun";
   price_estimasi?: number | null;
   // hidden: created_by & branch_id derived server-side
 };
@@ -207,8 +207,15 @@ export async function createServis(payload: CreateServisPayload) {
   if (!payload.merk || !payload.tipe) throw new Error("Merk & Tipe wajib");
   if (payload.kerusakan == null || payload.kerusakan.length === 0) throw new Error("Kerusakan minimal 1");
   if (!payload.customer_name || !payload.customer_phone) throw new Error("Nama & WA wajib");
-  if (!payload.password_type || !payload.password_value) throw new Error("Password device wajib");
-  if (!payload.garansi_value || !payload.garansi_unit) throw new Error("Garansi wajib");
+  // Password device & garansi opsional; yang sudah diisi tetap divalidasi.
+  if (payload.password_value?.trim()) {
+    if (payload.password_type === "PIN" && !/^\d{4,8}$/.test(payload.password_value.trim())) throw new Error("PIN harus 4-8 digit angka");
+    if (payload.password_type === "POLA" && payload.password_value.split(",").filter(Boolean).length < 4) throw new Error("Pola minimal 4 titik");
+  }
+  if (payload.garansi_value != null) {
+    if (!Number.isFinite(payload.garansi_value) || payload.garansi_value <= 0) throw new Error("Garansi harus lebih dari 0");
+    if (!payload.garansi_unit) throw new Error("Satuan garansi wajib diisi");
+  }
 
   // normalize kerusakan lowercase & dedup
   const kerusakanNorm = Array.from(
@@ -304,7 +311,7 @@ export async function createServis(payload: CreateServisPayload) {
       kerusakan: kerusakanNorm,
       kelengkapan: kelengkapanNorm,
       password_type: payload.password_type,
-      password_value: payload.password_value.trim(),
+      password_value: payload.password_value?.trim() || null,
       garansi_value: payload.garansi_value,
       garansi_unit: payload.garansi_unit,
       kondisi_awal: {},
