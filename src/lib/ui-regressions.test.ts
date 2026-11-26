@@ -30,6 +30,16 @@ describe("regresi UI", () => {
     expect(layout).toContain("mustChangePassword: Boolean(actor.mustChangePassword)");
   });
 
+  it("PIN device dan garansi opsional saat tambah servis", () => {
+    const form = read("src/components/servis/servis-form.tsx");
+    expect(form).toContain("Password Device (opsional)");
+    expect(form).toContain("Garansi (opsional)");
+    expect(form).not.toContain('return "Garansi wajib diisi (>0)"');
+    const action = read("src/app/app/servis/actions.ts");
+    expect(action).not.toContain('throw new Error("Password device wajib")');
+    expect(action).not.toContain('throw new Error("Garansi wajib")');
+  });
+
   it("halaman notifikasi WA tersedia di navigasi platform owner", () => {
     const nav = read("src/components/owner/owner-navigation.tsx");
     expect(nav).toContain('href: "/owner/notifications"');
