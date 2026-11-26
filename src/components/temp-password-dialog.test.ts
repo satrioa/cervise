@@ -49,4 +49,14 @@ describe("modal akun baru", () => {
     expect(list).toContain("pin: info.pin");
     expect(list).toContain("pin={temp?.pin}");
   });
+
+  it("modal kredensial dipasang setelah form keluar dan sebelum refresh", () => {
+    // Dua dialog yang mount bareng membuat modal scope yang masih keluar
+    // menandai popup baru inert — tombol terlihat tapi tidak bisa diklik.
+    const start = karyawan.indexOf("setTimeout(");
+    expect(start).toBeGreaterThan(-1);
+    expect(karyawan.slice(start, start + 160)).toContain("onDone");
+    const actions = list.slice(list.indexOf("export function KaryawanHeaderActions"));
+    expect(actions.indexOf("setTemp(")).toBeLessThan(actions.indexOf("router.refresh()"));
+  });
 });
