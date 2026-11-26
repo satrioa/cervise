@@ -38,7 +38,7 @@ Menandai secara visual baris servis yang HP-nya sudah diserahkan ke pelanggan, t
 
 - Satu tes regresi di `src/lib/ui-regressions.test.ts` membaca sumber `src/app/app/servis/page.tsx` dan memastikan:
   - ada pembandingan `status === "Sudah Diambil"`,
-  - teks "HP Diambil" muncul minimal dua kali (pemakaian di tabel dan di kartu).
+  - teks "HP Diambil" didefinisikan sekali di `PickedUpBadge`, dan komponen itu dipakai dua kali (tabel dan kartu).
 - Verifikasi dengan `npx tsc --noEmit`, `npm test -- --run`, `npm run build`.
 
 ## Lingkup

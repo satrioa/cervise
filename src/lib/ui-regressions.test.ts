@@ -66,6 +66,13 @@ describe("regresi UI", () => {
     expect(source).not.toContain("revalidatePath");
   });
 
+  it("tabel dan kartu servis menandai HP yang sudah diambil", () => {
+    const page = read("src/app/app/servis/page.tsx");
+    expect(page).toContain('status !== "Sudah Diambil"');
+    expect(page.match(/HP Diambil/g) ?? []).toHaveLength(1);
+    expect(page.match(/<PickedUpBadge status=\{r\.status\} \/>/g) ?? []).toHaveLength(2);
+  });
+
   it("swipe action meneruskan onClick agar tap kartu membuka sheet", () => {
     const source = read("src/components/arc/swipe-actions/swipe-actions.tsx");
     expect(source).toContain("onClick?: (event: ReactMouseEvent<HTMLDivElement>) => void");

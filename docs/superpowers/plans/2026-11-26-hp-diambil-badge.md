@@ -46,7 +46,7 @@ Tambahkan tes ini di dalam `describe("regresi UI", ...)` pada `src/lib/ui-regres
   it("tabel dan kartu servis menandai HP yang sudah diambil", () => {
     const page = read("src/app/app/servis/page.tsx");
     expect(page).toContain('status !== "Sudah Diambil"');
-    expect(page.match(/HP Diambil/g) ?? []).toHaveLength(2);
+    expect(page.match(/HP Diambil/g) ?? []).toHaveLength(1);
     expect(page.match(/<PickedUpBadge status=\{r\.status\} \/>/g) ?? []).toHaveLength(2);
   });
 ```
