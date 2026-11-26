@@ -50,6 +50,15 @@ describe("input kerusakan tetap bisa mengetik, bukan hanya klik", () => {
     }
   });
 
+  it("keyboard HP bisa submit tag baru lewat tombol Selesai/Berikutnya", () => {
+    // Tanpa enterKeyHint, Samsung Keyboard memilih IME action "Berikutnya"
+    // karena masih banyak input setelahnya, bukan "Enter"/"Selesai".
+    expect(source).toContain('enterKeyHint="done"');
+    // "Berikutnya" masuk sebagai Tab, bukan Enter: teks yang diketik harus
+    // tetap tersimpan walaupun tidak ada saran yang aktif.
+    expect(source).toMatch(/e\.key === "Tab" && !e\.shiftKey[\s\S]{0,300}add\(activeSuggestion \?\? input\.trim\(\)\)/);
+  });
+
   it("membatasi jumlah tag dan menolak duplikat", () => {
     // Batas 5 dan dedup ikut ditegakkan server di createServis
     // (actions.ts), jadi keduanya harus sinkron.

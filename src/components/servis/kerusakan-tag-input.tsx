@@ -124,6 +124,7 @@ export function KerusakanTagInput({ value, onChange }: Props) {
             className="w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground/72 py-1 relative"
             placeholder={value.length === 0 ? "Ketik kerusakan lalu Enter" : "Tambah tag..."}
             value={input}
+            enterKeyHint="done"
             onChange={(e) => setInput(e.target.value)}
             onFocus={() => setFocused(true)}
             onBlur={() => setTimeout(() => setFocused(false), 150)}
@@ -138,9 +139,14 @@ export function KerusakanTagInput({ value, onChange }: Props) {
                 setHighlight((h) => (h - 1 + suggestions.length) % suggestions.length);
                 return;
               }
-              if (e.key === "Tab" && !e.shiftKey && activeSuggestion) {
-                e.preventDefault();
-                add(activeSuggestion);
+              if (e.key === "Tab" && !e.shiftKey) {
+                // IME action "Berikutnya" di HP (mis. Samsung) masuk sebagai
+                // Tab, bukan Enter. Simpan saran yang dipilih atau teks yang
+                // diketik supaya tag baru tidak hilang saat pindah field.
+                if (activeSuggestion || input.trim()) {
+                  e.preventDefault();
+                  add(activeSuggestion ?? input.trim());
+                }
                 return;
               }
               if (e.key === "Enter" || e.key === ",") {
