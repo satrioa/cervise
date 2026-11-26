@@ -528,13 +528,16 @@ export function ServisDetailView({ data }: Props) {
                       <div className="divide-y">
                         {spareparts.map((r: any) => (
                           <div key={r.id} className={`grid grid-cols-1 sm:grid-cols-[1fr_90px_80px_90px_110px_36px] gap-1 sm:gap-2 px-3 py-2.5 text-sm items-center ${pendingRemove.includes(r.id) ? "opacity-50" : ""}`}>
-                            <span className={`font-medium truncate ${pendingRemove.includes(r.id) ? "line-through" : ""}`}>{r.name}</span>
+                            <span className={`flex items-center gap-1.5 font-medium truncate ${pendingRemove.includes(r.id) ? "line-through" : ""}`}>
+                              {r.name}
+                              {r.is_custom ? <Badge variant="outline" className="shrink-0 text-[9px]">Custom</Badge> : null}
+                            </span>
                             <span className="font-mono text-xs text-muted-foreground">{r.sku ?? "—"}</span>
                             <span className="text-center font-mono">×{r.qty}</span>
                             <span className="text-right font-mono text-xs">{formatCurrencyPlain(Number(r.unit_price ?? 0))}</span>
                             <span className="flex justify-center">{r.is_returned ? <Badge variant="warning">Dikembalikan</Badge> : pendingRemove.includes(r.id) ? <Badge variant="destructive">Akan dihapus</Badge> : <Badge variant="success">Terpakai</Badge>}</span>
                             <span className="flex justify-center">
-                              {!r.is_returned && canRemoveParts ? (
+                              {!r.is_returned && !r.is_custom && canRemoveParts ? (
                                 <Button
                                   size="icon-sm"
                                   variant="ghost"

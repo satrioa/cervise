@@ -473,11 +473,15 @@ export async function deleteServis(id: string) {
   // admin has to resolve the parts first.
   const { data: parts, error: partsError } = await supabase
     .from("cervise_service_spareparts")
-    .select("id, name, qty")
+    .select("id, name, qty, is_custom")
     .eq("servis_id", id)
     .eq("is_returned", false);
   if (partsError) throw new Error(partsError.message);
-  const consumed = (parts ?? []) as { name: string; qty: number }[];
+  // Baris custom tidak punya stok untuk dikembalikan, jadi tidak menghalangi
+  // penghapusan servis.
+  const consumed = ((parts ?? []) as { name: string; qty: number; is_custom?: boolean }[]).filter(
+    (part) => !part.is_custom,
+  );
   if (consumed.length > 0) {
     throw new Error(
       `Servis masih memakai ${consumed.length} sparepart (${consumed.map((p) => `${p.name} x${p.qty}`).join(", ")}). Kembalikan ke stok atau tetap terpakai sebelum dihapus.`,

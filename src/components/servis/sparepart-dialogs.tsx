@@ -9,10 +9,11 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
 import { XIcon } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
-import { searchSparepartStock, useSparepartsForServis, addSparepartsToServis, updateServisStatus, cancelServisWithSpareparts, getServisSpareparts, type SparepartStockRow } from "@/app/app/servis/sparepart-actions";
+import { searchSparepartStock, useSparepartsForServis, addSparepartsToServis, addCustomSparepartToServis, updateServisStatus, cancelServisWithSpareparts, getServisSpareparts, type SparepartStockRow } from "@/app/app/servis/sparepart-actions";
 import { playPageTransition } from "@/components/layout/page-transition";
 
 type Selected = { row: SparepartStockRow; qty: number };
+type CustomItem = { name: string; cost: number };
 
 export function SparepartPickDialog({
   open,
@@ -31,6 +32,9 @@ export function SparepartPickDialog({
   const [rows, setRows] = useState<SparepartStockRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [selected, setSelected] = useState<Selected[]>([]);
+  const [customs, setCustoms] = useState<CustomItem[]>([]);
+  const [customName, setCustomName] = useState("");
+  const [customCost, setCustomCost] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -39,6 +43,9 @@ export function SparepartPickDialog({
     setError(null);
     setQ("");
     setSelected([]);
+    setCustoms([]);
+    setCustomName("");
+    setCustomCost("");
     // initial load
     setLoading(true);
     searchSparepartStock("")
@@ -86,11 +93,20 @@ export function SparepartPickDialog({
           // "Lewati" harus memakai action status murni seperti bulk update.
           await updateServisStatus(servis.id, "Dikerjakan");
         } else {
-          await useSparepartsForServis(servis.id, items);
+          if (items.length > 0) await useSparepartsForServis(servis.id, items);
+          for (const custom of customs) {
+            await addCustomSparepartToServis(servis.id, custom, true);
+          }
+          if (items.length === 0 && customs.length === 0) {
+            await updateServisStatus(servis.id, "Dikerjakan");
+          }
         }
       } else {
-        if (items.length === 0) throw new Error("Pilih minimal 1 sparepart");
-        await addSparepartsToServis(servis.id, items);
+        if (items.length === 0 && customs.length === 0) throw new Error("Pilih minimal 1 sparepart");
+        if (items.length > 0) await addSparepartsToServis(servis.id, items);
+        for (const custom of customs) {
+          await addCustomSparepartToServis(servis.id, custom, false);
+        }
       }
       playPageTransition();
       onSuccess();
@@ -102,7 +118,24 @@ export function SparepartPickDialog({
     }
   };
 
-  const totalPicked = selected.reduce((a, b) => a + b.qty, 0);
+  const totalPicked = selected.reduce((a, b) => a + b.qty, 0) + customs.length;
+
+  const addCustom = () => {
+    const name = customName.trim();
+    const cost = Number(customCost);
+    if (name.length < 3) {
+      setError("Nama sparepart custom minimal 3 karakter");
+      return;
+    }
+    if (!Number.isFinite(cost) || cost <= 0) {
+      setError("Harga modal harus lebih dari 0");
+      return;
+    }
+    setError(null);
+    setCustoms((prev) => [...prev, { name, cost: Math.round(cost) }]);
+    setCustomName("");
+    setCustomCost("");
+  };
 
   return (
     <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
@@ -150,6 +183,48 @@ export function SparepartPickDialog({
                 ))}
               </div>
             )}
+
+            <div className="rounded-lg border border-dashed p-3 space-y-2">
+              <div className="text-[11px] font-mono uppercase tracking-widest text-muted-foreground">
+                Sparepart custom · di luar stok
+              </div>
+              <p className="text-[11px] text-muted-foreground">
+                Untuk barang yang dibeli di luar sistem. Harga modal tercatat sebagai pengeluaran, qty selalu 1.
+              </p>
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <Input
+                  placeholder="Nama sparepart"
+                  value={customName}
+                  onChange={(e) => setCustomName(e.target.value)}
+                  className="h-9 flex-1"
+                />
+                <Input
+                  placeholder="Harga modal (Rp)"
+                  value={customCost}
+                  onChange={(e) => setCustomCost(e.target.value.replace(/\D/g, ""))}
+                  inputMode="numeric"
+                  className="h-9 sm:w-40"
+                />
+                <Button type="button" size="sm" variant="outline" onClick={addCustom} disabled={saving}>
+                  Tambah
+                </Button>
+              </div>
+              {customs.length > 0 ? (
+                <div className="space-y-1.5">
+                  {customs.map((custom, index) => (
+                    <div key={`${custom.name}-${index}`} className="flex items-center justify-between gap-2 rounded-md border bg-card px-2.5 py-1.5">
+                      <div className="min-w-0">
+                        <div className="text-sm font-medium truncate">{custom.name}</div>
+                        <div className="font-mono text-[11px] text-muted-foreground">Custom · {formatCurrencyPlain(custom.cost)}</div>
+                      </div>
+                      <Button size="icon-sm" variant="ghost" onClick={() => setCustoms((prev) => prev.filter((_, i) => i !== index))}>
+                        <XIcon className="size-3" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+            </div>
 
             <div className="space-y-1">
               <div className="text-xs font-medium text-muted-foreground">{loading ? <Skeleton className="h-3 w-20" /> : `${rows.length} sparepart`}</div>
@@ -218,7 +293,7 @@ export function SparepartPickDialog({
                   {saving ? "Menyimpan..." : "Lewati / Tanpa sparepart"}
                 </Button>
               )}
-              <Button onClick={() => handleSave()} disabled={saving || (mode === "add" && selected.length === 0)}>
+              <Button onClick={() => handleSave()} disabled={saving || (mode === "add" && selected.length === 0 && customs.length === 0)}>
                 {saving ? "Menyimpan..." : mode === "transition" ? `Simpan & Kerjakan${selected.length ? ` (${totalPicked})` : ""}` : `Tambah (${totalPicked})`}
               </Button>
             </div>

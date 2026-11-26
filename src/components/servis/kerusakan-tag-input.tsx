@@ -115,7 +115,7 @@ export function KerusakanTagInput({ value, onChange }: Props) {
               <span className="invisible">{input}</span>
               <span className="text-muted-foreground/40">{ghostRemainder}</span>
               <span className="ml-2 hidden sm:inline-flex items-center gap-1 rounded border bg-muted px-1 py-0.5 font-mono text-[10px] text-muted-foreground">
-                Tab
+                Enter
               </span>
             </span>
           )}
@@ -140,12 +140,14 @@ export function KerusakanTagInput({ value, onChange }: Props) {
                 return;
               }
               if (e.key === "Tab" && !e.shiftKey) {
-                // IME action "Berikutnya" di HP (mis. Samsung) masuk sebagai
-                // Tab, bukan Enter. Simpan saran yang dipilih atau teks yang
-                // diketik supaya tag baru tidak hilang saat pindah field.
-                if (activeSuggestion || input.trim()) {
+                // IME action "Berikutnya"/"Selesai" di HP (mis. Samsung) masuk
+                // sebagai Tab. Selalu simpan teks yang diketik: memakai saran
+                // di sini bikin tag baru mustahil dibuat kalau ada saran mirip.
+                // Saran dipilih lewat klik chip atau Enter, bukan tombol ini.
+                const typed = input.trim();
+                if (typed || activeSuggestion) {
                   e.preventDefault();
-                  add(activeSuggestion ?? input.trim());
+                  add(typed || activeSuggestion!);
                 }
                 return;
               }

@@ -32,6 +32,7 @@ export type ServisSparepartRow = {
   is_returned: boolean;
   returned_at: string | null;
   created_at: string;
+  is_custom: boolean;
 };
 
 type ServiceSparepartDbRow = {
@@ -48,6 +49,7 @@ type ServiceSparepartDbRow = {
   is_returned: boolean;
   returned_at: string | null;
   created_at: string;
+  is_custom?: boolean | null;
 };
 
 type Actor = Awaited<ReturnType<typeof getActiveTenant>>;
@@ -122,7 +124,7 @@ export async function getServisSpareparts(servisId: string): Promise<ServisSpare
 
   const { data, error } = await actor.supabase
     .from("cervise_service_spareparts")
-    .select("id, product_id, sparepart_id, sku, name, category, qty, unit_price, cost, line_total, is_returned, returned_at, created_at")
+    .select("id, product_id, sparepart_id, sku, name, category, qty, unit_price, cost, line_total, is_returned, returned_at, created_at, is_custom")
     .eq("servis_id", servisId)
     .order("created_at", { ascending: true });
 
@@ -142,6 +144,7 @@ export async function getServisSpareparts(servisId: string): Promise<ServisSpare
     is_returned: Boolean(row.is_returned),
     returned_at: row.returned_at ?? null,
     created_at: row.created_at,
+    is_custom: Boolean(row.is_custom),
   }));
 }
 
@@ -168,6 +171,28 @@ export async function addSparepartsToServis(servisId: string, items: SparepartUs
     p_servis_id: servisId,
     p_items: payload,
     p_set_status: false,
+  });
+
+  return { ok: true };
+}
+
+/** Sparepart di luar stok: qty selalu 1, biaya dicatat sebagai pengeluaran. */
+export async function addCustomSparepartToServis(
+  servisId: string,
+  input: { name: string; cost: number },
+  setStatus = false,
+) {
+  if (!servisId) throw new Error("Servis wajib");
+  const name = requireText(input.name, "Nama sparepart");
+  const cost = Number(input.cost);
+  if (!Number.isFinite(cost) || cost <= 0) throw new Error("Harga modal harus lebih dari 0");
+
+  const actor = await getActor();
+  await callRpc(actor, "consume_custom_service_sparepart", {
+    p_servis_id: servisId,
+    p_name: name,
+    p_cost: Math.round(cost),
+    p_set_status: setStatus,
   });
 
   return { ok: true };

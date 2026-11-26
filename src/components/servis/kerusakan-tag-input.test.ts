@@ -54,9 +54,11 @@ describe("input kerusakan tetap bisa mengetik, bukan hanya klik", () => {
     // Tanpa enterKeyHint, Samsung Keyboard memilih IME action "Berikutnya"
     // karena masih banyak input setelahnya, bukan "Enter"/"Selesai".
     expect(source).toContain('enterKeyHint="done"');
-    // "Berikutnya" masuk sebagai Tab, bukan Enter: teks yang diketik harus
-    // tetap tersimpan walaupun tidak ada saran yang aktif.
-    expect(source).toMatch(/e\.key === "Tab" && !e\.shiftKey[\s\S]{0,300}add\(activeSuggestion \?\? input\.trim\(\)\)/);
+    // "Berikutnya" masuk sebagai Tab, bukan Enter. Tombol ini harus menyimpan
+    // teks yang diketik — bukan saran pertama yang kebetulan muncul. Kalau
+    // saran diutamakan, tag baru tidak bisa dibuat saat ada saran mirip.
+    expect(source).toMatch(/e\.key === "Tab" && !e\.shiftKey[\s\S]{0,300}add\(typed \|\| activeSuggestion!\)/);
+    expect(source).not.toContain("add(activeSuggestion ?? input.trim())");
   });
 
   it("membatasi jumlah tag dan menolak duplikat", () => {

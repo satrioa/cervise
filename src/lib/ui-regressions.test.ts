@@ -50,9 +50,27 @@ describe("regresi UI", () => {
     expect(page).toContain("cervise_notification_outbox");
   });
 
+  it("aksi kas, penjualan, dan tenant tidak revalidate saat dipanggil dari transisi klien", () => {
+    for (const file of [
+      "src/app/app/actions/cash.ts",
+      "src/app/app/penjualan/actions.ts",
+      "src/app/dashboard/tenant/actions.ts",
+    ]) {
+      expect(read(file), file).not.toContain("revalidatePath");
+    }
+    expect(read("src/components/servis/servis-form.tsx")).not.toContain("router.refresh()");
+  });
+
   it("action servis tidak revalidate saat dipanggil dari client transition", () => {
     const source = read("src/app/app/servis/sparepart-actions.ts");
     expect(source).not.toContain("revalidatePath");
+  });
+
+  it("tabel dan kartu servis menandai HP yang sudah diambil", () => {
+    const page = read("src/app/app/servis/page.tsx");
+    expect(page).toContain('status !== "Sudah Diambil"');
+    expect(page.match(/HP Diambil/g) ?? []).toHaveLength(1);
+    expect(page.match(/<PickedUpBadge status=\{r\.status\} \/>/g) ?? []).toHaveLength(2);
   });
 
   it("swipe action meneruskan onClick agar tap kartu membuka sheet", () => {

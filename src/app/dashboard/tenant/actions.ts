@@ -1,6 +1,5 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
@@ -195,7 +194,5 @@ export async function createOwnTenant(input: {
     secure: process.env.NODE_ENV === "production",
   });
 
-  revalidatePath("/app");
-  revalidatePath("/dashboard/tenant");
   return { organizationId, isPaidPackage };
 }

@@ -232,7 +232,7 @@ export function KaryawanHeaderActions({ initialCreateOpen = false }: { branches:
   return (
     <>
       <Button size="sm" onClick={() => setOpen(true)}>Tambah Karyawan</Button>
-      <KaryawanFormDialog open={open} onOpenChange={setOpen} editing={null} onDone={(info) => { router.refresh(); if (info?.tempPassword) setTemp({ email: info.email!, password: info.tempPassword, pin: info.pin }); }} />
+      <KaryawanFormDialog open={open} onOpenChange={setOpen} editing={null} onDone={(info) => { if (info?.tempPassword) setTemp({ email: info.email!, password: info.tempPassword, pin: info.pin }); router.refresh(); }} />
       <TempPasswordDialog open={!!temp} onOpenChange={(v) => !v && setTemp(null)} email={temp?.email ?? ""} password={temp?.password ?? ""} pin={temp?.pin} />
     </>
   );

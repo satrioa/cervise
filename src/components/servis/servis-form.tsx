@@ -142,7 +142,6 @@ export function ServisForm({ onSuccess, onCancel }: ServisFormProps) {
     }
     toast.success("Servis baru tersimpan");
     router.push("/app/servis");
-    router.refresh();
   };
 
   // handle before route leave via click handler will use confirmLeave

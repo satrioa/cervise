@@ -89,7 +89,10 @@ export function KaryawanFormDialog({ open, onOpenChange, editing, onDone }: { op
         const res = await createKaryawan({ fullName: n, email: e, phone, role, branchId, pin });
         playPageTransition();
         toast.success("Karyawan dibuat");
-        onOpenChange(false); onDone({ tempPassword: res.tempPassword, email: e, pin });
+        onOpenChange(false);
+        // shortcut: popup form masih keluar ~100ms; mount dialog kredensial di
+        // render yang sama membuatnya inert (tombol terlihat tapi klik mati).
+        setTimeout(() => onDone({ tempPassword: res.tempPassword, email: e, pin }), 150);
       }
     } catch (err: unknown) { toast.error(err instanceof Error ? err.message : "Gagal menyimpan"); }
     finally { setSaving(false); }

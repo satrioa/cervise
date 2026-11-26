@@ -102,6 +102,15 @@ function PaymentBadge({ status }: { status: PaymentStatus }) {
   );
 }
 
+function PickedUpBadge({ status }: { status: Stage }) {
+  if (status !== "Sudah Diambil") return null;
+  return (
+    <Badge variant="secondary" size="sm" className="shrink-0 font-medium">
+      HP Diambil
+    </Badge>
+  );
+}
+
 /**
  * Placeholder selama data servis dimuat. Previously a text "Memuat data
  * servis..." which shifted the whole page down when it disappeared. The
@@ -1023,7 +1032,12 @@ export default function ServisPage() {
                     <TableCell className="whitespace-nowrap font-mono text-xs text-muted-foreground">{format(new Date(r.date), "d MMM yyyy", { locale: localeId })}</TableCell>
                     <TableCell><div className="font-mono text-xs">{servisLabel(r)}</div><div className="text-muted-foreground text-xs">{r.customer}</div></TableCell>
                     <TableCell className="font-medium max-w-[220px] truncate">{r.device}</TableCell>
-                    <TableCell><StageTrack stage={r.status} /></TableCell>
+                    <TableCell>
+                      <div className="flex flex-wrap items-center gap-1">
+                        <StageTrack stage={r.status} />
+                        <PickedUpBadge status={r.status} />
+                      </div>
+                    </TableCell>
                     <TableCell className="font-mono text-xs text-muted-foreground">{r.teknisi}</TableCell>
                     <TableCell><PaymentBadge status={getPaymentStatus(r)} /></TableCell>
                     <TableCell className="text-right font-mono tabular-nums">{r.price > 0 ? formatCurrencyPlain(r.price) : "—"}</TableCell>
@@ -1063,7 +1077,10 @@ export default function ServisPage() {
                         {r.customer} · {format(new Date(r.date), "d MMM yyyy", { locale: localeId })}
                       </p>
                       <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
-                        <StageTrack stage={r.status} />
+                        <div className="flex flex-wrap items-center gap-1">
+                          <StageTrack stage={r.status} />
+                          <PickedUpBadge status={r.status} />
+                        </div>
                         <span className="shrink-0 font-mono text-sm tabular-nums">
                           {r.price > 0 ? formatCurrencyPlain(r.price) : "—"}
                         </span>
