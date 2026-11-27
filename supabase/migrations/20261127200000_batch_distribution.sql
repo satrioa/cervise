@@ -23,11 +23,11 @@ begin
   ) then
     raise exception 'hanya master admin yang boleh mendistribusikan stok';
   end if;
-  if p_items is null or jsonb_typeof(p_items) <> 'array' or jsonb_array_length(p_items) = 0 then
+  if p_items is null or jsonb_typeof(p_items) <> 'array' then
     raise exception 'pilih minimal satu item';
   end if;
-  if jsonb_array_length(p_items) > 100 then
-    raise exception 'maksimal 100 item per batch';
+  if jsonb_array_length(p_items) = 0 then
+    raise exception 'pilih minimal satu item';
   end if;
   if not exists (select 1 from public.branches where id = p_target_branch_id) then
     raise exception 'cabang tujuan tidak ditemukan';

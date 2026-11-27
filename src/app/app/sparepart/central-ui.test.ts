@@ -66,6 +66,15 @@ describe("halaman sparepart gudang pusat", () => {
     expect(dlg).toContain("if (saving) return;");
   });
 
+  it("preview membekukan snapshot stok untuk konfirmasi batch", () => {
+    const dlg = read("src/components/sparepart/central-stock-dialogs.tsx");
+    expect(dlg).toContain("const [previewRows, setPreviewRows] = useState<BatchRow[]>([])");
+    expect(dlg).toContain("setPreviewRows(liveRows)");
+    expect(dlg).toContain("items: previewRows.map(");
+    expect(dlg).toContain("{previewRows.map((row) => (");
+    expect(dlg).toContain("setPreviewRows([])");
+  });
+
   it("unit serialized tetap punya dialog distribusi tersendiri", () => {
     const dlg = read("src/components/sparepart/central-stock-dialogs.tsx");
     expect(dlg).toContain('"distribute-serial"');

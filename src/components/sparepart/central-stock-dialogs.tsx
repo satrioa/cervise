@@ -61,6 +61,7 @@ export function CentralStockDialogs({
   const [saving, setSaving] = useState(false);
   const [batchRows, setBatchRows] = useState<BatchRow[]>([]);
   const [preview, setPreview] = useState(false);
+  const [previewRows, setPreviewRows] = useState<BatchRow[]>([]);
 
   useEffect(() => {
     if (mode !== "approve") return;
@@ -117,7 +118,7 @@ export function CentralStockDialogs({
     try {
       await distributeCentralItemsBatch({
         targetBranchId: target,
-        items: validRows.map((row) => ({
+        items: previewRows.map((row) => ({
           id: row.id, qty: Number(row.qty), expectedStock: row.stock_qty,
         })),
       });
@@ -128,6 +129,7 @@ export function CentralStockDialogs({
       toast.error(error instanceof Error ? error.message : "Gagal mendistribusikan");
       onReload();
       setPreview(false);
+      setPreviewRows([]);
     } finally {
       setSaving(false);
     }
@@ -311,7 +313,7 @@ export function CentralStockDialogs({
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {validRows.map((row) => (
+                        {previewRows.map((row) => (
                           <TableRow key={row.id}>
                             <TableCell>{row.name} <span className="font-mono text-xs">{row.sku}</span></TableCell>
                             <TableCell className="text-right tabular-nums">{row.stock_qty} → {row.stock_qty - Number(row.qty)}</TableCell>
@@ -321,7 +323,7 @@ export function CentralStockDialogs({
                       </TableBody>
                     </Table>
                   </div>
-                  <p aria-live="polite" className="text-sm text-muted-foreground">{validRows.length} item · {validRows.reduce((n, r) => n + Number(r.qty), 0)} unit</p>
+                  <p aria-live="polite" className="text-sm text-muted-foreground">{previewRows.length} item · {previewRows.reduce((n, r) => n + Number(r.qty), 0)} unit</p>
                 </>
               ) : (
                 <>
@@ -491,7 +493,7 @@ export function CentralStockDialogs({
                   <Button
                     className="min-h-11"
                     disabled={!target || validRows.length === 0 || validRows.length !== batchRows.length}
-                    onClick={() => setPreview(true)}
+                    onClick={() => { setPreviewRows(liveRows); setPreview(true); }}
                   >
                     Lanjut ke Preview
                   </Button>
