@@ -87,6 +87,8 @@ function PatternPreview({ value }: { value: string }) {
 
 type Props = {
   data: ServisDetail | null;
+  /** Beri tahu induk supaya badge pembayaran di daftar ikut terbarui. */
+  onPaymentSuccess?: () => void;
 };
 
 function initials(name?: string | null) {
@@ -182,7 +184,7 @@ function mapLogsToEvents(logs: any[], history: any[], detail: any): TimelineEven
   return events;
 }
 
-export function ServisDetailView({ data }: Props) {
+export function ServisDetailView({ data, onPaymentSuccess }: Props) {
   const d: any = data;
   if (!d) return <div className="p-6 text-sm text-muted-foreground">Data tidak tersedia</div>;
 
@@ -725,7 +727,7 @@ export function ServisDetailView({ data }: Props) {
           <DialogPrimitive.Popup className="dark scheme-dark fixed left-1/2 top-1/2 z-50 flex h-[80dvh] max-h-[80dvh] w-[96vw] max-w-4xl -translate-x-1/2 -translate-y-1/2 flex-col rounded-xl border border-white/10 bg-background p-6 text-foreground shadow-2xl overflow-hidden">
             <DialogPrimitive.Title className="shrink-0 font-semibold text-white">Catat Pembayaran</DialogPrimitive.Title>
             <div className="mt-4 flex min-h-0 flex-1 flex-col overflow-y-auto">
-              <ServisPaymentPanel servisId={id} estimasi={estimasiVal} totalPaid={totalPaid} onSuccess={() => { setOpenBayar(false); setHistoryLoading(true); getPembayaranHistory(id).then((h) => setHistory(h as any[])).finally(() => setHistoryLoading(false)); }} onClose={() => setOpenBayar(false)} />
+              <ServisPaymentPanel servisId={id} estimasi={estimasiVal} totalPaid={totalPaid} onSuccess={() => { setOpenBayar(false); setHistoryLoading(true); getPembayaranHistory(id).then((h) => setHistory(h as any[])).finally(() => setHistoryLoading(false)); onPaymentSuccess?.(); }} onClose={() => setOpenBayar(false)} />
             </div>
             <DialogPrimitive.Close className="absolute right-3 top-3 rounded-md p-1 text-muted-foreground hover:bg-muted"><XIcon className="size-4" /></DialogPrimitive.Close>
           </DialogPrimitive.Popup>
