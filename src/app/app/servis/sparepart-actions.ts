@@ -3,6 +3,7 @@
 import { servisBill, servisOutstanding } from "@/lib/operational/servis-price";
 import { getActiveTenant } from "@/lib/supabase/actor";
 import { sanitizeSearchTerm } from "@/lib/search-term";
+import { canPickUpDbStatus } from "@/lib/servis-status-map";
 
 export type SparepartStockRow = {
   id: string;
@@ -236,25 +237,29 @@ export async function cancelServisWithSpareparts(
 }
 
 /**
- * Servis hanya boleh diambil setelah lunas.
+ * Servis hanya boleh diambil setelah Selesai (atau Batal, untuk device yang
+ * dikembalikan tanpa perbaikan) DAN lunas.
  *
  * `set_service_picked_up` dan `set_service_status` di database tidak memeriksa
- * pembayaran, jadi guard-nya di sini. Sisa tagihan dihitung dari ledger kas
- * (`finance_tx`), bukan dari `cervise_services.price`, karena kolom itu berisi
- * total yang SUDAH dibayar.
+ * status maupun pembayaran, jadi guard-nya di sini. Sisa tagihan dihitung dari
+ * ledger kas (`finance_tx`), bukan dari `cervise_services.price`, karena kolom
+ * itu berisi total yang SUDAH dibayar.
  */
-async function assertServisLunas(actor: Actor, servisId: string): Promise<void> {
+async function assertServisBisaDiambil(actor: Actor, servisId: string): Promise<void> {
   const branchId = actor.branchId;
   if (!branchId) throw new Error("Branch not set for tenant");
 
   const { data: service, error } = await actor.supabase
     .from("cervise_services")
-    .select("price, price_estimasi")
+    .select("status, price, price_estimasi")
     .eq("id", servisId)
     .eq("branch_id", branchId)
     .maybeSingle();
   if (error) throw new Error(error.message);
   if (!service) throw new Error("Servis tidak ditemukan");
+  if (!canPickUpDbStatus((service as { status?: string | null }).status)) {
+    throw new Error("Servis belum selesai. Selesaikan dulu atau ubah ke Batal sebelum pengambilan.");
+  }
 
   const { data: payments, error: paymentError } = await actor.supabase
     .from("finance_tx")
@@ -276,7 +281,7 @@ export async function confirmServisPickup(servisId: string, signature: string, n
   const actor = await getActor();
   const svg = signature?.trim() ?? "";
   if (!svg.startsWith("<svg")) throw new Error("Tanda tangan wajib");
-  await assertServisLunas(actor, servisId);
+  await assertServisBisaDiambil(actor, servisId);
 
   await callRpc(actor, "set_service_picked_up", {
     p_servis_id: servisId,
@@ -292,7 +297,7 @@ export async function updateServisStatus(servisId: string, nextStatus: string, n
   const actor = await getActor();
   if (!nextStatus?.trim()) throw new Error("Status wajib");
   if (nextStatus.trim() === "picked_up" || nextStatus.trim() === "Sudah Diambil") {
-    await assertServisLunas(actor, servisId);
+    await assertServisBisaDiambil(actor, servisId);
   }
 
   await callRpc(actor, "set_service_status", {

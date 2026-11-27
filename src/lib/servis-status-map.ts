@@ -43,3 +43,18 @@ export function canAddSparepart(uiStatus: UiStage): boolean {
   // Rule per latest req: only while Dikerjakan, not after Selesai / Sudah Diambil / Batal
   return uiStatus === "Dikerjakan";
 }
+
+/**
+ * Device hanya boleh diambil setelah servis selesai. Kalau pekerjaan dihentikan
+ * di tengah jalan, statusnya diubah ke Batal dulu — baru boleh diambil
+ * sebagai device yang dikembalikan tanpa perbaikan.
+ */
+export function canPickUp(uiStatus: UiStage): boolean {
+  return uiStatus === "Selesai" || uiStatus === "Batal";
+}
+
+/** Versi DB untuk guard di server action (status mentah dari `cervise_services`). */
+export function canPickUpDbStatus(dbStatus: string | null | undefined): boolean {
+  const normalized = (dbStatus ?? "").trim();
+  return normalized === "quality_control" || normalized === "ready" || normalized === "cancelled";
+}

@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { Sheet, SheetClose, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { STAGES, type Stage } from "@/lib/operational/stage-track";
+import { canPickUp } from "@/lib/servis-status-map";
 import { cn } from "@/lib/utils";
 
 const PRINT_OPTIONS = ["Dot Matrix", "Jet", "Thermal"] as const;
@@ -247,7 +248,7 @@ export function ServisContextMenu({
               Edit
             </button>
 
-            {isPaid && !isPickedUp ? (
+            {isPaid && !isPickedUp && canPickUp(servis.status) ? (
               <button
                 role="menuitem"
                 onClick={() => {
@@ -384,7 +385,7 @@ export function ServisContextMenu({
                 closeAll();
               }}
             />
-            {isPaid && !isPickedUp ? (
+            {isPaid && !isPickedUp && canPickUp(servis.status) ? (
               <SheetAction
                 icon={<TruckIcon className="size-4 opacity-70" />}
                 label="Diambil"

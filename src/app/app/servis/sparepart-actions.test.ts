@@ -47,7 +47,12 @@ describe("servis sparepart actions", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.rpc.mockResolvedValue({ data: null, error: null });
-    mocks.from.mockReturnValue(chain({ data: [], error: null }));
+    mocks.from.mockImplementation((table: string) => {
+      if (table === "cervise_services") {
+        return chain({ data: { price: 0, price_estimasi: 0, status: "ready" }, error: null });
+      }
+      return chain({ data: [], error: null });
+    });
     mocks.getActiveTenant.mockResolvedValue({
       supabase: { from: mocks.from, rpc: mocks.rpc },
       userId: "user-1",
@@ -213,7 +218,7 @@ describe("servis sparepart actions", () => {
 
   it("menolak pengambilan kalau servis belum lunas", async () => {
     mocks.from.mockImplementation((table: string) => {
-      if (table === "cervise_services") return chain({ data: { price: 0, price_estimasi: 500_000 }, error: null });
+      if (table === "cervise_services") return chain({ data: { price: 0, price_estimasi: 500_000, status: "ready" }, error: null });
       return chain({ data: [{ amount: 200_000 }], error: null });
     });
 
@@ -225,8 +230,29 @@ describe("servis sparepart actions", () => {
 
   it("mengizinkan pengambilan setelah pembayaran menutup tagihan", async () => {
     mocks.from.mockImplementation((table: string) => {
-      if (table === "cervise_services") return chain({ data: { price: 500_000, price_estimasi: 500_000 }, error: null });
+      if (table === "cervise_services") return chain({ data: { price: 500_000, price_estimasi: 500_000, status: "ready" }, error: null });
       return chain({ data: [{ amount: 500_000 }], error: null });
+    });
+
+    await confirmServisPickup("servis-1", '<svg viewBox="0 0 1 1"></svg>');
+
+    expect(mocks.rpc).toHaveBeenCalledWith("set_service_picked_up", expect.objectContaining({ p_servis_id: "servis-1" }));
+  });
+
+  it("menolak pengambilan saat status masih Dikerjakan walau sudah lunas", async () => {
+    mocks.from.mockImplementation((table: string) => {
+      if (table === "cervise_services") return chain({ data: { price: 500_000, price_estimasi: 500_000, status: "in_repair" }, error: null });
+      return chain({ data: [{ amount: 500_000 }], error: null });
+    });
+
+    await expect(confirmServisPickup("servis-1", '<svg viewBox="0 0 1 1"></svg>')).rejects.toThrow("belum selesai");
+    expect(mocks.rpc).not.toHaveBeenCalled();
+  });
+
+  it("mengizinkan pengambilan dari Batal", async () => {
+    mocks.from.mockImplementation((table: string) => {
+      if (table === "cervise_services") return chain({ data: { price: 0, price_estimasi: 0, status: "cancelled" }, error: null });
+      return chain({ data: [], error: null });
     });
 
     await confirmServisPickup("servis-1", '<svg viewBox="0 0 1 1"></svg>');
