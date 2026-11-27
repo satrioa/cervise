@@ -70,9 +70,13 @@ export default function SparepartPage({ isMasterAdmin, canRequest }: { canManage
   const reload = async (term = q) => {
     setLoading(true);
     try {
-      const [branchRows, centralRows] = await Promise.all([listSpareparts(term), listCentralItems(term)]);
-      setRows(branchRows);
-      setCentralItems(centralRows);
+      if (isMasterAdmin) {
+        const [branchRows, centralRows] = await Promise.all([listSpareparts(term), listCentralItems(term)]);
+        setRows(branchRows);
+        setCentralItems(centralRows);
+      } else {
+        setRows(await listSpareparts(term));
+      }
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Gagal memuat sparepart");
     } finally {
@@ -106,6 +110,23 @@ export default function SparepartPage({ isMasterAdmin, canRequest }: { canManage
         is_active: true,
       }))
     : rows;
+
+  // Cabang memilih SKU dari stok cabangnya; hanya master yang boleh melihat item pusat.
+  const requestItems: CentralItemRow[] = isMasterAdmin
+    ? centralItems
+    : rows.map((row) => ({
+        id: row.id,
+        sku: row.sku,
+        name: row.name,
+        category: row.category,
+        cost: row.cost,
+        price: row.price,
+        stock_qty: row.stock_qty,
+        is_serialized: false,
+        imei: null,
+        parent_key: null,
+        kind: "SPAREPART",
+      }));
 
   const totalPages = Math.max(1, Math.ceil(displayRows.length / pageSize));
   const safePage = Math.min(Math.max(1, page), totalPages);
@@ -242,18 +263,20 @@ export default function SparepartPage({ isMasterAdmin, canRequest }: { canManage
         }
         actions={
           <div className="flex shrink-0 flex-wrap items-center gap-2">
-            <ToggleGroup
-              value={[scope]}
-              onValueChange={(value) => {
-                const next = (value as string[])[0];
-                if (next === "central" || next === "branch") setScope(next);
-              }}
-              variant="outline"
-              aria-label="Scope stok"
-            >
-              <ToggleGroupItem value="central">Pusat</ToggleGroupItem>
-              <ToggleGroupItem value="branch">Cabang</ToggleGroupItem>
-            </ToggleGroup>
+            {isMasterAdmin && (
+              <ToggleGroup
+                value={[scope]}
+                onValueChange={(value) => {
+                  const next = (value as string[])[0];
+                  if (next === "central" || next === "branch") setScope(next);
+                }}
+                variant="outline"
+                aria-label="Scope stok"
+              >
+                <ToggleGroupItem value="central">Pusat</ToggleGroupItem>
+                <ToggleGroupItem value="branch">Cabang</ToggleGroupItem>
+              </ToggleGroup>
+            )}
             <RefreshDataButton onRefresh={() => reload(q)} />
             <Button variant="outline" size="sm" className="h-8" render={<Link href="/app/sparepart/opname" />}>
               <PackageCheckIcon className="size-3.5" /> Stock Opname
@@ -275,7 +298,7 @@ export default function SparepartPage({ isMasterAdmin, canRequest }: { canManage
               </>
             )}
             {scope === "branch" && canRequest && (
-              <Button variant="outline" size="sm" className="h-8" onClick={() => setDialogMode("request")} disabled={centralItems.length === 0}>
+              <Button variant="outline" size="sm" className="h-8" onClick={() => setDialogMode("request")} disabled={requestItems.length === 0}>
                 <ShoppingCartIcon className="size-3.5" /> Request Stok
               </Button>
             )}
@@ -584,7 +607,7 @@ export default function SparepartPage({ isMasterAdmin, canRequest }: { canManage
       <CentralStockDialogs
         key={dialogMode ?? "closed"}
         mode={dialogMode}
-        items={centralItems}
+        items={requestItems}
         branches={branches}
         currentBranchId={branch.id}
         onClose={() => setDialogMode(null)}
