@@ -81,7 +81,11 @@ export function CentralStockDialogs({
   const decided = decidedQty === "" ? String(pending?.decided_qty ?? pending?.qty ?? "") : decidedQty;
 
   const batchItems = items.filter((item) => !item.is_serialized);
-  const validRows = batchRows.filter((row) => {
+  const liveRows = batchRows.map((row) => ({
+    ...row,
+    stock_qty: items.find((item) => item.id === row.id)?.stock_qty ?? row.stock_qty,
+  }));
+  const validRows = liveRows.filter((row) => {
     const n = Number(row.qty);
     return Number.isInteger(n) && n > 0 && n <= row.stock_qty;
   });
@@ -104,6 +108,7 @@ export function CentralStockDialogs({
   };
 
   const confirmBatch = async () => {
+    if (saving) return;
     if (!target || validRows.length !== batchRows.length) {
       toast.error("Periksa cabang tujuan dan qty tiap baris");
       return;
@@ -316,7 +321,7 @@ export function CentralStockDialogs({
                       </TableBody>
                     </Table>
                   </div>
-                  <p className="text-sm text-muted-foreground">{validRows.length} item · {validRows.reduce((n, r) => n + Number(r.qty), 0)} unit</p>
+                  <p aria-live="polite" className="text-sm text-muted-foreground">{validRows.length} item · {validRows.reduce((n, r) => n + Number(r.qty), 0)} unit</p>
                 </>
               ) : (
                 <>
@@ -362,7 +367,7 @@ export function CentralStockDialogs({
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {batchRows.map((row) => (
+                        {liveRows.map((row) => (
                           <TableRow key={row.id}>
                             <TableCell>
                               <div className="font-medium">{row.name}</div>
@@ -386,6 +391,7 @@ export function CentralStockDialogs({
                                 type="button"
                                 variant="ghost"
                                 size="icon-sm"
+                                className="min-h-11 min-w-11"
                                 aria-label={`Hapus ${row.sku}`}
                                 onClick={() => setBatchRows((rows) => rows.filter((r) => r.id !== row.id))}
                               >
@@ -397,15 +403,7 @@ export function CentralStockDialogs({
                       </TableBody>
                     </Table>
                   </div>
-                  <p className="text-xs text-muted-foreground">{batchRows.length} item · {validRows.reduce((n, r) => n + Number(r.qty), 0)} unit</p>
-                  <Button
-                    type="button"
-                    className="min-h-11"
-                    disabled={!target || validRows.length === 0 || validRows.length !== batchRows.length}
-                    onClick={() => setPreview(true)}
-                  >
-                    Lanjut ke Preview
-                  </Button>
+                  <p aria-live="polite" className="text-xs text-muted-foreground">{validRows.length} item · {validRows.reduce((n, r) => n + Number(r.qty), 0)} unit</p>
                 </>
               )
             ) : (

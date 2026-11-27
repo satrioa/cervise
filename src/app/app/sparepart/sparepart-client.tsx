@@ -290,7 +290,7 @@ export default function SparepartPage({ isMasterAdmin, canRequest }: { isMasterA
                 <Button variant="outline" size="sm" className="h-8" onClick={() => setDialogMode("distribute")} disabled={centralItems.length === 0}>
                   <TruckIcon className="size-3.5" /> Distribusi
                 </Button>
-                <Button variant="outline" size="sm" className="h-8" onClick={() => setDialogMode("distribute-serial")}>
+                <Button variant="outline" size="sm" className="h-8" onClick={() => setDialogMode("distribute-serial")} disabled={centralItems.length === 0}>
                   <TruckIcon className="size-3.5" /> Distribusi Unit (IMEI)
                 </Button>
                 <Button variant="outline" size="sm" className="h-8" onClick={() => setDialogMode("approve")}>
@@ -307,9 +307,14 @@ export default function SparepartPage({ isMasterAdmin, canRequest }: { isMasterA
               </Button>
             )}
             {isMasterAdmin && scope === "branch" && (
-              <Button variant="outline" size="sm" className="h-8" onClick={() => setDialogMode("distribute")} disabled={centralItems.length === 0}>
-                <TruckIcon className="size-3.5" /> Distribusi
-              </Button>
+              <>
+                <Button variant="outline" size="sm" className="h-8" onClick={() => setDialogMode("distribute")} disabled={centralItems.length === 0}>
+                  <TruckIcon className="size-3.5" /> Distribusi
+                </Button>
+                <Button variant="outline" size="sm" className="h-8" onClick={() => setDialogMode("distribute-serial")} disabled={centralItems.length === 0}>
+                  <TruckIcon className="size-3.5" /> Distribusi Unit (IMEI)
+                </Button>
+              </>
             )}
             <CossButton variant="outline" size="sm" className="h-8" render={<Link href="/app/kategori-sparepart" />}>
               <TagIcon className="size-3.5" /> Kategori
