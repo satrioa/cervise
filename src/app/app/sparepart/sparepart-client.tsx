@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
-import { PackageCheckIcon, PackageIcon, PencilIcon, PlusIcon, SearchIcon, ShoppingCartIcon, TagIcon, TrashIcon, TruckIcon, XIcon } from "lucide-react";
+import { PackageCheckIcon, PackageIcon, PencilIcon, PlusIcon, SearchIcon, ShoppingCartIcon, TagIcon, TrashIcon, TriangleAlertIcon, TruckIcon, XIcon } from "lucide-react";
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -18,8 +18,9 @@ import { Select, SelectItem, SelectPopup, SelectTrigger, SelectValue } from "@/c
 import { PageHeader } from "@/components/layout/page-header";
 import { RefreshDataButton } from "@/components/layout/refresh-data-button";
 import { useBranch, type Branch } from "@/lib/branch-context";
-import { formatCurrencyPlain } from "@/lib/format";
+import { formatCurrencyPlain, formatNumberPlain } from "@/lib/format";
 import { playPageTransition } from "@/components/layout/page-transition";
+import { DEFAULT_LOW_STOCK_THRESHOLD, lowStockRows, summarizeSparepartStock } from "@/lib/operational/sparepart-stock";
 import {
   createSparepart,
   deleteSparepart,
@@ -32,7 +33,15 @@ import {
   type SparepartRow,
 } from "./actions";
 
-const EMPTY = { sku: "", name: "", category: "Sparepart", stock_qty: "0", cost: "0", price: "0" };
+const EMPTY = {
+  sku: "",
+  name: "",
+  category: "Sparepart",
+  stock_qty: "0",
+  low_stock_threshold: String(DEFAULT_LOW_STOCK_THRESHOLD),
+  cost: "0",
+  price: "0",
+};
 
 export default function SparepartPage({ canManage }: { canManage: boolean }) {
   const { branch, branches } = useBranch();
@@ -84,6 +93,7 @@ export default function SparepartPage({ canManage }: { canManage: boolean }) {
       name: row.name,
       category: row.category,
       stock_qty: String(row.stock_qty),
+      low_stock_threshold: String(row.low_stock_threshold ?? DEFAULT_LOW_STOCK_THRESHOLD),
       cost: String(row.cost),
       price: String(row.price),
     });
@@ -98,6 +108,7 @@ export default function SparepartPage({ canManage }: { canManage: boolean }) {
         name: form.name,
         category: form.category,
         stock_qty: Number(form.stock_qty),
+        low_stock_threshold: Number(form.low_stock_threshold),
         cost: Number(form.cost),
         price: Number(form.price),
       };
@@ -139,6 +150,8 @@ export default function SparepartPage({ canManage }: { canManage: boolean }) {
   const totalPages = Math.max(1, Math.ceil(rows.length / pageSize));
   const safePage = Math.min(Math.max(1, page), totalPages);
   const pageItems = rows.slice((safePage - 1) * pageSize, safePage * pageSize);
+  const stockSummary = summarizeSparepartStock(rows);
+  const alerts = lowStockRows(rows);
   useEffect(() => { setPage(1); }, [q, branch.id]);
 
   return (
@@ -191,6 +204,22 @@ export default function SparepartPage({ canManage }: { canManage: boolean }) {
       />
 
       <div className="mx-auto max-w-4xl space-y-6 px-4 sm:px-6 lg:px-8 py-8">
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          {[
+            { label: "Total jenis", value: formatNumberPlain(stockSummary.totalJenis) },
+            { label: "Total unit stok", value: formatNumberPlain(stockSummary.totalUnit) },
+            { label: "Stok habis", value: formatNumberPlain(stockSummary.habis) },
+            { label: "Stok menipis", value: formatNumberPlain(stockSummary.menipis) },
+          ].map((card) => (
+            <div key={card.label} className="min-w-0 overflow-hidden rounded-xl border border-border/60 bg-background/40 p-4">
+              <div className="font-mono text-[10px] text-muted-foreground uppercase tracking-[0.25em]">{card.label}</div>
+              <div title={card.value} className="mt-2 truncate font-heading text-[clamp(1rem,5vw,1.5rem)] leading-tight tabular-nums">{card.value}</div>
+            </div>
+          ))}
+        </div>
+
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-10">
+          <div className="min-w-0 lg:col-span-8">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between gap-4">
             <div>
@@ -290,6 +319,36 @@ export default function SparepartPage({ canManage }: { canManage: boolean }) {
             ) : null}
           </CardContent>
         </Card>
+          </div>
+
+          {alerts.length > 0 ? (
+            <div className="min-w-0 lg:col-span-2">
+              <Card className="h-full">
+                <CardHeader className="pb-3">
+                  <CardTitle className="flex items-center gap-2 text-sm text-amber-600 dark:text-amber-400">
+                    <TriangleAlertIcon className="size-4" /> Stok perlu perhatian
+                  </CardTitle>
+                  <CardDescription className="text-xs">
+                    {alerts.length} sparepart di bawah ambangnya
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  {alerts.map((row) => (
+                    <div
+                      key={row.id}
+                      className="flex items-center justify-between gap-2 rounded-md border border-amber-500/30 bg-amber-500/5 px-2 py-1.5 text-xs"
+                    >
+                      <span className="min-w-0 truncate font-medium" title={row.name}>{row.name}</span>
+                      <span className="shrink-0 font-mono tabular-nums text-muted-foreground" title={`Ambang ${row.low_stock_threshold}`}>
+                        {row.stock_qty}/{row.low_stock_threshold}
+                      </span>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+            </div>
+          ) : null}
+        </div>
       </div>
 
       <DialogPrimitive.Root open={open} onOpenChange={setOpen}>
@@ -329,6 +388,16 @@ export default function SparepartPage({ canManage }: { canManage: boolean }) {
               <div className="space-y-1.5">
                 <Label>Stok</Label>
                 <Input type="number" min={0} value={form.stock_qty} onChange={(e) => setForm({ ...form, stock_qty: e.target.value })} />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Ambang pengingat habis</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  value={form.low_stock_threshold}
+                  onChange={(e) => setForm({ ...form, low_stock_threshold: e.target.value })}
+                />
+                <p className="text-[11px] text-muted-foreground">Peringatan muncul saat stok ≤ angka ini (default 5).</p>
               </div>
               <div className="space-y-1.5">
                 <Label>Modal</Label>

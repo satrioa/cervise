@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { getActiveTenant } from "@/lib/supabase/actor";
 import { sanitizeSearchTerm } from "@/lib/search-term";
+import { DEFAULT_LOW_STOCK_THRESHOLD } from "@/lib/operational/sparepart-stock";
 
 export type SparepartRow = {
   id: string;
@@ -10,6 +11,7 @@ export type SparepartRow = {
   name: string;
   category: string;
   stock_qty: number;
+  low_stock_threshold: number;
   cost: number;
   price: number;
   is_active: boolean;
@@ -20,11 +22,12 @@ export type SparepartInput = {
   name: string;
   category: string;
   stock_qty: number;
+  low_stock_threshold?: number;
   cost: number;
   price: number;
 };
 
-const COLUMNS = "id, sku, name, category, stock_qty, cost, price, is_active";
+const COLUMNS = "id, sku, name, category, stock_qty, low_stock_threshold, cost, price, is_active";
 
 async function getManagerActor() {
   const actor = await getActiveTenant();
@@ -39,6 +42,13 @@ function numberField(value: unknown, label: string): number {
   const n = Number(value);
   if (!Number.isInteger(n) || n < 0) throw new Error(`${label} harus bilangan bulat >= 0`);
   return n;
+}
+
+function thresholdField(value: unknown): number {
+  if (value === undefined || value === null || value === "") {
+    return DEFAULT_LOW_STOCK_THRESHOLD;
+  }
+  return numberField(value, "Ambang stok");
 }
 
 export async function listSpareparts(q: string): Promise<SparepartRow[]> {
@@ -61,6 +71,7 @@ export async function listSpareparts(q: string): Promise<SparepartRow[]> {
   return ((data ?? []) as SparepartRow[]).map((row) => ({
     ...row,
     stock_qty: Number(row.stock_qty ?? 0),
+    low_stock_threshold: Number(row.low_stock_threshold ?? DEFAULT_LOW_STOCK_THRESHOLD),
     cost: Number(row.cost ?? 0),
     price: Number(row.price ?? 0),
   }));
@@ -91,6 +102,7 @@ export async function createSparepart(input: SparepartInput): Promise<SparepartR
     name,
     category: input.category?.trim() || "Sparepart",
     stock_qty: numberField(input.stock_qty, "Stok"),
+    low_stock_threshold: thresholdField(input.low_stock_threshold),
     cost: numberField(input.cost, "Modal"),
     price: numberField(input.price, "Harga jual"),
     is_active: true,
@@ -128,6 +140,7 @@ export async function updateSparepart(id: string, input: SparepartInput): Promis
       sku: input.sku?.trim() || undefined,
       name,
       category: input.category?.trim() || "Sparepart",
+      low_stock_threshold: thresholdField(input.low_stock_threshold),
       cost: numberField(input.cost, "Modal"),
       price: numberField(input.price, "Harga jual"),
     })
