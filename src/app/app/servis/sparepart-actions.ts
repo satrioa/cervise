@@ -3,6 +3,7 @@
 import { servisBill, servisOutstanding } from "@/lib/operational/servis-price";
 import { getActiveTenant } from "@/lib/supabase/actor";
 import { sanitizeSearchTerm } from "@/lib/search-term";
+import { notifyRoles } from "@/lib/notifications/app-notifications";
 
 export type SparepartStockRow = {
   id: string;
@@ -300,6 +301,19 @@ export async function updateServisStatus(servisId: string, nextStatus: string, n
     p_status: nextStatus.trim(),
     p_note: note?.trim() ? note.trim() : null,
   });
+
+  if (nextStatus.trim() === "Selesai") {
+    void notifyRoles({
+      organizationId: actor.orgId,
+      branchId: actor.branchId ?? "",
+      branchLabel: "",
+      event: "servis_selesai",
+      roles: ["FRONTLINER", "MASTER_ADMIN", "ADMIN"],
+      title: "Servis selesai",
+      body: `Servis ${servisId} selesai`,
+      href: `/app/servis/${servisId}`,
+    });
+  }
 
   return { ok: true };
 }

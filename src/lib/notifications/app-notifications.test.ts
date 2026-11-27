@@ -1,6 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 
-const insert = vi.fn(async () => ({ error: null }));
+const insert = vi.fn(
+  async (): Promise<{ error: { message: string } | null }> => ({ error: null }),
+);
 vi.mock("@/lib/supabase/server", () => ({
   createClient: vi.fn(async () => ({ from: () => ({ insert }) })),
 }));

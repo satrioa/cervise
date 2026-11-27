@@ -3,6 +3,7 @@
 import { mapServisListRows, type ServisListRow } from "@/lib/operational/servis-list";
 import { kalenderWIB } from "@/lib/operational/periode-bulan";
 import { sanitizeSearchTerm } from "@/lib/search-term";
+import { notifyRoles } from "@/lib/notifications/app-notifications";
 
 export type KondisiStatus = "normal" | "tidak_normal";
 export type KondisiAwal = Record<string, { status: KondisiStatus; note: string }>;
@@ -335,6 +336,17 @@ export async function createServis(payload: CreateServisPayload) {
   }
   // log create
   await supabase.from("cervise_service_logs").insert({ branch_id: branchId, servis_id: svc.id, actor_id: userId, action: "create", to_value: deviceLabel, payload: { merk: payload.merk, tipe: payload.tipe, kerusakan: kerusakanNorm } });
+
+  void notifyRoles({
+    organizationId: orgId,
+    branchId,
+    branchLabel: "",
+    event: "servis_created",
+    roles: ["TECHNICIAN", "FRONTLINER", "MASTER_ADMIN", "ADMIN"],
+    title: "Servis baru",
+    body: `${numberData ?? svc.id} • ${deviceLabel}`,
+    href: `/app/servis/${svc.id}`,
+  });
   return { id: svc.id as string };
 }
 
