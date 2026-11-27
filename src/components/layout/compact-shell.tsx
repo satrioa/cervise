@@ -255,7 +255,6 @@ function CompactShellInner({
               })}
             </nav>
 
-          <NotificationBell />
           <Sheet open={open} onOpenChange={setMenuOpen}>
             <SheetTrigger
               render={
@@ -309,6 +308,7 @@ function CompactShellInner({
                 header: di samping tombol layar penuh ia hanya menambah satu
                 tombol yang jarang dipakai. */}
             <FullscreenToggle className="inline-flex size-10 rounded-full border-0 bg-white shadow-sm ring-1 ring-black/5 dark:bg-neutral-900 dark:ring-white/10" />
+            <NotificationBell />
           </div>
         </div>
       </header>

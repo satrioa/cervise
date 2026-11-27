@@ -15,6 +15,13 @@ describe("icon bell notifikasi", () => {
     }
   });
 
+  it("di desktop compact shell bell berada di kanan fullscreen", () => {
+    const source = read("src/components/layout/compact-shell.tsx");
+    expect(source.indexOf("<NotificationBell")).toBeGreaterThan(
+      source.indexOf("<FullscreenToggle"),
+    );
+  });
+
   it("fetch saat mount dan pakai popover", () => {
     const source = read("src/components/layout/notification-bell.tsx");
     expect(source).toContain("getNotifications()");
