@@ -16,6 +16,7 @@ import { CompactMenuSheet } from "@/components/layout/compact-menu-sheet";
 import { CompactBottomBar } from "@/components/layout/compact-bottom-bar";
 import { CompactDockNav } from "@/components/layout/compact-dock-nav";
 import { PageTransition } from "@/components/layout/page-transition";
+import { NotificationBell } from "@/components/layout/notification-bell";
 import { BranchProvider } from "@/lib/branch-context";
 import { TenantProvider } from "@/lib/tenant-context";
 import { LocaleProvider } from "@/lib/localization-context";
@@ -254,6 +255,7 @@ function CompactShellInner({
               })}
             </nav>
 
+          <NotificationBell />
           <Sheet open={open} onOpenChange={setMenuOpen}>
             <SheetTrigger
               render={

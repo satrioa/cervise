@@ -4,6 +4,7 @@ import { createContext, useContext } from "react";
 
 import { cn } from "@/lib/utils";
 import { CommandSearchTrigger } from "./command-palette-provider";
+import { NotificationBell } from "./notification-bell";
 import { PrinterStatusButton } from "./printer-status-button";
 import { ThemeToggle } from "./theme-toggle";
 
@@ -69,6 +70,7 @@ export function ShellChrome({ className }: { className?: string }) {
   const showPrinter = role === "MASTER_ADMIN" || role === "ADMIN";
   return (
     <div className={cn("flex shrink-0 items-center gap-1.5", className)}>
+      <NotificationBell />
       <ThemeToggle />
       <CommandSearchTrigger />
       {showPrinter ? <PrinterStatusButton /> : null}
