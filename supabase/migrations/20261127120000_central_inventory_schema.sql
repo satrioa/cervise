@@ -27,9 +27,22 @@ create table if not exists public.cervise_central_items (
 create unique index if not exists cervise_central_items_sku_key
   on public.cervise_central_items(organization_id, kind, sku) where not is_serialized;
 create unique index if not exists cervise_central_items_imei_key
-  on public.cervise_central_items(organization_id, imei) where imei is not null;
+  on public.cervise_central_items(organization_id, imei) where is_serialized and imei is not null;
 create index if not exists cervise_central_items_org_kind_idx
   on public.cervise_central_items(organization_id, kind, name);
+
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint
+    where conname = 'cervise_central_items_serialized_imei_check'
+      and conrelid = 'public.cervise_central_items'::regclass
+  ) then
+    alter table public.cervise_central_items
+      add constraint cervise_central_items_serialized_imei_check
+      check (not is_serialized or imei is not null);
+  end if;
+end $$;
 
 alter table public.cervise_central_items enable row level security;
 drop policy if exists cervise_central_items_select on public.cervise_central_items;
