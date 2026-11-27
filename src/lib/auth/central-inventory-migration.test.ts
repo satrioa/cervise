@@ -348,6 +348,15 @@ describe("status aktif item pusat", () => {
     );
   });
 
+  it("menyebarkan status ke baris stok cabang yang tertaut", () => {
+    expect(active).toContain(
+      "update public.cervise_spareparts set is_active = p_is_active, updated_at = now() where central_item_id = v_item.id",
+    );
+    expect(active).toContain(
+      "update public.cervise_products set is_active = p_is_active, updated_at = now() where central_item_id = v_item.id",
+    );
+  });
+
   it("mengamankan rpc dari anon", () => {
     const signature = "public.set_central_item_active(uuid, boolean)";
     expect(active).toContain(`revoke all on function ${signature} from public, anon`);

@@ -10,6 +10,8 @@ begin
     raise exception 'hanya master admin yang boleh mengubah status item';
   end if;
   update public.cervise_central_items set is_active = p_is_active, updated_at = now() where id = v_item.id;
+  update public.cervise_spareparts set is_active = p_is_active, updated_at = now() where central_item_id = v_item.id;
+  update public.cervise_products set is_active = p_is_active, updated_at = now() where central_item_id = v_item.id;
 end;
 $$;
 revoke all on function public.set_central_item_active(uuid, boolean) from public, anon;
