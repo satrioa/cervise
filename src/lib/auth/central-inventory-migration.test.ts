@@ -8,6 +8,11 @@ const sql = readFileSync(
 );
 const flat = sql.replace(/\s+/g, " ").toLowerCase();
 
+const migrate = readFileSync(
+  join(process.cwd(), "supabase/migrations/20261127130000_central_inventory_migrate_stock.sql"),
+  "utf8",
+).replace(/\s+/g, " ").toLowerCase();
+
 describe("central inventory schema migration", () => {
   it("membuat tabel master pusat dan antrean request", () => {
     expect(flat).toContain("create table if not exists public.cervise_central_items");
@@ -93,5 +98,19 @@ describe("central inventory schema migration", () => {
     for (const reason of ["central_purchase", "distribute", "request_in", "return_to_central"]) {
       expect(flat).toContain(`'${reason}'`);
     }
+  });
+});
+
+describe("central inventory stock migration", () => {
+  it("memindahkan stok dengan ledger, bukan update diam-diam", () => {
+    expect(migrate).toContain("insert into public.cervise_central_items");
+    expect(migrate).toContain("'return_to_central'");
+    expect(migrate).toContain("update public.cervise_spareparts set stock_qty = 0");
+    expect(migrate).toContain("update public.cervise_products set stock_qty = 0");
+  });
+
+  it("mengunci migrasi dalam satu transaksi", () => {
+    expect(migrate).toContain("begin;");
+    expect(migrate).toContain("commit;");
   });
 });
