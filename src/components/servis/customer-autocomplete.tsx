@@ -16,9 +16,11 @@ type Props = {
   onPhoneChange: (v: string) => void;
   onAddressChange: (v: string) => void;
   onSelectExisting?: (c: Customer) => void;
+  nameError?: string;
+  phoneError?: string;
 };
 
-export function CustomerAutocomplete({ name, phone, address, onNameChange, onPhoneChange, onAddressChange }: Props) {
+export function CustomerAutocomplete({ name, phone, address, onNameChange, onPhoneChange, onAddressChange, nameError, phoneError }: Props) {
   const [suggestions, setSuggestions] = useState<Customer[]>([]);
   const [open, setOpen] = useState(false);
   const debounceRef = useRef<number | null>(null);
@@ -54,7 +56,8 @@ export function CustomerAutocomplete({ name, phone, address, onNameChange, onPho
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="relative space-y-1.5 sm:col-span-2">
           <Label>Nama Customer *</Label>
-          <Input placeholder="Ketik nama (autocomplete jika sudah ada)" value={name} onChange={(e) => onNameChange(e.target.value)} onFocus={() => suggestions.length && setOpen(true)} onBlur={() => setTimeout(() => setOpen(false), 150)} />
+          <Input aria-invalid={Boolean(nameError)} placeholder="Ketik nama (autocomplete jika sudah ada)" value={name} onChange={(e) => onNameChange(e.target.value)} onFocus={() => suggestions.length && setOpen(true)} onBlur={() => setTimeout(() => setOpen(false), 150)} />
+          {nameError ? <p className="text-xs text-destructive">{nameError}</p> : null}
           {open && suggestions.length > 0 && (
             <div className="absolute z-20 mt-1 max-h-48 w-full overflow-auto rounded-lg border bg-popover shadow-lg">
               {suggestions.map((c) => (
@@ -70,7 +73,8 @@ export function CustomerAutocomplete({ name, phone, address, onNameChange, onPho
 
         <div className="space-y-1.5">
           <Label>Kontak Whatsapp *</Label>
-          <Input placeholder="08xxxxxxxxxx" value={phone} onChange={(e) => onPhoneChange(e.target.value)} />
+          <Input aria-invalid={Boolean(phoneError)} placeholder="08xxxxxxxxxx" value={phone} onChange={(e) => onPhoneChange(e.target.value)} />
+          {phoneError ? <p className="text-xs text-destructive">{phoneError}</p> : null}
         </div>
         <div className="space-y-1.5">
           <Label>Alamat (Opsional)</Label>

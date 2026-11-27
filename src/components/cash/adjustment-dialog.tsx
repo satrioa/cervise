@@ -18,6 +18,7 @@ import { formatCurrencyPlain } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { addCashAdjustment } from "@/app/app/actions/cash";
 import { playPageTransition } from "@/components/layout/page-transition";
+import { friendlyErrorMessage } from "@/lib/error-message";
 
 /**
  * Saldo masuk atau keluar di luar penjualan: setoran owner, koreksi, pengeluaran
@@ -43,29 +44,35 @@ export function AdjustmentDialog({
   const [description, setDescription] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
   const reset = () => {
     setAmount("");
     setDescription("");
     setError(null);
+    setFieldErrors({});
     setDirection(defaultDirection);
   };
 
   const submit = async () => {
     const value = Number(amount);
+    const nextErrors: Record<string, string> = {};
     if (!amount.trim() || !Number.isInteger(value) || value <= 0) {
-      setError("Nominal harus angka bulat lebih dari nol");
-      return;
+      nextErrors.amount = "Nominal harus angka bulat lebih dari nol";
     }
     if (!description.trim()) {
-      setError("Keterangan wajib diisi");
+      nextErrors.description = "Keterangan wajib diisi";
+    }
+    setFieldErrors(nextErrors);
+    if (Object.keys(nextErrors).length > 0) {
+      setError(Object.values(nextErrors)[0]);
       return;
     }
     setSaving(true);
     setError(null);
     const result = await addCashAdjustment({ direction, amount: value, description });
     if (!result.ok) {
-      setError(result.error);
+      setError(friendlyErrorMessage(result.error));
       setSaving(false);
       return;
     }
@@ -116,12 +123,14 @@ export function AdjustmentDialog({
             <Label htmlFor="adj-amount">Nominal (Rp)</Label>
             <Input
               id="adj-amount"
+              aria-invalid={Boolean(fieldErrors.amount)}
               inputMode="numeric"
               autoFocus
               value={amount}
               onChange={(event) => {
                 setAmount(event.target.value.replace(/\D/g, ""));
                 setError(null);
+                setFieldErrors((prev) => ({ ...prev, amount: "" }));
               }}
               placeholder="0"
               className="font-mono"
@@ -129,6 +138,7 @@ export function AdjustmentDialog({
             {amount ? (
               <p className="text-xs text-muted-foreground">{formatCurrencyPlain(Number(amount))}</p>
             ) : null}
+            {fieldErrors.amount ? <p className="text-xs text-destructive">{fieldErrors.amount}</p> : null}
           </div>
 
           <div className="grid gap-1.5">
@@ -136,16 +146,19 @@ export function AdjustmentDialog({
             <Textarea
               id="adj-desc"
               rows={2}
+              aria-invalid={Boolean(fieldErrors.description)}
               value={description}
               onChange={(event) => {
                 setDescription(event.target.value);
                 setError(null);
+                setFieldErrors((prev) => ({ ...prev, description: "" }));
               }}
               onKeyDown={(event) => {
                 if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) void submit();
               }}
               placeholder="Setoran owner, beli spidol, koreksi kembalian..."
             />
+            {fieldErrors.description ? <p className="text-xs text-destructive">{fieldErrors.description}</p> : null}
           </div>
 
           {error ? <p className="text-xs text-destructive">{error}</p> : null}

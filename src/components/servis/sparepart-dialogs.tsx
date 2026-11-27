@@ -11,6 +11,7 @@ import { XIcon } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { searchSparepartStock, useSparepartsForServis, addSparepartsToServis, addCustomSparepartToServis, updateServisStatus, cancelServisWithSpareparts, getServisSpareparts, type SparepartStockRow } from "@/app/app/servis/sparepart-actions";
 import { playPageTransition } from "@/components/layout/page-transition";
+import { friendlyErrorMessage } from "@/lib/error-message";
 
 type Selected = { row: SparepartStockRow; qty: number };
 type CustomItem = { name: string; cost: number };
@@ -37,10 +38,12 @@ export function SparepartPickDialog({
   const [customCost, setCustomCost] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (!open) return;
     setError(null);
+    setFieldErrors({});
     setQ("");
     setSelected([]);
     setCustoms([]);
@@ -50,7 +53,7 @@ export function SparepartPickDialog({
     setLoading(true);
     searchSparepartStock("")
       .then(setRows)
-      .catch((e) => setError(e.message))
+      .catch((e) => setError(friendlyErrorMessage(e)))
       .finally(() => setLoading(false));
   }, [open]);
 
@@ -60,7 +63,7 @@ export function SparepartPickDialog({
       setLoading(true);
       searchSparepartStock(q)
         .then(setRows)
-        .catch((e) => setError(e.message))
+        .catch((e) => setError(friendlyErrorMessage(e)))
         .finally(() => setLoading(false));
     }, 300);
     return () => clearTimeout(t);
@@ -112,7 +115,7 @@ export function SparepartPickDialog({
       onSuccess();
       onOpenChange(false);
     } catch (e: any) {
-      setError(e.message ?? "Gagal menyimpan");
+      setError(friendlyErrorMessage(e, "Gagal menyimpan"));
     } finally {
       setSaving(false);
     }
@@ -123,12 +126,12 @@ export function SparepartPickDialog({
   const addCustom = () => {
     const name = customName.trim();
     const cost = Number(customCost);
-    if (name.length < 3) {
-      setError("Nama sparepart custom minimal 3 karakter");
-      return;
-    }
-    if (!Number.isFinite(cost) || cost <= 0) {
-      setError("Harga modal harus lebih dari 0");
+    const errors: Record<string, string> = {};
+    if (name.length < 3) errors.name = "Nama sparepart custom minimal 3 karakter";
+    if (!Number.isFinite(cost) || cost <= 0) errors.cost = "Harga modal harus lebih dari 0";
+    setFieldErrors(errors);
+    if (Object.keys(errors).length > 0) {
+      setError(Object.values(errors)[0]);
       return;
     }
     setError(null);
@@ -192,19 +195,27 @@ export function SparepartPickDialog({
                 Untuk barang yang dibeli di luar sistem. Harga modal tercatat sebagai pengeluaran, qty selalu 1.
               </p>
               <div className="flex flex-col gap-2 sm:flex-row">
-                <Input
-                  placeholder="Nama sparepart"
-                  value={customName}
-                  onChange={(e) => setCustomName(e.target.value)}
-                  className="h-9 flex-1"
-                />
-                <Input
-                  placeholder="Harga modal (Rp)"
-                  value={customCost}
-                  onChange={(e) => setCustomCost(e.target.value.replace(/\D/g, ""))}
-                  inputMode="numeric"
-                  className="h-9 sm:w-40"
-                />
+                <div className="flex-1">
+                  <Input
+                    aria-invalid={Boolean(fieldErrors.name)}
+                    placeholder="Nama sparepart"
+                    value={customName}
+                    onChange={(e) => { setCustomName(e.target.value); setFieldErrors((prev) => ({ ...prev, name: "" })); }}
+                    className="h-9 flex-1"
+                  />
+                  {fieldErrors.name ? <p className="text-xs text-destructive">{fieldErrors.name}</p> : null}
+                </div>
+                <div className="sm:w-40">
+                  <Input
+                    aria-invalid={Boolean(fieldErrors.cost)}
+                    placeholder="Harga modal (Rp)"
+                    value={customCost}
+                    onChange={(e) => { setCustomCost(e.target.value.replace(/\D/g, "")); setFieldErrors((prev) => ({ ...prev, cost: "" })); }}
+                    inputMode="numeric"
+                    className="h-9 sm:w-40"
+                  />
+                  {fieldErrors.cost ? <p className="text-xs text-destructive">{fieldErrors.cost}</p> : null}
+                </div>
                 <Button type="button" size="sm" variant="outline" onClick={addCustom} disabled={saving}>
                   Tambah
                 </Button>
@@ -330,7 +341,7 @@ export function CancelSparepartDialog({
     setReason("");
     getServisSpareparts(servis.id)
       .then(setRows)
-      .catch((e) => setError(e.message))
+      .catch((e) => setError(friendlyErrorMessage(e)))
       .finally(() => setLoading(false));
   }, [open, servis?.id]);
 

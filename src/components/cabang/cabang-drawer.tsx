@@ -15,6 +15,7 @@ import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { playPageTransition } from "@/components/layout/page-transition";
+import { friendlyErrorMessage } from "@/lib/error-message";
 
 type BranchItem = {
   id: string;
@@ -95,12 +96,14 @@ export function CabangDrawer({ branch, open, onOpenChange }: { branch: BranchIte
   const [telepon, setTelepon] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [intensifEnabled, setIntensifEnabled] = useState(true);
   const [intensifMode, setIntensifMode] = useState<IntensifMode>("percent");
   const [intensifValue, setIntensifValue] = useState<string>("5");
   const [intensifTarget, setIntensifTarget] = useState<string>("");
   const [savingIntensif, setSavingIntensif] = useState(false);
   const [errorIntensif, setErrorIntensif] = useState<string | null>(null);
+  const [intensifFieldErrors, setIntensifFieldErrors] = useState<Record<string, string>>({});
   const [targetType, setTargetType] = useState<"penghasilan" | "jumlah_servis">("jumlah_servis");
   const [targetValue, setTargetValue] = useState<string>("");
   const [showTarget, setShowTarget] = useState(true);
@@ -116,12 +119,14 @@ export function CabangDrawer({ branch, open, onOpenChange }: { branch: BranchIte
     setAlamat(branch.city);
     setTelepon(branch.phone);
     setError(null);
+    setFieldErrors({});
     setEditOpen(false);
     setIntensifEnabled(branch.is_intensif_enabled ?? true);
     setIntensifMode(branch.intensif_mode ?? "percent");
     setIntensifValue(String(branch.intensif_value ?? 5));
     setIntensifTarget(branch.intensif_target_count ? String(branch.intensif_target_count) : "");
     setErrorIntensif(null);
+    setIntensifFieldErrors({});
     setTargetType(branch.target_type === "penghasilan" ? "penghasilan" : "jumlah_servis");
     setTargetValue(branch.target_value ? String(branch.target_value) : "");
     setShowTarget(branch.show_target_to_teknisi ?? true);
@@ -140,7 +145,10 @@ export function CabangDrawer({ branch, open, onOpenChange }: { branch: BranchIte
 
   const handleSave = async () => {
     if (!branch) return;
-    if (!name.trim()) { setError("Nama cabang wajib"); return; }
+    const errors: Record<string, string> = {};
+    if (!name.trim()) errors.name = "Nama cabang wajib";
+    setFieldErrors(errors);
+    if (Object.keys(errors).length > 0) return;
     setSaving(true);
     setError(null);
     try {
@@ -151,8 +159,8 @@ export function CabangDrawer({ branch, open, onOpenChange }: { branch: BranchIte
       router.refresh();
       onOpenChange(false);
     } catch (e: any) {
-      setError(e.message ?? "Gagal menyimpan");
-      toast.error(e?.message ?? "Gagal menyimpan");
+      setError(friendlyErrorMessage(e, "Gagal menyimpan"));
+      toast.error(friendlyErrorMessage(e, "Gagal menyimpan"));
     } finally {
       setSaving(false);
     }
@@ -181,14 +189,17 @@ export function CabangDrawer({ branch, open, onOpenChange }: { branch: BranchIte
   const handleSaveIntensif = async () => {
     if (!branch) return;
     const val = Number(intensifValue);
-    if (isNaN(val) || val < 0) { setErrorIntensif("Nilai harus angka ≥ 0"); return; }
-    if (intensifMode === "percent" && val > 100) { setErrorIntensif("Persentase maksimal 100%"); return; }
+    const errors: Record<string, string> = {};
+    if (isNaN(val) || val < 0) errors.value = "Nilai harus angka ≥ 0";
+    else if (intensifMode === "percent" && val > 100) errors.value = "Persentase maksimal 100%";
     // Target hanya bermakna di mode flat. Di mode lain dipaksa null supaya
     // tidak ada sisa target yang diam-diam menggerakkan KPI/progress.
     const rawTarget = intensifTarget.trim() === "" ? null : Number(intensifTarget);
-    if (rawTarget !== null && (isNaN(rawTarget) || rawTarget <= 0)) { setErrorIntensif("Target harus lebih dari 0"); return; }
-    if (intensifMode === "flat" && rawTarget === null) {
-      setErrorIntensif("Mode Flat bulanan wajib diisi target per teknisi");
+    if (rawTarget !== null && (isNaN(rawTarget) || rawTarget <= 0)) errors.target = "Target harus lebih dari 0";
+    if (intensifMode === "flat" && rawTarget === null) errors.target = "Mode Flat bulanan wajib diisi target per teknisi";
+    setIntensifFieldErrors(errors);
+    if (Object.keys(errors).length > 0) {
+      setErrorIntensif(Object.values(errors)[0]);
       return;
     }
     const target = TARGET_MODES.has(intensifMode) ? rawTarget : null;
@@ -283,8 +294,8 @@ export function CabangDrawer({ branch, open, onOpenChange }: { branch: BranchIte
               <div className="mt-4 space-y-3 rounded-lg border bg-muted/20 p-3">
                 <div className="space-y-1.5">
                   <Label className="font-mono text-[10px] uppercase tracking-[0.2em]">Nama cabang</Label>
-                  <Input value={name} onChange={(e) => setName(e.target.value)} maxLength={50} />
-                  <div className="text-xs text-muted-foreground">{name.length} / 50</div>
+                  <Input aria-invalid={Boolean(fieldErrors.name)} value={name} onChange={(e) => { setName(e.target.value); setFieldErrors((prev) => ({ ...prev, name: "" })); }} maxLength={50} />
+                  {fieldErrors.name ? <p className="text-xs text-destructive">{fieldErrors.name}</p> : <div className="text-xs text-muted-foreground">{name.length} / 50</div>}
                 </div>
                 <div className="space-y-1.5">
                   <Label className="font-mono text-[10px] uppercase tracking-[0.2em]">Alamat</Label>
@@ -384,8 +395,8 @@ export function CabangDrawer({ branch, open, onOpenChange }: { branch: BranchIte
                   </div>
                   <div className="space-y-1.5">
                     <Label className="font-mono text-[10px] uppercase tracking-[0.2em]">{AMOUNT_LABEL[intensifMode]}</Label>
-                    <Input type="number" min={0} max={intensifMode === "percent" ? 100 : undefined} value={intensifValue} onChange={(e) => setIntensifValue(e.target.value)} placeholder={intensifMode === "percent" ? "5" : "50000"} />
-                    <p className="text-[11px] text-muted-foreground">{AMOUNT_HELP[intensifMode]}</p>
+                    <Input aria-invalid={Boolean(intensifFieldErrors.value)} type="number" min={0} max={intensifMode === "percent" ? 100 : undefined} value={intensifValue} onChange={(e) => { setIntensifValue(e.target.value); setIntensifFieldErrors((prev) => ({ ...prev, value: "" })); }} placeholder={intensifMode === "percent" ? "5" : "50000"} />
+                    {intensifFieldErrors.value ? <p className="text-xs text-destructive">{intensifFieldErrors.value}</p> : <p className="text-[11px] text-muted-foreground">{AMOUNT_HELP[intensifMode]}</p>}
                   </div>
                 </div>
                 {/* Target hanya ada di mode flat. Di mode lain tidak ada
@@ -395,10 +406,10 @@ export function CabangDrawer({ branch, open, onOpenChange }: { branch: BranchIte
                 {TARGET_MODES.has(intensifMode) && (
                   <div className="space-y-1.5">
                     <Label className="font-mono text-[10px] uppercase tracking-[0.2em]">Target per teknisi per bulan</Label>
-                    <Input type="number" min={1} value={intensifTarget} onChange={(e) => setIntensifTarget(e.target.value)} placeholder="mis. 20" />
-                    <p className="text-[11px] text-muted-foreground">
+                    <Input aria-invalid={Boolean(intensifFieldErrors.target)} type="number" min={1} value={intensifTarget} onChange={(e) => { setIntensifTarget(e.target.value); setIntensifFieldErrors((prev) => ({ ...prev, target: "" })); }} placeholder="mis. 20" />
+                    {intensifFieldErrors.target ? <p className="text-xs text-destructive">{intensifFieldErrors.target}</p> : <p className="text-[11px] text-muted-foreground">
                       Wajib diisi. Bonus hanya dibayar kalau satu teknisi menyelesaikan minimal sebanyak ini dalam bulan berjalan. Kalau belum tercapai, bonusnya nol.
-                    </p>
+                    </p>}
                   </div>
                 )}
                 {errorIntensif && <div className="rounded-md border border-destructive/30 bg-destructive/10 px-2 py-1.5 text-xs text-destructive">{errorIntensif}</div>}

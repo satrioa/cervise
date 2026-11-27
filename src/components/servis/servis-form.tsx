@@ -27,6 +27,8 @@ import { getReceiptAppearance } from "@/app/app/pengaturan/tampilan/actions";
 import { createClient } from "@/lib/supabase/client";
 import { playPageTransition } from "@/components/layout/page-transition";
 import type { KondisiAwal } from "@/lib/servis-constants";
+import { friendlyErrorMessage } from "@/lib/error-message";
+import { firstFieldError, validateServisForm } from "./servis-form-validation";
 
 type ServisFormProps = {
   onSuccess?: () => void;
@@ -108,6 +110,7 @@ export function ServisForm({ onSuccess, onCancel }: ServisFormProps) {
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
   // Alur kondisi awal. `kondisiYa` = periksa kondisi setelah servis tersimpan;
   // "Tidak" = simpan lalu langsung selesai. `kondisiOpen` menampilkan formnya.
@@ -147,21 +150,12 @@ export function ServisForm({ onSuccess, onCancel }: ServisFormProps) {
   // handle before route leave via click handler will use confirmLeave
 
   const validate = () => {
-    if (!teknisiId) return "Teknisi wajib diisi";
-    if (!merk.trim()) return "Merk wajib";
-    if (!tipe.trim()) return "Tipe wajib";
-    if (kerusakan.length === 0) return "Kerusakan minimal 1 tag";
-    if (!custName.trim()) return "Nama customer wajib";
-    if (!custPhone.trim()) return "Kontak WA wajib";
-    if (!/^08\d{7,13}$/.test(custPhone.trim()) && !/^62\d{7,13}$/.test(custPhone.trim())) return "Format WA tidak valid (08xxx)";
-    // PIN/pola & garansi opsional: servis baru boleh tanpa keduanya.
-    if (passwordValue.trim()) {
-      if (passwordType === "PIN" && !/^\d{4,8}$/.test(passwordValue.trim())) return "PIN harus 4-8 digit angka";
-      if (passwordType === "POLA" && passwordValue.split(",").filter(Boolean).length < 4) return "Pola minimal 4 titik";
-    }
-    if (garansiVal !== "" && Number(garansiVal) <= 0) return "Garansi harus lebih dari 0";
-    if (priceEstimasi !== "" && Number(priceEstimasi) < 0) return "Estimasi tidak valid";
-    return null;
+    const errors = validateServisForm({
+      teknisiId, merk, tipe, kerusakan, custName, custPhone,
+      passwordType, passwordValue, garansiVal, priceEstimasi,
+    });
+    setFieldErrors(errors);
+    return firstFieldError(errors);
   };
 
   /**
@@ -229,7 +223,7 @@ export function ServisForm({ onSuccess, onCancel }: ServisFormProps) {
       void printNota(res.id);
       return res;
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Gagal menyimpan");
+      setError(friendlyErrorMessage(err, "Gagal menyimpan"));
       return null;
     } finally {
       setLoading(false);
@@ -298,7 +292,7 @@ export function ServisForm({ onSuccess, onCancel }: ServisFormProps) {
             <div className="space-y-1.5">
               <Label>Teknisi *</Label>
               <Select value={teknisiId} onValueChange={(v) => setTeknisiId(v as string)}>
-                <SelectTrigger>
+                <SelectTrigger aria-invalid={Boolean(fieldErrors.teknisiId)}>
                   {/* Children WAJIB diisi eksplisit. `Select.Value` milik base-ui
                      menampilkan value mentah kalau tidak diberi children --
                      jadi tanpa baris ini trigger menampilkan UUID teknisi,
@@ -314,6 +308,7 @@ export function ServisForm({ onSuccess, onCancel }: ServisFormProps) {
                   ))}
                 </SelectPopup>
               </Select>
+              {fieldErrors.teknisiId ? <p className="text-xs text-destructive">{fieldErrors.teknisiId}</p> : null}
             </div>
           </CardContent>
         </Card>
@@ -327,11 +322,13 @@ export function ServisForm({ onSuccess, onCancel }: ServisFormProps) {
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-1.5">
                 <Label>Merk Handphone *</Label>
-                <Input placeholder="Samsung, iPhone, Oppo..." value={merk} onChange={(e) => setMerk(e.target.value)} />
+                <Input aria-invalid={Boolean(fieldErrors.merk)} placeholder="Samsung, iPhone, Oppo..." value={merk} onChange={(e) => setMerk(e.target.value)} />
+                {fieldErrors.merk ? <p className="text-xs text-destructive">{fieldErrors.merk}</p> : null}
               </div>
               <div className="space-y-1.5">
                 <Label>Tipe Handphone *</Label>
-                <Input placeholder="A54, 14 Pro, Reno 8..." value={tipe} onChange={(e) => setTipe(e.target.value)} />
+                <Input aria-invalid={Boolean(fieldErrors.tipe)} placeholder="A54, 14 Pro, Reno 8..." value={tipe} onChange={(e) => setTipe(e.target.value)} />
+                {fieldErrors.tipe ? <p className="text-xs text-destructive">{fieldErrors.tipe}</p> : null}
               </div>
               <div className="space-y-1.5">
                 <Label>IMEI / SN 1</Label>
@@ -348,6 +345,7 @@ export function ServisForm({ onSuccess, onCancel }: ServisFormProps) {
             <div className="space-y-1.5">
               <Label>Kerusakan (Tag) *</Label>
               <KerusakanTagInput value={kerusakan} onChange={setKerusakan} />
+              {fieldErrors.kerusakan ? <p className="text-xs text-destructive">{fieldErrors.kerusakan}</p> : null}
             </div>
 
             <div className="space-y-1.5">
@@ -364,10 +362,11 @@ export function ServisForm({ onSuccess, onCancel }: ServisFormProps) {
                 <button type="button" onClick={() => { setPasswordType("POLA"); setPasswordValue(""); }} className={`flex-1 rounded-lg border px-4 py-2 text-sm font-medium ${passwordType === "POLA" ? "bg-foreground text-background border-foreground" : "bg-background hover:bg-muted border-border"}`}>POLA</button>
               </div>
               {passwordType === "PIN" ? (
-                <Input placeholder="Masukkan PIN (4-8 digit)" value={passwordValue} onChange={(e) => setPasswordValue(e.target.value.replace(/\D/g, ""))} maxLength={8} inputMode="numeric" />
+                <Input aria-invalid={Boolean(fieldErrors.passwordValue)} placeholder="Masukkan PIN (4-8 digit)" value={passwordValue} onChange={(e) => setPasswordValue(e.target.value.replace(/\D/g, ""))} maxLength={8} inputMode="numeric" />
               ) : (
                 <PatternLock value={passwordValue} onChange={setPasswordValue} />
               )}
+              {fieldErrors.passwordValue ? <p className="text-xs text-destructive">{fieldErrors.passwordValue}</p> : null}
             </div>
           </CardContent>
         </Card>
@@ -378,7 +377,7 @@ export function ServisForm({ onSuccess, onCancel }: ServisFormProps) {
             <CardTitle className="text-base">Informasi Customer</CardTitle>
           </CardHeader>
           <CardContent>
-            <CustomerAutocomplete name={custName} phone={custPhone} address={custAddr} onNameChange={setCustName} onPhoneChange={setCustPhone} onAddressChange={setCustAddr} />
+            <CustomerAutocomplete name={custName} phone={custPhone} address={custAddr} onNameChange={setCustName} onPhoneChange={setCustPhone} onAddressChange={setCustAddr} nameError={fieldErrors.custName} phoneError={fieldErrors.custPhone} />
           </CardContent>
         </Card>
 
@@ -391,6 +390,7 @@ export function ServisForm({ onSuccess, onCancel }: ServisFormProps) {
           <CardContent className="space-y-1.5">
             <Label>Garansi</Label>
             <GaransiField value={garansiVal} unit={garansiUnit} onValueChange={setGaransiVal} onUnitChange={setGaransiUnit} />
+            {fieldErrors.garansiVal ? <p className="text-xs text-destructive">{fieldErrors.garansiVal}</p> : null}
           </CardContent>
         </Card>
 
@@ -401,7 +401,8 @@ export function ServisForm({ onSuccess, onCancel }: ServisFormProps) {
           </CardHeader>
           <CardContent className="space-y-1.5">
             <Label>Estimasi (Rp)</Label>
-            <Input type="number" min={0} placeholder="Kosongkan jika belum tahu, cth: 350000" value={priceEstimasi} onChange={(e) => { const v = e.target.value; if (v === "") setPriceEstimasi(""); else setPriceEstimasi(Math.max(0, Number(v))); }} />
+            <Input aria-invalid={Boolean(fieldErrors.priceEstimasi)} type="number" min={0} placeholder="Kosongkan jika belum tahu, cth: 350000" value={priceEstimasi} onChange={(e) => { const v = e.target.value; if (v === "") setPriceEstimasi(""); else setPriceEstimasi(Math.max(0, Number(v))); }} />
+            {fieldErrors.priceEstimasi ? <p className="text-xs text-destructive">{fieldErrors.priceEstimasi}</p> : null}
             <p className="text-[11px] text-muted-foreground">Hanya info awal. Total bayar final dari riwayat pembayaran di detail servis.</p>
           </CardContent>
         </Card>

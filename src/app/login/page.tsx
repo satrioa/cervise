@@ -161,6 +161,7 @@ function SignInForm() {
   const [reveal, setReveal] = useState(false);
   const [remember, setRemember] = useState(true);
   const [pending, setPending] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
   // localStorage hanya bisa dibaca di client; baca setelah mount supaya tidak
   // menyebabkan beda HTML antara server dan client (hydration mismatch).
@@ -174,7 +175,12 @@ function SignInForm() {
 
   const onSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (!email.trim() || !password) return;
+    const errors: Record<string, string> = {};
+    if (!email.trim()) errors.email = "Email wajib diisi";
+    else if (!/^\S+@\S+\.\S+$/.test(email.trim())) errors.email = "Format email tidak valid";
+    if (!password) errors.password = "Password wajib diisi";
+    setFieldErrors(errors);
+    if (Object.keys(errors).length > 0) return;
     setPending(true);
     try {
       const supabase = createClient();
@@ -205,18 +211,20 @@ function SignInForm() {
     <form onSubmit={onSubmit} className="flex flex-col gap-4">
       <Field>
         <FieldLabel htmlFor="centered-email">Email</FieldLabel>
-        <Input id="centered-email" type="email" required placeholder="master@kaggo.id" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} nativeInput />
+        <Input id="centered-email" type="email" aria-invalid={Boolean(fieldErrors.email)} placeholder="master@kaggo.id" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} nativeInput />
+        {fieldErrors.email ? <p className="text-xs text-destructive">{fieldErrors.email}</p> : null}
       </Field>
       <Field>
         <FieldLabel htmlFor="centered-password">Password</FieldLabel>
         <InputGroup>
-          <InputGroupInput id="centered-password" type={reveal ? "text" : "password"} required placeholder="••••••••" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} nativeInput />
+          <InputGroupInput id="centered-password" type={reveal ? "text" : "password"} aria-invalid={Boolean(fieldErrors.password)} placeholder="••••••••" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} nativeInput />
           <InputGroupAddon align="inline-end">
             <button type="button" onClick={() => setReveal((v) => !v)} aria-label={reveal ? "Hide password" : "Show password"} className="cursor-pointer rounded p-1 text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
               {reveal ? <EyeOffIcon className="size-4" /> : <EyeIcon className="size-4" />}
             </button>
           </InputGroupAddon>
         </InputGroup>
+        {fieldErrors.password ? <p className="text-xs text-destructive">{fieldErrors.password}</p> : null}
       </Field>
       <div className="flex items-center gap-2">
         <Checkbox

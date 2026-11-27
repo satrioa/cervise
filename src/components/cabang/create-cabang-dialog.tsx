@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
 import { createCabang } from "@/app/app/cabang/actions";
 import { playPageTransition } from "@/components/layout/page-transition";
+import { friendlyErrorMessage } from "@/lib/error-message";
 
 function slugify(s: string) {
   return s.toLowerCase().trim().replace(/[^\w\s-]/g, "").replace(/\s+/g, "-").replace(/-+/g, "-");
@@ -18,12 +19,16 @@ export function CreateCabangDialog({ open, onOpenChange, onCreated }: { open: bo
   const [telepon, setTelepon] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const slug = slugify(name);
 
   const handleCreate = async () => {
     setError(null);
-    if (!name.trim()) { setError("Nama cabang wajib"); return; }
-    if (name.length > 50) { setError("Nama maksimal 50 karakter"); return; }
+    const errors: Record<string, string> = {};
+    if (!name.trim()) errors.name = "Nama cabang wajib";
+    else if (name.length > 50) errors.name = "Nama maksimal 50 karakter";
+    setFieldErrors(errors);
+    if (Object.keys(errors).length > 0) return;
     setSaving(true);
     try {
       await createCabang({ name, alamat, telepon });
@@ -32,7 +37,7 @@ export function CreateCabangDialog({ open, onOpenChange, onCreated }: { open: bo
       onOpenChange(false);
       onCreated?.();
     } catch (e: any) {
-      setError(e.message ?? "Gagal membuat cabang");
+      setError(friendlyErrorMessage(e, "Gagal membuat cabang"));
     } finally {
       setSaving(false);
     }
@@ -61,8 +66,8 @@ export function CreateCabangDialog({ open, onOpenChange, onCreated }: { open: bo
           <div className="space-y-5 px-5 py-5">
             <div>
               <label className="mb-1.5 block font-mono text-[10px] text-muted-foreground uppercase tracking-[0.25em]">Nama cabang</label>
-              <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Kaggo Cabang 3" maxLength={50} />
-              <div className="mt-1.5 text-muted-foreground text-xs">{name.length} / 50</div>
+              <Input aria-invalid={Boolean(fieldErrors.name)} value={name} onChange={(e) => { setName(e.target.value); setFieldErrors((prev) => ({ ...prev, name: "" })); }} placeholder="e.g. Kaggo Cabang 3" maxLength={50} />
+              {fieldErrors.name ? <p className="mt-1.5 text-xs text-destructive">{fieldErrors.name}</p> : <div className="mt-1.5 text-muted-foreground text-xs">{name.length} / 50</div>}
             </div>
 
             <div>

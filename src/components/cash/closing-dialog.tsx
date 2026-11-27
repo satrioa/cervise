@@ -21,6 +21,7 @@ import { closeCashSession, getShiftPreview, handoverCashSession, type CashSessio
 import { playPageTransition } from "@/components/layout/page-transition";
 import { ShiftReportView, VarianceRow } from "./shift-report";
 import { printShiftReport } from "./shift-thermal-print";
+import { friendlyErrorMessage } from "@/lib/error-message";
 
 type Step = "preview" | "handover" | "closing" | "confirm";
 
@@ -71,6 +72,7 @@ export function ClosingDialog({
   const [reason, setReason] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [openedFor, setOpenedFor] = useState<string | null>(null);
   // Default-nya tetap cetak. Struk untuk laci, dan shift yang tutup
   // tanpa struk berarti laci tidak punya catatan hari itu - jadi yang
@@ -88,6 +90,7 @@ export function ClosingDialog({
     setClosing("");
     setReason("");
     setError(null);
+    setFieldErrors({});
     // Box "jangan cetak" tidak ikut mewarisi pilihan sesi sebelumnya: sesi
     // berikutnya punya struk yang sendiri.
     setSkipPrint(false);
@@ -105,7 +108,7 @@ export function ClosingDialog({
       if (!result.ok) {
         // Kalau angka awal sudah tampil, error refresh tidak boleh mengosongkan
         // preview - cukup tampilkan pesannya di atas laporan yang ada.
-        setError(result.error);
+        setError(friendlyErrorMessage(result.error));
         setLoading(false);
         setRefreshing(false);
         return;
@@ -129,12 +132,12 @@ export function ClosingDialog({
   const reasonRequired = variance !== null && variance < 0;
 
   const submit = async () => {
-    if (!closingValid) {
-      setError("Saldo akhir harus angka bulat dan tidak boleh negatif");
-      return;
-    }
-    if (reasonRequired && !reason.trim()) {
-      setError("Selisih kurang wajib diberi alasan");
+    const nextErrors: Record<string, string> = {};
+    if (!closingValid) nextErrors.closing = "Saldo akhir harus angka bulat dan tidak boleh negatif";
+    if (reasonRequired && !reason.trim()) nextErrors.reason = "Selisih kurang wajib diberi alasan";
+    setFieldErrors(nextErrors);
+    if (Object.keys(nextErrors).length > 0) {
+      setError(Object.values(nextErrors)[0]);
       return;
     }
     setSaving(true);
@@ -145,7 +148,7 @@ export function ClosingDialog({
       reason: reason.trim() || undefined,
     });
     if (!result.ok) {
-      setError(result.error);
+      setError(friendlyErrorMessage(result.error));
       setSaving(false);
       return;
     }
@@ -176,7 +179,7 @@ export function ClosingDialog({
     setError(null);
     const result = await handoverCashSession({ sessionId: session.id });
     if (!result.ok) {
-      setError(result.error);
+      setError(friendlyErrorMessage(result.error));
       setSaving(false);
       return;
     }
@@ -238,12 +241,14 @@ export function ClosingDialog({
             <Label htmlFor="closing">Saldo akhir fisik di laci (Rp)</Label>
             <Input
               id="closing"
+              aria-invalid={Boolean(fieldErrors.closing)}
               inputMode="numeric"
               autoFocus
               value={closing}
               onChange={(event) => {
                 setClosing(event.target.value.replace(/\D/g, ""));
                 setError(null);
+                setFieldErrors((prev) => ({ ...prev, closing: "" }));
               }}
               onKeyDown={(event) => {
                 if (event.key === "Enter" && closingValid) setStep("confirm");
@@ -256,6 +261,7 @@ export function ClosingDialog({
                 {formatCurrencyPlain(Number(closing))} · harus ada {formatCurrencyPlain(expected)}
               </p>
             ) : null}
+            {fieldErrors.closing ? <p className="text-xs text-destructive">{fieldErrors.closing}</p> : null}
           </div>
         ) : (
           <div className="space-y-3">
@@ -273,13 +279,16 @@ export function ClosingDialog({
                 <Textarea
                   id="reason"
                   rows={2}
+                  aria-invalid={Boolean(fieldErrors.reason)}
                   value={reason}
                   onChange={(event) => {
                     setReason(event.target.value);
                     setError(null);
+                    setFieldErrors((prev) => ({ ...prev, reason: "" }));
                   }}
                   placeholder="Contoh: kembalian 500 tidak sempat dicatat"
                 />
+                {fieldErrors.reason ? <p className="text-xs text-destructive">{fieldErrors.reason}</p> : null}
               </div>
             ) : (
               <div className="grid gap-1.5">

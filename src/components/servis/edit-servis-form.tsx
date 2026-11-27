@@ -24,6 +24,8 @@ import { format } from "date-fns";
 import { id as localeId } from "date-fns/locale";
 import { playPageTransition } from "@/components/layout/page-transition";
 import { toast } from "sonner";
+import { friendlyErrorMessage } from "@/lib/error-message";
+import { firstFieldError, validateServisForm } from "./servis-form-validation";
 
 type Props = {
   servisId: string;
@@ -60,6 +62,7 @@ export function EditServisForm({ servisId, initial, onSuccess, onCancel }: Props
   const [teknisiOpts, setTeknisiOpts] = useState<{ id: string; full_name: string | null; phone: string | null }[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
     getTeknisi().then(setTeknisiOpts).catch(() => {});
@@ -93,24 +96,12 @@ export function EditServisForm({ servisId, initial, onSuccess, onCancel }: Props
   const { confirmLeave } = useUnsavedGuard(isDirty, "Discard changes? Perubahan belum disimpan.");
 
   const validate = () => {
-    if (!teknisiId) return "Teknisi wajib diisi";
-    if (!merk.trim()) return "Merk wajib";
-    if (!tipe.trim()) return "Tipe wajib";
-
-    if (kerusakan.length === 0) return "Kerusakan minimal 1 tag";
-    if (!custName.trim()) return "Nama customer wajib";
-    if (!custPhone.trim()) return "Kontak WA wajib";
-    if (!/^08\d{7,13}$/.test(custPhone.trim()) && !/^62\d{7,13}$/.test(custPhone.trim())) return "Format WA tidak valid (08xxx)";
-    // Password & garansi hanya divalidasi kalau memang diisi. Servis lama bisa
-    // belum punya PIN/garansi; mewajibkannya di sini membuat edit data device
-    // ikut terkunci.
-    if (passwordValue.trim()) {
-      if (passwordType === "PIN" && !/^\d{4,8}$/.test(passwordValue.trim())) return "PIN harus 4-8 digit angka";
-      if (passwordType === "POLA" && passwordValue.split(",").filter(Boolean).length < 4) return "Pola minimal 4 titik";
-    }
-    if (garansiVal !== "" && Number(garansiVal) <= 0) return "Garansi harus lebih dari 0";
-    if (priceEstimasi !== "" && Number(priceEstimasi) < 0) return "Estimasi tidak valid";
-    return null;
+    const errors = validateServisForm({
+      teknisiId, merk, tipe, kerusakan, custName, custPhone,
+      passwordType, passwordValue, garansiVal, priceEstimasi,
+    });
+    setFieldErrors(errors);
+    return firstFieldError(errors);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -141,7 +132,7 @@ export function EditServisForm({ servisId, initial, onSuccess, onCancel }: Props
       playPageTransition();
       onSuccess?.();
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Gagal menyimpan");
+      setError(friendlyErrorMessage(err, "Gagal menyimpan"));
     } finally {
       setLoading(false);
     }
@@ -176,7 +167,7 @@ export function EditServisForm({ servisId, initial, onSuccess, onCancel }: Props
           <div className="space-y-1.5">
             <Label>Teknisi *</Label>
             <Select value={teknisiId} onValueChange={(v) => setTeknisiId(v as string)}>
-              <SelectTrigger>
+              <SelectTrigger aria-invalid={Boolean(fieldErrors.teknisiId)}>
                 {/* Children wajib: `Select.Value` base-ui menampilkan value
                    mentah tanpa children, jadi trigger akan menampilkan UUID. */}
                 <SelectValue placeholder="Pilih teknisi">
@@ -187,6 +178,7 @@ export function EditServisForm({ servisId, initial, onSuccess, onCancel }: Props
                 {teknisiOpts.length === 0 ? <SelectItem value="__empty" disabled>Tidak ada teknisi</SelectItem> : teknisiOpts.map((t) => <SelectItem key={t.id} value={t.id}>{teknisiLabel(t)}</SelectItem>)}
               </SelectPopup>
             </Select>
+            {fieldErrors.teknisiId ? <p className="text-xs text-destructive">{fieldErrors.teknisiId}</p> : null}
           </div>
         </CardContent>
       </Card>
@@ -195,13 +187,13 @@ export function EditServisForm({ servisId, initial, onSuccess, onCancel }: Props
         <CardHeader><CardTitle className="text-base">Informasi Device</CardTitle></CardHeader>
         <CardContent className="space-y-4">
           <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-1.5"><Label>Merk Handphone *</Label><Input value={merk} onChange={(e) => setMerk(e.target.value)} /></div>
-            <div className="space-y-1.5"><Label>Tipe Handphone *</Label><Input value={tipe} onChange={(e) => setTipe(e.target.value)} /></div>
+            <div className="space-y-1.5"><Label>Merk Handphone *</Label><Input aria-invalid={Boolean(fieldErrors.merk)} value={merk} onChange={(e) => setMerk(e.target.value)} />{fieldErrors.merk ? <p className="text-xs text-destructive">{fieldErrors.merk}</p> : null}</div>
+            <div className="space-y-1.5"><Label>Tipe Handphone *</Label><Input aria-invalid={Boolean(fieldErrors.tipe)} value={tipe} onChange={(e) => setTipe(e.target.value)} />{fieldErrors.tipe ? <p className="text-xs text-destructive">{fieldErrors.tipe}</p> : null}</div>
             <div className="space-y-1.5"><Label>IMEI / SN 1</Label><Input value={imei1} onChange={(e) => setImei1(e.target.value)} /></div>
             <div className="space-y-1.5"><Label>IMEI / SN 2 (Opsional)</Label><Input value={imei2} onChange={(e) => setImei2(e.target.value)} /></div>
           </div>
           <Separator />
-          <div className="space-y-1.5"><Label>Kerusakan (Tag) *</Label><KerusakanTagInput value={kerusakan} onChange={setKerusakan} /></div>
+          <div className="space-y-1.5"><Label>Kerusakan (Tag) *</Label><KerusakanTagInput value={kerusakan} onChange={setKerusakan} />{fieldErrors.kerusakan ? <p className="text-xs text-destructive">{fieldErrors.kerusakan}</p> : null}</div>
           <div className="space-y-1.5"><Label>Kelengkapan</Label><KelengkapanSelect value={kelengkapan} onChange={setKelengkapan} /></div>
           <Separator />
           <div className="space-y-3">
@@ -210,24 +202,25 @@ export function EditServisForm({ servisId, initial, onSuccess, onCancel }: Props
               <button type="button" onClick={() => { setPasswordType("PIN"); setPasswordValue(""); }} className={`flex-1 rounded-lg border px-4 py-2 text-sm font-medium ${passwordType === "PIN" ? "bg-foreground text-background border-foreground" : "bg-background hover:bg-muted border-border"}`}>PIN</button>
               <button type="button" onClick={() => { setPasswordType("POLA"); setPasswordValue(""); }} className={`flex-1 rounded-lg border px-4 py-2 text-sm font-medium ${passwordType === "POLA" ? "bg-foreground text-background border-foreground" : "bg-background hover:bg-muted border-border"}`}>POLA</button>
             </div>
-            {passwordType === "PIN" ? <Input placeholder="Masukkan PIN (4-8 digit)" value={passwordValue} onChange={(e) => setPasswordValue(e.target.value.replace(/\D/g, ""))} maxLength={8} inputMode="numeric" /> : <PatternLock value={passwordValue} onChange={setPasswordValue} />}
+            {passwordType === "PIN" ? <Input aria-invalid={Boolean(fieldErrors.passwordValue)} placeholder="Masukkan PIN (4-8 digit)" value={passwordValue} onChange={(e) => setPasswordValue(e.target.value.replace(/\D/g, ""))} maxLength={8} inputMode="numeric" /> : <PatternLock value={passwordValue} onChange={setPasswordValue} />}
+            {fieldErrors.passwordValue ? <p className="text-xs text-destructive">{fieldErrors.passwordValue}</p> : null}
           </div>
         </CardContent>
       </Card>
 
       <Card>
         <CardHeader><CardTitle className="text-base">Informasi Customer</CardTitle></CardHeader>
-        <CardContent><CustomerAutocomplete name={custName} phone={custPhone} address={custAddr} onNameChange={setCustName} onPhoneChange={setCustPhone} onAddressChange={setCustAddr} /></CardContent>
+        <CardContent><CustomerAutocomplete name={custName} phone={custPhone} address={custAddr} onNameChange={setCustName} onPhoneChange={setCustPhone} onAddressChange={setCustAddr} nameError={fieldErrors.custName} phoneError={fieldErrors.custPhone} /></CardContent>
       </Card>
 
       <Card>
         <CardHeader><CardTitle className="text-base">Garansi *</CardTitle><CardDescription>Override 90 hari default saat Sudah Diambil.</CardDescription></CardHeader>
-        <CardContent className="space-y-1.5"><Label>Garansi *</Label><GaransiField value={garansiVal} unit={garansiUnit} onValueChange={setGaransiVal} onUnitChange={setGaransiUnit} /></CardContent>
+        <CardContent className="space-y-1.5"><Label>Garansi *</Label><GaransiField value={garansiVal} unit={garansiUnit} onValueChange={setGaransiVal} onUnitChange={setGaransiUnit} />{fieldErrors.garansiVal ? <p className="text-xs text-destructive">{fieldErrors.garansiVal}</p> : null}</CardContent>
       </Card>
 
       <Card>
         <CardHeader><CardTitle className="text-base">Estimasi Biaya <span className="font-normal text-muted-foreground">(Opsional)</span></CardTitle></CardHeader>
-        <CardContent className="space-y-1.5"><Label>Estimasi (Rp)</Label><Input type="number" min={0} placeholder="Kosongkan jika belum tahu" value={priceEstimasi} onChange={(e) => { const v = e.target.value; if (v === "") setPriceEstimasi(""); else setPriceEstimasi(Math.max(0, Number(v))); }} /></CardContent>
+        <CardContent className="space-y-1.5"><Label>Estimasi (Rp)</Label><Input aria-invalid={Boolean(fieldErrors.priceEstimasi)} type="number" min={0} placeholder="Kosongkan jika belum tahu" value={priceEstimasi} onChange={(e) => { const v = e.target.value; if (v === "") setPriceEstimasi(""); else setPriceEstimasi(Math.max(0, Number(v))); }} />{fieldErrors.priceEstimasi ? <p className="text-xs text-destructive">{fieldErrors.priceEstimasi}</p> : null}</CardContent>
       </Card>
 
       <Card>

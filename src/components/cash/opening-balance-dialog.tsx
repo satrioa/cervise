@@ -17,6 +17,7 @@ import { formatCurrencyPlain } from "@/lib/format";
 import { kalenderWIB } from "@/lib/operational/periode-bulan";
 import { checkOpenCashSession, openCashSession, type CashSessionRow } from "@/app/app/actions/cash";
 import { playPageTransition } from "@/components/layout/page-transition";
+import { friendlyErrorMessage } from "@/lib/error-message";
 
 /**
  * Saldo awal wajib untuk frontliner.
@@ -95,7 +96,7 @@ export function OpeningBalanceDialog({
     setError(null);
     const result = await openCashSession({ openingBalance: value });
     if (!result.ok) {
-      setError(result.error);
+      setError(friendlyErrorMessage(result.error));
       setSaving(false);
       return;
     }
@@ -158,6 +159,7 @@ export function OpeningBalanceDialog({
           <Label htmlFor="opening">Saldo awal (Rp)</Label>
           <Input
             id="opening"
+            aria-invalid={Boolean(error)}
             inputMode="numeric"
             autoFocus
             value={balance}
