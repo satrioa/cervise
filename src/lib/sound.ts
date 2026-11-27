@@ -2,6 +2,7 @@
 
 import { useSyncExternalStore } from "react";
 import { toast } from "sonner";
+import { friendlyErrorMessage } from "./error-message";
 
 /**
  * UI sound system (Kaggo).
@@ -461,7 +462,11 @@ export function installToastSoundBridge(): void {
     const original = api.error.bind(api);
     api.error = (message, data) => {
       sfx.error();
-      return original(message, data);
+      // Pesan teknis (PostgREST, chunk Next, failed fetch) diterjemahkan dulu.
+      // ReactNode diteruskan apa adanya supaya JSX toast tidak berubah.
+      const safeMessage =
+        typeof message === "string" ? friendlyErrorMessage(message) : message;
+      return original(safeMessage, data);
     };
   }
   if (typeof api.warning === "function") {
@@ -500,9 +505,11 @@ export function installToastSoundBridge(): void {
       };
       callbacks.error = (value: unknown) => {
         sfx.error();
+        const safe =
+          typeof value === "string" ? friendlyErrorMessage(value) : value;
         return typeof originalError === "function"
-          ? (originalError as (v: unknown) => unknown)(value)
-          : originalError;
+          ? (originalError as (v: unknown) => unknown)(safe)
+          : safe;
       };
       return originalPromise(input, callbacks);
     };
