@@ -22,12 +22,34 @@ describe("central inventory schema migration", () => {
     expect(flat).toContain("stock_qty integer not null default 0 check (stock_qty >= 0)");
     expect(flat).toContain("imei text");
     expect(flat).toContain("parent_key text");
+    for (const column of [
+      "id uuid primary key",
+      "sku text not null",
+      "name text not null",
+      "category text not null",
+      "cost integer not null default 0",
+      "price integer not null default 0",
+      "is_active boolean not null default true",
+      "is_serialized boolean not null default false",
+      "barcode text",
+      "variant_type text not null default 'baru'",
+      "storage text",
+      "warna text",
+      "bh_percent integer",
+      "kondisi_notes text",
+      "garansi_days integer",
+      "created_at timestamptz not null default now()",
+      "updated_at timestamptz not null default now()",
+    ]) {
+      expect(flat).toContain(column);
+    }
   });
 
   it("menjaga keunikan sku dan imei master pusat", () => {
     expect(flat).toContain("cervise_central_items_sku_key");
     expect(flat).toContain("(organization_id, kind, sku) where not is_serialized");
     expect(flat).toContain("cervise_central_items_imei_key");
+    expect(flat).toContain("(organization_id, imei) where is_serialized and imei is not null");
   });
 
   it("mewajibkan imei pada barang serialized", () => {
@@ -40,6 +62,10 @@ describe("central inventory schema migration", () => {
   it("mengamankan master pusat dengan rls select", () => {
     expect(flat).toContain("array['master_admin','admin','frontliner','technician']");
     expect(flat).toContain("grant select on public.cervise_central_items to authenticated");
+    expect(flat).not.toContain("grant all on public.cervise_central_items to authenticated");
+    for (const write of ["insert", "update", "delete"]) {
+      expect(flat).not.toContain(`grant ${write} on public.cervise_central_items to authenticated`);
+    }
   });
 
   it("memuat kolom dan rls antrean request", () => {
@@ -50,6 +76,9 @@ describe("central inventory schema migration", () => {
     expect(flat).toContain("rejection_reason text");
     expect(flat).toContain("array['admin','frontliner']");
     expect(flat).toContain("array['master_admin']");
+    expect(flat).toContain(
+      "grant select, insert, update on public.cervise_stock_requests to authenticated",
+    );
   });
 
   it("menautkan baris cabang dan ledger ke item pusat", () => {
