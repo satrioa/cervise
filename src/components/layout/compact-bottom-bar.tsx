@@ -4,6 +4,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { UserRound } from "lucide-react";
 import { useTheme } from "next-themes";
 import { TenantLogo } from "@/components/layout/tenant-logo";
+import { NotificationBell } from "@/components/layout/notification-bell";
 import { labelFor, matchEntry } from "@/components/layout/page-breadcrumb";
 import ProfileDropdown from "@/components/kokonutui/profile-dropdown";
 import { useBranch } from "@/lib/branch-context";
@@ -79,6 +80,9 @@ export function CompactBottomBar({
         <h1 className="min-w-0 flex-1 truncate text-center text-sm font-medium text-neutral-900 dark:text-neutral-100">
           {pageTitle}
         </h1>
+        <div className="pointer-events-auto shrink-0">
+          <NotificationBell />
+        </div>
         </div>
       </div>
 

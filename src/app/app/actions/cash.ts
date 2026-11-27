@@ -23,6 +23,7 @@ import {
 } from "@/lib/home/home-data";
 import type { FrontlinerQueueItem, PickupServiceItem } from "@/lib/home/types";
 import { dispatchPendingNotifications } from "@/lib/notifications/dispatcher";
+import { notifyRoles } from "@/lib/notifications/app-notifications";
 
 /**
  * Sesi kas harian dan Laporan Shift.
@@ -46,7 +47,7 @@ function fail<T>(error: string): CashResult<T> {
 async function cashContext() {
   const actor = await getActiveTenant();
   if (!actor.branchId) throw new Error("Cabang belum ditetapkan untuk akun ini");
-  return { supabase: actor.supabase, branchId: actor.branchId, userId: actor.userId, role: actor.role };
+  return { supabase: actor.supabase, branchId: actor.branchId, organizationId: actor.orgId, userId: actor.userId, role: actor.role };
 }
 
 // Dipakai enam kali di file ini, jadi hanya satu definisi hari kalender.
@@ -165,7 +166,7 @@ export async function openCashSession(input: { openingBalance: number }): Promis
   }
 
   try {
-    const { supabase, branchId, userId } = await cashContext();
+    const { supabase, branchId, organizationId, userId } = await cashContext();
 
     // Optimistic lock di level aplikasi. Index unik di database
     // (`where closed_at is null`) adalah jaring kedua: kalau dua orang di
@@ -203,6 +204,16 @@ export async function openCashSession(input: { openingBalance: number }): Promis
       shiftOpenTime: wibTime(session.openAt),
       saldoAwal: session.openingBalance,
     });
+    void notifyRoles({
+      organizationId,
+      branchId,
+      branchLabel: names.cabang,
+      event: "buka_toko",
+      roles: ["MASTER_ADMIN", "ADMIN"],
+      title: "Toko dibuka",
+      body: `${names.cabang || branchId} • saldo awal ${session.openingBalance}`,
+      href: "/app/laporan/shift",
+    });
     return { ok: true, data: session };
   } catch (cause) {
     return fail(cause instanceof Error ? cause.message : "Gagal membuka sesi kas");
@@ -226,7 +237,7 @@ export async function closeCashSession(input: {
 
   try {
     const ctx = await cashContext();
-    const { supabase, branchId, userId } = ctx;
+    const { supabase, branchId, organizationId, userId } = ctx;
 
     // Verifikasi sesi masih terbuka sebelum update. Constraint database
     // `cervise_cash_sessions_closed_check` hanya menolak update yang
@@ -308,6 +319,17 @@ export async function closeCashSession(input: {
       kasManual: report.totals.manualNet,
       kasDiharapkan: report.expectedCash,
       selisih: closing - report.expectedCash,
+    });
+
+    void notifyRoles({
+      organizationId,
+      branchId,
+      branchLabel: closeNames.cabang,
+      event: "tutup_toko",
+      roles: ["MASTER_ADMIN", "ADMIN"],
+      title: "Toko ditutup",
+      body: `${closeNames.cabang || branchId} • saldo akhir ${closing}`,
+      href: "/app/laporan/shift",
     });
 
     return {

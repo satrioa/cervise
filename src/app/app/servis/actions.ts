@@ -3,6 +3,8 @@
 import { mapServisListRows, type ServisListRow } from "@/lib/operational/servis-list";
 import { kalenderWIB } from "@/lib/operational/periode-bulan";
 import { sanitizeSearchTerm } from "@/lib/search-term";
+import { notifyRoles } from "@/lib/notifications/app-notifications";
+import { formatCurrencyPlain } from "@/lib/format";
 
 export type KondisiStatus = "normal" | "tidak_normal";
 export type KondisiAwal = Record<string, { status: KondisiStatus; note: string }>;
@@ -335,6 +337,17 @@ export async function createServis(payload: CreateServisPayload) {
   }
   // log create
   await supabase.from("cervise_service_logs").insert({ branch_id: branchId, servis_id: svc.id, actor_id: userId, action: "create", to_value: deviceLabel, payload: { merk: payload.merk, tipe: payload.tipe, kerusakan: kerusakanNorm } });
+
+  void notifyRoles({
+    organizationId: orgId,
+    branchId,
+    branchLabel: "",
+    event: "servis_created",
+    roles: ["TECHNICIAN", "FRONTLINER", "MASTER_ADMIN", "ADMIN"],
+    title: "Servis baru",
+    body: `${numberData ?? svc.id} • ${deviceLabel}`,
+    href: `/app/servis/${svc.id}`,
+  });
   return { id: svc.id as string };
 }
 
@@ -556,7 +569,7 @@ export async function addPembayaran(params: {
   keterangan?: string;
 }): Promise<{ ok: true; total: number } | { ok: false; error: string }> {
   try {
-    const { supabase, branchId, userId, role, permissions } = await getBranchAndUser();
+    const { supabase, branchId, orgId, userId, role, permissions } = await getBranchAndUser();
     if (!canAccessActor({ role, permissions }, "servis_pembayaran")) {
       return { ok: false, error: "Hanya admin/kasir boleh input pembayaran" };
     }
@@ -582,6 +595,16 @@ export async function addPembayaran(params: {
     if (error) return { ok: false, error: error.message };
 
     const result = data as { total?: number } | null;
+    void notifyRoles({
+      organizationId: orgId,
+      branchId,
+      branchLabel: "",
+      event: "pembayaran_servis",
+      roles: ["MASTER_ADMIN", "ADMIN"],
+      title: "Pembayaran servis",
+      body: `Servis ${params.servisId} • ${params.metode} ${formatCurrencyPlain(params.amount)}`,
+      href: `/app/servis/${params.servisId}`,
+    });
     return { ok: true, total: Number(result?.total ?? 0) };
   } catch (cause) {
     return { ok: false, error: cause instanceof Error ? cause.message : "Gagal menyimpan pembayaran" };
