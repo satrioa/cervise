@@ -32,6 +32,7 @@ export type ServisServiceInput = {
   customer_id: string | null;
   teknisi_id: string | null;
   created_at: string;
+  updated_at: string | null;
 };
 
 export type ServisListRow = {
@@ -47,6 +48,8 @@ export type ServisListRow = {
   status: ServisStage;
   complaint: string;
   date: string;
+  createdAt: string;
+  updatedAt: string;
   payment: ServisPaymentStatus;
   paidAmount: number;
   /** Metode unik yang dipakai, mis. "Tunai + QRIS". Kosong bila belum ada. */
@@ -92,6 +95,8 @@ export function mapServisListRows(input: {
       status: service.status as ServisStage,
       complaint: service.complaint ?? "",
       date: service.created_at.slice(0, 10),
+      createdAt: service.created_at,
+      updatedAt: service.updated_at || service.created_at,
       payment,
       paidAmount,
       paymentMethods: (methodsByService.get(service.id) ?? []).join(" + "),

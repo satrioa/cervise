@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
-import { formatCurrencyPlain, formatNumberPlain } from "@/lib/format";
+import { formatCurrencyPlain, formatNumberPlain, formatWibStamp } from "@/lib/format";
 import { SearchIcon, CalendarIcon, XIcon, TableIcon, LayoutGridIcon, ArrowDownIcon, ArrowUpDownIcon, ArrowUpIcon, PencilIcon, PrinterIcon, Trash2Icon, WalletIcon } from "lucide-react";
 import { SwipeActions, SwipeActionsRow, type SwipeAction } from "@/components/arc/swipe-actions/swipe-actions";
 import { format } from "date-fns";
@@ -69,6 +69,8 @@ type ServisItem = {
   status: Stage;
   complaint: string;
   date: string;
+  createdAt?: string;
+  updatedAt?: string;
   payment?: PaymentStatus;
   paidAmount?: number;
   trackingCode?: string | null;
@@ -102,12 +104,19 @@ function PaymentBadge({ status }: { status: PaymentStatus }) {
   );
 }
 
-function PickedUpBadge({ status }: { status: Stage }) {
-  if (status !== "Sudah Diambil") return null;
+function ServisStatus({ stage, updatedAt }: { stage: Stage; updatedAt: string }) {
+  const entry = STAGES.find((s) => s.key === stage) ?? STAGES[0];
+  const Icon = entry.icon;
   return (
-    <Badge variant="secondary" size="sm" className="shrink-0 font-medium">
-      HP Diambil
-    </Badge>
+    <div className="flex flex-col gap-0.5">
+      <span className="inline-flex items-center gap-1.5 text-xs font-medium">
+        <Icon className="size-3.5 shrink-0" />
+        {stage}
+      </span>
+      <span className="text-[11px] text-muted-foreground">
+        Terakhir update {formatWibStamp(updatedAt)}
+      </span>
+    </div>
   );
 }
 
@@ -222,6 +231,7 @@ export default function ServisPage() {
   const [paymentFilter, setPaymentFilter] = useState<string>("Semua");
   const [teknisiFilter, setTeknisiFilter] = useState<string>("Semua");
   const [priceSort, setPriceSort] = useState<"none" | "asc" | "desc">("none");
+  const [dateSort, setDateSort] = useState<"none" | "asc" | "desc">("none");
   const [page, setPage] = useState(1);
   const [openServis, setOpenServis] = useState(false);
   const [servisData, setServisData] = useState<ServisItem[]>([]);
@@ -370,9 +380,15 @@ export default function ServisPage() {
   const filteredByAll = useMemo(() => servisData.filter(matchesSearchAndDate), [servisData, search, dateRange, paymentFilter, teknisiFilter]);
   const filteredTable = useMemo(() => {
     const rows = filter === "Semua" ? filteredByAll : filteredByAll.filter((d) => d.status === filter);
-    if (priceSort === "none") return rows;
-    return [...rows].sort((a, b) => (priceSort === "asc" ? a.price - b.price : b.price - a.price));
-  }, [filteredByAll, filter, priceSort]);
+    const sorted = dateSort === "none"
+      ? rows
+      : [...rows].sort((a, b) => {
+          const delta = new Date(a.createdAt ?? a.date).getTime() - new Date(b.createdAt ?? b.date).getTime();
+          return dateSort === "asc" ? delta : -delta;
+        });
+    if (priceSort === "none") return sorted;
+    return [...sorted].sort((a, b) => (priceSort === "asc" ? a.price - b.price : b.price - a.price));
+  }, [filteredByAll, filter, dateSort, priceSort]);
   const totalPages = Math.max(1, Math.ceil(filteredTable.length / PAGE_SIZE));
   const pageSafe = Math.min(Math.max(1, page), totalPages);
   const pageItems = filteredTable.slice((pageSafe - 1) * PAGE_SIZE, pageSafe * PAGE_SIZE);
@@ -1016,7 +1032,11 @@ export default function ServisPage() {
                     onCheckedChange={(v) => toggleAll(!!v)}
                   />
                 </TableHead>
-                <TableHead>Tanggal Masuk</TableHead><TableHead>Servis</TableHead><TableHead>Device</TableHead><TableHead>Status</TableHead><TableHead>Teknisi</TableHead><TableHead>Pembayaran</TableHead><TableHead className="text-right"><button type="button" onClick={() => setPriceSort((prev) => prev === "none" ? "asc" : prev === "asc" ? "desc" : "none")} className="inline-flex items-center gap-1 font-medium hover:text-foreground" aria-label="Urutkan harga">Harga{priceSort === "asc" ? <ArrowUpIcon className="size-3" /> : priceSort === "desc" ? <ArrowDownIcon className="size-3" /> : <ArrowUpDownIcon className="size-3 opacity-40" />}</button></TableHead></TableRow></TableHeader>
+                <TableHead>
+                  <button type="button" onClick={() => setDateSort((prev) => prev === "none" ? "asc" : prev === "asc" ? "desc" : "none")} className="inline-flex items-center gap-1 font-medium hover:text-foreground" aria-label="Urutkan tanggal masuk">
+                    Tanggal Masuk{dateSort === "asc" ? <ArrowUpIcon className="size-3" /> : dateSort === "desc" ? <ArrowDownIcon className="size-3" /> : <ArrowUpDownIcon className="size-3 opacity-40" />}
+                  </button>
+                </TableHead><TableHead>Servis</TableHead><TableHead>Device</TableHead><TableHead>Status</TableHead><TableHead>Teknisi</TableHead><TableHead>Pembayaran</TableHead><TableHead className="text-right"><button type="button" onClick={() => setPriceSort((prev) => prev === "none" ? "asc" : prev === "asc" ? "desc" : "none")} className="inline-flex items-center gap-1 font-medium hover:text-foreground" aria-label="Urutkan harga">Harga{priceSort === "asc" ? <ArrowUpIcon className="size-3" /> : priceSort === "desc" ? <ArrowDownIcon className="size-3" /> : <ArrowUpDownIcon className="size-3 opacity-40" />}</button></TableHead></TableRow></TableHeader>
             <TableBody>
               {pageItems.map((r) => (
                 <ServisContextMenu key={r.id} servis={r} onViewDetails={handleViewDetails} onStatusChange={handleStatusChange} onEdit={handleEdit} onPrint={handlePrint} onInvoice={handleInvoice} onBayar={handleBayar} onDelete={handleDelete}>
@@ -1029,15 +1049,10 @@ export default function ServisPage() {
                         onClick={(e) => e.stopPropagation()}
                       />
                     </TableCell>
-                    <TableCell className="whitespace-nowrap font-mono text-xs text-muted-foreground">{format(new Date(r.date), "d MMM yyyy", { locale: localeId })}</TableCell>
+                    <TableCell className="whitespace-nowrap font-mono text-xs text-muted-foreground">{formatWibStamp(r.createdAt ?? r.date)}</TableCell>
                     <TableCell><div className="font-mono text-xs">{servisLabel(r)}</div><div className="text-muted-foreground text-xs">{r.customer}</div></TableCell>
                     <TableCell className="font-medium max-w-[220px] truncate">{r.device}</TableCell>
-                    <TableCell>
-                      <div className="flex flex-wrap items-center gap-1">
-                        <StageTrack stage={r.status} />
-                        <PickedUpBadge status={r.status} />
-                      </div>
-                    </TableCell>
+                    <TableCell><ServisStatus stage={r.status} updatedAt={r.updatedAt ?? r.createdAt ?? r.date} /></TableCell>
                     <TableCell className="font-mono text-xs text-muted-foreground">{r.teknisi}</TableCell>
                     <TableCell><PaymentBadge status={getPaymentStatus(r)} /></TableCell>
                     <TableCell className="text-right font-mono tabular-nums">{r.price > 0 ? formatCurrencyPlain(r.price) : "—"}</TableCell>
@@ -1074,13 +1089,10 @@ export default function ServisPage() {
                       </div>
                       <p className="mt-1 truncate text-sm font-medium">{r.device}</p>
                       <p className="truncate text-xs text-muted-foreground">
-                        {r.customer} · {format(new Date(r.date), "d MMM yyyy", { locale: localeId })}
+                        {r.customer} · {formatWibStamp(r.createdAt ?? r.date)}
                       </p>
                       <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
-                        <div className="flex flex-wrap items-center gap-1">
-                          <StageTrack stage={r.status} />
-                          <PickedUpBadge status={r.status} />
-                        </div>
+                        <ServisStatus stage={r.status} updatedAt={r.updatedAt ?? r.createdAt ?? r.date} />
                         <span className="shrink-0 font-mono text-sm tabular-nums">
                           {r.price > 0 ? formatCurrencyPlain(r.price) : "—"}
                         </span>

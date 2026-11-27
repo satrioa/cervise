@@ -33,11 +33,30 @@ export function PageTransition() {
   }, []);
 
   useEffect(() => {
+    const timers: number[] = [];
+    // Base UI memberi `body.style.pointerEvents = "none"` saat overlay/menu
+    // modal terbuka dan mengembalikannya lewat cleanup effect. Kalau overlay
+    // unmount di tengah transisi, cleanup bisa terlewat: halaman tampak normal
+    // tapi semua klik mati sampai di-refresh. Transisi adalah titik di mana
+    // kita menjamin dokumen kembali interaktif.
+    const release = () => {
+      if (document.body.style.pointerEvents === "none") {
+        document.body.style.pointerEvents = "";
+      }
+    };
+    const scheduleRelease = () => {
+      release();
+      // Overlay juga bisa menaruh pointer-events saat animasi cascade berjalan,
+      // jadi ulangi setelah transisi selesai (~1,7s) dengan margin.
+      timers.push(window.setTimeout(release, 2200));
+    };
     const play = () => {
+      scheduleRelease();
       setHold(false);
       setTrigger((value) => value + 1);
     };
     const playHold = () => {
+      scheduleRelease();
       setHold(true);
       setTrigger((value) => value + 1);
     };
@@ -46,6 +65,8 @@ export function PageTransition() {
     return () => {
       window.removeEventListener("kaggo:transition", play);
       window.removeEventListener("kaggo:transition-hold", playHold);
+      timers.forEach((id) => window.clearTimeout(id));
+      release();
     };
   }, []);
 

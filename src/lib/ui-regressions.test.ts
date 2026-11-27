@@ -66,11 +66,14 @@ describe("regresi UI", () => {
     expect(source).not.toContain("revalidatePath");
   });
 
-  it("tabel dan kartu servis menandai HP yang sudah diambil", () => {
+  it("tabel servis memakai status ringkas dan sort tanggal masuk", () => {
     const page = read("src/app/app/servis/page.tsx");
-    expect(page).toContain('status !== "Sudah Diambil"');
-    expect(page.match(/HP Diambil/g) ?? []).toHaveLength(1);
-    expect(page.match(/<PickedUpBadge status=\{r\.status\} \/>/g) ?? []).toHaveLength(2);
+    expect(page).not.toContain("PickedUpBadge");
+    expect(page.match(/<ServisStatus stage=\{r\.status\}/g) ?? []).toHaveLength(2);
+    expect(page).toContain("Terakhir update {formatWibStamp(updatedAt)}");
+    expect(page).toContain("formatWibStamp(r.createdAt ?? r.date)");
+    expect(page).toContain('aria-label="Urutkan tanggal masuk"');
+    expect(page).toContain("const [dateSort,");
   });
 
   it("swipe action meneruskan onClick agar tap kartu membuka sheet", () => {

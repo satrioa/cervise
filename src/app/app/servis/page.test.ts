@@ -36,8 +36,9 @@ describe("filter status servis", () => {
   });
 
   it("tabel punya kolom Tanggal Masuk tersendiri di paling kiri", () => {
-    expect(source).toContain("<TableHead>Tanggal Masuk</TableHead><TableHead>Servis</TableHead>");
-    expect(source).toMatch(/<TableCell className="whitespace-nowrap font-mono text-xs text-muted-foreground">\{format\(new Date\(r\.date\)/);
+    expect(source).toContain('aria-label="Urutkan tanggal masuk"');
+    expect(source.indexOf('aria-label="Urutkan tanggal masuk"')).toBeLessThan(source.indexOf("<TableHead>Servis</TableHead>"));
+    expect(source).toContain("formatWibStamp(r.createdAt ?? r.date)");
     expect(source).toMatch(/colSpan=\{8\}/);
   });
 });
