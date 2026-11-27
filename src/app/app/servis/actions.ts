@@ -599,6 +599,9 @@ export async function getPembayaranHistory(servisId: string) {
   );
   const { data, error } = await query
     .eq("servis_id", servisId)
+    // Hanya pemasukan yang merupakan pembayaran. Pengeluaran (mis. sparepart
+    // custom) ikut bertanda servis_id tetapi bukan uang yang diterima kasir.
+    .eq("type", "pemasukan")
     .order("kas_date", { ascending: true })
     .order("created_at", { ascending: true });
   if (error) throw new Error(error.message);
