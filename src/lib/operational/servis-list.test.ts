@@ -51,6 +51,7 @@ describe("mapServisListRows", () => {
         customer_id: "customer-1",
         teknisi_id: "profile-1",
         created_at: "2026-09-25T08:00:00.000Z",
+        updated_at: null,
       }],
       customers: [{ id: "customer-1", name: "Rina", phone: "0812" }],
       profiles: [{ id: "profile-1", full_name: "Rudi" }],
@@ -84,6 +85,7 @@ describe("mapServisListRows", () => {
         customer_id: null,
         teknisi_id: null,
         created_at: "2026-09-25T08:00:00.000Z",
+        updated_at: null,
       }],
       customers: [],
       profiles: [],
@@ -114,6 +116,7 @@ describe("mapServisListRows", () => {
         customer_id: null,
         teknisi_id: null,
         created_at: "2026-09-25T08:00:00.000Z",
+        updated_at: null,
       }],
       customers: [],
       profiles: [],
@@ -137,6 +140,7 @@ describe("mapServisListRows", () => {
         customer_id: null,
         teknisi_id: null,
         created_at: "2026-09-25T08:00:00.000Z",
+        updated_at: null,
       }],
       customers: [],
       profiles: [],
@@ -160,6 +164,7 @@ describe("mapServisListRows", () => {
         customer_id: null,
         teknisi_id: null,
         created_at: "2026-09-25T08:00:00.000Z",
+        updated_at: null,
       }],
       customers: [],
       profiles: [],
@@ -183,6 +188,7 @@ describe("mapServisListRows", () => {
         customer_id: null,
         teknisi_id: null,
         created_at: "2026-09-25T08:00:00.000Z",
+        updated_at: null,
       }],
       customers: [],
       profiles: [],
@@ -196,5 +202,30 @@ describe("mapServisListRows", () => {
       paidAmount: 0,
       payment: "Belum dibayar",
     });
+  });
+
+  it("menyimpan timestamp penuh dan memakai updated_at bila ada", () => {
+    const [row] = mapServisListRows({
+      services: [{
+        id: "service-4",
+        service_number: "SRV-2026-0004",
+        tracking_code: null,
+        device: "iPhone 12",
+        complaint: null,
+        status: "Masuk",
+        price: 0,
+        customer_id: null,
+        teknisi_id: null,
+        created_at: "2026-11-27T07:32:00.000Z",
+        updated_at: "2026-11-27T09:00:00.000Z",
+      }],
+      customers: [],
+      profiles: [],
+      finance: [],
+    });
+
+    expect(row.createdAt).toBe("2026-11-27T07:32:00.000Z");
+    expect(row.updatedAt).toBe("2026-11-27T09:00:00.000Z");
+    expect(row.date).toBe("2026-11-27");
   });
 });

@@ -32,6 +32,24 @@ export function formatCurrencyPlain(amount: number): string {
   }
 }
 
+/** Cap WIB untuk tabel: dd/MM/yyyy | HH:mm (24 jam). */
+export function formatWibStamp(value: string | null | undefined): string {
+  if (!value) return "—";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "—";
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Asia/Jakarta",
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(date);
+  const part = (type: string) => parts.find((p) => p.type === type)?.value ?? "";
+  return `${part("day")}/${part("month")}/${part("year")} | ${part("hour")}:${part("minute")}`;
+}
+
 export function formatNumberPlain(value: number): string {
   if (typeof window !== "undefined") {
     try {

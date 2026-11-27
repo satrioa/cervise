@@ -57,7 +57,7 @@ export async function getServisList(): Promise<ServisListRow[]> {
   const servicesQuery = applyBranchScope(
     supabase
       .from("cervise_services")
-      .select("id, service_number, tracking_code, device, complaint, status, price, price_estimasi, customer_id, teknisi_id, created_at"),
+      .select("id, service_number, tracking_code, device, complaint, status, price, price_estimasi, customer_id, teknisi_id, created_at, updated_at"),
     actor,
   );
   const { data: services, error: servicesError } = await servicesQuery
@@ -76,6 +76,7 @@ export async function getServisList(): Promise<ServisListRow[]> {
     customer_id: string | null;
     teknisi_id: string | null;
     created_at: string;
+    updated_at: string | null;
   }[];
   if (serviceRows.length === 0) return [];
 
