@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { getActiveTenant } from "@/lib/supabase/actor";
 import { sanitizeSearchTerm } from "@/lib/search-term";
 import { DEFAULT_LOW_STOCK_THRESHOLD } from "@/lib/operational/sparepart-stock";
+import { numberField } from "./actions-shared";
 
 export type SparepartRow = {
   id: string;
@@ -36,12 +37,6 @@ async function getManagerActor() {
     throw new Error("Hanya admin yang boleh mengubah sparepart");
   }
   return actor;
-}
-
-function numberField(value: unknown, label: string): number {
-  const n = Number(value);
-  if (!Number.isInteger(n) || n < 0) throw new Error(`${label} harus bilangan bulat >= 0`);
-  return n;
 }
 
 function thresholdField(value: unknown): number {
