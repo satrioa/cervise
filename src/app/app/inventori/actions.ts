@@ -111,13 +111,9 @@ export async function updateProductVariant(input: UpdateProductVariantInput): Pr
   requireInventoryAccess(actor);
   if (!canAccessActor(actor, "penjualan")) throw new Error("Hanya admin/frontliner boleh mengubah produk");
   if (!input.id) throw new Error("Produk tidak ditemukan");
-  if (!input.name.trim()) throw new Error("Nama produk wajib");
 
-  const patch: Record<string, unknown> = {
-    name: input.name.trim(),
-    cost: input.cost,
-    price: input.price,
-  };
+  // Nama/modal/harga adalah data master; cabang hanya mengubah data fisiknya.
+  const patch: Record<string, unknown> = {};
   if (input.category !== undefined) patch.category = input.category?.trim() || null;
   if (input.stock_qty !== undefined) patch.stock_qty = input.stock_qty;
   if (input.storage !== undefined) patch.storage = input.storage?.trim() || null;
@@ -147,9 +143,7 @@ export async function updateProductVariant(input: UpdateProductVariantInput): Pr
 export async function importInventori(rows: InventoriImportRow[]): Promise<{ inserted: number }> {
   const actor = await getActiveTenant();
   requireInventoryAccess(actor);
-  // Sejalan dengan `createProduct`: yang boleh menambah katalog adalah
-  // admin/frontliner, bukan teknisi yang hanya perlu melihat stok.
-  if (!canAccessActor(actor, "penjualan")) throw new Error("Hanya admin/frontliner boleh impor produk");
+  if (actor.role !== "MASTER_ADMIN") throw new Error("Hanya Master Admin boleh impor produk");
   const branchId = actor.branchId;
   if (!branchId) throw new Error("Cabang aktif belum dipilih");
   if (rows.length === 0) throw new Error("File tidak berisi baris produk");
@@ -170,15 +164,20 @@ export async function importInventori(rows: InventoriImportRow[]): Promise<{ ins
     throw new Error(shown + rest);
   }
 
-  for (let index = 0; index < products.length; index += 50) {
-    const payload = products.slice(index, index + 50).map((product) => ({
-      branch_id: branchId,
-      organization_id: actor.orgId,
-      ...product,
-      is_serialized: product.variant_type === "BEKAS",
-      is_active: true,
-    }));
-    const { error } = await actor.supabase.from("cervise_products").insert(payload);
+  for (const product of products) {
+    const { error } = await actor.supabase.rpc("create_central_item", {
+      p_organization_id: actor.orgId,
+      p_kind: "PRODUCT",
+      p_sku: product.sku,
+      p_name: product.name,
+      p_category: product.category,
+      p_cost: product.cost,
+      p_price: product.price,
+      p_stock_qty: product.stock_qty,
+      p_is_serialized: product.variant_type === "BEKAS",
+      p_imei: product.imei,
+      p_parent_key: product.parent_key,
+    });
     if (error) throw new Error(error.message);
   }
 

@@ -28,22 +28,24 @@ export type SparepartInput = {
   price: number;
 };
 
-const COLUMNS = "id, sku, name, category, stock_qty, low_stock_threshold, cost, price, is_active";
-
 async function getManagerActor() {
   const actor = await getActiveTenant();
   if (!actor.branchId) throw new Error("Pilih cabang dulu sebelum mengelola sparepart");
-  if (!["MASTER_ADMIN", "ADMIN"].includes(actor.role)) {
-    throw new Error("Hanya admin yang boleh mengubah sparepart");
-  }
+  if (actor.role !== "MASTER_ADMIN") throw new Error("Hanya Master Admin");
   return actor;
 }
 
-function thresholdField(value: unknown): number {
-  if (value === undefined || value === null || value === "") {
-    return DEFAULT_LOW_STOCK_THRESHOLD;
-  }
-  return numberField(value, "Ambang stok");
+/** UI mengirim id master, RPC stok lama butuh id baris cabang. */
+async function resolveBranchStock(actor: Awaited<ReturnType<typeof getActiveTenant>>, centralItemId: string) {
+  const { data, error } = await actor.supabase
+    .from("cervise_spareparts")
+    .select("id, stock_qty")
+    .eq("central_item_id", centralItemId)
+    .eq("branch_id", actor.branchId)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!data) throw new Error("Stok cabang belum ada — distribusikan dari pusat dulu");
+  return { id: data.id as string, stock_qty: Number(data.stock_qty ?? 0) };
 }
 
 export async function listSpareparts(q: string): Promise<SparepartRow[]> {
@@ -51,24 +53,33 @@ export async function listSpareparts(q: string): Promise<SparepartRow[]> {
   if (!actor.branchId) return [];
   const term = sanitizeSearchTerm(q);
 
-  let query = actor.supabase
-    .from("cervise_spareparts")
-    .select(COLUMNS)
-    .eq("branch_id", actor.branchId);
-
-  if (term) {
-    query = query.or(`name.ilike.%${term}%,sku.ilike.%${term}%`);
-  }
-
-  const { data, error } = await query.order("name");
+  const master = actor.supabase
+    .from("cervise_central_items")
+    .select("id, sku, name, category, cost, price, is_active")
+    .eq("organization_id", actor.orgId)
+    .eq("kind", "SPAREPART")
+    .eq("is_active", true);
+  const { data: items, error } = await (term ? master.or(`name.ilike.%${term}%,sku.ilike.%${term}%`) : master).order("name");
   if (error) throw new Error(error.message);
 
-  return ((data ?? []) as SparepartRow[]).map((row) => ({
+  const { data: branchRows, error: branchError } = await actor.supabase
+    .from("cervise_spareparts")
+    .select("central_item_id, stock_qty, low_stock_threshold")
+    .eq("branch_id", actor.branchId);
+  if (branchError) throw new Error(branchError.message);
+
+  const branchById = new Map(
+    (branchRows ?? []).map((row) => [row.central_item_id, {
+      stock_qty: Number(row.stock_qty ?? 0),
+      low_stock_threshold: Number(row.low_stock_threshold ?? DEFAULT_LOW_STOCK_THRESHOLD),
+    }]),
+  );
+  return ((items ?? []) as Omit<SparepartRow, "stock_qty" | "low_stock_threshold">[]).map((row) => ({
     ...row,
-    stock_qty: Number(row.stock_qty ?? 0),
-    low_stock_threshold: Number(row.low_stock_threshold ?? DEFAULT_LOW_STOCK_THRESHOLD),
     cost: Number(row.cost ?? 0),
     price: Number(row.price ?? 0),
+    stock_qty: branchById.get(row.id)?.stock_qty ?? 0,
+    low_stock_threshold: branchById.get(row.id)?.low_stock_threshold ?? DEFAULT_LOW_STOCK_THRESHOLD,
   }));
 }
 
@@ -85,33 +96,25 @@ export async function listSparepartCategories(): Promise<string[]> {
   return names.includes("Sparepart") ? names : ["Sparepart", ...names];
 }
 
-export async function createSparepart(input: SparepartInput): Promise<SparepartRow> {
+export async function createSparepart(input: SparepartInput): Promise<string> {
   const actor = await getManagerActor();
   const name = input.name?.trim();
   if (!name) throw new Error("Nama sparepart wajib");
 
-  const payload = {
-    organization_id: actor.orgId,
-    branch_id: actor.branchId,
-    sku: input.sku?.trim() || `SP-${Date.now().toString(36).toUpperCase()}`,
-    name,
-    category: input.category?.trim() || "Sparepart",
-    stock_qty: numberField(input.stock_qty, "Stok"),
-    low_stock_threshold: thresholdField(input.low_stock_threshold),
-    cost: numberField(input.cost, "Modal"),
-    price: numberField(input.price, "Harga jual"),
-    is_active: true,
-  };
-
-  const { data, error } = await actor.supabase
-    .from("cervise_spareparts")
-    .insert(payload)
-    .select(COLUMNS)
-    .single();
+  const { data, error } = await actor.supabase.rpc("create_central_item", {
+    p_organization_id: actor.orgId,
+    p_kind: "SPAREPART",
+    p_sku: input.sku?.trim() || `SP-${Date.now().toString(36).toUpperCase()}`,
+    p_name: name,
+    p_category: input.category?.trim() || "Sparepart",
+    p_cost: numberField(input.cost, "Modal"),
+    p_price: numberField(input.price, "Harga jual"),
+    p_stock_qty: numberField(input.stock_qty, "Stok"),
+  });
   if (error) throw new Error(error.message);
 
   revalidatePath("/app/sparepart");
-  return data as SparepartRow;
+  return data as string;
 }
 
 export async function updateSparepart(id: string, input: SparepartInput): Promise<void> {
@@ -119,40 +122,14 @@ export async function updateSparepart(id: string, input: SparepartInput): Promis
   const name = input.name?.trim();
   if (!name) throw new Error("Nama sparepart wajib");
 
-  const { data: current, error: readError } = await actor.supabase
-    .from("cervise_spareparts")
-    .select("stock_qty")
-    .eq("id", id)
-    .eq("branch_id", actor.branchId)
-    .maybeSingle();
-  if (readError) throw new Error(readError.message);
-  if (!current) throw new Error("Sparepart tidak ditemukan");
-
-  const nextStock = numberField(input.stock_qty, "Stok");
-  const { error } = await actor.supabase
-    .from("cervise_spareparts")
-    .update({
-      sku: input.sku?.trim() || undefined,
-      name,
-      category: input.category?.trim() || "Sparepart",
-      low_stock_threshold: thresholdField(input.low_stock_threshold),
-      cost: numberField(input.cost, "Modal"),
-      price: numberField(input.price, "Harga jual"),
-    })
-    .eq("id", id)
-    .eq("branch_id", actor.branchId);
+  const { error } = await actor.supabase.rpc("update_central_item", {
+    p_central_item_id: id,
+    p_name: name,
+    p_category: input.category?.trim() || "Sparepart",
+    p_cost: numberField(input.cost, "Modal"),
+    p_price: numberField(input.price, "Harga jual"),
+  });
   if (error) throw new Error(error.message);
-
-  // stock_qty sengaja tidak di-grant ke klien; selisihnya lewat RPC ber-ledger.
-  const delta = nextStock - Number(current.stock_qty ?? 0);
-  if (delta !== 0) {
-    const { error: stockError } = await actor.supabase.rpc("adjust_sparepart_stock", {
-      p_sparepart_id: id,
-      p_delta: delta,
-      p_expected_stock: Number(current.stock_qty ?? 0),
-    });
-    if (stockError) throw new Error(stockError.message);
-  }
 
   revalidatePath("/app/sparepart");
 }
@@ -163,27 +140,21 @@ export type PurchaseSparepartInput = {
   unitCost: number;
 };
 
-/** Beli stok baru; modal ikut diperbarui. Ledger mencatat reason `purchase`. */
+/** Beli stok pusat; modal ikut diperbarui. */
 export async function purchaseSparepartStock(input: PurchaseSparepartInput): Promise<void> {
   const actor = await getManagerActor();
   const qty = numberField(input.qty, "Jumlah");
   if (qty <= 0) throw new Error("Jumlah pembelian harus lebih dari nol");
   const unitCost = numberField(input.unitCost, "Harga beli");
 
-  const { data: current, error: readError } = await actor.supabase
-    .from("cervise_spareparts")
-    .select("stock_qty")
-    .eq("id", input.id)
-    .eq("branch_id", actor.branchId)
-    .maybeSingle();
-  if (readError) throw new Error(readError.message);
-  if (!current) throw new Error("Sparepart tidak ditemukan");
+  await resolveBranchStock(actor, input.id);
 
-  const { error } = await actor.supabase.rpc("purchase_sparepart_stock", {
-    p_sparepart_id: input.id,
+  // Stok cabang bukan stok pusat, jadi expected stock tidak dipakai di RPC pusat.
+  const { error } = await actor.supabase.rpc("purchase_central_stock", {
+    p_central_item_id: input.id,
     p_qty: qty,
     p_unit_cost: unitCost,
-    p_expected_stock: Number(current.stock_qty ?? 0),
+    p_expected_stock: null,
   });
   if (error) throw new Error(error.message);
 
@@ -200,31 +171,26 @@ export async function transferSparepartStock(input: {
   if (qty <= 0) throw new Error("Jumlah transfer harus lebih dari nol");
   if (!input.targetBranchId || input.targetBranchId === "all") throw new Error("Pilih cabang tujuan");
 
-  const { data: current, error: readError } = await actor.supabase
-    .from("cervise_spareparts")
-    .select("stock_qty")
-    .eq("id", input.id)
-    .eq("branch_id", actor.branchId)
-    .maybeSingle();
-  if (readError) throw new Error(readError.message);
-  if (!current) throw new Error("Sparepart tidak ditemukan");
+  const branch = await resolveBranchStock(actor, input.id);
 
   const { error } = await actor.supabase.rpc("transfer_sparepart_stock", {
-    p_sparepart_id: input.id,
+    p_sparepart_id: branch.id,
     p_target_branch_id: input.targetBranchId,
     p_qty: qty,
-    p_expected_stock: Number(current.stock_qty ?? 0),
+    p_expected_stock: branch.stock_qty,
   });
   if (error) throw new Error(error.message);
 
   revalidatePath("/app/sparepart");
 }
 
-export async function setSparepartActive(id: string, isActive: boolean): Promise<void> {  const actor = await getManagerActor();
+export async function setSparepartActive(id: string, isActive: boolean): Promise<void> {
+  const actor = await getManagerActor();
+  const branch = await resolveBranchStock(actor, id);
   const { error } = await actor.supabase
     .from("cervise_spareparts")
     .update({ is_active: isActive })
-    .eq("id", id)
+    .eq("id", branch.id)
     .eq("branch_id", actor.branchId);
   if (error) throw new Error(error.message);
   revalidatePath("/app/sparepart");
@@ -232,10 +198,11 @@ export async function setSparepartActive(id: string, isActive: boolean): Promise
 
 export async function deleteSparepart(id: string): Promise<void> {
   const actor = await getManagerActor();
+  const branch = await resolveBranchStock(actor, id);
   const { error } = await actor.supabase
     .from("cervise_spareparts")
     .delete()
-    .eq("id", id)
+    .eq("id", branch.id)
     .eq("branch_id", actor.branchId);
   if (error) throw new Error(error.message);
   revalidatePath("/app/sparepart");
