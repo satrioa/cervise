@@ -21,4 +21,15 @@ describe("halaman sparepart gudang pusat", () => {
     expect(ui).toContain("isMasterAdmin &&");
     expect(ui).toContain("Approve Request");
   });
+
+  it("frontliner bisa request stok, technician tidak", () => {
+    const page = read("src/app/app/sparepart/page.tsx");
+    expect(page).toContain('["MASTER_ADMIN", "ADMIN", "FRONTLINER"].includes(actor.role)');
+    expect(page).toContain("canRequest={canRequest}");
+
+    const ui = read("src/app/app/sparepart/sparepart-client.tsx");
+    expect(ui).toContain("canRequest: boolean");
+    expect(ui).toContain('scope === "branch" && canRequest &&');
+    expect(ui).not.toContain('scope === "branch" && canManage &&');
+  });
 });

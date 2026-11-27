@@ -47,7 +47,7 @@ const EMPTY = {
   imei: "",
 };
 
-export default function SparepartPage({ canManage, isMasterAdmin }: { canManage: boolean; isMasterAdmin: boolean }) {
+export default function SparepartPage({ isMasterAdmin, canRequest }: { canManage: boolean; isMasterAdmin: boolean; canRequest: boolean }) {
   const { branch, branches } = useBranch();
   const [scope, setScope] = useState<Scope>(() => (isMasterAdmin ? "central" : "branch"));
   const [rows, setRows] = useState<SparepartRow[]>([]);
@@ -274,7 +274,7 @@ export default function SparepartPage({ canManage, isMasterAdmin }: { canManage:
                 </Button>
               </>
             )}
-            {scope === "branch" && canManage && (
+            {scope === "branch" && canRequest && (
               <Button variant="outline" size="sm" className="h-8" onClick={() => setDialogMode("request")} disabled={centralItems.length === 0}>
                 <ShoppingCartIcon className="size-3.5" /> Request Stok
               </Button>
