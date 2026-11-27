@@ -13,6 +13,11 @@ const migrate = readFileSync(
   "utf8",
 ).replace(/\s+/g, " ").toLowerCase();
 
+const rpc = readFileSync(
+  join(process.cwd(), "supabase/migrations/20261127140000_central_inventory_rpc.sql"),
+  "utf8",
+).replace(/\s+/g, " ").toLowerCase();
+
 describe("central inventory schema migration", () => {
   it("membuat tabel master pusat dan antrean request", () => {
     expect(flat).toContain("create table if not exists public.cervise_central_items");
@@ -127,5 +132,30 @@ describe("central inventory stock migration", () => {
     expect(migrate).toContain("least(p.stock_qty, 1)");
     expect(migrate).toContain("is_serialized, imei, barcode");
     expect(migrate).toContain("order by stock_qty desc on conflict");
+  });
+});
+
+describe("central inventory rpc inti", () => {
+  it("hanya master admin yang bisa membuat item dan membeli stok", () => {
+    expect(rpc).toContain("array['master_admin'::text]");
+    expect(rpc).toContain("create or replace function public.create_central_item");
+    expect(rpc).toContain("create or replace function public.purchase_central_stock");
+  });
+
+  it("mengamankan RPC dari anon dan memberi execute ke authenticated", () => {
+    expect(rpc).toContain("revoke all on function public.create_central_item");
+    expect(rpc).toContain("grant execute on function public.create_central_item");
+    expect(rpc).toContain("create or replace function public.update_central_item");
+  });
+
+  it("memperluas whitelist alasan di kedua helper stok yang disalin", () => {
+    expect(rpc).toContain("create or replace function public.apply_stock_delta(");
+    expect(rpc).toContain("create or replace function public.apply_sparepart_stock_delta(");
+    expect(rpc).toContain(
+      "'service_use','service_return','sale','sale_return','stock_adjust'," +
+        "'purchase','transfer_in','transfer_out','central_purchase','distribute'," +
+        "'request_in','return_to_central'",
+    );
+    expect(rpc.match(/p_reason not in \('service_use'/g)).toHaveLength(2);
   });
 });
