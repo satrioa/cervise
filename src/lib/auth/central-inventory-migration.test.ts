@@ -23,6 +23,11 @@ const flows = readFileSync(
   "utf8",
 ).replace(/\s+/g, " ").toLowerCase();
 
+const extend = readFileSync(
+  join(process.cwd(), "supabase/migrations/20261127160000_extend_create_central_item.sql"),
+  "utf8",
+).replace(/\s+/g, " ").toLowerCase();
+
 describe("central inventory schema migration", () => {
   it("membuat tabel master pusat dan antrean request", () => {
     expect(flat).toContain("create table if not exists public.cervise_central_items");
@@ -275,5 +280,40 @@ describe("central inventory flows acl", () => {
 
   it("memiliki rpc tarik kembali ke pusat", () => {
     expect(flows).toContain("create or replace function public.return_stock_to_central");
+  });
+});
+
+describe("extension atribut varian create_central_item", () => {
+  it("menerima tujuh atribut varian sebagai parameter opsional", () => {
+    for (const param of [
+      "p_barcode text default null",
+      "p_variant_type text default 'baru'",
+      "p_storage text default null",
+      "p_warna text default null",
+      "p_bh_percent integer default null",
+      "p_kondisi_notes text default null",
+      "p_garansi_days integer default null",
+    ]) {
+      expect(extend).toContain(param);
+    }
+    expect(extend).toContain("p_variant_type not in ('baru','bekas')");
+  });
+
+  it("menyimpan atribut varian ke kolom master yang sudah ada", () => {
+    expect(extend).toContain(
+      "barcode, variant_type, storage, warna, bh_percent, kondisi_notes, garansi_days",
+    );
+    expect(extend).toContain(
+      "p_barcode, p_variant_type, p_storage, p_warna, p_bh_percent, p_kondisi_notes, p_garansi_days",
+    );
+    expect(extend).toContain("'central_purchase'");
+    expect(extend).toContain("public.apply_central_stock_delta");
+  });
+
+  it("mempertahankan acl untuk signature baru", () => {
+    const signature =
+      "public.create_central_item(uuid, text, text, text, text, integer, integer, integer, boolean, text, text, text, text, text, text, integer, text, integer)";
+    expect(extend).toContain(`revoke all on function ${signature} from public, anon`);
+    expect(extend).toContain(`grant execute on function ${signature} to authenticated`);
   });
 });

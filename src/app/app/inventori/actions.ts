@@ -149,9 +149,10 @@ export async function importInventori(rows: InventoriImportRow[]): Promise<{ ins
   if (rows.length === 0) throw new Error("File tidak berisi baris produk");
 
   const { data: existing, error: existingError } = await actor.supabase
-    .from("cervise_products")
+    .from("cervise_central_items")
     .select("sku")
-    .eq("branch_id", branchId);
+    .eq("organization_id", actor.orgId)
+    .eq("kind", "PRODUCT");
   if (existingError) throw new Error(existingError.message);
 
   const { products, errors } = prepareInventoriImport(
@@ -177,6 +178,13 @@ export async function importInventori(rows: InventoriImportRow[]): Promise<{ ins
       p_is_serialized: product.variant_type === "BEKAS",
       p_imei: product.imei,
       p_parent_key: product.parent_key,
+      p_barcode: product.barcode,
+      p_variant_type: product.variant_type,
+      p_storage: product.storage,
+      p_warna: product.warna,
+      p_bh_percent: product.bh_percent,
+      p_kondisi_notes: product.kondisi_notes,
+      p_garansi_days: product.garansi_days,
     });
     if (error) throw new Error(error.message);
   }
