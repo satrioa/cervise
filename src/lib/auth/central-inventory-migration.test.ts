@@ -519,4 +519,11 @@ describe("batch distribution rpc", () => {
     expect(batch).toContain("v_central_item_id, p_target_branch_id, v_qty, v_expected, null");
     expect(batch).toContain("pilih minimal satu item");
   });
+
+  it("menolak item serialized dan membatasi jumlah batch", () => {
+    expect(batch).toContain("select sku, is_serialized into v_sku, v_is_serialized");
+    expect(batch).toContain("batch tidak mendukung item serialized");
+    expect(batch).toContain("maksimal 100 item per batch");
+    expect(batch).toContain("jumlah melebihi batas");
+  });
 });
