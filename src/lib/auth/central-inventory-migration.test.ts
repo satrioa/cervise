@@ -43,6 +43,11 @@ const locked = readFileSync(
   "utf8",
 ).replace(/\s+/g, " ").toLowerCase();
 
+const batch = readFileSync(
+  join(process.cwd(), "supabase/migrations/20261127200000_batch_distribution.sql"),
+  "utf8",
+).replace(/\s+/g, " ").toLowerCase();
+
 describe("central inventory schema migration", () => {
   it("membuat tabel master pusat dan antrean request", () => {
     expect(flat).toContain("create table if not exists public.cervise_central_items");
@@ -492,5 +497,26 @@ describe("kunci tulis master cabang", () => {
   it("menghapus policy insert lama pada kedua tabel cabang", () => {
     expect(locked).toContain("drop policy if exists cervise_spareparts_insert on public.cervise_spareparts");
     expect(locked).toContain("drop policy if exists cervise_products_insert on public.cervise_products");
+  });
+});
+
+describe("batch distribution rpc", () => {
+  it("memproses semua baris dalam satu fungsi dan atomik", () => {
+    expect(batch).toContain("create or replace function public.distribute_central_items_batch");
+    expect(batch).toContain("for v_item in select * from jsonb_array_elements(p_items)");
+    expect(batch).toContain("perform public.distribute_central_stock(");
+    expect(batch).toContain("raise exception '%: %', v_sku, sqlerrm");
+  });
+
+  it("hanya master admin tenant yang boleh memanggil", () => {
+    expect(batch).toContain("array['master_admin'::text]");
+    expect(batch).toContain("revoke all on function public.distribute_central_items_batch(uuid, jsonb) from public, anon");
+    expect(batch).toContain("grant execute on function public.distribute_central_items_batch(uuid, jsonb) to authenticated");
+  });
+
+  it("meneruskan expected_stock tiap baris dan menolak array kosong", () => {
+    expect(batch).toContain("v_expected := (v_item ->> 'expected_stock')::integer");
+    expect(batch).toContain("v_central_item_id, p_target_branch_id, v_qty, v_expected, null");
+    expect(batch).toContain("pilih minimal satu item");
   });
 });
