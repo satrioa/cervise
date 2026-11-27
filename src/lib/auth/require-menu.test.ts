@@ -69,6 +69,12 @@ describe("requireMenu", () => {
     expect(redirectMock).toHaveBeenCalledWith("/app?error=forbidden");
   });
 
+  it("FRONTLINER boleh membuka halaman Transaksi lewat kunci rute", async () => {
+    getActiveTenantMock.mockResolvedValue(actorWithRole("FRONTLINER"));
+    await requireMenu("/app/keuangan/transaksi");
+    expect(redirectMock).not.toHaveBeenCalled();
+  });
+
   it("TECHNICIAN boleh servis", async () => {
     getActiveTenantMock.mockResolvedValue(actorWithRole("TECHNICIAN"));
     await requireMenu("/app/servis");
