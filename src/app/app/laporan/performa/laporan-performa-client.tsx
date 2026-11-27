@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { formatCurrencyPlain, formatNumberPlain } from "@/lib/format";
-import { EllipsisIcon, SearchIcon } from "lucide-react";
+import { EllipsisIcon, SearchIcon, XIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -89,30 +89,49 @@ export default function PerformaPage() {
         }
         filters={
           <>
-            <Select value={cabangFilter} onValueChange={(v) => setCabangFilter((v as string) ?? "all")}>
-              <SelectTrigger className="w-full shrink-0 sm:w-auto"><SelectValue placeholder="Semua cabang" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Semua cabang</SelectItem>
-                {cabangOptions.map((c) => (
-                  <SelectItem key={c} value={c}>{c}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select value={intensifFilter} onValueChange={(v) => setIntensifFilter((v as string) ?? "all")}>
-              <SelectTrigger className="w-full shrink-0 sm:w-auto"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Semua</SelectItem>
-                <SelectItem value="aktif">Insentif aktif</SelectItem>
-                <SelectItem value="off">Off</SelectItem>
-              </SelectContent>
-            </Select>
+            <div className="w-full shrink-0 sm:w-40">
+              <Select value={cabangFilter} onValueChange={(v) => setCabangFilter((v as string) ?? "all")}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Semua cabang">
+                    {cabangFilter === "all" ? "Semua cabang" : cabangFilter}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Semua cabang</SelectItem>
+                  {cabangOptions.map((c) => (
+                    <SelectItem key={c} value={c}>{c}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="w-full shrink-0 sm:w-44">
+              <Select value={intensifFilter} onValueChange={(v) => setIntensifFilter((v as string) ?? "all")}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Semua insentif">
+                    {intensifFilter === "all" ? "Semua insentif" : intensifFilter === "aktif" ? "Insentif aktif" : "Insentif off"}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Semua insentif</SelectItem>
+                  <SelectItem value="aktif">Insentif aktif</SelectItem>
+                  <SelectItem value="off">Insentif off</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
             {(q || cabangFilter !== "all" || intensifFilter !== "all") && (
-              <>
-                <span className="hidden shrink-0 font-mono text-xs text-muted-foreground sm:block">{filtered.length} hasil</span>
-                <Button variant="ghost" size="xs" className="h-8 shrink-0 max-sm:hidden" onClick={() => { setQ(""); setCabangFilter("all"); setIntensifFilter("all"); }}>
-                  Reset filter
+              <div className="hidden shrink-0 items-center gap-2 sm:flex">
+                <span className="rounded-md border border-border/60 bg-muted/30 px-2 py-1 font-mono text-[11px] tabular-nums text-muted-foreground">
+                  {filtered.length} hasil
+                </span>
+                <Button
+                  variant="ghost"
+                  size="xs"
+                  className="h-8 gap-1 px-2 text-muted-foreground"
+                  onClick={() => { setQ(""); setCabangFilter("all"); setIntensifFilter("all"); }}
+                >
+                  <XIcon className="size-3" /> Hapus filter
                 </Button>
-              </>
+              </div>
             )}
           </>
         }
