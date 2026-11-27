@@ -8,6 +8,7 @@ import {
   TrashIcon,
   PrinterIcon,
   WalletIcon,
+  TruckIcon,
   CheckIcon,
   XIcon,
   ChevronRightIcon,
@@ -170,7 +171,8 @@ export function ServisContextMenu({
         </div>
       );
 
-  const isPaidStage = servis.status === "Selesai" || servis.status === "Sudah Diambil";
+  const isPaid = servis.payment === "Lunas";
+  const isPickedUp = servis.status === "Sudah Diambil";
 
   const statusSubOpen = activeSub === "status";
   const printSubOpen = activeSub === "print";
@@ -245,7 +247,19 @@ export function ServisContextMenu({
               Edit
             </button>
 
-            {isPaidStage && (
+            {isPaid && !isPickedUp ? (
+              <button
+                role="menuitem"
+                onClick={() => {
+                  onStatusChange?.(servis, "Sudah Diambil");
+                  closeAll();
+                }}
+                className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground"
+              >
+                <TruckIcon className="size-4 opacity-70" />
+                Diambil
+              </button>
+            ) : !isPaid ? (
               <button
                 role="menuitem"
                 onClick={() => {
@@ -257,7 +271,7 @@ export function ServisContextMenu({
                 <WalletIcon className="size-4 opacity-70" />
                 Bayar sekarang
               </button>
-            )}
+            ) : null}
 
             <div className="relative" onMouseLeave={() => setActiveSub(null)}>
               <button
@@ -370,7 +384,16 @@ export function ServisContextMenu({
                 closeAll();
               }}
             />
-            {isPaidStage && (
+            {isPaid && !isPickedUp ? (
+              <SheetAction
+                icon={<TruckIcon className="size-4 opacity-70" />}
+                label="Diambil"
+                onClick={() => {
+                  onStatusChange?.(servis, "Sudah Diambil");
+                  closeAll();
+                }}
+              />
+            ) : !isPaid ? (
               <SheetAction
                 icon={<WalletIcon className="size-4 opacity-70" />}
                 label="Bayar sekarang"
@@ -379,7 +402,7 @@ export function ServisContextMenu({
                   closeAll();
                 }}
               />
-            )}
+            ) : null}
             <SheetAction
               icon={<WaIcon />}
               label="Kirim Invoice WA"
