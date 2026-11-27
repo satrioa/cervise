@@ -33,6 +33,11 @@ const active = readFileSync(
   "utf8",
 ).replace(/\s+/g, " ").toLowerCase();
 
+const serialized = readFileSync(
+  join(process.cwd(), "supabase/migrations/20261127180000_serialized_branch_unique.sql"),
+  "utf8",
+).replace(/\s+/g, " ").toLowerCase();
+
 describe("central inventory schema migration", () => {
   it("membuat tabel master pusat dan antrean request", () => {
     expect(flat).toContain("create table if not exists public.cervise_central_items");
@@ -361,5 +366,91 @@ describe("status aktif item pusat", () => {
     const signature = "public.set_central_item_active(uuid, boolean)";
     expect(active).toContain(`revoke all on function ${signature} from public, anon`);
     expect(active).toContain(`grant execute on function ${signature} to authenticated`);
+  });
+});
+
+describe("unit serialized unik per cabang dan sinkron master", () => {
+  it("menghapus constraint sku lama secara idempoten", () => {
+    expect(serialized).toContain("conname = 'cervise_products_branch_id_sku_key'");
+    expect(serialized).toContain(
+      "and conrelid = 'public.cervise_products'::regclass",
+    );
+    expect(serialized).toContain(
+      "alter table public.cervise_products drop constraint cervise_products_branch_id_sku_key",
+    );
+  });
+
+  it("menggantinya dengan indeks parsial sku dan imei", () => {
+    expect(serialized).toContain(
+      "create unique index if not exists cervise_products_branch_sku_non_serial_idx on public.cervise_products(branch_id, sku) where not is_serialized",
+    );
+    expect(serialized).toContain(
+      "create unique index if not exists cervise_products_branch_imei_idx on public.cervise_products(branch_id, imei) where imei is not null",
+    );
+  });
+
+  it("mengunci baris serialized lewat imei, bukan sku", () => {
+    expect(serialized).toContain(
+      "on conflict (branch_id, imei) where imei is not null do update set central_item_id = excluded.central_item_id, is_active = excluded.is_active, name = excluded.name, category = excluded.category, cost = excluded.cost, price = excluded.price, updated_at = now()",
+    );
+    expect(serialized).toContain(
+      "on conflict (branch_id, sku) where not is_serialized do update set central_item_id = excluded.central_item_id, is_active = excluded.is_active, name = excluded.name, category = excluded.category, cost = excluded.cost, price = excluded.price, updated_at = now()",
+    );
+    expect(serialized).toContain("if v_item.is_serialized then insert into public.cervise_products");
+  });
+
+  it("mempertahankan guard dan ledger distribusi", () => {
+    expect(serialized).toContain("stok pusat tidak cukup");
+    expect(serialized).toContain(
+      "unit imei tidak tersedia di gudang",
+    );
+    expect(serialized).toContain(
+      "perform public.apply_sparepart_stock_delta(v_result, p_qty, null, 'distribute', null)",
+    );
+    expect(serialized).toContain(
+      "perform public.apply_stock_delta(v_result, p_qty, null, 'distribute', null, null, null)",
+    );
+    expect(serialized).toContain(
+      "perform public.apply_central_stock_delta(v_item.id, -p_qty, p_expected_stock, 'distribute', p_target_branch_id, null)",
+    );
+  });
+
+  it("menyebarkan perubahan master ke stok cabang", () => {
+    expect(serialized).toContain(
+      "update public.cervise_spareparts set name = v_item.name, category = v_item.category, cost = v_item.cost, price = v_item.price, updated_at = now() where central_item_id = v_item.id",
+    );
+    expect(serialized).toContain(
+      "update public.cervise_products set name = v_item.name, category = v_item.category, cost = v_item.cost, price = v_item.price, updated_at = now() where central_item_id = v_item.id",
+    );
+    expect(serialized).toContain("returning * into v_item");
+  });
+
+  it("men-drop signature lama sebelum membuat ulang kedua rpc", () => {
+    expect(serialized).toContain(
+      "drop function if exists public.distribute_central_stock(uuid, uuid, integer, integer, text)",
+    );
+    expect(serialized).toContain(
+      "drop function if exists public.update_central_item(uuid, text, text, integer, integer)",
+    );
+    expect(
+      serialized.match(/create or replace function public\.distribute_central_stock\(/g),
+    ).toHaveLength(1);
+    expect(
+      serialized.match(/create or replace function public\.update_central_item\(/g),
+    ).toHaveLength(1);
+  });
+
+  it("mengamankan kedua rpc dari anon untuk signature yang sama", () => {
+    for (const signature of [
+      "public.distribute_central_stock(uuid, uuid, integer, integer, text)",
+      "public.update_central_item(uuid, text, text, integer, integer)",
+    ]) {
+      expect(serialized).toContain(
+        `revoke all on function ${signature} from public, anon`,
+      );
+      expect(serialized).toContain(
+        `grant execute on function ${signature} to authenticated`,
+      );
+    }
   });
 });
