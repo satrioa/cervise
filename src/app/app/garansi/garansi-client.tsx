@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { format } from "date-fns";
 import { id as localeId } from "date-fns/locale";
 import { ShieldCheckIcon, SearchIcon, CalendarIcon, XIcon, FileTextIcon, PhoneIcon } from "lucide-react";
@@ -9,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Button as CossButton } from "@/components/ui/coss-button";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Pagination } from "@/components/ui/pagination";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -20,11 +22,14 @@ import { Label } from "@/components/ui/label";
 import { GaransiField } from "@/components/servis/garansi-field";
 import { dateRangeLabel } from "@/components/date-range-filter";
 import { useBranch } from "@/lib/branch-context";
-import { extendGaransi, getGaransiList } from "@/app/app/garansi/actions";
+import { extendGaransi, getGaransiClaims, getGaransiList, type GaransiClaimRow } from "@/app/app/garansi/actions";
 import { PageHeader } from "@/components/layout/page-header";
 import { garansiMeta } from "@/lib/operational/garansi-meta";
 import { toDays } from "@/lib/operational/garansi-list";
 import { playPageTransition } from "@/components/layout/page-transition";
+import { GaransiClaimDialog } from "@/components/servis/garansi-claim-dialog";
+import { GaransiClaimList } from "./garansi-claim-list";
+import { canClaimGaransi } from "@/lib/operational/garansi-claim";
 
 type GaransiRow = {
   id: string;
@@ -61,12 +66,19 @@ export default function GaransiPage({
   const [newUnit, setNewUnit] = useState<"hari" | "bulan" | "tahun">("hari");
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const router = useRouter();
+  const [claims, setClaims] = useState<GaransiClaimRow[]>([]);
+  const [claimTarget, setClaimTarget] = useState<GaransiRow | null>(null);
+  const [claimOpen, setClaimOpen] = useState(false);
+  const [tab, setTab] = useState("daftar");
 
   // Reset during render when the branch changes, so the effect only fetches.
   const [loadedBranchId, setLoadedBranchId] = useState(branch.id);
   if (loadedBranchId !== branch.id) {
     setLoadedBranchId(branch.id);
     setRows([]);
+    setClaims([]);
+    setPage(1);
     setLoading(true);
     setLoadError(null);
   }
@@ -87,6 +99,27 @@ export default function GaransiPage({
       cancelled = true;
     };
   }, [branch.id]);
+
+  useEffect(() => {
+    let cancelled = false;
+    getGaransiClaims()
+      .then((data) => { if (!cancelled) setClaims(data); })
+      .catch(() => { if (!cancelled) setClaims([]); });
+    return () => { cancelled = true; };
+  }, [branch.id]);
+
+  const openClaimIds = useMemo(
+    () => new Set(claims.filter((claim) => claim.status !== "Sudah Diambil" && claim.status !== "Dibatalkan").map((claim) => claim.originalServiceId)),
+    [claims],
+  );
+
+  const claimEligibility = (row: GaransiRow) => canClaimGaransi({
+    status: row.status,
+    garansiUntil: row.garansiUntil,
+    garansiValue: row.garansiValue,
+    garansiUnit: row.garansiUnit,
+    hasOpenClaim: openClaimIds.has(row.id),
+  });
 
   const filtered = useMemo(() => {
     return rows.filter((r) => {
@@ -125,7 +158,6 @@ export default function GaransiPage({
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
   const safePage = Math.min(Math.max(1, page), totalPages);
   const pageItems = filtered.slice((safePage - 1) * pageSize, safePage * pageSize);
-  useEffect(() => { setPage(1); }, [q, status, dateRange, branch.id]);
 
   const stats = useMemo(() => {
     let aktif = 0,
@@ -195,7 +227,7 @@ export default function GaransiPage({
             <InputGroupAddon align="inline-start">
               <SearchIcon className="size-3.5 opacity-60" />
             </InputGroupAddon>
-            <InputGroupInput placeholder="Cari INV, customer, device…" value={q} onChange={(e) => setQ(e.target.value)} className="text-sm" />
+            <InputGroupInput placeholder="Cari INV, customer, device…" value={q} onChange={(e) => { setQ(e.target.value); setPage(1); }} className="text-sm" />
             {q && (
               <InputGroupAddon align="inline-end">
                 <button type="button" onClick={() => setQ("")} className="rounded p-0.5 text-muted-foreground hover:text-foreground">
@@ -207,7 +239,7 @@ export default function GaransiPage({
         }
         filters={
           <>
-            <Select value={status} onValueChange={(v) => { if (v) setStatus(v); }}>
+            <Select value={status} onValueChange={(v) => { if (v) { setStatus(v); setPage(1); } }}>
               <SelectTrigger className="w-full shrink-0 sm:w-40" size="sm">
                 <SelectValue />
               </SelectTrigger>
@@ -233,6 +265,7 @@ export default function GaransiPage({
                   mode="range"
                   selected={dateRange.from ? { from: dateRange.from, to: dateRange.to } : undefined}
                   onSelect={(range) => {
+                    setPage(1);
                     if (!range) setDateRange({});
                     else setDateRange({ from: range.from, to: range.to });
                   }}
@@ -240,7 +273,7 @@ export default function GaransiPage({
                 />
                 <div className="flex items-center justify-between border-t p-2">
                   <span className="text-xs text-muted-foreground px-2">{dateRange.from || dateRange.to ? `${filtered.length} hasil` : "Pilih rentang"}</span>
-                  <Button variant="ghost" size="xs" onClick={() => setDateRange({})}>
+                  <Button variant="ghost" size="xs" onClick={() => { setDateRange({}); setPage(1); }}>
                     Reset
                   </Button>
                 </div>
@@ -253,11 +286,18 @@ export default function GaransiPage({
         onClearFilters={() => {
           setStatus("Semua");
           setDateRange({});
+          setPage(1);
         }}
       />
 
       <main className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-6 lg:py-8">
-        <div className="rounded-xl border bg-card shadow-xs/5 overflow-hidden">
+        <Tabs value={tab} onValueChange={setTab}>
+          <TabsList className="mb-4">
+            <TabsTrigger value="daftar">Daftar Garansi</TabsTrigger>
+            <TabsTrigger value="klaim">Riwayat klaim</TabsTrigger>
+          </TabsList>
+          <TabsContent value="daftar">
+            <div className="rounded-xl border bg-card shadow-xs/5 overflow-hidden">
           <div className="overflow-x-auto scrollbar-none">
             <Table>
               <TableHeader>
@@ -351,9 +391,20 @@ export default function GaransiPage({
                           <div className="mt-1 font-mono text-[10px] text-muted-foreground">{r.garansiValue} {r.garansiUnit} · {r.cabang}</div>
                         </TableCell>
                         <TableCell className="pe-4">
-                          <Button size="xs" variant="outline" onClick={() => openPerpanjang(r)}>
-                            Perpanjang
-                          </Button>
+                          <div className="flex justify-end gap-1.5">
+                            <Button
+                              size="xs"
+                              variant="ghost"
+                              title={claimEligibility(r).eligible ? "Buat servis klaim garansi gratis" : claimEligibility(r).reason}
+                              disabled={!claimEligibility(r).eligible}
+                              onClick={() => { setClaimTarget(r); setClaimOpen(true); }}
+                            >
+                              Klaim garansi
+                            </Button>
+                            <Button size="xs" variant="outline" onClick={() => openPerpanjang(r)}>
+                              Perpanjang
+                            </Button>
+                          </div>
                         </TableCell>
                       </TableRow>
                     );
@@ -381,8 +432,24 @@ export default function GaransiPage({
               <Pagination page={safePage} pageCount={totalPages} onPageChange={setPage} />
             </div>
           ) : null}
-        </div>
+            </div>
+          </TabsContent>
+          <TabsContent value="klaim">
+            <GaransiClaimList claims={claims} />
+          </TabsContent>
+        </Tabs>
       </main>
+
+      <GaransiClaimDialog
+        target={claimTarget}
+        hasOpenClaim={claimTarget ? openClaimIds.has(claimTarget.id) : false}
+        open={claimOpen}
+        onOpenChange={setClaimOpen}
+        onCreated={(serviceId) => {
+          playPageTransition();
+          router.push(`/app/servis/${serviceId}`);
+        }}
+      />
 
       <DialogPrimitive.Root open={perpanjangOpen} onOpenChange={setPerpanjangOpen}>
         <DialogPrimitive.Portal>
