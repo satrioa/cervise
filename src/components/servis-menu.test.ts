@@ -21,3 +21,17 @@ describe("menu aksi servis", () => {
     expect(menu).toContain("TruckIcon");
   });
 });
+
+const dialog = readFileSync(
+  join(process.cwd(), "src/components/servis/servis-payment-dialog.tsx"),
+  "utf8",
+);
+
+describe("skeleton dialog bayar servis", () => {
+  it("mengikuti layout dua kolom konten akhir", () => {
+    expect(dialog).not.toContain('<Skeleton className="h-40 w-full" />');
+    expect(dialog).toContain("function PaymentDialogSkeleton()");
+    expect(dialog).toContain("md:grid-cols-[minmax(0,35fr)_minmax(0,65fr)]");
+    expect(dialog).toContain("<PaymentDialogSkeleton />");
+  });
+});
