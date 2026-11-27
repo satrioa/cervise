@@ -9,6 +9,20 @@ begin
   end if;
 end $$;
 
+do $$
+begin
+  if exists (select 1 from public.cervise_products where is_serialized and stock_qty > 1) then
+    raise exception 'unit serialized dengan stok lebih dari satu tidak bisa dimigrasikan';
+  end if;
+  if exists (
+    select 1 from public.cervise_products
+    where is_serialized and imei is not null
+    group by organization_id, imei having count(*) > 1
+  ) then
+    raise exception 'IMEI ganda antar cabang tidak bisa dimigrasikan';
+  end if;
+end $$;
+
 -- Baris ledger sisi-pusat hanya punya central_item_id.
 alter table public.cervise_stock_movements
   drop constraint if exists cervise_stock_movements_owner_check;

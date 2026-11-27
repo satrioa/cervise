@@ -1,7 +1,6 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
-import { randomUUID } from "crypto";
 
 import { getActiveTenant } from "@/lib/supabase/actor";
 import { kalenderWIB } from "@/lib/operational/periode-bulan";
@@ -110,9 +109,9 @@ export async function createProduct(input: {
   garansi_days?: number | null;
   imei?: string | null;
 }) {
-  const { supabase, branchId, organizationId, role, permissions } = await getBranchUser();
-  const organization_id = organizationId;
+  const { supabase, organizationId, role, permissions } = await getBranchUser();
   requireSalesAccess({ role, permissions });
+  if (role !== "MASTER_ADMIN") throw new Error("Hanya Master Admin boleh membuat produk");
   const name = input.name.trim();
   if (!name) throw new Error("Nama produk wajib");
   if (!Number.isFinite(input.cost) || input.cost < 0) throw new Error("Modal harus valid");
@@ -160,49 +159,28 @@ export async function createProduct(input: {
   }
   if (input.cost < 0 || input.price < 0) throw new Error("Nilai tidak boleh negatif");
 
-  const id = randomUUID();
-  const payload: any = {
-    id,
-    branch_id: branchId,
-    organization_id,
-    sku,
-    barcode: input.barcode?.trim() || null,
-    name,
-    category,
-    stock_qty,
-    cost: input.cost,
-    price: input.price,
-    is_serialized,
-    is_active: true,
-    variant_type,
-    storage,
-    warna,
-    bh_percent,
-    kondisi_notes,
-    garansi_days,
-    imei,
-    parent_key,
-  };
-  const { error } = await supabase.from("cervise_products").insert(payload);
-  if (error) {
-    // Constraint yang bentrok adalah `cervise_products_branch_id_sku_key`, bukan
-    // constraint terpisah untuk IMEI. SKU Bekas diturunkan dari 4 digit
-    // terakhir IMEI (`GD-BK-64GB-2345`), jadi IMEI ganda - dan SKU sama dari
-    // warna+storage yang sama - sama-sama muncul sebagai bentrok SKU.
-    //
-    // Ditemukan lewat test end-to-end: `includes("imei")` tidak pernah cocok
-    // dengan nama constraint, jadi pesan "IMEI sudah ada di cabang ini" tidak
-    // pernah muncul dan yang tampil ke pengguna pesan Postgres mentah.
-    if ((error as any).code === "23505" && String(error.message).includes("cervise_products_branch_id_sku_key")) {
-      throw new Error(
-        variant_type === "BEKAS"
-          ? "IMEI sudah dipakai unit lain di cabang ini"
-          : "Varian dengan storage dan warna yang sama sudah ada di cabang ini",
-      );
-    }
-    throw new Error(error.message);
-  }
-  return { id, sku };
+  const { data, error } = await supabase.rpc("create_central_item", {
+    p_organization_id: organizationId,
+    p_kind: "PRODUCT",
+    p_sku: sku,
+    p_name: name,
+    p_category: category,
+    p_cost: input.cost,
+    p_price: input.price,
+    p_stock_qty: stock_qty,
+    p_is_serialized: is_serialized,
+    p_imei: imei,
+    p_parent_key: parent_key,
+    p_barcode: input.barcode?.trim() || null,
+    p_variant_type: variant_type,
+    p_storage: storage,
+    p_warna: warna,
+    p_bh_percent: bh_percent,
+    p_kondisi_notes: kondisi_notes,
+    p_garansi_days: garansi_days,
+  });
+  if (error) throw new Error(error.message);
+  return { id: data as string, sku };
 }
 
 export type CreateProductResult =

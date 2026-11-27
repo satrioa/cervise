@@ -4,7 +4,6 @@ import { checkoutSale, createProduct, createSale } from "./actions";
 const {
   from,
   productQuery,
-  productInsert,
   productUpdate,
   rpc,
   salesItemInsert,
@@ -17,7 +16,6 @@ const {
   const salesSingle = { data: { id: "sale-1" } as any, error: null as any };
   const handoverState = { openSessionId: "session-1" as string | null, pendingHandover: false };
 
-  const productInsert = vi.fn(async () => ({ error: null, data: {} }));
   const productUpdate = vi.fn(() => {
     const chain: any = { eq: () => chain, select: async () => ({ data: [], error: null }) };
     return chain;
@@ -26,11 +24,13 @@ const {
   const salesItemInsert = vi.fn(async () => ({ error: null }));
   const salesInsert = vi.fn((): any => ({ select: () => ({ single: async () => salesSingle }) }));
   const financeInsert = vi.fn(async () => ({ error: null }));
-  const rpc = vi.fn(async (name: string, _args: Record<string, unknown>) =>
-    name === "create_sale_with_stock"
-      ? { data: { id: "sale-1", sale_number: "SLV-2026-0003", total: 200 }, error: null }
-      : { data: "SLV-2026-0003", error: null },
-  );
+  const rpc = vi.fn(async (name: string, _args: Record<string, unknown>) => {
+    if (name === "create_sale_with_stock") {
+      return { data: { id: "sale-1", sale_number: "SLV-2026-0003", total: 200 }, error: null };
+    }
+    if (name === "create_central_item") return { data: "central-1", error: null };
+    return { data: "SLV-2026-0003", error: null };
+  });
 
   const cashSessionChain = () => {
     const q: any = {
@@ -64,7 +64,6 @@ const {
     switch (table) {
       case "cervise_products":
         return {
-          insert: productInsert,
           update: productUpdate,
           select: () => ({ in: () => ({ eq: async () => productQuery }) }),
         };
@@ -95,7 +94,6 @@ const {
   return {
     from,
     productQuery,
-    productInsert,
     productUpdate,
     rpc,
     salesItemInsert,
@@ -109,6 +107,18 @@ function supabaseStub() {
   return { from, rpc };
 }
 
+function actorStub(role: string) {
+  return {
+    supabase: supabaseStub(),
+    userId: "user-1",
+    orgId: "org-1",
+    branchId: "branch-1",
+    employeeId: "employee-1",
+    role,
+    subscription: null,
+  };
+}
+
 vi.mock("@/lib/supabase/actor", () => ({ getActiveTenant }));
 vi.mock("@/lib/supabase/server", () => ({ createClient: vi.fn() }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
@@ -118,118 +128,109 @@ describe("createProduct", () => {
     vi.clearAllMocks();
     handoverState.openSessionId = "session-1";
     handoverState.pendingHandover = false;
-    productInsert.mockResolvedValue({ error: null, data: {} });
     productQuery.data = [];
     productQuery.error = null;
-    getActiveTenant.mockResolvedValue({
-      supabase: supabaseStub(),
-      userId: "user-1",
-      orgId: "org-1",
-      branchId: "branch-1",
-      employeeId: "employee-1",
-      role: "ADMIN",
-      subscription: null,
-    });
+    getActiveTenant.mockResolvedValue(actorStub("MASTER_ADMIN"));
   });
 
-  it("writes a product with the actor organization and product table", async () => {
-    await createProduct({
+  it("membuat item lewat rpc pusat dengan atribut yang dikomputasi", async () => {
+    const result = await createProduct({
       name: "iPhone 14 Pro",
       category: "Gadget",
       stock_qty: 4,
       cost: 15000000,
       price: 17900000,
+      barcode: "BC-1",
       variant_type: "BARU",
       storage: "128 GB",
       warna: "Black",
     });
 
-    expect(from).toHaveBeenCalledWith("cervise_products");
-    expect(productInsert).toHaveBeenCalledWith(expect.objectContaining({
-      organization_id: "org-1",
-      branch_id: "branch-1",
-      name: "iPhone 14 Pro",
-      variant_type: "BARU",
-      storage: "128 GB",
+    expect(result.id).toBe("central-1");
+    expect(result.sku).toBe("GD-B-128GB-BL");
+    const call = rpc.mock.calls.find(([name]) => name === "create_central_item");
+    expect(call).toBeDefined();
+    expect(call?.[1]).toMatchObject({
+      p_organization_id: "org-1",
+      p_kind: "PRODUCT",
+      p_sku: "GD-B-128GB-BL",
+      p_name: "iPhone 14 Pro",
+      p_category: "Gadget",
+      p_cost: 15000000,
+      p_price: 17900000,
+      p_stock_qty: 4,
+      p_is_serialized: false,
+      p_imei: null,
+      p_parent_key: "iphone-14-pro",
+      p_barcode: "BC-1",
+      p_variant_type: "BARU",
+      p_storage: "128 GB",
+      p_warna: "Black",
+      p_bh_percent: null,
+      p_kondisi_notes: null,
+      p_garansi_days: null,
+    });
+    expect(from).not.toHaveBeenCalled();
+  });
+
+  it("meneruskan atribut unit bekas ke rpc pusat", async () => {
+    const result = await createProduct({
+      name: "iPhone 13 Pro",
+      category: "Gadget",
+      cost: 12000000,
+      price: 14500000,
+      variant_type: "BEKAS",
+      storage: "64 GB",
       warna: "Black",
-      stock_qty: 4,
-    }));
+      imei: "356938035412345",
+      bh_percent: 75,
+    });
+
+    expect(result.sku).toBe("GD-BK-64GB-2345");
+    const call = rpc.mock.calls.find(([name]) => name === "create_central_item");
+    expect(call?.[1]).toMatchObject({
+      p_is_serialized: true,
+      p_imei: "356938035412345",
+      p_stock_qty: 1,
+      p_bh_percent: 75,
+      p_variant_type: "BEKAS",
+    });
+  });
+
+  it("hanya mengizinkan master admin membuat item", async () => {
+    for (const role of ["ADMIN", "FRONTLINER"]) {
+      getActiveTenant.mockResolvedValue(actorStub(role));
+      await expect(
+        createProduct({ name: "x", category: "Gadget", cost: 1, price: 2 }),
+      ).rejects.toThrow("Hanya Master Admin boleh membuat produk");
+    }
+    expect(rpc).not.toHaveBeenCalled();
   });
 
   it("rejects negative cost and price", async () => {
     await expect(createProduct({ name: "x", category: "Gadget", cost: -1, price: 10 })).rejects.toThrow("Modal harus valid");
     await expect(createProduct({ name: "x", category: "Gadget", cost: 1, price: -10 })).rejects.toThrow("Harga jual harus valid");
-    expect(productInsert).not.toHaveBeenCalled();
+    expect(rpc).not.toHaveBeenCalled();
   });
 
-  /**
-   * Ditemukan lewat test end-to-end: memasukkan unit Bekas dengan IMEI yang
-   * sudah ada ditolak database dengan
-   *   duplicate key value violates unique constraint
-   *   "cervise_products_branch_id_sku_key"
-   * sehingga pesan "IMEI sudah ada di cabang ini" tidak pernah muncul -
-   * `includes("imei")` tidak akan cocok dengan nama constraint. Yang tampil ke
-   * pengguna adalah pesan Postgres mentah.
-   *
-   * SKU Bekas diturunkan dari 4 digit terakhir IMEI
-   * (`GD-BK-64GB-2345`), jadi bentrok SKU adalah bentrok IMEI untuk unit
-   * Bekas - atau warna+storage yang sama untuk unit Baru.
-   */
-  it("memetakan error bentrok SKU ke pesan yang menyebut penyebabnya", async () => {
-    productInsert.mockResolvedValue({
-      error: {
-        code: "23505",
-        message: 'duplicate key value violates unique constraint "cervise_products_branch_id_sku_key"',
-      },
-      data: {},
-    } as any);
-
-    await expect(
-      createProduct({
-        name: "iPhone 13 Pro",
-        category: "Gadget",
-        cost: 12000000,
-        price: 14500000,
-        variant_type: "BEKAS",
-        storage: "64 GB",
-        warna: "Black",
-        imei: "356938035412345",
-        bh_percent: 75,
-      }),
-    ).rejects.toThrow("IMEI sudah dipakai unit lain di cabang ini");
-
-    await expect(
-      createProduct({
-        name: "iPhone 14 Pro",
-        category: "Gadget",
-        cost: 15000000,
-        price: 17900000,
-        variant_type: "BARU",
-        stock_qty: 1,
-        storage: "64 GB",
-        warna: "Black",
-      }),
-    ).rejects.toThrow("Varian dengan storage dan warna yang sama sudah ada di cabang ini");
-  });
-
-  it("tetap meneruskan error lain tanpa disamarkan", async () => {
-    productInsert.mockResolvedValue({
-      error: { code: "42501", message: "new row violates row-level security policy" },
-      data: {},
+  it("meneruskan error rpc tanpa menerjemahkan nama constraint", async () => {
+    rpc.mockResolvedValueOnce({
+      data: null,
+      error: { message: 'duplicate key value violates unique constraint "cervise_central_items_sku_key"' },
     } as any);
 
     await expect(
       createProduct({
         name: "iPhone 14 Pro",
         category: "Gadget",
+        stock_qty: 1,
         cost: 15000000,
         price: 17900000,
         variant_type: "BARU",
-        stock_qty: 1,
         storage: "64 GB",
         warna: "Black",
       }),
-    ).rejects.toThrow("row-level security policy");
+    ).rejects.toThrow("cervise_central_items_sku_key");
   });
 });
 

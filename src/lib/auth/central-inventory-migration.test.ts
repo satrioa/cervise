@@ -38,6 +38,11 @@ const serialized = readFileSync(
   "utf8",
 ).replace(/\s+/g, " ").toLowerCase();
 
+const locked = readFileSync(
+  join(process.cwd(), "supabase/migrations/20261127190000_lock_branch_master_writes.sql"),
+  "utf8",
+).replace(/\s+/g, " ").toLowerCase();
+
 describe("central inventory schema migration", () => {
   it("membuat tabel master pusat dan antrean request", () => {
     expect(flat).toContain("create table if not exists public.cervise_central_items");
@@ -145,6 +150,18 @@ describe("central inventory stock migration", () => {
 
   it("menolak migrasi ulang pada tabel pusat yang tidak kosong", () => {
     expect(migrate).toContain("migrasi gudang pusat hanya bisa dijalankan sekali");
+  });
+
+  it("menolak data serialized yang akan dibuang least(stock_qty, 1)", () => {
+    expect(migrate).toContain(
+      "if exists (select 1 from public.cervise_products where is_serialized and stock_qty > 1) then raise exception 'unit serialized dengan stok lebih dari satu tidak bisa dimigrasikan'; end if;",
+    );
+    expect(migrate).toContain(
+      "group by organization_id, imei having count(*) > 1",
+    );
+    expect(migrate).toContain(
+      "raise exception 'imei ganda antar cabang tidak bisa dimigrasikan'",
+    );
   });
 
   it("menautkan semua unit serialized dan membatasi qty ledger", () => {
@@ -452,5 +469,28 @@ describe("unit serialized unik per cabang dan sinkron master", () => {
         `grant execute on function ${signature} to authenticated`,
       );
     }
+  });
+});
+
+describe("kunci tulis master cabang", () => {
+  it("mencabut insert dan tulis master langsung pada tabel cabang", () => {
+    for (const table of ["cervise_spareparts", "cervise_products"]) {
+      expect(locked).toContain(`revoke all on public.${table} from authenticated`);
+      expect(locked).toContain(`grant select on public.${table} to authenticated`);
+      expect(locked).not.toContain(`grant insert on public.${table} to authenticated`);
+      expect(locked).not.toContain(`grant all on public.${table} to authenticated`);
+    }
+  });
+
+  it("hanya mengizinkan update atribut fisik pada produk cabang", () => {
+    expect(locked).toContain(
+      "grant update (barcode, variant_type, storage, warna, bh_percent, kondisi_notes, garansi_days, imei, parent_key, is_serialized) on public.cervise_products to authenticated",
+    );
+    expect(locked).not.toContain("grant update (sku, name, category, cost, price");
+  });
+
+  it("menghapus policy insert lama pada kedua tabel cabang", () => {
+    expect(locked).toContain("drop policy if exists cervise_spareparts_insert on public.cervise_spareparts");
+    expect(locked).toContain("drop policy if exists cervise_products_insert on public.cervise_products");
   });
 });

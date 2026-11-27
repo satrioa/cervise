@@ -112,9 +112,8 @@ export async function updateProductVariant(input: UpdateProductVariantInput): Pr
   if (!canAccessActor(actor, "penjualan")) throw new Error("Hanya admin/frontliner boleh mengubah produk");
   if (!input.id) throw new Error("Produk tidak ditemukan");
 
-  // Nama/modal/harga adalah data master; cabang hanya mengubah data fisiknya.
+  // Nama/kategori/modal/harga adalah data master; cabang hanya mengubah data fisiknya.
   const patch: Record<string, unknown> = {};
-  if (input.category !== undefined) patch.category = input.category?.trim() || null;
   if (input.stock_qty !== undefined) patch.stock_qty = input.stock_qty;
   if (input.storage !== undefined) patch.storage = input.storage?.trim() || null;
   if (input.warna !== undefined) patch.warna = input.warna?.trim() || null;
