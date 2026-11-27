@@ -138,7 +138,7 @@ $$;
 revoke all on function public.central_ledger_branch(uuid) from public, anon, authenticated;
 
 create or replace function public.apply_central_stock_delta(
-  p_central_item_id uuid, p_delta integer, p_expected_stock integer default null,
+  p_central_item_id uuid, p_delta integer, p_expected_stock integer,
   p_reason text, p_branch_id uuid, p_request_id uuid default null
 )
 returns integer language plpgsql security definer set search_path = public as $$
