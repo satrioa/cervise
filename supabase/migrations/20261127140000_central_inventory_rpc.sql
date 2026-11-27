@@ -60,12 +60,15 @@ begin
 end;
 $$;
 
+-- Pakai signature 6 argumen yang aktif (bukan versi 5 argumen yang sudah
+-- di-drop): kalau tidak, overload ganda bikin panggilan 5 argumen ambigu.
 create or replace function public.apply_sparepart_stock_delta(
   p_sparepart_id uuid,
   p_delta integer,
   p_expected_stock integer default null,
   p_reason text default 'stock_adjust',
-  p_servis_id uuid default null
+  p_servis_id uuid default null,
+  p_notes text default null
 )
 returns integer
 language plpgsql
@@ -109,17 +112,17 @@ begin
   where id = p_sparepart_id;
 
   insert into public.cervise_stock_movements (
-    branch_id, sparepart_id, qty_delta, reason, servis_id, actor_id
+    branch_id, sparepart_id, qty_delta, reason, servis_id, actor_id, notes
   ) values (
-    v_part.branch_id, p_sparepart_id, p_delta, p_reason, p_servis_id, auth.uid()
+    v_part.branch_id, p_sparepart_id, p_delta, p_reason, p_servis_id, auth.uid(), p_notes
   );
 
   return v_next;
 end;
 $$;
--- Versi 5 argumen sudah di-drop di migrasi opname; fungsi baru defaultnya
--- bisa dipanggil public, jadi kunci lagi seperti ACL lama.
-revoke all on function public.apply_sparepart_stock_delta(uuid, integer, integer, text, uuid) from public, anon, authenticated;
+revoke all on function public.apply_sparepart_stock_delta(uuid, integer, integer, text, uuid, text) from public;
+revoke all on function public.apply_sparepart_stock_delta(uuid, integer, integer, text, uuid, text) from anon;
+grant execute on function public.apply_sparepart_stock_delta(uuid, integer, integer, text, uuid, text) to authenticated;
 
 -- Anchor ledger untuk sisi pusat: cabang pertama tenant (bukan gudang).
 create or replace function public.central_ledger_branch(p_organization_id uuid)

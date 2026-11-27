@@ -150,12 +150,26 @@ describe("central inventory rpc inti", () => {
 
   it("memperluas whitelist alasan di kedua helper stok yang disalin", () => {
     expect(rpc).toContain("create or replace function public.apply_stock_delta(");
-    expect(rpc).toContain("create or replace function public.apply_sparepart_stock_delta(");
+    expect(rpc).toContain(
+      "create or replace function public.apply_sparepart_stock_delta( p_sparepart_id uuid, p_delta integer, p_expected_stock integer default null, p_reason text default 'stock_adjust', p_servis_id uuid default null, p_notes text default null )",
+    );
     expect(rpc).toContain(
       "'service_use','service_return','sale','sale_return','stock_adjust'," +
         "'purchase','transfer_in','transfer_out','central_purchase','distribute'," +
         "'request_in','return_to_central'",
     );
     expect(rpc.match(/p_reason not in \('service_use'/g)).toHaveLength(2);
+  });
+
+  it("tidak membuat overload 5 argumen apply_sparepart_stock_delta", () => {
+    expect(rpc).not.toContain(
+      "drop function if exists public.apply_sparepart_stock_delta(uuid, integer, integer, text, uuid)",
+    );
+    expect(rpc).not.toContain(
+      "revoke all on function public.apply_sparepart_stock_delta(uuid, integer, integer, text, uuid)",
+    );
+    expect(rpc).toContain(
+      "grant execute on function public.apply_sparepart_stock_delta(uuid, integer, integer, text, uuid, text) to authenticated",
+    );
   });
 });
