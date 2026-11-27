@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -226,6 +227,7 @@ export default function LaporanShiftClient() {
                   <th className="px-3 py-2 font-normal">Tanggal / Shift</th>
                   <th className="px-3 py-2 font-normal">Cabang</th>
                   <th className="px-3 py-2 font-normal">Dibuka oleh</th>
+                  <th className="px-3 py-2 font-normal">Status</th>
                   <th className="px-3 py-2 text-right font-normal">Saldo awal</th>
                   <th className="px-3 py-2 text-right font-normal">Saldo akhir</th>
                   <th className="px-3 py-2 text-right font-normal">Selisih</th>
@@ -235,7 +237,7 @@ export default function LaporanShiftClient() {
               <tbody>
                 {loading ? (
                   <PlainTableRowsSkeleton
-                    cells={["text", "text", "text", "money", "money", "money", "icon"]}
+                    cells={["text", "text", "text", "text", "money", "money", "money", "icon"]}
                     rows={5}
                     rowClassName="border-b border-border/60"
                     cellClassName="px-3 py-2"
@@ -253,6 +255,11 @@ export default function LaporanShiftClient() {
                       </td>
                       <td className="px-3 py-2">{session.branchName}</td>
                       <td className="px-3 py-2">{session.employeeName}</td>
+                      <td className="px-3 py-2">
+                        <Badge variant={closed ? "success" : "warning"}>
+                          {closed ? "Sudah ditutup" : "Masih terbuka"}
+                        </Badge>
+                      </td>
                       <td className="px-3 py-2 text-right font-mono text-xs">
                         {formatCurrencyPlain(session.openingBalance)}
                       </td>

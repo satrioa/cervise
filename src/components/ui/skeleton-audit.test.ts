@@ -54,7 +54,7 @@ describe("tabel: skeleton memakai baris, bukan satu blok", () => {
     ["src/app/app/laporan/penjualan/laporan-penjualan-client.tsx", 5, 5],
     ["src/app/app/laporan/performa/laporan-performa-client.tsx", 6, 5],
     ["src/app/app/laporan/servis/laporan-servis-client.tsx", 9, 5],
-    ["src/app/app/laporan/shift/shift-client.tsx", 7, 5],
+    ["src/app/app/laporan/shift/shift-client.tsx", 8, 5],
     ["src/app/app/pengaturan/usage/pengaturan-usage-client.tsx", 3, 7],
     ["src/components/table-audit-log.tsx", 5, 5],
   ];
