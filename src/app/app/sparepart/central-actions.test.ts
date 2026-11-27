@@ -1,7 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { revalidatePath } from "next/cache";
 import {
   approveStockRequest,
   createCentralItem,
+  distributeCentralItemsBatch,
   distributeCentralStock,
   listCentralItems,
   listStockRequests,
@@ -199,5 +201,39 @@ describe("central actions", () => {
       p_stock_qty: 1, p_imei: "123456789012345", p_is_serialized: true,
     }));
     expect(id).toBe("item-created");
+  });
+
+  it("menolak batch kosong sebelum memanggil RPC", async () => {
+    asMaster();
+    await expect(distributeCentralItemsBatch({ targetBranchId: "branch-2", items: [] }))
+      .rejects.toThrow("Pilih minimal satu item");
+    expect(mocks.rpc).not.toHaveBeenCalled();
+  });
+
+  it("meneruskan array item beserta expected_stock", async () => {
+    asMaster();
+    await distributeCentralItemsBatch({
+      targetBranchId: "branch-2",
+      items: [
+        { id: "item-1", qty: 2, expectedStock: 9 },
+        { id: "item-2", qty: 3, expectedStock: 5 },
+      ],
+    });
+    expect(mocks.rpc).toHaveBeenCalledWith("distribute_central_items_batch", {
+      p_target_branch_id: "branch-2",
+      p_items: [
+        { central_item_id: "item-1", qty: 2, expected_stock: 9 },
+        { central_item_id: "item-2", qty: 3, expected_stock: 5 },
+      ],
+    });
+    expect(revalidatePath).toHaveBeenCalledTimes(1);
+  });
+
+  it("meneruskan error RPC apa adanya", async () => {
+    asMaster();
+    mocks.rpc.mockResolvedValueOnce({ data: null, error: { message: "Baterai: stok berubah" } });
+    await expect(distributeCentralItemsBatch({
+      targetBranchId: "branch-2", items: [{ id: "item-1", qty: 1, expectedStock: 9 }],
+    })).rejects.toThrow("Baterai: stok berubah");
   });
 });

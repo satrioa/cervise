@@ -93,6 +93,31 @@ export async function distributeCentralStock(input: { id: string; targetBranchId
   revalidatePath("/app/sparepart");
 }
 
+export type BatchDistributeInput = {
+  targetBranchId: string;
+  items: Array<{ id: string; qty: number; expectedStock: number }>;
+};
+
+export async function distributeCentralItemsBatch(input: BatchDistributeInput): Promise<void> {
+  const actor = await requireMaster();
+  if (!input.targetBranchId || input.targetBranchId === "all") throw new Error("Pilih cabang tujuan");
+  if (!Array.isArray(input.items) || input.items.length === 0) throw new Error("Pilih minimal satu item");
+
+  const items = input.items.map((item) => {
+    const qty = numberField(item.qty, "Jumlah");
+    const expectedStock = numberField(item.expectedStock, "Stok saat ini");
+    if (qty <= 0) throw new Error("Jumlah harus lebih dari nol");
+    return { central_item_id: item.id, qty, expected_stock: expectedStock };
+  });
+
+  const { error } = await actor.supabase.rpc("distribute_central_items_batch", {
+    p_target_branch_id: input.targetBranchId,
+    p_items: items,
+  });
+  if (error) throw new Error(error.message);
+  revalidatePath("/app/sparepart");
+}
+
 export async function listStockRequests(): Promise<StockRequestRow[]> {
   const actor = await getActiveTenant();
   const query = actor.role === "MASTER_ADMIN"
