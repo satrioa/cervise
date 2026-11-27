@@ -27,10 +27,10 @@ import { playPageTransition } from "@/components/layout/page-transition";
 function downloadTemplate() {
   const workbook = XLSX.utils.book_new();
   const samples: Record<string, (string | number)[]> = {
-    Baru: ["iPhone 14 Pro", "GD-B-256-BL", "Gadget", "BARU", "256 GB", "Blue", 3, 15000000, 17000000, "", "", "", "", ""],
-    Bekas: ["iPhone 13", "GD-K-128-BK", "Gadget", "BEKAS", "128 GB", "Black", 1, 7000000, 8500000, "", "356938035412345", 85, 30, "Mulus"],
-    Aksesori: ["Charger 20W", "AKS-CHG-20W", "Aksesori", "BARU", "-", "White", 10, 75000, 120000, "", "", "", "", ""],
-    Lainnya: ["Tempered Glass", "LN-TG-IP14", "Lainnya", "BARU", "-", "Clear", 20, 15000, 35000, "", "", "", "", ""],
+    Baru: ["iPhone 14 Pro", "GD-B-256-BL", "Gadget", "256 GB", "Blue", 3, 15000000, 17000000, "", "", "", "", ""],
+    Bekas: ["iPhone 13", "GD-K-128-BK", "Gadget", "128 GB", "Black", 1, 7000000, 8500000, "", "356938035412345", 85, 30, "Mulus"],
+    Aksesori: ["Charger 20W", "AKS-CHG-20W", "Aksesori", "-", "White", 10, 75000, 120000, "", "", "", "", ""],
+    Lainnya: ["Tempered Glass", "LN-TG-IP14", "Lainnya", "-", "Clear", 20, 15000, 35000, "", "", "", "", ""],
   };
   for (const name of IMPORT_SHEETS) {
     const sheet = XLSX.utils.aoa_to_sheet([[...IMPORT_HEADERS], samples[name] ?? samples.Baru]);
@@ -95,7 +95,15 @@ export function InventoriImportDialog({
       onOpenChange(false);
       router.refresh();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Gagal impor");
+      const message = error instanceof Error ? error.message : "Gagal impor";
+      // Setelah deploy, bundle lama menyimpan ID server action dari build
+      // sebelumnya. Muat ulang sekali supaya action ID yang baru dipakai.
+      if (/was not found on the server|failed to find server action/i.test(message)) {
+        toast.error("Aplikasi telah diperbarui. Halaman dimuat ulang — silakan pilih file lagi.");
+        window.location.reload();
+        return;
+      }
+      toast.error(message);
     } finally {
       setImporting(false);
     }
@@ -109,7 +117,7 @@ export function InventoriImportDialog({
           <div className="shrink-0 border-b px-5 py-4">
             <DialogPrimitive.Title className="font-heading text-base font-semibold">Import Inventori</DialogPrimitive.Title>
             <DialogPrimitive.Description className="mt-1 text-xs text-muted-foreground">
-              Template 4 sheet (Baru, Bekas, Aksesori, Lainnya). Isi lalu unggah; semua sheet dibaca. Maks {IMPORT_ROW_CAP} baris/impor.
+              Template 4 sheet (Baru, Bekas, Aksesori, Lainnya). Tipe/kategori diambil dari nama sheet — tanpa kolom tipe. Maks {IMPORT_ROW_CAP} baris/impor.
             </DialogPrimitive.Description>
           </div>
 

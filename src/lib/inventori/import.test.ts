@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { IMPORT_ROW_CAP, prepareInventoriImport, type InventoriImportRow } from "./import";
+import { IMPORT_HEADERS, IMPORT_ROW_CAP, prepareInventoriImport, type InventoriImportRow } from "./import";
 
 const base: InventoriImportRow = {
   nama: "iPhone 14 Pro",
@@ -12,6 +12,16 @@ const base: InventoriImportRow = {
   modal: "15000000",
   jual: "17000000",
 };
+
+describe("template impor inventori", () => {
+  it("tidak punya kolom tipe karena nama sheet menentukan tipe", () => {
+    expect(IMPORT_HEADERS).not.toContain("tipe");
+    const bekas = { ...base, tipe: undefined, _sheet: "Bekas", imei: "356938035412345", bh: "85" };
+    const { products, errors } = prepareInventoriImport([bekas], []);
+    expect(errors).toEqual([]);
+    expect(products[0].variant_type).toBe("BEKAS");
+  });
+});
 
 describe("prepareInventoriImport", () => {
   it("menormalkan SKU dan menyusun payload Baru", () => {

@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
 import { format, subHours, subDays, startOfDay, endOfDay } from "date-fns";
 import { id as localeId } from "date-fns/locale";
 import { ShieldIcon, WrenchIcon, XIcon, SearchIcon, CalendarIcon } from "lucide-react";
@@ -52,8 +51,6 @@ const ROLE_LABEL: Record<string, string> = {
 };
 
 export function KaggoAuditLogTable({ cabangFilter }: { cabangFilter?: string } = {}) {
-  const router = useRouter();
-
   const [rows, setRows] = useState<AuditRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -129,6 +126,8 @@ export function KaggoAuditLogTable({ cabangFilter }: { cabangFilter?: string } =
   useEffect(() => { setPage(1); }, [search, actions, actorId, timeWindow, cabangFilter]);
 
   // Keep the time range shareable, same as the other tables in this app.
+  // replaceState hanya mengubah URL. Memakai navigasi router saat mount
+  // memicu soft navigation yang membuat commit React di shell gagal.
   useEffect(() => {
     const params = new URLSearchParams();
     if (waktu !== "24 jam terakhir") params.set("waktu", waktu);
@@ -137,8 +136,8 @@ export function KaggoAuditLogTable({ cabangFilter }: { cabangFilter?: string } =
       if (dateRange.to) params.set("to", format(dateRange.to, "yyyy-MM-dd"));
     }
     const qs = params.toString();
-    router.replace(qs ? `?${qs}` : window.location.pathname, { scroll: false });
-  }, [waktu, dateRange, router]);
+    window.history.replaceState(null, "", qs ? `?${qs}` : window.location.pathname);
+  }, [waktu, dateRange]);
 
   const clearAll = () => {
     setSearch("");

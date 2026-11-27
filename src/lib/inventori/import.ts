@@ -48,12 +48,14 @@ export type InventoriImportProduct = {
 
 export const IMPORT_ROW_CAP = 500;
 
-/** Header template, sekaligus urutan kolom yang diharapkan saat membaca file. */
+/**
+ * Header template, sekaligus urutan kolom yang diharapkan saat membaca file.
+ * Tipe tidak dijadikan kolom: sudah ditentukan oleh nama sheet.
+ */
 export const IMPORT_HEADERS = [
   "nama",
   "sku",
   "kategori",
-  "tipe",
   "storage",
   "warna",
   "stok",
