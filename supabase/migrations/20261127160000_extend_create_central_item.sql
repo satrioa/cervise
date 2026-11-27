@@ -1,5 +1,6 @@
--- Overload tambahan: atribut varian produk impor ikut tersimpan di master pusat.
--- Signature 11 argumen lama sengaja dipertahankan untuk pemanggil named-arg lama.
+-- Hapus overload lama: named-arg caller tidak bisa membedakan dua signature.
+drop function if exists public.create_central_item(uuid, text, text, text, text, integer, integer, integer, boolean, text, text);
+-- Signature tunggal dengan default pada tujuh argumen baru melayani semua caller.
 create or replace function public.create_central_item(
   p_organization_id uuid, p_kind text, p_sku text, p_name text, p_category text,
   p_cost integer, p_price integer, p_stock_qty integer default 0,

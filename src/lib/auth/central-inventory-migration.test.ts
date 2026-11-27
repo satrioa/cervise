@@ -284,6 +284,15 @@ describe("central inventory flows acl", () => {
 });
 
 describe("extension atribut varian create_central_item", () => {
+  it("menghapus overload lama dan hanya menyisakan satu definisi", () => {
+    expect(extend).toContain(
+      "drop function if exists public.create_central_item(uuid, text, text, text, text, integer, integer, integer, boolean, text, text)",
+    );
+    expect(
+      extend.match(/create or replace function public\.create_central_item\(/g),
+    ).toHaveLength(1);
+  });
+
   it("menerima tujuh atribut varian sebagai parameter opsional", () => {
     for (const param of [
       "p_barcode text default null",
