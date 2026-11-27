@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { formatCurrencyPlain, formatNumberPlain } from "@/lib/format";
+import { canPickUp } from "@/lib/servis-status-map";
 import { SearchIcon, CalendarIcon, XIcon, TableIcon, LayoutGridIcon, ArrowDownIcon, ArrowUpDownIcon, ArrowUpIcon, PencilIcon, PrinterIcon, Trash2Icon, TruckIcon, WalletIcon } from "lucide-react";
 import { SwipeActions, SwipeActionsRow, type SwipeAction } from "@/components/arc/swipe-actions/swipe-actions";
 import { format } from "date-fns";
@@ -492,6 +493,13 @@ export default function ServisPage() {
   };
   const openPickup = (items: ServisItem[], bulk = false) => {
     if (items.length === 0) return;
+    // Device baru bisa diambil setelah Selesai. Kalau pekerjaan dihentikan di
+    // tengah jalan, user mengubah status ke Batal dulu lewat menu status.
+    const belumSelesai = items.find((it) => !canPickUp(it.status));
+    if (belumSelesai) {
+      toast.error("Servis belum selesai. Selesaikan dulu atau ubah ke Batal sebelum pengambilan.");
+      return;
+    }
     // Servis belum lunas tidak boleh diambil; buka pembayaran untuk yang pertama.
     const unpaid = items.find((it) => servisOutstanding(it.bill ?? it.price, it.paidAmount ?? 0) > 0);
     if (unpaid) {
@@ -636,7 +644,7 @@ export default function ServisPage() {
         },
       ];
     }
-    if (s.status === "Sudah Diambil") return [];
+    if (s.status === "Sudah Diambil" || !canPickUp(s.status)) return [];
     return [
       {
         label: "Diambil",
