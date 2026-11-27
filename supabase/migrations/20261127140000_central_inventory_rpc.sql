@@ -1,5 +1,6 @@
 -- RPC gudang pusat. Dua helper stok lama disalin utuh, hanya whitelist alasan
 -- yang diperluas supaya ledger pusat bisa memakai alasan baru.
+-- shortcut: batas delta ±1000 per transaksi diwariskan dari helper lama, naikkan saat ada kebutuhan batch besar.
 create or replace function public.apply_stock_delta(
   p_product_id uuid,
   p_delta integer,
@@ -126,8 +127,13 @@ grant execute on function public.apply_sparepart_stock_delta(uuid, integer, inte
 
 -- Anchor ledger untuk sisi pusat: cabang pertama tenant (bukan gudang).
 create or replace function public.central_ledger_branch(p_organization_id uuid)
-returns uuid language sql stable security definer set search_path = public as $$
-  select id from public.branches where organization_id = p_organization_id order by created_at limit 1;
+returns uuid language plpgsql stable security definer set search_path = public as $$
+declare v_branch uuid;
+begin
+  select id into v_branch from public.branches where organization_id = p_organization_id order by created_at, id limit 1;
+  if v_branch is null then raise exception 'cabang tenant tidak ditemukan untuk ledger pusat'; end if;
+  return v_branch;
+end;
 $$;
 revoke all on function public.central_ledger_branch(uuid) from public, anon, authenticated;
 
@@ -173,7 +179,9 @@ begin
     raise exception 'hanya master admin yang boleh membuat item';
   end if;
   if p_kind not in ('SPAREPART','PRODUCT') then raise exception 'jenis item tidak valid'; end if;
+  if p_stock_qty < 0 then raise exception 'stok awal tidak boleh negatif'; end if;
   if p_is_serialized and p_imei is null then raise exception 'IMEI wajib untuk unit serialized'; end if;
+  if p_is_serialized and p_stock_qty > 1 then raise exception 'unit serialized hanya boleh satu stok'; end if;
   insert into public.cervise_central_items (
     organization_id, kind, sku, name, category, cost, price, stock_qty, is_serialized, imei, parent_key
   ) values (
@@ -222,6 +230,7 @@ begin
   if not (public.is_platform_admin() or public.has_tenant_role(v_item.organization_id, array['MASTER_ADMIN'::text])) then
     raise exception 'role tidak diizinkan membeli stok pusat';
   end if;
+  if v_item.is_serialized and v_item.stock_qty + p_qty > 1 then raise exception 'unit serialized hanya boleh satu stok'; end if;
   if p_unit_cost is not null then
     if p_unit_cost < 0 then raise exception 'harga beli tidak boleh negatif'; end if;
     update public.cervise_central_items set cost = p_unit_cost, updated_at = now() where id = v_item.id;

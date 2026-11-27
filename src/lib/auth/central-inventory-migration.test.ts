@@ -140,12 +140,27 @@ describe("central inventory rpc inti", () => {
     expect(rpc).toContain("array['master_admin'::text]");
     expect(rpc).toContain("create or replace function public.create_central_item");
     expect(rpc).toContain("create or replace function public.purchase_central_stock");
+    expect(rpc).toContain(
+      "public.has_tenant_role(p_organization_id, array['master_admin'::text])",
+    );
+    expect(
+      rpc.match(
+        /public\.has_tenant_role\(v_item\.organization_id, array\['master_admin'::text\]\)/g,
+      ),
+    ).toHaveLength(2);
   });
 
   it("mengamankan RPC dari anon dan memberi execute ke authenticated", () => {
-    expect(rpc).toContain("revoke all on function public.create_central_item");
-    expect(rpc).toContain("grant execute on function public.create_central_item");
-    expect(rpc).toContain("create or replace function public.update_central_item");
+    const createSig =
+      "public.create_central_item(uuid, text, text, text, text, integer, integer, integer, boolean, text, text)";
+    expect(rpc).toContain(`revoke all on function ${createSig} from public, anon`);
+    expect(rpc).toContain(`grant execute on function ${createSig} to authenticated`);
+    const updateSig = "public.update_central_item(uuid, text, text, integer, integer)";
+    expect(rpc).toContain(`revoke all on function ${updateSig} from public, anon`);
+    expect(rpc).toContain(`grant execute on function ${updateSig} to authenticated`);
+    const purchaseSig = "public.purchase_central_stock(uuid, integer, integer, integer)";
+    expect(rpc).toContain(`revoke all on function ${purchaseSig} from public, anon`);
+    expect(rpc).toContain(`grant execute on function ${purchaseSig} to authenticated`);
   });
 
   it("memperluas whitelist alasan di kedua helper stok yang disalin", () => {
@@ -159,17 +174,38 @@ describe("central inventory rpc inti", () => {
         "'request_in','return_to_central'",
     );
     expect(rpc.match(/p_reason not in \('service_use'/g)).toHaveLength(2);
+    expect(rpc).toContain(
+      "shortcut: batas delta ±1000 per transaksi diwariskan dari helper lama",
+    );
   });
 
   it("tidak membuat overload 5 argumen apply_sparepart_stock_delta", () => {
-    expect(rpc).not.toContain(
-      "drop function if exists public.apply_sparepart_stock_delta(uuid, integer, integer, text, uuid)",
-    );
-    expect(rpc).not.toContain(
-      "revoke all on function public.apply_sparepart_stock_delta(uuid, integer, integer, text, uuid)",
-    );
+    expect(
+      rpc.match(/create or replace function public\.apply_sparepart_stock_delta\(/g),
+    ).toHaveLength(1);
+    expect(rpc).not.toContain("p_servis_id uuid default null)");
     expect(rpc).toContain(
       "grant execute on function public.apply_sparepart_stock_delta(uuid, integer, integer, text, uuid, text) to authenticated",
+    );
+  });
+
+  it("membatasi stok unit serialized ke satu", () => {
+    expect(rpc).toContain(
+      "if p_is_serialized and p_stock_qty > 1 then raise exception 'unit serialized hanya boleh satu stok'; end if;",
+    );
+    expect(rpc).toContain(
+      "if v_item.is_serialized and v_item.stock_qty + p_qty > 1 then raise exception 'unit serialized hanya boleh satu stok'; end if;",
+    );
+    expect(rpc.match(/unit serialized hanya boleh satu stok/g)).toHaveLength(2);
+  });
+
+  it("menolak stok awal negatif dan cabang ledger yang tidak ada", () => {
+    expect(rpc).toContain(
+      "if p_stock_qty < 0 then raise exception 'stok awal tidak boleh negatif'; end if;",
+    );
+    expect(rpc).toContain("order by created_at, id limit 1");
+    expect(rpc).toContain(
+      "if v_branch is null then raise exception 'cabang tenant tidak ditemukan untuk ledger pusat'; end if;",
     );
   });
 });
