@@ -15,7 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Pagination } from "@/components/ui/pagination";
 import { Select, SelectItem, SelectPopup, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { Tabs, TabsList, TabsTab } from "@/components/ui/tabs";
 import { PageHeader } from "@/components/layout/page-header";
 import { RefreshDataButton } from "@/components/layout/refresh-data-button";
 import { useBranch } from "@/lib/branch-context";
@@ -266,18 +266,17 @@ export default function SparepartPage({ isMasterAdmin, canRequest }: { isMasterA
         actions={
           <div className="flex shrink-0 flex-wrap items-center gap-2">
             {isMasterAdmin && (
-              <ToggleGroup
-                value={[scope]}
-                onValueChange={(value) => {
-                  const next = (value as string[])[0];
+              <Tabs
+                value={scope}
+                onValueChange={(next) => {
                   if (next === "central" || next === "branch") setScope(next);
                 }}
-                variant="outline"
-                aria-label="Scope stok"
               >
-                <ToggleGroupItem value="central">Pusat</ToggleGroupItem>
-                <ToggleGroupItem value="branch">Cabang</ToggleGroupItem>
-              </ToggleGroup>
+                <TabsList aria-label="Scope stok">
+                  <TabsTab value="central">Pusat</TabsTab>
+                  <TabsTab value="branch">Cabang</TabsTab>
+                </TabsList>
+              </Tabs>
             )}
             <RefreshDataButton onRefresh={() => reload(q)} />
             <Button variant="outline" size="sm" className="h-8" render={<Link href="/app/sparepart/opname" />}>

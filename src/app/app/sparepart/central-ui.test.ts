@@ -36,7 +36,9 @@ describe("halaman sparepart gudang pusat", () => {
 
   it("toggle scope hanya master admin dan stok pusat tidak diambil cabang", () => {
     const ui = read("src/app/app/sparepart/sparepart-client.tsx");
-    expect(ui).toMatch(/\{isMasterAdmin && \(\s*<ToggleGroup/);
+    expect(ui).toMatch(/\{isMasterAdmin && \(\s*<Tabs/);
+    expect(ui).toContain('from "@/components/ui/tabs"');
+    expect(ui).not.toContain("ToggleGroup");
     expect(ui).toMatch(/if \(isMasterAdmin\) \{\s*const \[branchRows, centralRows\] = await Promise\.all\(\[listSpareparts\(term\), listCentralItems\(term\)\]\)/);
     expect(ui.match(/listCentralItems\(term\)/g) ?? []).toHaveLength(1);
   });
