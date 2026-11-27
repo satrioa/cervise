@@ -17,7 +17,7 @@ export default function Error({
       </p>
       <Button onClick={reset}>Coba lagi</Button>
       {error.digest ? (
-        <p className="text-xs text-muted-foreground">Kode kesalahan: {error.digest}</p>
+        <p className="text-xs text-muted-foreground">Kode bantuan: {error.digest}</p>
       ) : null}
     </div>
   );

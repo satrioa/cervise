@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
-import { PackageIcon, PencilIcon, PlusIcon, SearchIcon, ShoppingCartIcon, TagIcon, TrashIcon, TruckIcon, XIcon } from "lucide-react";
+import { PackageCheckIcon, PackageIcon, PencilIcon, PlusIcon, SearchIcon, ShoppingCartIcon, TagIcon, TrashIcon, TruckIcon, XIcon } from "lucide-react";
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -165,6 +165,9 @@ export default function SparepartPage({ canManage }: { canManage: boolean }) {
         actions={
           <div className="flex shrink-0 flex-wrap gap-2">
             <RefreshDataButton onRefresh={() => reload(q)} />
+            <Button variant="outline" size="sm" className="h-8" render={<Link href="/app/sparepart/opname" />}>
+              <PackageCheckIcon className="size-3.5" /> Stock Opname
+            </Button>
             <Button variant="outline" size="sm" className="h-8" onClick={() => setStockMode("beli")} disabled={!canManage || rows.length === 0}>
               <ShoppingCartIcon className="size-3.5" /> Beli Sparepart
             </Button>

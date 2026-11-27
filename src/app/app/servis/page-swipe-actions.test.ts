@@ -17,7 +17,14 @@ describe("swipe actions pada kartu servis mobile", () => {
 
   it("swipe kanan membuka Bayar hanya untuk servis belum lunas", () => {
     expect(source).toMatch(/leading=\{leadingActions\(r\)\}/);
-    expect(source).toMatch(/getPaymentStatus\(s\) === "Lunas"/);
+    expect(source).toMatch(/getPaymentStatus\(s\) !== "Lunas"/);
+  });
+
+  it("swipe kanan mengganti Bayar dengan Diambil saat lunas", () => {
+    expect(source).toContain('label: "Diambil"');
+    expect(source).toContain('<TruckIcon className="size-5" />');
+    expect(source).toContain('onSelect: () => handleStatusChange(s, "Sudah Diambil")');
+    expect(source).toMatch(/if \(s\.status === "Sudah Diambil"\) return \[\];/);
   });
 
   it("swipe kiri membuka Edit, Print, dan Delete tanpa full swipe", () => {

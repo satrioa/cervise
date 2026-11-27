@@ -73,6 +73,26 @@ function RincianServis({ data }: { data: DialogData }) {
   );
 }
 
+function PaymentDialogSkeleton() {
+  return (
+    <div className="grid gap-4 md:h-full md:grid-cols-[minmax(0,35fr)_minmax(0,65fr)]">
+      <div className="self-start space-y-3 rounded-lg border bg-muted/30 p-4">
+        <Skeleton className="h-4 w-24" />
+        <Skeleton className="h-5 w-40" />
+        <Skeleton className="h-3 w-28" />
+        <Skeleton className="h-5 w-20 rounded-full" />
+        <Skeleton className="h-3 w-20" />
+        <Skeleton className="h-6 w-full" />
+      </div>
+      <div className="space-y-3">
+        <Skeleton className="h-5 w-40" />
+        <Skeleton className="h-24 w-full rounded-lg" />
+        <Skeleton className="h-10 w-full rounded-lg" />
+      </div>
+    </div>
+  );
+}
+
 /**
  * Dialog bayar servis dari luar halaman detail.
  *
@@ -118,7 +138,7 @@ export function ServisPaymentDialog({ servisId, open, onOpenChange, onPaid }: Pr
           <DialogPrimitive.Title className="shrink-0 font-semibold">Bayar Servis</DialogPrimitive.Title>
           <div className="mt-4 min-h-0 flex-1 overflow-y-auto">
             {!ready ? (
-              <Skeleton className="h-40 w-full" />
+              <PaymentDialogSkeleton />
             ) : servisId ? (
               <div className="grid gap-4 md:h-full md:grid-cols-[minmax(0,35fr)_minmax(0,65fr)]">
                 <RincianServis data={data} />

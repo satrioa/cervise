@@ -6,6 +6,7 @@
  * sengaja memakai style inline, bukan kelas Tailwind/token.
  */
 export default function GlobalError({
+  error,
   reset,
 }: {
   error: Error & { digest?: string };
@@ -32,6 +33,11 @@ export default function GlobalError({
           <p style={{ fontSize: 14, lineHeight: 1.6, color: "#525252", marginTop: 12 }}>
             Aplikasi gagal dimuat. Muat ulang halaman; kalau tetap gagal, hubungi admin.
           </p>
+          {error.digest ? (
+            <p style={{ fontSize: 12, color: "#737373", marginTop: 12 }}>
+              Kode bantuan: {error.digest}
+            </p>
+          ) : null}
           <button
             type="button"
             onClick={reset}

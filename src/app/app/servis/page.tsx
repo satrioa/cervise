@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { formatCurrencyPlain, formatNumberPlain } from "@/lib/format";
-import { SearchIcon, CalendarIcon, XIcon, TableIcon, LayoutGridIcon, ArrowDownIcon, ArrowUpDownIcon, ArrowUpIcon, PencilIcon, PrinterIcon, Trash2Icon, WalletIcon } from "lucide-react";
+import { SearchIcon, CalendarIcon, XIcon, TableIcon, LayoutGridIcon, ArrowDownIcon, ArrowUpDownIcon, ArrowUpIcon, PencilIcon, PrinterIcon, Trash2Icon, TruckIcon, WalletIcon } from "lucide-react";
 import { SwipeActions, SwipeActionsRow, type SwipeAction } from "@/components/arc/swipe-actions/swipe-actions";
 import { format } from "date-fns";
 import { id as localeId } from "date-fns/locale";
@@ -623,19 +623,30 @@ export default function ServisPage() {
     window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`, "_blank");
   };
 
-  // Swipe kanan (leading) = Bayar, hanya untuk servis yang belum lunas.
-  const leadingActions = (s: ServisItem): SwipeAction[] =>
-    getPaymentStatus(s) === "Lunas"
-      ? []
-      : [
-          {
-            label: "Bayar",
-            icon: <WalletIcon className="size-5" />,
-            tone: "accent",
-            keepRow: true,
-            onSelect: () => handleBayar(s),
-          },
-        ];
+  // Swipe kanan (leading) = Bayar sebelum lunas, lalu Diambil setelah lunas.
+  const leadingActions = (s: ServisItem): SwipeAction[] => {
+    if (getPaymentStatus(s) !== "Lunas") {
+      return [
+        {
+          label: "Bayar",
+          icon: <WalletIcon className="size-5" />,
+          tone: "accent",
+          keepRow: true,
+          onSelect: () => handleBayar(s),
+        },
+      ];
+    }
+    if (s.status === "Sudah Diambil") return [];
+    return [
+      {
+        label: "Diambil",
+        icon: <TruckIcon className="size-5" />,
+        tone: "accent",
+        keepRow: true,
+        onSelect: () => handleStatusChange(s, "Sudah Diambil"),
+      },
+    ];
+  };
 
   // Swipe kiri (trailing) = Edit, Print, Delete. Semua membuka modal/sheet,
   // jadi baris tidak boleh hilang sebelum aksinya selesai.

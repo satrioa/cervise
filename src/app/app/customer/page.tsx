@@ -7,6 +7,7 @@ import { CustomerCreateButton } from "@/components/customer/customer-create-butt
 import { CustomerRowActions } from "@/components/customer/customer-row-actions";
 import { PageHeader } from "@/components/layout/page-header";
 import { getCustomersSafe, type CustomerListRow } from "./actions";
+import { friendlyErrorMessage } from "@/lib/error-message";
 
 function statusTone(s: string) {
   if (s === "Selesai" || s === "Sudah Diambil") return "bg-emerald-500";
@@ -29,7 +30,7 @@ export default async function CustomerPage({ searchParams }: { searchParams: Pro
         <PageHeader title="Customer" titleClassName="font-heading text-2xl" />
         <main className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-8">
           <div role="alert" className="rounded-xl border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-            Gagal memuat data customer: {error.message}
+            Gagal memuat data customer: {friendlyErrorMessage(error)}
           </div>
         </main>
       </div>

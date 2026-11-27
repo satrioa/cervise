@@ -107,13 +107,15 @@ export function OpnameClient({
   products,
   spareparts,
   canPost,
+  lockedDomain,
 }: {
   products: OpnameSession[];
   spareparts: OpnameSession[];
   canPost: boolean;
+  lockedDomain?: Domain;
 }) {
   const router = useRouter();
-  const [domain, setDomain] = useState<Domain>("product");
+  const [domain, setDomain] = useState<Domain>(lockedDomain ?? "product");
   const [sessions, setSessions] = useState({ product: products, sparepart: spareparts });
   const [newOpen, setNewOpen] = useState(false);
   const [note, setNote] = useState("");
@@ -157,30 +159,40 @@ export function OpnameClient({
 
   return (
     <>
-      <Tabs value={domain} onValueChange={(v) => setDomain(v as Domain)}>
-        <TabsList>
-          <TabsTrigger value="product">Produk</TabsTrigger>
-          <TabsTrigger value="sparepart">Sparepart</TabsTrigger>
-        </TabsList>
-        <TabsContent value="product">
-          <SessionList
-            sessions={sessions.product}
-            onCreate={() => setNewOpen(true)}
-            onOpen={openSession}
-            onCancel={(id) => void cancel(id)}
-            canPost={canPost}
-          />
-        </TabsContent>
-        <TabsContent value="sparepart">
-          <SessionList
-            sessions={sessions.sparepart}
-            onCreate={() => setNewOpen(true)}
-            onOpen={openSession}
-            onCancel={(id) => void cancel(id)}
-            canPost={canPost}
-          />
-        </TabsContent>
-      </Tabs>
+      {lockedDomain ? (
+        <SessionList
+          sessions={sessions[lockedDomain]}
+          onCreate={() => setNewOpen(true)}
+          onOpen={openSession}
+          onCancel={(id) => void cancel(id)}
+          canPost={canPost}
+        />
+      ) : (
+        <Tabs value={domain} onValueChange={(v) => setDomain(v as Domain)}>
+          <TabsList>
+            <TabsTrigger value="product">Produk</TabsTrigger>
+            <TabsTrigger value="sparepart">Sparepart</TabsTrigger>
+          </TabsList>
+          <TabsContent value="product">
+            <SessionList
+              sessions={sessions.product}
+              onCreate={() => setNewOpen(true)}
+              onOpen={openSession}
+              onCancel={(id) => void cancel(id)}
+              canPost={canPost}
+            />
+          </TabsContent>
+          <TabsContent value="sparepart">
+            <SessionList
+              sessions={sessions.sparepart}
+              onCreate={() => setNewOpen(true)}
+              onOpen={openSession}
+              onCancel={(id) => void cancel(id)}
+              canPost={canPost}
+            />
+          </TabsContent>
+        </Tabs>
+      )}
 
       <Dialog open={newOpen} onOpenChange={setNewOpen}>
         <DialogContent className="sm:max-w-md">
