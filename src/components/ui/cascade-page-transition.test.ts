@@ -15,4 +15,14 @@ describe("overlay tidak menelan klik", () => {
     const source = read("src/components/ui/sheet.tsx");
     expect(source).toContain("data-ending-style:pointer-events-none");
   });
+
+  it("transisi mengembalikan pointer events body yang tertinggal", () => {
+    // Base UI memberi body.style.pointerEvents = 'none' saat overlay modal
+    // terbuka. Kalau overlay unmount saat transisi, cleanup bisa terlewat dan
+    // seluruh halaman jadi mati sampai di-refresh.
+    const source = read("src/components/layout/page-transition.tsx");
+    expect(source).toContain('document.body.style.pointerEvents = ""');
+    expect(source).toContain('window.addEventListener("kaggo:transition"');
+    expect(source).toContain('window.removeEventListener("kaggo:transition"');
+  });
 });
