@@ -29,13 +29,13 @@ describe("operationalEntries", () => {
     ]);
   });
 
-  it("frontliner: Penjualan/Customer/Transaksi ikut, Sparepart tidak", () => {
+  it("frontliner: Penjualan/Customer/Transaksi dan Sparepart ikut", () => {
     const hrefs = operationalEntries("FRONTLINER").map((entry) => entry.href);
     expect(hrefs.slice(0, 3)).toEqual(["/app/servis", "/app/penjualan", "/app/laporan/servis"]);
     expect(hrefs).toContain("/app/customer");
     expect(hrefs).toContain("/app/keuangan/transaksi");
-    expect(hrefs).not.toContain("/app/sparepart");
-    expect(hrefs).toHaveLength(10);
+    expect(hrefs).toContain("/app/sparepart");
+    expect(hrefs).toHaveLength(11);
   });
 
   it("Home dan halaman analitik tidak pernah jadi kartu", () => {

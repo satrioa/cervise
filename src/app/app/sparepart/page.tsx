@@ -3,8 +3,8 @@ import SparepartPage from "./sparepart-client";
 
 export default async function Page() {
   const actor = await requireMenu("kategori_sparepart");
-  const canManage = ["MASTER_ADMIN", "ADMIN"].includes(actor.role);
   const isMasterAdmin = actor.role === "MASTER_ADMIN";
-  const canRequest = ["MASTER_ADMIN", "ADMIN", "FRONTLINER"].includes(actor.role);
-  return <SparepartPage canManage={canManage} isMasterAdmin={isMasterAdmin} canRequest={canRequest} />;
+  // RPC request_stock hanya menerima ADMIN/FRONTLINER; master mendistribusikan langsung.
+  const canRequest = ["ADMIN", "FRONTLINER"].includes(actor.role);
+  return <SparepartPage isMasterAdmin={isMasterAdmin} canRequest={canRequest} />;
 }

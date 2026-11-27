@@ -35,7 +35,7 @@ async function requireRequestRole() {
 }
 
 export async function listCentralItems(q: string, kind?: "SPAREPART" | "PRODUCT"): Promise<CentralItemRow[]> {
-  const actor = await getActiveTenant();
+  const actor = await requireMaster();
   const term = sanitizeSearchTerm(q);
   let query = actor.supabase.from("cervise_central_items").select(
     "id, sku, name, category, cost, price, stock_qty, is_serialized, imei, parent_key, kind, is_active",

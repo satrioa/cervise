@@ -22,15 +22,16 @@ describe("halaman sparepart gudang pusat", () => {
     expect(ui).toContain("Approve Request");
   });
 
-  it("frontliner bisa request stok, technician tidak", () => {
+  it("admin dan frontliner bisa request stok, master dan technician tidak", () => {
     const page = read("src/app/app/sparepart/page.tsx");
-    expect(page).toContain('["MASTER_ADMIN", "ADMIN", "FRONTLINER"].includes(actor.role)');
+    expect(page).toContain('["ADMIN", "FRONTLINER"].includes(actor.role)');
     expect(page).toContain("canRequest={canRequest}");
+    expect(page).not.toContain("canManage");
 
     const ui = read("src/app/app/sparepart/sparepart-client.tsx");
     expect(ui).toContain("canRequest: boolean");
     expect(ui).toContain('scope === "branch" && canRequest &&');
-    expect(ui).not.toContain('scope === "branch" && canManage &&');
+    expect(ui).not.toContain("canManage");
   });
 
   it("toggle scope hanya master admin dan stok pusat tidak diambil cabang", () => {

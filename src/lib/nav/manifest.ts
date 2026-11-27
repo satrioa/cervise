@@ -159,7 +159,7 @@ export const NAV_ENTRIES: NavEntry[] = [
     label: "Sparepart",
     icon: Package,
     group: "operasional",
-    roles: ["MASTER_ADMIN", "ADMIN", "TECHNICIAN"],
+    roles: ["MASTER_ADMIN", "ADMIN", "FRONTLINER", "TECHNICIAN"],
     surface: ["legacy", "compact"],
     menuKeys: ["kategori_sparepart"],
     permission: "services.sparepart",

@@ -307,7 +307,7 @@ export function CentralStockDialogs({
               Batal
             </Button>
             {mode === "approve" ? (
-              <Button variant="destructive" className="min-h-11" onClick={handleReject} disabled={saving || !pending}>
+              <Button variant="destructive" className="min-h-11" onClick={handleReject} disabled={saving || !pending || reason.trim().length < 3}>
                 Tolak
               </Button>
             ) : null}

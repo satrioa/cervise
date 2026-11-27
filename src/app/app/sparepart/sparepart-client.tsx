@@ -47,7 +47,7 @@ const EMPTY = {
   imei: "",
 };
 
-export default function SparepartPage({ isMasterAdmin, canRequest }: { canManage: boolean; isMasterAdmin: boolean; canRequest: boolean }) {
+export default function SparepartPage({ isMasterAdmin, canRequest }: { isMasterAdmin: boolean; canRequest: boolean }) {
   const { branch, branches } = useBranch();
   const [scope, setScope] = useState<Scope>(() => (isMasterAdmin ? "central" : "branch"));
   const [rows, setRows] = useState<SparepartRow[]>([]);
@@ -96,6 +96,8 @@ export default function SparepartPage({ isMasterAdmin, canRequest }: { canManage
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [q, branch.id, scope]);
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => { setPage(1); }, [q, branch.id, scope]);
 
   const displayRows: SparepartRow[] = scope === "central"
     ? centralItems.map((item) => ({

@@ -6,6 +6,7 @@ import {
   CAPABILITY_KEYS,
   NAV_ENTRIES,
   canAccess,
+  canAccessActor,
   canWrite,
   entriesFor,
   entryForHref,
@@ -211,6 +212,12 @@ describe("canAccess", () => {
     expect(canAccess("FRONTLINER", "penjualan")).toBe(true);
     expect(canAccess("FRONTLINER", "customer")).toBe(true);
     expect(canAccess("FRONTLINER", "karyawan")).toBe(false);
+  });
+
+  it("FRONTLINER bisa membuka sparepart lewat guard menu key yang dipakai requireMenu", () => {
+    expect(canAccessActor({ role: "FRONTLINER" }, "kategori_sparepart")).toBe(true);
+    expect(canAccessActor({ role: "FRONTLINER" }, "/app/sparepart")).toBe(true);
+    expect(canAccessActor({ role: "TECHNICIAN" }, "kategori_sparepart")).toBe(true);
   });
 
   it("Customer berada di grup manajemen, bersama Karyawan dan Cabang", () => {

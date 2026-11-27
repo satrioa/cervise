@@ -68,7 +68,16 @@ describe("central actions", () => {
       .rejects.toThrow("Hanya Master Admin");
   });
 
+  it("menolak admin membaca daftar item pusat sebelum query", async () => {
+    const query = chain({ data: [], error: null });
+    mocks.from.mockReturnValue(query);
+
+    await expect(listCentralItems("")).rejects.toThrow("Hanya Master Admin");
+    expect(mocks.from).not.toHaveBeenCalled();
+  });
+
   it("mencari item pusat dengan istilah yang disanitasi", async () => {
+    asMaster();
     const query = chain({ data: [{ id: "item-1" }], error: null });
     mocks.from.mockReturnValue(query);
 
@@ -83,6 +92,7 @@ describe("central actions", () => {
   });
 
   it("meneruskan kind saat mencari item pusat", async () => {
+    asMaster();
     const query = chain({ data: [], error: null });
     mocks.from.mockReturnValue(query);
 
@@ -93,6 +103,7 @@ describe("central actions", () => {
   });
 
   it("melempar error saat query item pusat gagal", async () => {
+    asMaster();
     mocks.from.mockReturnValue(chain({ data: null, error: { message: "boom" } }));
 
     await expect(listCentralItems("x")).rejects.toThrow("boom");
