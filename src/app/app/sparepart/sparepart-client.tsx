@@ -15,52 +15,64 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Pagination } from "@/components/ui/pagination";
 import { Select, SelectItem, SelectPopup, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { PageHeader } from "@/components/layout/page-header";
 import { RefreshDataButton } from "@/components/layout/refresh-data-button";
-import { useBranch, type Branch } from "@/lib/branch-context";
+import { useBranch } from "@/lib/branch-context";
 import { formatCurrencyPlain, formatNumberPlain } from "@/lib/format";
 import { playPageTransition } from "@/components/layout/page-transition";
 import { DEFAULT_LOW_STOCK_THRESHOLD, lowStockRows, summarizeSparepartStock } from "@/lib/operational/sparepart-stock";
+import { CentralStockDialogs } from "@/components/sparepart/central-stock-dialogs";
+import { createCentralItem, listCentralItems, purchaseCentralStock, type CentralItemRow } from "./central-actions";
 import {
-  createSparepart,
   deleteSparepart,
   listSparepartCategories,
   listSpareparts,
-  purchaseSparepartStock,
   setSparepartActive,
-  transferSparepartStock,
   updateSparepart,
   type SparepartRow,
 } from "./actions";
 
+type Scope = "central" | "branch";
+type DialogMode = "distribute" | "request" | "approve";
+
 const EMPTY = {
+  kind: "SPAREPART" as "SPAREPART" | "PRODUCT",
   sku: "",
   name: "",
   category: "Sparepart",
   stock_qty: "0",
-  low_stock_threshold: String(DEFAULT_LOW_STOCK_THRESHOLD),
   cost: "0",
   price: "0",
+  imei: "",
 };
 
-export default function SparepartPage({ canManage }: { canManage: boolean }) {
+export default function SparepartPage({ canManage, isMasterAdmin }: { canManage: boolean; isMasterAdmin: boolean }) {
   const { branch, branches } = useBranch();
+  const [scope, setScope] = useState<Scope>(() => (isMasterAdmin ? "central" : "branch"));
   const [rows, setRows] = useState<SparepartRow[]>([]);
+  const [centralItems, setCentralItems] = useState<CentralItemRow[]>([]);
   const [categories, setCategories] = useState<string[]>(["Sparepart"]);
   const [q, setQ] = useState("");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [loading, setLoading] = useState(true);
-  const [open, setOpen] = useState(false);
+  const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<SparepartRow | null>(null);
   const [form, setForm] = useState(EMPTY);
+  const [purchaseOpen, setPurchaseOpen] = useState(false);
+  const [purchaseId, setPurchaseId] = useState("");
+  const [purchaseQty, setPurchaseQty] = useState("1");
+  const [purchaseCost, setPurchaseCost] = useState("");
+  const [dialogMode, setDialogMode] = useState<DialogMode | null>(null);
   const [saving, setSaving] = useState(false);
-  const [stockMode, setStockMode] = useState<"beli" | "transfer" | null>(null);
 
   const reload = async (term = q) => {
     setLoading(true);
     try {
-      setRows(await listSpareparts(term));
+      const [branchRows, centralRows] = await Promise.all([listSpareparts(term), listCentralItems(term)]);
+      setRows(branchRows);
+      setCentralItems(centralRows);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Gagal memuat sparepart");
     } finally {
@@ -78,48 +90,108 @@ export default function SparepartPage({ canManage }: { canManage: boolean }) {
     const t = setTimeout(() => reload(q), 250);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [q, branch.id]);
+  }, [q, branch.id, scope]);
+
+
+  const displayRows: SparepartRow[] = scope === "central"
+    ? centralItems.map((item) => ({
+        id: item.id,
+        sku: item.sku,
+        name: item.name,
+        category: item.category,
+        stock_qty: item.stock_qty,
+        low_stock_threshold: DEFAULT_LOW_STOCK_THRESHOLD,
+        cost: item.cost,
+        price: item.price,
+        is_active: true,
+      }))
+    : rows;
+
+  const totalPages = Math.max(1, Math.ceil(displayRows.length / pageSize));
+  const safePage = Math.min(Math.max(1, page), totalPages);
+  const pageItems = displayRows.slice((safePage - 1) * pageSize, safePage * pageSize);
+  const stockSummary = summarizeSparepartStock(displayRows);
+  const alerts = scope === "branch" ? lowStockRows(rows) : [];
 
   const openCreate = () => {
     setEditing(null);
     setForm({ ...EMPTY, category: categories[0] ?? "Sparepart" });
-    setOpen(true);
+    setFormOpen(true);
   };
 
   const openEdit = (row: SparepartRow) => {
     setEditing(row);
-    setForm({
-      sku: row.sku,
-      name: row.name,
-      category: row.category,
-      stock_qty: String(row.stock_qty),
-      low_stock_threshold: String(row.low_stock_threshold ?? DEFAULT_LOW_STOCK_THRESHOLD),
-      cost: String(row.cost),
-      price: String(row.price),
-    });
-    setOpen(true);
+    setForm({ ...EMPTY, name: row.name, category: row.category, cost: String(row.cost), price: String(row.price) });
+    setFormOpen(true);
   };
 
   const handleSave = async () => {
     setSaving(true);
     try {
-      const payload = {
-        sku: form.sku,
-        name: form.name,
-        category: form.category,
-        stock_qty: Number(form.stock_qty),
-        low_stock_threshold: Number(form.low_stock_threshold),
-        cost: Number(form.cost),
-        price: Number(form.price),
-      };
-      if (editing) await updateSparepart(editing.id, payload);
-      else await createSparepart(payload);
+      if (editing) {
+        // updateSparepart mengabaikan sku/stok/ambang, jadi field itu tidak ditampilkan saat edit.
+        await updateSparepart(editing.id, {
+          name: form.name,
+          category: form.category,
+          stock_qty: 0,
+          cost: Number(form.cost),
+          price: Number(form.price),
+        });
+      } else {
+        await createCentralItem({
+          kind: form.kind,
+          sku: form.sku,
+          name: form.name,
+          category: form.category,
+          stock_qty: Number(form.stock_qty),
+          cost: Number(form.cost),
+          price: Number(form.price),
+          imei: form.kind === "PRODUCT" ? form.imei : undefined,
+        });
+      }
       playPageTransition();
-      toast.success(editing ? "Sparepart diperbarui" : "Sparepart ditambah");
-      setOpen(false);
+      toast.success(editing ? "Item diperbarui" : "Item ditambah");
+      setFormOpen(false);
       await reload();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Gagal menyimpan");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const openPurchase = () => {
+    setPurchaseId(centralItems[0]?.id ?? "");
+    setPurchaseQty("1");
+    setPurchaseCost("");
+    setPurchaseOpen(true);
+  };
+
+  const handlePurchase = async () => {
+    const item = centralItems.find((central) => central.id === purchaseId);
+    if (!item) {
+      toast.error("Pilih item dulu");
+      return;
+    }
+    const amount = Number(purchaseQty);
+    if (!Number.isInteger(amount) || amount <= 0) {
+      toast.error("Jumlah harus bilangan bulat lebih dari nol");
+      return;
+    }
+    setSaving(true);
+    try {
+      await purchaseCentralStock({
+        id: item.id,
+        qty: amount,
+        unitCost: purchaseCost === "" ? item.cost : Number(purchaseCost),
+        expectedStock: item.stock_qty,
+      });
+      playPageTransition();
+      toast.success("Stok pusat dibeli");
+      setPurchaseOpen(false);
+      await reload();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Gagal membeli stok");
     } finally {
       setSaving(false);
     }
@@ -136,30 +208,23 @@ export default function SparepartPage({ canManage }: { canManage: boolean }) {
   };
 
   const handleDelete = async (row: SparepartRow) => {
-    if (!confirm(`Hapus sparepart "${row.name}"? Riwayat servis yang memakainya tetap tersimpan.`)) return;
+    if (!confirm(`Hapus item "${row.name}"? Riwayat servis yang memakainya tetap tersimpan.`)) return;
     try {
       await deleteSparepart(row.id);
       playPageTransition();
-      toast.success("Sparepart dihapus");
+      toast.success("Item dihapus");
       await reload();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Gagal menghapus");
     }
   };
 
-  const totalPages = Math.max(1, Math.ceil(rows.length / pageSize));
-  const safePage = Math.min(Math.max(1, page), totalPages);
-  const pageItems = rows.slice((safePage - 1) * pageSize, safePage * pageSize);
-  const stockSummary = summarizeSparepartStock(rows);
-  const alerts = lowStockRows(rows);
-  useEffect(() => { setPage(1); }, [q, branch.id]);
-
   return (
     <div className="min-h-svh bg-transparent">
       <PageHeader
         title="Sparepart"
         titleClassName="font-heading text-2xl"
-        description="Stok sparepart terpisah dari inventori produk. Stok berkurang saat dipakai di servis."
+        description="Stok gudang pusat dan stok cabang. Stok berkurang saat dipakai di servis atau didistribusikan."
         containerClassName="max-w-4xl"
         search={
           <InputGroup className="w-full max-w-sm">
@@ -167,7 +232,7 @@ export default function SparepartPage({ canManage }: { canManage: boolean }) {
               <SearchIcon className="size-4 text-muted-foreground" />
             </InputGroupAddon>
             <InputGroupInput
-              placeholder="Cari nama / SKU sparepart..."
+              placeholder="Cari nama / SKU item..."
               value={q}
               onChange={(e) => setQ(e.target.value)}
               nativeInput
@@ -176,29 +241,52 @@ export default function SparepartPage({ canManage }: { canManage: boolean }) {
           </InputGroup>
         }
         actions={
-          <div className="flex shrink-0 flex-wrap gap-2">
+          <div className="flex shrink-0 flex-wrap items-center gap-2">
+            <ToggleGroup
+              value={[scope]}
+              onValueChange={(value) => {
+                const next = (value as string[])[0];
+                if (next === "central" || next === "branch") setScope(next);
+              }}
+              variant="outline"
+              aria-label="Scope stok"
+            >
+              <ToggleGroupItem value="central">Pusat</ToggleGroupItem>
+              <ToggleGroupItem value="branch">Cabang</ToggleGroupItem>
+            </ToggleGroup>
             <RefreshDataButton onRefresh={() => reload(q)} />
             <Button variant="outline" size="sm" className="h-8" render={<Link href="/app/sparepart/opname" />}>
               <PackageCheckIcon className="size-3.5" /> Stock Opname
             </Button>
-            <Button variant="outline" size="sm" className="h-8" onClick={() => setStockMode("beli")} disabled={!canManage || rows.length === 0}>
-              <ShoppingCartIcon className="size-3.5" /> Beli Sparepart
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-8"
-              onClick={() => setStockMode("transfer")}
-              disabled={!canManage || rows.length === 0 || branches.filter((b) => b.id !== "all" && b.id !== branch.id).length === 0}
-            >
-              <TruckIcon className="size-3.5" /> Transfer Stok
-            </Button>
+            {isMasterAdmin && scope === "central" && (
+              <>
+                <Button variant="outline" size="sm" className="h-8" onClick={openPurchase} disabled={centralItems.length === 0}>
+                  <ShoppingCartIcon className="size-3.5" /> Beli Stok
+                </Button>
+                <Button variant="outline" size="sm" className="h-8" onClick={() => setDialogMode("distribute")} disabled={centralItems.length === 0}>
+                  <TruckIcon className="size-3.5" /> Distribusi
+                </Button>
+                <Button variant="outline" size="sm" className="h-8" onClick={() => setDialogMode("approve")}>
+                  Approve Request
+                </Button>
+                <Button size="sm" className="h-8" onClick={openCreate}>
+                  <PlusIcon className="size-3.5" /> Tambah Item
+                </Button>
+              </>
+            )}
+            {scope === "branch" && canManage && (
+              <Button variant="outline" size="sm" className="h-8" onClick={() => setDialogMode("request")} disabled={centralItems.length === 0}>
+                <ShoppingCartIcon className="size-3.5" /> Request Stok
+              </Button>
+            )}
+            {isMasterAdmin && scope === "branch" && (
+              <Button variant="outline" size="sm" className="h-8" onClick={() => setDialogMode("distribute")} disabled={centralItems.length === 0}>
+                <TruckIcon className="size-3.5" /> Distribusi
+              </Button>
+            )}
             <CossButton variant="outline" size="sm" className="h-8" render={<Link href="/app/kategori-sparepart" />}>
               <TagIcon className="size-3.5" /> Kategori
             </CossButton>
-            <Button size="sm" className="h-8" onClick={openCreate} disabled={!canManage}>
-              <PlusIcon className="size-3.5" /> Tambah Sparepart
-            </Button>
           </div>
         }
       />
@@ -220,105 +308,105 @@ export default function SparepartPage({ canManage }: { canManage: boolean }) {
 
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-10">
           <div className="min-w-0 lg:col-span-8">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between gap-4">
-            <div>
-              <CardTitle className="flex items-center gap-2 text-base">
-                <PackageIcon className="size-4" /> Daftar Sparepart
-              </CardTitle>
-              <CardDescription>
-                {rows.length} sparepart · {branch.label}
-              </CardDescription>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="overflow-hidden rounded-lg border">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Nama</TableHead>
-                    <TableHead>Kategori</TableHead>
-                    <TableHead className="text-right">Stok</TableHead>
-                    <TableHead className="text-right">Modal</TableHead>
-                    <TableHead className="text-right">Harga</TableHead>
-                    <TableHead className="w-24" />
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {loading ? (
-                    <TableRow>
-                      <TableCell colSpan={6} className="py-8 text-center text-sm text-muted-foreground">
-                        Memuat sparepart...
-                      </TableCell>
-                    </TableRow>
-                  ) : rows.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={6} className="py-8 text-center text-sm text-muted-foreground">
-                        Belum ada sparepart. Klik Tambah Sparepart.
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    pageItems.map((row) => (
-                      <TableRow key={row.id} className={row.is_active ? "" : "opacity-50"}>
-                        <TableCell>
-                          <div className="font-medium">{row.name}</div>
-                          <div className="font-mono text-xs text-muted-foreground">{row.sku}</div>
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant="secondary">{row.category}</Badge>
-                        </TableCell>
-                        <TableCell className="text-right font-mono">{row.stock_qty}</TableCell>
-                        <TableCell className="text-right font-mono text-xs">{formatCurrencyPlain(row.cost)}</TableCell>
-                        <TableCell className="text-right font-mono text-xs">{formatCurrencyPlain(row.price)}</TableCell>
-                        <TableCell>
-                          <div className="flex justify-end gap-1">
-                            {canManage && (
-                              <>
-                                <Button variant="ghost" size="sm" className="h-7 px-2" onClick={() => handleToggle(row)}>
-                                  {row.is_active ? "Nonaktifkan" : "Aktifkan"}
-                                </Button>
-                                <Button variant="ghost" size="icon-sm" onClick={() => openEdit(row)}>
-                                  <PencilIcon className="size-3.5" />
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="icon-sm"
-                                  className="text-destructive hover:text-destructive"
-                                  onClick={() => handleDelete(row)}
-                                >
-                                  <TrashIcon className="size-3.5" />
-                                </Button>
-                              </>
-                            )}
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
-            </div>
-            {rows.length > 0 ? (
-              <div className="mt-3 flex flex-col items-center gap-3 sm:flex-row sm:justify-between">
-                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <span>Per halaman</span>
-                  <Select value={String(pageSize)} onValueChange={(v) => { setPageSize(Number(v)); setPage(1); }}>
-                    <SelectTrigger size="sm" className="w-16">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectPopup>
-                      <SelectItem value="10">10</SelectItem>
-                      <SelectItem value="20">20</SelectItem>
-                      <SelectItem value="50">50</SelectItem>
-                    </SelectPopup>
-                  </Select>
-                  <span>· Menampilkan {(safePage - 1) * pageSize + 1}–{Math.min(safePage * pageSize, rows.length)} dari {rows.length}</span>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between gap-4">
+                <div>
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    <PackageIcon className="size-4" /> Daftar {scope === "central" ? "Item Pusat" : "Sparepart Cabang"}
+                  </CardTitle>
+                  <CardDescription>
+                    {displayRows.length} item · {scope === "central" ? "Gudang pusat" : branch.label}
+                  </CardDescription>
                 </div>
-                <Pagination page={safePage} pageCount={totalPages} onPageChange={setPage} />
-              </div>
-            ) : null}
-          </CardContent>
-        </Card>
+              </CardHeader>
+              <CardContent>
+                <div className="overflow-hidden rounded-lg border">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Nama</TableHead>
+                        <TableHead>SKU</TableHead>
+                        <TableHead>Kategori</TableHead>
+                        <TableHead className="text-right">Stok</TableHead>
+                        <TableHead className="text-right">Modal</TableHead>
+                        <TableHead className="text-right">Harga</TableHead>
+                        <TableHead className="w-24" />
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {loading ? (
+                        <TableRow>
+                          <TableCell colSpan={7} className="py-8 text-center text-sm text-muted-foreground">
+                            Memuat item...
+                          </TableCell>
+                        </TableRow>
+                      ) : displayRows.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={7} className="py-8 text-center text-sm text-muted-foreground">
+                            Belum ada item di scope ini.
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        pageItems.map((row) => (
+                          <TableRow key={row.id} className={row.is_active ? "" : "opacity-50"}>
+                            <TableCell className="font-medium">{row.name}</TableCell>
+                            <TableCell className="font-mono text-xs text-muted-foreground">{row.sku}</TableCell>
+                            <TableCell>
+                              <Badge variant="secondary">{row.category}</Badge>
+                            </TableCell>
+                            <TableCell className="text-right font-mono">{row.stock_qty}</TableCell>
+                            <TableCell className="text-right font-mono text-xs">{formatCurrencyPlain(row.cost)}</TableCell>
+                            <TableCell className="text-right font-mono text-xs">{formatCurrencyPlain(row.price)}</TableCell>
+                            <TableCell>
+                              <div className="flex justify-end gap-1">
+                                {isMasterAdmin && (
+                                  <>
+                                    <Button variant="ghost" size="sm" className="h-7 px-2" onClick={() => handleToggle(row)}>
+                                      {row.is_active ? "Nonaktifkan" : "Aktifkan"}
+                                    </Button>
+                                    <Button variant="ghost" size="icon-sm" aria-label={`Edit ${row.name}`} onClick={() => openEdit(row)}>
+                                      <PencilIcon className="size-3.5" />
+                                    </Button>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon-sm"
+                                      aria-label={`Hapus ${row.name}`}
+                                      className="text-destructive hover:text-destructive"
+                                      onClick={() => handleDelete(row)}
+                                    >
+                                      <TrashIcon className="size-3.5" />
+                                    </Button>
+                                  </>
+                                )}
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+                {displayRows.length > 0 ? (
+                  <div className="mt-3 flex flex-col items-center gap-3 sm:flex-row sm:justify-between">
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <span>Per halaman</span>
+                      <Select value={String(pageSize)} onValueChange={(v) => { setPageSize(Number(v)); setPage(1); }}>
+                        <SelectTrigger size="sm" className="w-16">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectPopup>
+                          <SelectItem value="10">10</SelectItem>
+                          <SelectItem value="20">20</SelectItem>
+                          <SelectItem value="50">50</SelectItem>
+                        </SelectPopup>
+                      </Select>
+                      <span>· Menampilkan {(safePage - 1) * pageSize + 1}–{Math.min(safePage * pageSize, displayRows.length)} dari {displayRows.length}</span>
+                    </div>
+                    <Pagination page={safePage} pageCount={totalPages} onPageChange={setPage} />
+                  </div>
+                ) : null}
+              </CardContent>
+            </Card>
           </div>
 
           {alerts.length > 0 ? (
@@ -351,242 +439,160 @@ export default function SparepartPage({ canManage }: { canManage: boolean }) {
         </div>
       </div>
 
-      <DialogPrimitive.Root open={open} onOpenChange={setOpen}>
+      <DialogPrimitive.Root open={formOpen} onOpenChange={setFormOpen}>
         <DialogPrimitive.Portal>
           <DialogPrimitive.Backdrop className="fixed inset-0 z-50 bg-black/20 backdrop-blur-sm" />
           <DialogPrimitive.Popup className="fixed left-1/2 top-1/2 z-50 w-[95vw] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-xl border bg-background p-6 shadow-lg">
             <DialogPrimitive.Title className="font-semibold">
-              {editing ? "Edit Sparepart" : "Tambah Sparepart"}
+              {editing ? "Edit Item" : "Tambah Item"}
             </DialogPrimitive.Title>
             <DialogPrimitive.Description className="text-sm text-muted-foreground">
-              Stok awal bisa diisi; perubahan stok berikutnya tercatat di ledger.
+              {editing
+                ? "Nama, kategori, modal, dan harga diperbarui di item pusat."
+                : "Item baru masuk ke gudang pusat; stok awal tercatat di ledger."}
             </DialogPrimitive.Description>
 
             <div className="mt-4 grid grid-cols-2 gap-3">
               <div className="col-span-2 space-y-1.5">
                 <Label>Nama *</Label>
-                <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Baterai iPhone 12" />
+                <Input aria-label="Nama item" className="min-h-11" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Baterai iPhone 12" />
               </div>
-              <div className="space-y-1.5">
-                <Label>SKU</Label>
-                <Input value={form.sku} onChange={(e) => setForm({ ...form, sku: e.target.value })} placeholder="Otomatis" className="font-mono" />
-              </div>
+              {editing ? null : (
+                <>
+                  <div className="space-y-1.5">
+                    <Label>Jenis</Label>
+                    <select
+                      value={form.kind}
+                      onChange={(e) => setForm({ ...form, kind: e.target.value as "SPAREPART" | "PRODUCT" })}
+                      aria-label="Jenis item"
+                      className="min-h-11 w-full rounded-md border bg-background px-2 text-sm"
+                    >
+                      <option value="SPAREPART">Sparepart</option>
+                      <option value="PRODUCT">Produk</option>
+                    </select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>SKU *</Label>
+                    <Input aria-label="SKU" className="min-h-11 font-mono" value={form.sku} onChange={(e) => setForm({ ...form, sku: e.target.value })} placeholder="SKU-123" />
+                  </div>
+                </>
+              )}
               <div className="space-y-1.5">
                 <Label>Kategori</Label>
                 <select
                   value={form.category}
                   onChange={(e) => setForm({ ...form, category: e.target.value })}
-                  className="h-9 w-full rounded-md border bg-background px-2 text-sm"
+                  aria-label="Kategori item"
+                  className="min-h-11 w-full rounded-md border bg-background px-2 text-sm"
                 >
                   {categories.map((c) => (
-                    <option key={c} value={c}>
-                      {c}
-                    </option>
+                    <option key={c} value={c}>{c}</option>
                   ))}
                 </select>
               </div>
-              <div className="space-y-1.5">
-                <Label>Stok</Label>
-                <Input type="number" min={0} value={form.stock_qty} onChange={(e) => setForm({ ...form, stock_qty: e.target.value })} />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Ambang pengingat habis</Label>
-                <Input
-                  type="number"
-                  min={0}
-                  value={form.low_stock_threshold}
-                  onChange={(e) => setForm({ ...form, low_stock_threshold: e.target.value })}
-                />
-                <p className="text-[11px] text-muted-foreground">Peringatan muncul saat stok ≤ angka ini (default 5).</p>
-              </div>
+              {editing ? null : (
+                <div className="space-y-1.5">
+                  <Label>Stok awal</Label>
+                  <Input type="number" min={0} inputMode="numeric" aria-label="Stok awal" className="min-h-11" value={form.stock_qty} onChange={(e) => setForm({ ...form, stock_qty: e.target.value })} />
+                </div>
+              )}
+              {!editing && form.kind === "PRODUCT" ? (
+                <div className="space-y-1.5">
+                  <Label>IMEI (opsional)</Label>
+                  <Input
+                    inputMode="numeric"
+                    maxLength={15}
+                    aria-label="IMEI"
+                    className="min-h-11 font-mono"
+                    value={form.imei}
+                    onChange={(e) => setForm({ ...form, imei: e.target.value.replace(/\D/g, "").slice(0, 15) })}
+                    placeholder="15 digit"
+                  />
+                </div>
+              ) : null}
               <div className="space-y-1.5">
                 <Label>Modal</Label>
-                <Input type="number" min={0} value={form.cost} onChange={(e) => setForm({ ...form, cost: e.target.value })} />
+                <Input type="number" min={0} inputMode="numeric" aria-label="Modal" className="min-h-11" value={form.cost} onChange={(e) => setForm({ ...form, cost: e.target.value })} />
               </div>
               <div className="space-y-1.5">
                 <Label>Harga jual</Label>
-                <Input type="number" min={0} value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} />
+                <Input type="number" min={0} inputMode="numeric" aria-label="Harga jual" className="min-h-11" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} />
               </div>
             </div>
 
             <div className="mt-5 flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setOpen(false)} disabled={saving}>
+              <Button variant="outline" className="min-h-11" onClick={() => setFormOpen(false)} disabled={saving}>
                 Batal
               </Button>
-              <Button onClick={handleSave} disabled={saving}>
+              <Button className="min-h-11" onClick={handleSave} disabled={saving}>
                 {saving ? "Menyimpan..." : editing ? "Simpan" : "Tambah"}
               </Button>
             </div>
 
-            <DialogPrimitive.Close className="absolute right-3 top-3 rounded-md p-1 text-muted-foreground hover:bg-muted">
+            <DialogPrimitive.Close className="absolute right-3 top-3 min-h-11 min-w-11 rounded-md p-1 text-muted-foreground hover:bg-muted" aria-label="Tutup">
               <XIcon className="size-4" />
             </DialogPrimitive.Close>
           </DialogPrimitive.Popup>
         </DialogPrimitive.Portal>
       </DialogPrimitive.Root>
 
-      <StockActionDialog
-        key={stockMode ?? "closed"}
-        mode={stockMode}
-        rows={rows}
-        branches={branches}
-        currentBranchId={branch.id}
-        onClose={() => setStockMode(null)}
-        onDone={() => {
-          setStockMode(null);
-          void reload();
-        }}
-      />
-    </div>
-  );
-}
-
-/** Beli stok baru atau transfer antar cabang; keduanya lewat RPC ber-ledger. */
-function StockActionDialog({
-  mode,
-  rows,
-  branches,
-  currentBranchId,
-  onClose,
-  onDone,
-}: {
-  mode: "beli" | "transfer" | null;
-  rows: SparepartRow[];
-  branches: Branch[];
-  currentBranchId: string;
-  onClose: () => void;
-  onDone: () => void;
-}) {
-  const [id, setId] = useState("");
-  const [qty, setQty] = useState("1");
-  const [unitCost, setUnitCost] = useState("");
-  const [target, setTarget] = useState("");
-  const [saving, setSaving] = useState(false);
-
-  const isPurchase = mode === "beli";
-  const selected = rows.find((row) => row.id === id) ?? null;
-  const targets = branches.filter((b) => b.id !== "all" && b.id !== currentBranchId);
-
-  const handleSubmit = async () => {
-    if (!selected) {
-      toast.error("Pilih sparepart dulu");
-      return;
-    }
-    const amount = Number(qty);
-    if (!Number.isInteger(amount) || amount <= 0) {
-      toast.error("Jumlah harus bilangan bulat lebih dari nol");
-      return;
-    }
-    if (!isPurchase && !target) {
-      toast.error("Pilih cabang tujuan");
-      return;
-    }
-
-    setSaving(true);
-    try {
-      if (isPurchase) {
-        await purchaseSparepartStock({
-          id: selected.id,
-          qty: amount,
-          unitCost: unitCost === "" ? selected.cost : Number(unitCost),
-        });
-        toast.success("Stok sparepart dibeli");
-      } else {
-        await transferSparepartStock({ id: selected.id, targetBranchId: target, qty: amount });
-        toast.success("Stok ditransfer");
-      }
-      playPageTransition();
-      onDone();
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Gagal memproses stok");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  return (
-    <DialogPrimitive.Root open={mode !== null} onOpenChange={(open) => !open && onClose()}>
-      <DialogPrimitive.Portal>
-        <DialogPrimitive.Backdrop className="fixed inset-0 z-50 bg-black/20 backdrop-blur-sm" />
-        <DialogPrimitive.Popup className="fixed left-1/2 top-1/2 z-50 w-[95vw] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-xl border bg-background p-6 shadow-lg">
-          <DialogPrimitive.Title className="font-semibold">
-            {isPurchase ? "Beli Sparepart" : "Transfer Stok (Antar Cabang)"}
-          </DialogPrimitive.Title>
-          <DialogPrimitive.Description className="text-sm text-muted-foreground">
-            {isPurchase
-              ? "Stok bertambah dan harga modal diperbarui. Tercatat di ledger stok."
-              : "Stok berkurang dari cabang ini dan bertambah di cabang tujuan."}
-          </DialogPrimitive.Description>
-
-          <div className="mt-4 space-y-3">
-            <div className="space-y-1.5">
-              <Label>Sparepart *</Label>
-              <select
-                value={id}
-                onChange={(e) => setId(e.target.value)}
-                className="h-9 w-full rounded-md border bg-background px-2 text-sm"
-              >
-                <option value="">Pilih sparepart...</option>
-                {rows.map((row) => (
-                  <option key={row.id} value={row.id}>
-                    {row.name} — {row.sku} (stok {row.stock_qty})
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="space-y-1.5">
-              <Label>{isPurchase ? "Jumlah beli *" : "Jumlah transfer *"}</Label>
-              <Input type="number" min={1} value={qty} onChange={(e) => setQty(e.target.value)} />
-              {selected ? (
-                <p className="text-[11px] text-muted-foreground">Stok saat ini {selected.stock_qty} unit.</p>
-              ) : null}
-            </div>
-
-            {isPurchase ? (
+      <DialogPrimitive.Root open={purchaseOpen} onOpenChange={setPurchaseOpen}>
+        <DialogPrimitive.Portal>
+          <DialogPrimitive.Backdrop className="fixed inset-0 z-50 bg-black/20 backdrop-blur-sm" />
+          <DialogPrimitive.Popup className="fixed left-1/2 top-1/2 z-50 w-[95vw] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-xl border bg-background p-6 shadow-lg">
+            <DialogPrimitive.Title className="font-semibold">Beli Stok Pusat</DialogPrimitive.Title>
+            <DialogPrimitive.Description className="text-sm text-muted-foreground">
+              Stok pusat bertambah dan modal diperbarui. Tercatat di ledger stok.
+            </DialogPrimitive.Description>
+            <div className="mt-4 space-y-3">
               <div className="space-y-1.5">
-                <Label>Harga beli per unit (Rp)</Label>
-                <Input
-                  type="number"
-                  min={0}
-                  value={unitCost}
-                  onChange={(e) => setUnitCost(e.target.value)}
-                  placeholder={selected ? String(selected.cost) : "Modal saat ini"}
-                />
-              </div>
-            ) : (
-              <div className="space-y-1.5">
-                <Label>Cabang tujuan *</Label>
+                <Label>Item *</Label>
                 <select
-                  value={target}
-                  onChange={(e) => setTarget(e.target.value)}
-                  className="h-9 w-full rounded-md border bg-background px-2 text-sm"
+                  value={purchaseId}
+                  onChange={(e) => setPurchaseId(e.target.value)}
+                  aria-label="Pilih item untuk dibeli"
+                  className="min-h-11 w-full rounded-md border bg-background px-2 text-sm"
                 >
-                  <option value="">Pilih cabang...</option>
-                  {targets.map((b) => (
-                    <option key={b.id} value={b.id}>
-                      {b.label}
+                  <option value="">Pilih item...</option>
+                  {centralItems.map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {item.sku} — {item.name} (stok {item.stock_qty})
                     </option>
                   ))}
                 </select>
               </div>
-            )}
-          </div>
+              <div className="space-y-1.5">
+                <Label>Jumlah beli *</Label>
+                <Input type="number" min={1} inputMode="numeric" aria-label="Jumlah beli" className="min-h-11" value={purchaseQty} onChange={(e) => setPurchaseQty(e.target.value)} />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Harga beli per unit (Rp)</Label>
+                <Input type="number" min={0} inputMode="numeric" aria-label="Harga beli per unit" className="min-h-11" value={purchaseCost} onChange={(e) => setPurchaseCost(e.target.value)} placeholder="Modal saat ini" />
+              </div>
+            </div>
+            <div className="mt-5 flex justify-end gap-2">
+              <Button variant="outline" className="min-h-11" onClick={() => setPurchaseOpen(false)} disabled={saving}>Batal</Button>
+              <Button className="min-h-11" onClick={handlePurchase} disabled={saving}>{saving ? "Memproses..." : "Beli"}</Button>
+            </div>
+            <DialogPrimitive.Close className="absolute right-3 top-3 min-h-11 min-w-11 rounded-md p-1 text-muted-foreground hover:bg-muted" aria-label="Tutup">
+              <XIcon className="size-4" />
+            </DialogPrimitive.Close>
+          </DialogPrimitive.Popup>
+        </DialogPrimitive.Portal>
+      </DialogPrimitive.Root>
 
-          <div className="mt-5 flex justify-end gap-2">
-            <Button variant="outline" onClick={onClose} disabled={saving}>
-              Batal
-            </Button>
-            <Button onClick={handleSubmit} disabled={saving}>
-              {saving ? "Memproses..." : isPurchase ? "Beli" : "Transfer"}
-            </Button>
-          </div>
-
-          <DialogPrimitive.Close className="absolute right-3 top-3 rounded-md p-1 text-muted-foreground hover:bg-muted">
-            <XIcon className="size-4" />
-          </DialogPrimitive.Close>
-        </DialogPrimitive.Popup>
-      </DialogPrimitive.Portal>
-    </DialogPrimitive.Root>
+      <CentralStockDialogs
+        key={dialogMode ?? "closed"}
+        mode={dialogMode}
+        items={centralItems}
+        branches={branches}
+        currentBranchId={branch.id}
+        onClose={() => setDialogMode(null)}
+        onDone={() => {
+          setDialogMode(null);
+          void reload();
+        }}
+      />
+    </div>
   );
 }
