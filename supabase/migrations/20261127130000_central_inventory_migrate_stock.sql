@@ -2,6 +2,13 @@
 -- shortcut: migrasi hanya dijalankan sekali pada snapshot bersih; jika perlu re-run, tambahkan penanda migrasi — upgrade saat ada kebutuhan re-run.
 begin;
 
+do $$
+begin
+  if exists (select 1 from public.cervise_central_items) then
+    raise exception 'migrasi gudang pusat hanya bisa dijalankan sekali pada tabel pusat yang kosong';
+  end if;
+end $$;
+
 -- Baris ledger sisi-pusat hanya punya central_item_id.
 alter table public.cervise_stock_movements
   drop constraint if exists cervise_stock_movements_owner_check;
@@ -51,13 +58,13 @@ on conflict do nothing;
 
 -- Produk serialized: satu baris pusat per IMEI (bukan per SKU).
 insert into public.cervise_central_items (
-  organization_id, kind, sku, name, category, cost, price, is_active, is_serialized, imei,
+  organization_id, kind, sku, name, category, cost, price, is_active, is_serialized, imei, barcode,
   variant_type, storage, warna, bh_percent, kondisi_notes, garansi_days, parent_key, stock_qty
 )
-select organization_id, 'PRODUCT', sku, name, category, cost, price, true, true, imei,
-       variant_type, storage, warna, bh_percent, kondisi_notes, garansi_days, parent_key, 1
+select organization_id, 'PRODUCT', sku, name, category, cost, price, true, true, imei, barcode,
+       variant_type, storage, warna, bh_percent, kondisi_notes, garansi_days, parent_key, least(stock_qty, 1)
 from public.cervise_products
-where is_serialized and imei is not null and stock_qty > 0
+where is_serialized and imei is not null
 on conflict (organization_id, imei) where is_serialized and imei is not null do nothing;
 
 -- Snapshot SEBELUM stok cabang di-set 0: kalau tidak, qty ledger jadi nol.
@@ -69,7 +76,8 @@ join public.cervise_central_items c
 where s.stock_qty <> 0;
 
 create temp table central_migrate_product as
-select p.id as row_id, p.branch_id, c.id as central_item_id, p.stock_qty as qty
+select p.id as row_id, p.branch_id, c.id as central_item_id,
+       case when p.is_serialized then least(p.stock_qty, 1) else p.stock_qty end as qty
 from public.cervise_products p
 join public.cervise_central_items c
   on c.organization_id = p.organization_id and c.kind = 'PRODUCT'

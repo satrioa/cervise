@@ -117,4 +117,14 @@ describe("central inventory stock migration", () => {
     expect(migrate).toContain("begin;");
     expect(migrate).toContain("commit;");
   });
+
+  it("menolak migrasi ulang pada tabel pusat yang tidak kosong", () => {
+    expect(migrate).toContain("migrasi gudang pusat hanya bisa dijalankan sekali");
+  });
+
+  it("menautkan semua unit serialized dan membatasi qty ledger", () => {
+    expect(migrate).toContain("least(stock_qty, 1)");
+    expect(migrate).toContain("least(p.stock_qty, 1)");
+    expect(migrate).toContain("is_serialized, imei, barcode");
+  });
 });
