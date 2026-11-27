@@ -28,6 +28,11 @@ const extend = readFileSync(
   "utf8",
 ).replace(/\s+/g, " ").toLowerCase();
 
+const active = readFileSync(
+  join(process.cwd(), "supabase/migrations/20261127170000_central_item_active.sql"),
+  "utf8",
+).replace(/\s+/g, " ").toLowerCase();
+
 describe("central inventory schema migration", () => {
   it("membuat tabel master pusat dan antrean request", () => {
     expect(flat).toContain("create table if not exists public.cervise_central_items");
@@ -324,5 +329,28 @@ describe("extension atribut varian create_central_item", () => {
       "public.create_central_item(uuid, text, text, text, text, integer, integer, integer, boolean, text, text, text, text, text, text, integer, text, integer)";
     expect(extend).toContain(`revoke all on function ${signature} from public, anon`);
     expect(extend).toContain(`grant execute on function ${signature} to authenticated`);
+  });
+});
+
+describe("status aktif item pusat", () => {
+  it("mendefinisikan rpc status dengan kunci master dan hak master admin", () => {
+    expect(active).toContain("create or replace function public.set_central_item_active(");
+    expect(active).toContain("p_central_item_id uuid, p_is_active boolean");
+    expect(active).toContain(
+      "select * into v_item from public.cervise_central_items where id = p_central_item_id for update",
+    );
+    expect(active).toContain("if not found then raise exception 'item pusat tidak ditemukan'; end if;");
+    expect(active).toContain(
+      "public.has_tenant_role(v_item.organization_id, array['master_admin'::text])",
+    );
+    expect(active).toContain(
+      "update public.cervise_central_items set is_active = p_is_active, updated_at = now() where id = v_item.id",
+    );
+  });
+
+  it("mengamankan rpc dari anon", () => {
+    const signature = "public.set_central_item_active(uuid, boolean)";
+    expect(active).toContain(`revoke all on function ${signature} from public, anon`);
+    expect(active).toContain(`grant execute on function ${signature} to authenticated`);
   });
 });

@@ -1,5 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { createSparepart, listSpareparts, updateSparepart } from "./actions";
+import {
+  createSparepart,
+  deleteSparepart,
+  listSpareparts,
+  purchaseSparepartStock,
+  setSparepartActive,
+  transferSparepartStock,
+  updateSparepart,
+} from "./actions";
 
 const { mocks } = vi.hoisted(() => {
   const rpc = vi.fn();
@@ -21,6 +29,7 @@ describe("sparepart cabang mengikuti pusat", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.rpc.mockResolvedValue({ data: null, error: null });
+    mocks.from.mockReturnValue(chain({ data: null, error: null }));
     mocks.getActiveTenant.mockResolvedValue({
       supabase: { rpc: mocks.rpc, from: mocks.from }, orgId: "org-1", branchId: "branch-1", role: "ADMIN",
     });
@@ -62,5 +71,40 @@ describe("sparepart cabang mengikuti pusat", () => {
     expect(mocks.rpc).toHaveBeenCalledWith("update_central_item", expect.objectContaining({
       p_central_item_id: "c1", p_name: "X", p_price: 999,
     }));
+  });
+
+  it("pembelian stok langsung ke pusat tanpa baris cabang", async () => {
+    mocks.getActiveTenant.mockResolvedValue({
+      supabase: { rpc: mocks.rpc, from: mocks.from }, orgId: "org-1", branchId: "branch-1", role: "MASTER_ADMIN",
+    });
+    await purchaseSparepartStock({ id: "c1", qty: 2, unitCost: 5 });
+    expect(mocks.rpc).toHaveBeenCalledWith("purchase_central_stock", expect.objectContaining({
+      p_central_item_id: "c1", p_qty: 2, p_unit_cost: 5, p_expected_stock: null,
+    }));
+    expect(mocks.from).not.toHaveBeenCalled();
+  });
+
+  it("transfer menolak item yang belum punya stok cabang", async () => {
+    mocks.getActiveTenant.mockResolvedValue({
+      supabase: { rpc: mocks.rpc, from: mocks.from }, orgId: "org-1", branchId: "branch-1", role: "MASTER_ADMIN",
+    });
+    await expect(transferSparepartStock({ id: "c1", targetBranchId: "branch-2", qty: 1 }))
+      .rejects.toThrow("Stok cabang belum ada — distribusikan dari pusat dulu");
+    expect(mocks.rpc).not.toHaveBeenCalled();
+  });
+
+  it("status dan hapus menulis ke master, bukan baris cabang", async () => {
+    mocks.getActiveTenant.mockResolvedValue({
+      supabase: { rpc: mocks.rpc, from: mocks.from }, orgId: "org-1", branchId: "branch-1", role: "MASTER_ADMIN",
+    });
+    await setSparepartActive("c1", false);
+    expect(mocks.rpc).toHaveBeenCalledWith("set_central_item_active", {
+      p_central_item_id: "c1", p_is_active: false,
+    });
+    await deleteSparepart("c1");
+    expect(mocks.rpc).toHaveBeenCalledWith("set_central_item_active", {
+      p_central_item_id: "c1", p_is_active: false,
+    });
+    expect(mocks.from).not.toHaveBeenCalled();
   });
 });

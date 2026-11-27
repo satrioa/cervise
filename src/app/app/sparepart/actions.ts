@@ -147,14 +147,11 @@ export async function purchaseSparepartStock(input: PurchaseSparepartInput): Pro
   if (qty <= 0) throw new Error("Jumlah pembelian harus lebih dari nol");
   const unitCost = numberField(input.unitCost, "Harga beli");
 
-  await resolveBranchStock(actor, input.id);
-
-  // Stok cabang bukan stok pusat, jadi expected stock tidak dipakai di RPC pusat.
   const { error } = await actor.supabase.rpc("purchase_central_stock", {
     p_central_item_id: input.id,
     p_qty: qty,
     p_unit_cost: unitCost,
-    p_expected_stock: null,
+    p_expected_stock: null, // RPC locks the central row; no client-side expected value needed here
   });
   if (error) throw new Error(error.message);
 
@@ -186,24 +183,20 @@ export async function transferSparepartStock(input: {
 
 export async function setSparepartActive(id: string, isActive: boolean): Promise<void> {
   const actor = await getManagerActor();
-  const branch = await resolveBranchStock(actor, id);
-  const { error } = await actor.supabase
-    .from("cervise_spareparts")
-    .update({ is_active: isActive })
-    .eq("id", branch.id)
-    .eq("branch_id", actor.branchId);
+  const { error } = await actor.supabase.rpc("set_central_item_active", {
+    p_central_item_id: id,
+    p_is_active: isActive,
+  });
   if (error) throw new Error(error.message);
   revalidatePath("/app/sparepart");
 }
 
 export async function deleteSparepart(id: string): Promise<void> {
   const actor = await getManagerActor();
-  const branch = await resolveBranchStock(actor, id);
-  const { error } = await actor.supabase
-    .from("cervise_spareparts")
-    .delete()
-    .eq("id", branch.id)
-    .eq("branch_id", actor.branchId);
+  const { error } = await actor.supabase.rpc("set_central_item_active", {
+    p_central_item_id: id,
+    p_is_active: false,
+  });
   if (error) throw new Error(error.message);
   revalidatePath("/app/sparepart");
 }
