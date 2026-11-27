@@ -22,12 +22,12 @@ describe("header mobile compact", () => {
     expect(compactBranch).not.toContain("<aside");
   });
 
-  it("bar mobile berisi logo, judul tengah, dan tombol grid", () => {
+  it("bar mobile berisi logo dan judul tengah tanpa tombol grid", () => {
     expect(bottomBar).toMatch(/lg:hidden/);
     expect(bottomBar).toMatch(/<TenantLogo/);
     expect(bottomBar).toMatch(/flex-1 truncate text-center/);
-    expect(bottomBar).toMatch(/<LayoutGrid fill="currentColor"/);
-    expect(bottomBar).toMatch(/onClick=\{onOpenMenu\}/);
+    expect(bottomBar).not.toMatch(/<LayoutGrid fill="currentColor"/);
+    expect(bottomBar).not.toMatch(/onClick=\{onOpenMenu\}/);
     expect(bottomBar).toMatch(/hidden w-full items-center gap-2 lg:flex/);
   });
 

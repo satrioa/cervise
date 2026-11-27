@@ -17,9 +17,9 @@ describe("spacing shell compact mobile", () => {
     );
   });
 
-  it("dock menyisakan gap 32px di dalam, kiri dan kanan", () => {
-    expect(read("src/components/layout/compact-dock-nav.tsx")).toMatch(/px-8/);
-    expect(read("src/components/layout/compact-dock-nav.tsx")).not.toMatch(/mx-8/);
+  it("dock menyisakan gap 16px di dalam, kiri dan kanan", () => {
+    expect(read("src/components/layout/compact-dock-nav.tsx")).toMatch(/gap-2 px-4 pt-2/);
+    expect(read("src/components/layout/compact-dock-nav.tsx")).not.toMatch(/px-8/);
   });
 
   it("action bar memakai jarak aman dock", () => {

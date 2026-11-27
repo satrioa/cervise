@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
-import { LayoutGrid, UserRound } from "lucide-react";
+import { UserRound } from "lucide-react";
 import { useTheme } from "next-themes";
 import { TenantLogo } from "@/components/layout/tenant-logo";
 import { labelFor, matchEntry } from "@/components/layout/page-breadcrumb";
@@ -15,7 +15,7 @@ import { normalizeAppRole, ROLE_LABEL } from "@/lib/nav/manifest";
  * Bar identitas compact.
  *
  * Mobile: SATU header transparan di atas — logo tenant di kiri, judul halaman
- * di tengah, tombol grid berisi di kanan yang membuka drawer menu. Desktop:
+ * di tengah. Trigger menu ada di tombol plus pada dock bawah. Desktop:
  * bar mengambang di bawah seperti sebelumnya (tenant + cari + profil).
  */
 export function CompactBottomBar({
@@ -23,13 +23,11 @@ export function CompactBottomBar({
   fullName,
   email,
   avatarUrl,
-  onOpenMenu,
 }: {
   role: string;
   fullName: string | null;
   email: string | null;
   avatarUrl: string | null;
-  onOpenMenu: () => void;
 }) {
   const { tenants, activeOrgId } = useTenant();
   const { branch } = useBranch();
@@ -81,15 +79,6 @@ export function CompactBottomBar({
         <h1 className="min-w-0 flex-1 truncate text-center text-sm font-medium text-neutral-900 dark:text-neutral-100">
           {pageTitle}
         </h1>
-        <button
-          type="button"
-          aria-label="Buka menu"
-          title="Buka menu"
-          onClick={onOpenMenu}
-          className="pointer-events-auto flex size-9 shrink-0 items-center justify-center rounded-full bg-white text-neutral-700 shadow-[0_16px_38px_-24px_rgba(0,0,0,0.55)] ring-1 ring-black/5 dark:bg-neutral-900 dark:text-neutral-200 dark:ring-white/10"
-        >
-          <LayoutGrid fill="currentColor" className="size-[18px]" />
-        </button>
         </div>
       </div>
 

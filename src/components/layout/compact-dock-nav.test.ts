@@ -16,42 +16,46 @@ describe("dock mobile tema normal", () => {
     expect(source).not.toContain("dark:ring-white/10");
   });
 
-  it("tombol menu candy putih ber-radius tanpa label dan tanpa shadow", () => {
-    expect(source).toContain('variant="candy"');
-    expect(source).toMatch(/\[--btn:#fff\]/);
-    expect(source).toMatch(/rounded-xl/);
-    expect(source).toMatch(/size-12/);
-    expect(source).toMatch(/shadow-none \[&_svg\]:drop-shadow-none/);
-    expect(source).not.toMatch(/\{item\.label\}<\/span>/);
+  it("dock berbentuk pill dengan item aktif berlabel", () => {
+    expect(source).toContain("rounded-full bg-muted/80");
+    expect(source).toContain("ring-border/60 backdrop-blur");
+    expect(source).toContain("{item.label}");
+    expect(source).toContain("flex-1 justify-start gap-2 rounded-full bg-card px-4");
+    expect(source).toContain("size-11 shrink-0 rounded-full text-muted-foreground");
+  });
+
+  it("tombol plus membuka menu", () => {
+    expect(source).toContain("onOpenMenu: () => void");
+    expect(source).toContain('aria-label="Buka menu"');
+    expect(source).toContain("onClick={onOpenMenu}");
+    expect(source).toContain("<PlusIcon");
+    expect(source).toContain("bg-foreground text-background");
   });
 
   it("ikon aktif di-fill, ikon non-aktif berbentuk line", () => {
     expect(source).toMatch(/fill=\{active \? "currentColor" : "none"\}/);
   });
 
-  it("ikon dan label hitam saat normal, biru saat aktif, tanpa opacity", () => {
-    expect(source).toMatch(/\[--btn-fg:#111827\]/);
-    expect(source).toMatch(/active \? "\[--btn-fg:var\(--color-brand\)\] dark:\[--btn-fg:#93C5FD\]" : ""/);
+  it("aktif memakai foreground, nonaktif muted", () => {
+    expect(source).toContain("bg-card px-4 text-foreground");
+    expect(source).toContain("size-11 shrink-0 rounded-full text-muted-foreground");
     expect(source).not.toMatch(/opacity-80/);
   });
 
 
-  it("dark mode memakai tombol gelap, teks terang, dan aktif biru muda", () => {
-    expect(source).toMatch(/dark:\[--btn:var\(--card\)\]/);
-    expect(source).toMatch(/dark:\[--btn-hover:var\(--muted\)\]/);
-    expect(source).toMatch(/dark:\[--btn-fg:#e5e7eb\]/);
-    expect(source).toMatch(/dark:\[--btn-fg:#93C5FD\]/);
+  it("dark mode memakai kartu gelap pada item aktif", () => {
+    expect(source).toContain("dark:bg-neutral-800");
   });
 
-  it("menu berdekatan dan fade hitam lembut", () => {
-    expect(source).toMatch(/justify-center gap-3/);
+  it("item berdekatan dalam pill dan fade hitam lembut", () => {
+    expect(source).toMatch(/items-center gap-1 rounded-full bg-muted\/80/);
     expect(source).toMatch(/from-black\/40 via-black\/20 to-transparent/);
   });
 
-  it("melekat di bawah tanpa radius", () => {
+  it("melekat di bawah dengan pill melingkar", () => {
     expect(source).toContain("fixed inset-x-0 bottom-0 z-30");
     expect(source).toContain("lg:hidden");
-    expect(source).not.toContain("rounded-full");
+    expect(source).toContain("rounded-full bg-muted/80");
     expect(source).not.toMatch(/px-3 pb-\[max/);
   });
 

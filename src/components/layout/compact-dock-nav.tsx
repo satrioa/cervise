@@ -2,7 +2,7 @@
 
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { House, Package, ShoppingCart, Wrench, type LucideIcon } from "lucide-react";
+import { House, Package, PlusIcon, ShoppingCart, Wrench, type LucideIcon } from "lucide-react";
 import { MainNavLink } from "@/components/layout/main-nav-transition";
 import { Button } from "@/components/ui/button";
 import { normalizeAppRole } from "@/lib/nav/manifest";
@@ -15,7 +15,15 @@ import { cn } from "@/lib/utils";
  * tetap di `CompactMenuSheet` supaya form-nya tidak dipaksa masuk ke tab kecil.
  * Item ketiga mengikuti role, sama seperti tab header di `CompactShell`.
  */
-export function CompactDockNav({ role, hidden = false }: { role: string; hidden?: boolean }) {
+export function CompactDockNav({
+  role,
+  hidden = false,
+  onOpenMenu,
+}: {
+  role: string;
+  hidden?: boolean;
+  onOpenMenu: () => void;
+}) {
   const pathname = usePathname();
   const t = useTranslations("nav");
 
@@ -38,7 +46,7 @@ export function CompactDockNav({ role, hidden = false }: { role: string; hidden?
       )}
       data-compact-dock=""
     >
-      <div className="pointer-events-auto relative flex items-center gap-1 px-8 pt-2 pb-[calc(1.5rem+env(safe-area-inset-bottom))]">
+      <div className="pointer-events-auto relative flex items-center gap-2 px-4 pt-2 pb-[calc(1.5rem+env(safe-area-inset-bottom))]">
         {/* Fade hitam di belakang tombol; wrap dock sendiri tetap transparan. */}
         <div
           aria-hidden="true"
@@ -46,7 +54,7 @@ export function CompactDockNav({ role, hidden = false }: { role: string; hidden?
         />
         <nav
           aria-label="Navigasi utama"
-          className="flex min-w-0 flex-1 items-center justify-center gap-3"
+          className="flex min-w-0 flex-1 items-center gap-1 rounded-full bg-muted/80 p-1.5 ring-1 ring-border/60 backdrop-blur"
         >
           {items.map((item) => {
             const Icon = item.icon;
@@ -54,14 +62,13 @@ export function CompactDockNav({ role, hidden = false }: { role: string; hidden?
             return (
               <Button
                 key={item.href}
-                variant="candy"
+                variant="ghost"
                 size="icon-lg"
                 aria-label={item.label}
                 className={cn(
-                  "size-12 rounded-xl shadow-none [&_svg]:drop-shadow-none",
-                  "[--btn:#fff] [--btn-hover:#f3f4ff] [--btn-fg:#111827]",
-                  "dark:[--btn:var(--card)] dark:[--btn-hover:var(--muted)] dark:[--btn-fg:#e5e7eb]",
-                  active ? "[--btn-fg:var(--color-brand)] dark:[--btn-fg:#93C5FD]" : "",
+                  active
+                    ? "flex-1 justify-start gap-2 rounded-full bg-card px-4 text-foreground shadow-sm dark:bg-neutral-800"
+                    : "size-11 shrink-0 rounded-full text-muted-foreground",
                 )}
                 render={
                   <MainNavLink href={item.href} aria-current={active ? "page" : undefined}>
@@ -69,11 +76,20 @@ export function CompactDockNav({ role, hidden = false }: { role: string; hidden?
                   </MainNavLink>
                 }
               >
-                <Icon className="size-[18px]" fill={active ? "currentColor" : "none"} />
+                <Icon className="size-[18px] shrink-0" fill={active ? "currentColor" : "none"} />
+                {active ? <span className="truncate text-sm font-medium">{item.label}</span> : null}
               </Button>
             );
           })}
         </nav>
+        <button
+          type="button"
+          onClick={onOpenMenu}
+          aria-label="Buka menu"
+          className="pointer-events-auto flex size-12 shrink-0 items-center justify-center rounded-full bg-foreground text-background shadow-lg"
+        >
+          <PlusIcon className="size-5" />
+        </button>
       </div>
     </div>
   );

@@ -322,14 +322,17 @@ function CompactShellInner({
           </MainNavTransitionOutlet>
       </main>
 
-      <CompactDockNav role={actor.role} hidden={dockHidden} />
+      <CompactDockNav
+        role={actor.role}
+        hidden={dockHidden}
+        onOpenMenu={() => setMenuOpen(true)}
+      />
 
       <CompactBottomBar
         role={actor.role}
         fullName={actor.fullName}
         email={actor.email}
         avatarUrl={actor.avatarUrl}
-        onOpenMenu={() => setMenuOpen(true)}
       />
 
       </div>
