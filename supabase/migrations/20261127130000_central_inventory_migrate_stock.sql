@@ -65,6 +65,7 @@ select organization_id, 'PRODUCT', sku, name, category, cost, price, true, true,
        variant_type, storage, warna, bh_percent, kondisi_notes, garansi_days, parent_key, least(stock_qty, 1)
 from public.cervise_products
 where is_serialized and imei is not null
+order by stock_qty desc
 on conflict (organization_id, imei) where is_serialized and imei is not null do nothing;
 
 -- Snapshot SEBELUM stok cabang di-set 0: kalau tidak, qty ledger jadi nol.

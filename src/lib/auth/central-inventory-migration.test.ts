@@ -126,5 +126,6 @@ describe("central inventory stock migration", () => {
     expect(migrate).toContain("least(stock_qty, 1)");
     expect(migrate).toContain("least(p.stock_qty, 1)");
     expect(migrate).toContain("is_serialized, imei, barcode");
+    expect(migrate).toContain("order by stock_qty desc on conflict");
   });
 });
