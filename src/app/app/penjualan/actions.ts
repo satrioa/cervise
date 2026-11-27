@@ -12,6 +12,8 @@ import { sanitizeSearchTerm } from "@/lib/search-term";
 import { findOrCreateCustomer } from "@/app/app/customer/actions";
 import { publicPhotoUrl } from "@/lib/photos";
 import { getPendingHandoverBlockMessage } from "@/lib/cash/handover";
+import { notifyRoles } from "@/lib/notifications/app-notifications";
+import { formatCurrencyPlain } from "@/lib/format";
 
 async function getBranchUser() {
   const actor = await getActiveTenant();
@@ -295,7 +297,7 @@ export async function createSale(input: {
   promoCode?: string | null;
   discount_total?: number;
 }) {
-  const { supabase, branchId, role, userId, permissions } = await getBranchUser();
+  const { supabase, branchId, organizationId, role, userId, permissions } = await getBranchUser();
   requireSalesAccess({ role, permissions });
   const handoverBlock = await getPendingHandoverBlockMessage(supabase, branchId);
   if (handoverBlock) throw new Error(handoverBlock);
@@ -395,6 +397,16 @@ export async function createSale(input: {
     await supabase.from("cervise_customers").update({ tags: Array.from(tags) } as any).eq("id", input.customerId);
   }
 
+  void notifyRoles({
+    organizationId,
+    branchId: branchId ?? "",
+    branchLabel: "",
+    event: "pembayaran_penjualan",
+    roles: ["MASTER_ADMIN", "ADMIN"],
+    title: "Penjualan baru",
+    body: `${result.sale_number ?? result.id} • ${input.payment_method} ${formatCurrencyPlain(input.paid)}`,
+    href: "/app/penjualan",
+  });
   return { id: result.id, sale_number: result.sale_number ?? "" };
 }
 

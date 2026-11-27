@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { getActiveTenant } from "@/lib/supabase/actor";
 import { sanitizeSearchTerm } from "@/lib/search-term";
+import { notifyRoles } from "@/lib/notifications/app-notifications";
 import { numberField } from "./actions-shared";
 
 export type CentralItemRow = {
@@ -110,6 +111,16 @@ export async function requestStock(input: { sku: string; qty: number }): Promise
     p_branch_id: actor.branchId, p_sku: input.sku.trim(), p_qty: qty,
   });
   if (error) throw new Error(error.message);
+  void notifyRoles({
+    organizationId: actor.orgId,
+    branchId: actor.branchId ?? "",
+    branchLabel: "",
+    event: "request_stok_sparepart",
+    roles: ["MASTER_ADMIN", "ADMIN"],
+    title: "Request stok sparepart",
+    body: `${input.sku.trim()} • ${qty} unit`,
+    href: "/app/sparepart",
+  });
   revalidatePath("/app/sparepart");
 }
 

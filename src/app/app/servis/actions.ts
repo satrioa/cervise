@@ -4,6 +4,7 @@ import { mapServisListRows, type ServisListRow } from "@/lib/operational/servis-
 import { kalenderWIB } from "@/lib/operational/periode-bulan";
 import { sanitizeSearchTerm } from "@/lib/search-term";
 import { notifyRoles } from "@/lib/notifications/app-notifications";
+import { formatCurrencyPlain } from "@/lib/format";
 
 export type KondisiStatus = "normal" | "tidak_normal";
 export type KondisiAwal = Record<string, { status: KondisiStatus; note: string }>;
@@ -568,7 +569,7 @@ export async function addPembayaran(params: {
   keterangan?: string;
 }): Promise<{ ok: true; total: number } | { ok: false; error: string }> {
   try {
-    const { supabase, branchId, userId, role, permissions } = await getBranchAndUser();
+    const { supabase, branchId, orgId, userId, role, permissions } = await getBranchAndUser();
     if (!canAccessActor({ role, permissions }, "servis_pembayaran")) {
       return { ok: false, error: "Hanya admin/kasir boleh input pembayaran" };
     }
@@ -594,6 +595,16 @@ export async function addPembayaran(params: {
     if (error) return { ok: false, error: error.message };
 
     const result = data as { total?: number } | null;
+    void notifyRoles({
+      organizationId: orgId,
+      branchId,
+      branchLabel: "",
+      event: "pembayaran_servis",
+      roles: ["MASTER_ADMIN", "ADMIN"],
+      title: "Pembayaran servis",
+      body: `Servis ${params.servisId} • ${params.metode} ${formatCurrencyPlain(params.amount)}`,
+      href: `/app/servis/${params.servisId}`,
+    });
     return { ok: true, total: Number(result?.total ?? 0) };
   } catch (cause) {
     return { ok: false, error: cause instanceof Error ? cause.message : "Gagal menyimpan pembayaran" };

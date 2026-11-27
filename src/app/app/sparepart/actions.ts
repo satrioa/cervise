@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { getActiveTenant } from "@/lib/supabase/actor";
 import { sanitizeSearchTerm } from "@/lib/search-term";
 import { DEFAULT_LOW_STOCK_THRESHOLD } from "@/lib/operational/sparepart-stock";
+import { notifyRoles } from "@/lib/notifications/app-notifications";
 import { numberField } from "./actions-shared";
 
 export type SparepartRow = {
@@ -177,6 +178,37 @@ export async function transferSparepartStock(input: {
     p_expected_stock: branch.stock_qty,
   });
   if (error) throw new Error(error.message);
+
+  const { data: after } = await actor.supabase
+    .from("cervise_spareparts")
+    .select("stock_qty, low_stock_threshold")
+    .eq("id", branch.id)
+    .maybeSingle();
+  const remaining = Number(after?.stock_qty ?? 0);
+  const threshold = Number(after?.low_stock_threshold ?? DEFAULT_LOW_STOCK_THRESHOLD);
+  if (remaining === 0) {
+    void notifyRoles({
+      organizationId: actor.orgId,
+      branchId: actor.branchId ?? "",
+      branchLabel: "",
+      event: "sparepart_habis",
+      roles: ["TECHNICIAN", "FRONTLINER", "MASTER_ADMIN", "ADMIN"],
+      title: "Sparepart habis",
+      body: `Stok ${input.id} habis setelah transfer ${qty} unit`,
+      href: "/app/sparepart",
+    });
+  } else if (remaining <= threshold) {
+    void notifyRoles({
+      organizationId: actor.orgId,
+      branchId: actor.branchId ?? "",
+      branchLabel: "",
+      event: "stok_alert",
+      roles: ["MASTER_ADMIN", "ADMIN"],
+      title: "Stok sparepart menipis",
+      body: `Stok ${input.id} tersisa ${remaining} unit`,
+      href: "/app/sparepart",
+    });
+  }
 
   revalidatePath("/app/sparepart");
 }
