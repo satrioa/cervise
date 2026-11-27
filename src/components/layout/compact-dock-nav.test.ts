@@ -20,7 +20,7 @@ describe("dock mobile tema normal", () => {
     expect(source).toContain("rounded-full bg-muted/80");
     expect(source).toContain("ring-border/60 backdrop-blur");
     expect(source).toContain("{item.label}");
-    expect(source).toContain("justify-start gap-2 rounded-full bg-card px-4");
+    expect(source).toContain("h-11 w-auto min-w-11 justify-start gap-2 rounded-full bg-card px-4");
     expect(source).not.toContain("flex-1 justify-start");
     expect(source).toContain("size-11 shrink-0 rounded-full text-muted-foreground");
   });
@@ -49,8 +49,10 @@ describe("dock mobile tema normal", () => {
     expect(source).toContain("dark:bg-neutral-800");
   });
 
-  it("item berdekatan dalam pill dan fade hitam lembut", () => {
-    expect(source).toMatch(/items-center gap-1 rounded-full bg-muted\/80/);
+  it("item berdekatan dalam pill yang hug content dan fade hitam lembut", () => {
+    expect(source).toContain("flex w-auto items-center gap-1 rounded-full bg-muted/80");
+    expect(source).toContain("justify-between gap-2 px-4 pt-2");
+    expect(source).not.toContain("flex-1 items-center gap-1 rounded-full");
     expect(source).toMatch(/from-black\/40 via-black\/20 to-transparent/);
   });
 

@@ -46,7 +46,7 @@ export function CompactDockNav({
       )}
       data-compact-dock=""
     >
-      <div className="pointer-events-auto relative flex items-center gap-2 px-4 pt-2 pb-[calc(1.5rem+env(safe-area-inset-bottom))]">
+      <div className="pointer-events-auto relative flex items-center justify-between gap-2 px-4 pt-2 pb-[calc(1.5rem+env(safe-area-inset-bottom))]">
         {/* Fade hitam di belakang tombol; wrap dock sendiri tetap transparan. */}
         <div
           aria-hidden="true"
@@ -54,7 +54,7 @@ export function CompactDockNav({
         />
         <nav
           aria-label="Navigasi utama"
-          className="flex min-w-0 flex-1 items-center gap-1 rounded-full bg-muted/80 p-1.5 ring-1 ring-border/60 backdrop-blur"
+          className="flex w-auto items-center gap-1 rounded-full bg-muted/80 p-1.5 ring-1 ring-border/60 backdrop-blur"
         >
           {items.map((item) => {
             const Icon = item.icon;
@@ -67,7 +67,7 @@ export function CompactDockNav({
                 aria-label={item.label}
                 className={cn(
                   active
-                    ? "justify-start gap-2 rounded-full bg-card px-4 text-foreground shadow-sm dark:bg-neutral-800"
+                    ? "h-11 w-auto min-w-11 justify-start gap-2 rounded-full bg-card px-4 text-foreground shadow-sm dark:bg-neutral-800"
                     : "size-11 shrink-0 rounded-full text-muted-foreground",
                 )}
                 render={
