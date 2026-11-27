@@ -42,4 +42,33 @@ describe("halaman sparepart gudang pusat", () => {
     expect(ui).toMatch(/if \(isMasterAdmin\) \{\s*const \[branchRows, centralRows\] = await Promise\.all\(\[listSpareparts\(term\), listCentralItems\(term\)\]\)/);
     expect(ui.match(/listCentralItems\(term\)/g) ?? []).toHaveLength(1);
   });
+
+  it("dialog distribusi mendukung batch, preview, dan tabel yang tidak melebar", () => {
+    const dlg = read("src/components/sparepart/central-stock-dialogs.tsx");
+    expect(dlg).toContain("distributeCentralItemsBatch");
+    expect(dlg).toContain("max-h-[90vh]");
+    expect(dlg).toContain("overflow-y-auto");
+    expect(dlg).toContain("overflow-x-auto");
+    expect(dlg).toContain("min-w-[420px]");
+    expect(dlg).toContain("Lanjut ke Preview");
+    expect(dlg).toContain("Kembali");
+    expect(dlg).toContain("Konfirmasi");
+    expect(dlg).toContain("!item.is_serialized");
+    expect(dlg).toContain("Stok gudang");
+    expect(dlg).toContain("Item ini sudah ada di daftar");
+    expect(dlg).toContain("onClick={confirmBatch}");
+    expect(dlg).toContain("disabled={saving}");
+  });
+
+  it("unit serialized tetap punya dialog distribusi tersendiri", () => {
+    const dlg = read("src/components/sparepart/central-stock-dialogs.tsx");
+    expect(dlg).toContain('"distribute-serial"');
+    expect(dlg).toContain("Distribusi Unit Serial");
+    expect(read("src/app/app/sparepart/sparepart-client.tsx")).toContain("Distribusi Unit (IMEI)");
+  });
+
+  it("batch gagal me-reload daftar tanpa menutup dialog", () => {
+    expect(read("src/components/sparepart/central-stock-dialogs.tsx")).toContain("onReload()");
+    expect(read("src/app/app/sparepart/sparepart-client.tsx")).toContain("onReload={() => void reload()}");
+  });
 });

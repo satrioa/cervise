@@ -7,10 +7,12 @@ import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { playPageTransition } from "@/components/layout/page-transition";
 import type { Branch } from "@/lib/branch-context";
 import {
   approveStockRequest,
+  distributeCentralItemsBatch,
   distributeCentralStock,
   listStockRequests,
   rejectStockRequest,
@@ -19,10 +21,12 @@ import {
   type StockRequestRow,
 } from "@/app/app/sparepart/central-actions";
 
-type Mode = "distribute" | "request" | "approve";
+type Mode = "distribute" | "distribute-serial" | "request" | "approve";
+type BatchRow = { id: string; sku: string; name: string; stock_qty: number; qty: string };
 
 const TITLES: Record<Mode, string> = {
   distribute: "Distribusi Stok Pusat",
+  "distribute-serial": "Distribusi Unit Serial",
   request: "Request Stok",
   approve: "Approve Request Stok",
 };
@@ -35,6 +39,7 @@ export function CentralStockDialogs({
   currentBranchId,
   onClose,
   onDone,
+  onReload,
 }: {
   mode: Mode | null;
   items: CentralItemRow[];
@@ -42,6 +47,7 @@ export function CentralStockDialogs({
   currentBranchId: string;
   onClose: () => void;
   onDone: () => void;
+  onReload: () => void;
 }) {
   const [itemId, setItemId] = useState("");
   const [target, setTarget] = useState("");
@@ -53,6 +59,8 @@ export function CentralStockDialogs({
   const [decidedQty, setDecidedQty] = useState("");
   const [reason, setReason] = useState("");
   const [saving, setSaving] = useState(false);
+  const [batchRows, setBatchRows] = useState<BatchRow[]>([]);
+  const [preview, setPreview] = useState(false);
 
   useEffect(() => {
     if (mode !== "approve") return;
@@ -71,6 +79,54 @@ export function CentralStockDialogs({
   const matched = items.find((item) => item.sku === pending?.sku) ?? null;
   const approveItem = items.find((item) => item.id === centralId) ?? matched;
   const decided = decidedQty === "" ? String(pending?.decided_qty ?? pending?.qty ?? "") : decidedQty;
+
+  const batchItems = items.filter((item) => !item.is_serialized);
+  const validRows = batchRows.filter((row) => {
+    const n = Number(row.qty);
+    return Number.isInteger(n) && n > 0 && n <= row.stock_qty;
+  });
+
+  const addBatchRow = () => {
+    const picked = items.find((item) => item.id === itemId);
+    if (!picked || picked.is_serialized) {
+      toast.error("Pilih item non-serial dulu");
+      return;
+    }
+    if (batchRows.some((row) => row.sku === picked.sku)) {
+      toast.error("Item ini sudah ada di daftar");
+      return;
+    }
+    setBatchRows((rows) => [...rows, {
+      id: picked.id, sku: picked.sku, name: picked.name,
+      stock_qty: picked.stock_qty, qty: "1",
+    }]);
+    setItemId("");
+  };
+
+  const confirmBatch = async () => {
+    if (!target || validRows.length !== batchRows.length) {
+      toast.error("Periksa cabang tujuan dan qty tiap baris");
+      return;
+    }
+    setSaving(true);
+    try {
+      await distributeCentralItemsBatch({
+        targetBranchId: target,
+        items: validRows.map((row) => ({
+          id: row.id, qty: Number(row.qty), expectedStock: row.stock_qty,
+        })),
+      });
+      playPageTransition();
+      toast.success(`${validRows.length} item didistribusikan`);
+      onDone();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Gagal mendistribusikan");
+      onReload();
+      setPreview(false);
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const finish = async (work: () => Promise<void>, message: string) => {
     setSaving(true);
@@ -96,7 +152,7 @@ export function CentralStockDialogs({
       toast.error("Jumlah harus bilangan bulat lebih dari nol");
       return;
     }
-    if (mode === "distribute") {
+    if (mode === "distribute-serial") {
       if (!target) {
         toast.error("Pilih cabang tujuan");
         return;
@@ -153,19 +209,19 @@ export function CentralStockDialogs({
     <DialogPrimitive.Root open={mode !== null} onOpenChange={(open) => !open && onClose()}>
       <DialogPrimitive.Portal>
         <DialogPrimitive.Backdrop className="fixed inset-0 z-50 bg-black/20 backdrop-blur-sm" />
-        <DialogPrimitive.Popup className="fixed left-1/2 top-1/2 z-50 w-[95vw] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-xl border bg-background p-6 shadow-lg">
+        <DialogPrimitive.Popup className="fixed left-1/2 top-1/2 z-50 flex max-h-[90vh] w-[95vw] max-w-2xl -translate-x-1/2 -translate-y-1/2 flex-col rounded-xl border bg-background p-6 shadow-lg">
           <DialogPrimitive.Title className="font-semibold">
             {mode ? TITLES[mode] : ""}
           </DialogPrimitive.Title>
           <DialogPrimitive.Description className="text-sm text-muted-foreground">
             {mode === "approve"
               ? "Setujui sebagian atau seluruh request; stok pusat berkurang saat disetujui."
-              : mode === "distribute"
+              : mode === "distribute" || mode === "distribute-serial"
                 ? "Stok pusat berkurang dan stok cabang tujuan bertambah."
                 : "Request dikirim ke gudang pusat untuk disetujui."}
           </DialogPrimitive.Description>
 
-          <div className="mt-4 space-y-3">
+          <div className="mt-4 min-h-0 flex-1 space-y-3 overflow-y-auto">
             {mode === "approve" ? (
               <>
                 <div className="space-y-1.5">
@@ -236,6 +292,122 @@ export function CentralStockDialogs({
                   />
                 </div>
               </>
+            ) : mode === "distribute" ? (
+              preview ? (
+                <>
+                  <p className="text-sm">Cabang tujuan: {branches.find((b) => b.id === target)?.label}</p>
+                  <div className="overflow-x-auto rounded-md border">
+                    <Table className="min-w-[420px]">
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Nama item</TableHead>
+                          <TableHead className="text-right">Stok sebelum → sesudah</TableHead>
+                          <TableHead className="text-right">Qty</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {validRows.map((row) => (
+                          <TableRow key={row.id}>
+                            <TableCell>{row.name} <span className="font-mono text-xs">{row.sku}</span></TableCell>
+                            <TableCell className="text-right tabular-nums">{row.stock_qty} → {row.stock_qty - Number(row.qty)}</TableCell>
+                            <TableCell className="text-right tabular-nums">{row.qty}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                  <p className="text-sm text-muted-foreground">{validRows.length} item · {validRows.reduce((n, r) => n + Number(r.qty), 0)} unit</p>
+                </>
+              ) : (
+                <>
+                  <div className="space-y-1.5">
+                    <Label>Cabang tujuan *</Label>
+                    <select
+                      value={target}
+                      onChange={(event) => setTarget(event.target.value)}
+                      aria-label="Pilih cabang tujuan"
+                      className="min-h-11 w-full rounded-md border bg-background px-2 text-sm"
+                    >
+                      <option value="">Pilih cabang...</option>
+                      {targets.map((branch) => (
+                        <option key={branch.id} value={branch.id}>{branch.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Item *</Label>
+                    <select
+                      value={itemId}
+                      onChange={(event) => setItemId(event.target.value)}
+                      aria-label="Pilih item"
+                      className="min-h-11 w-full rounded-md border bg-background px-2 text-sm"
+                    >
+                      <option value="">Pilih item...</option>
+                      {batchItems.map((item) => (
+                        <option key={item.id} value={item.id}>
+                          {item.sku} — {item.name} (stok {item.stock_qty})
+                        </option>
+                      ))}
+                    </select>
+                    <Button type="button" variant="outline" className="min-h-11" onClick={addBatchRow}>Tambah</Button>
+                  </div>
+                  <div className="overflow-x-auto rounded-md border">
+                    <Table className="min-w-[420px]">
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Nama item</TableHead>
+                          <TableHead className="text-right">Stok gudang</TableHead>
+                          <TableHead>Qty</TableHead>
+                          <TableHead><span className="sr-only">Hapus</span></TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {batchRows.map((row) => (
+                          <TableRow key={row.id}>
+                            <TableCell>
+                              <div className="font-medium">{row.name}</div>
+                              <div className="font-mono text-xs">{row.sku}</div>
+                            </TableCell>
+                            <TableCell className="text-right tabular-nums">{row.stock_qty}</TableCell>
+                            <TableCell>
+                              <Input
+                                type="number"
+                                min={1}
+                                max={row.stock_qty}
+                                inputMode="numeric"
+                                aria-label={`Qty ${row.sku}`}
+                                className="min-h-11 w-20"
+                                value={row.qty}
+                                onChange={(e) => setBatchRows((rows) => rows.map((r) => r.id === row.id ? { ...r, qty: e.target.value } : r))}
+                              />
+                            </TableCell>
+                            <TableCell>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon-sm"
+                                aria-label={`Hapus ${row.sku}`}
+                                onClick={() => setBatchRows((rows) => rows.filter((r) => r.id !== row.id))}
+                              >
+                                <XIcon className="size-4" />
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                  <p className="text-xs text-muted-foreground">{batchRows.length} item · {validRows.reduce((n, r) => n + Number(r.qty), 0)} unit</p>
+                  <Button
+                    type="button"
+                    className="min-h-11"
+                    disabled={!target || validRows.length === 0 || validRows.length !== batchRows.length}
+                    onClick={() => setPreview(true)}
+                  >
+                    Lanjut ke Preview
+                  </Button>
+                </>
+              )
             ) : (
               <>
                 <div className="space-y-1.5">
@@ -266,7 +438,7 @@ export function CentralStockDialogs({
                     onChange={(event) => setQty(event.target.value)}
                   />
                 </div>
-                {mode === "distribute" ? (
+                {mode === "distribute-serial" ? (
                   <>
                     <div className="space-y-1.5">
                       <Label>Cabang tujuan *</Label>
@@ -302,18 +474,46 @@ export function CentralStockDialogs({
             )}
           </div>
 
-          <div className="mt-5 flex flex-wrap justify-end gap-2">
-            <Button variant="outline" className="min-h-11" onClick={onClose} disabled={saving}>
-              Batal
-            </Button>
-            {mode === "approve" ? (
-              <Button variant="destructive" className="min-h-11" onClick={handleReject} disabled={saving || !pending || reason.trim().length < 3}>
-                Tolak
-              </Button>
-            ) : null}
-            <Button className="min-h-11" onClick={mode === "approve" ? handleApprove : handleStock} disabled={saving}>
-              {saving ? "Memproses..." : mode === "approve" ? "Approve" : mode === "distribute" ? "Distribusi" : "Kirim Request"}
-            </Button>
+          <div className="mt-5 flex shrink-0 flex-wrap justify-end gap-2">
+            {mode === "distribute" ? (
+              preview ? (
+                <>
+                  <Button variant="outline" className="min-h-11" onClick={() => setPreview(false)} disabled={saving}>
+                    Kembali
+                  </Button>
+                  <Button className="min-h-11" onClick={confirmBatch} disabled={saving}>
+                    Konfirmasi
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Button variant="outline" className="min-h-11" onClick={onClose} disabled={saving}>
+                    Batal
+                  </Button>
+                  <Button
+                    className="min-h-11"
+                    disabled={!target || validRows.length === 0 || validRows.length !== batchRows.length}
+                    onClick={() => setPreview(true)}
+                  >
+                    Lanjut ke Preview
+                  </Button>
+                </>
+              )
+            ) : (
+              <>
+                <Button variant="outline" className="min-h-11" onClick={onClose} disabled={saving}>
+                  Batal
+                </Button>
+                {mode === "approve" ? (
+                  <Button variant="destructive" className="min-h-11" onClick={handleReject} disabled={saving || !pending || reason.trim().length < 3}>
+                    Tolak
+                  </Button>
+                ) : null}
+                <Button className="min-h-11" onClick={mode === "approve" ? handleApprove : handleStock} disabled={saving}>
+                  {saving ? "Memproses..." : mode === "approve" ? "Approve" : mode === "request" ? "Kirim Request" : "Distribusi"}
+                </Button>
+              </>
+            )}
           </div>
 
           <DialogPrimitive.Close className="absolute right-3 top-3 min-h-11 min-w-11 rounded-md p-1 text-muted-foreground hover:bg-muted" aria-label="Tutup">

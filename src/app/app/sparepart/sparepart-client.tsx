@@ -34,7 +34,7 @@ import {
 } from "./actions";
 
 type Scope = "central" | "branch";
-type DialogMode = "distribute" | "request" | "approve";
+type DialogMode = "distribute" | "distribute-serial" | "request" | "approve";
 
 const EMPTY = {
   kind: "SPAREPART" as "SPAREPART" | "PRODUCT",
@@ -289,6 +289,9 @@ export default function SparepartPage({ isMasterAdmin, canRequest }: { isMasterA
                 </Button>
                 <Button variant="outline" size="sm" className="h-8" onClick={() => setDialogMode("distribute")} disabled={centralItems.length === 0}>
                   <TruckIcon className="size-3.5" /> Distribusi
+                </Button>
+                <Button variant="outline" size="sm" className="h-8" onClick={() => setDialogMode("distribute-serial")}>
+                  <TruckIcon className="size-3.5" /> Distribusi Unit (IMEI)
                 </Button>
                 <Button variant="outline" size="sm" className="h-8" onClick={() => setDialogMode("approve")}>
                   Approve Request
@@ -612,6 +615,7 @@ export default function SparepartPage({ isMasterAdmin, canRequest }: { isMasterA
         branches={branches}
         currentBranchId={branch.id}
         onClose={() => setDialogMode(null)}
+        onReload={() => void reload()}
         onDone={() => {
           setDialogMode(null);
           void reload();
