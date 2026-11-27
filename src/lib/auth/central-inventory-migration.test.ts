@@ -18,6 +18,11 @@ const rpc = readFileSync(
   "utf8",
 ).replace(/\s+/g, " ").toLowerCase();
 
+const flows = readFileSync(
+  join(process.cwd(), "supabase/migrations/20261127150000_central_inventory_flows.sql"),
+  "utf8",
+).replace(/\s+/g, " ").toLowerCase();
+
 describe("central inventory schema migration", () => {
   it("membuat tabel master pusat dan antrean request", () => {
     expect(flat).toContain("create table if not exists public.cervise_central_items");
@@ -207,5 +212,23 @@ describe("central inventory rpc inti", () => {
     expect(rpc).toContain(
       "if v_branch is null then raise exception 'cabang tenant tidak ditemukan untuk ledger pusat'; end if;",
     );
+  });
+});
+
+describe("central inventory flows rpc", () => {
+  it("menolak stok pusat tidak cukup dan request ganda", () => {
+    expect(flows).toContain("stok pusat tidak cukup");
+    expect(flows).toContain("request sudah menunggu persetujuan");
+    expect(flows).toContain("p_decided_qty, p_expected_stock, v_item.imei");
+  });
+
+  it("memilih unit IMEI saat approve serialized", () => {
+    expect(flows).toContain("v_item.is_serialized");
+    expect(flows).toContain("v_item.imei <> p_imei");
+  });
+
+  it("mencatat qty keputusan dan alasan penolakan", () => {
+    expect(flows).toContain("decided_qty");
+    expect(flows).toContain("rejection_reason");
   });
 });
