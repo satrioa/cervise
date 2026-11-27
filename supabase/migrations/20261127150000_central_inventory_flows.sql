@@ -1,3 +1,7 @@
+-- Antrean PENDING unik per cabang/SKU: menutup race check-then-insert.
+create unique index if not exists cervise_stock_requests_pending_unique
+  on public.cervise_stock_requests(branch_id, sku) where status = 'PENDING';
+
 create or replace function public.distribute_central_stock(
   p_central_item_id uuid, p_target_branch_id uuid, p_qty integer,
   p_expected_stock integer default null, p_imei text default null
@@ -17,6 +21,7 @@ begin
     raise exception 'cabang tujuan tidak ditemukan';
   end if;
   if v_item.is_serialized then
+    if p_qty <> 1 then raise exception 'unit serialized hanya satu per distribusi'; end if;
     if p_imei is null or v_item.imei <> p_imei or v_item.stock_qty < 1 then
       raise exception 'unit IMEI tidak tersedia di gudang';
     end if;
@@ -27,13 +32,13 @@ begin
   if v_item.kind = 'SPAREPART' then
     insert into public.cervise_spareparts (organization_id, branch_id, central_item_id, sku, name, category, stock_qty, cost, price, is_active)
     values (v_item.organization_id, p_target_branch_id, v_item.id, v_item.sku, v_item.name, v_item.category, 0, v_item.cost, v_item.price, true)
-    on conflict (branch_id, sku) do update set central_item_id = excluded.central_item_id, updated_at = now()
+    on conflict (branch_id, sku) do update set central_item_id = excluded.central_item_id, is_active = excluded.is_active, updated_at = now()
     returning id into v_result;
     perform public.apply_sparepart_stock_delta(v_result, p_qty, null, 'distribute', null);
   else
     insert into public.cervise_products (organization_id, branch_id, central_item_id, sku, name, category, stock_qty, cost, price, is_serialized, imei, parent_key, is_active)
     values (v_item.organization_id, p_target_branch_id, v_item.id, v_item.sku, v_item.name, v_item.category, 0, v_item.cost, v_item.price, v_item.is_serialized, v_item.imei, v_item.parent_key, true)
-    on conflict (branch_id, sku) do update set central_item_id = excluded.central_item_id, updated_at = now()
+    on conflict (branch_id, sku) do update set central_item_id = excluded.central_item_id, is_active = excluded.is_active, updated_at = now()
     returning id into v_result;
     perform public.apply_stock_delta(v_result, p_qty, null, 'distribute', null, null, null);
   end if;
@@ -49,8 +54,9 @@ create or replace function public.request_stock(p_branch_id uuid, p_sku text, p_
 returns uuid language plpgsql security definer set search_path = public as $$
 declare v_org uuid; v_id uuid; v_sku text := trim(p_sku);
 begin
+  if v_sku is null or v_sku = '' then raise exception 'SKU wajib'; end if;
   if p_qty is null or p_qty <= 0 then raise exception 'jumlah request harus lebih dari nol'; end if;
-  select organization_id into v_org from public.branches where id = p_branch_id;
+  select organization_id into v_org from public.branches where id = p_branch_id for update;
   if v_org is null then raise exception 'cabang tidak ditemukan'; end if;
   if not (public.is_platform_admin() or public.has_tenant_branch_role(v_org, p_branch_id, array['ADMIN','FRONTLINER']::text[])) then
     raise exception 'role tidak diizinkan request stok';
@@ -120,23 +126,34 @@ grant execute on function public.reject_stock_request(uuid, text) to authenticat
 
 create or replace function public.return_stock_to_central(p_branch_stock_id uuid, p_qty integer)
 returns integer language plpgsql security definer set search_path = public as $$
-declare v_part public.cervise_spareparts%rowtype; v_prod public.cervise_products%rowtype; v_item_id uuid; v_org uuid; v_branch uuid; v_next integer;
+declare v_part public.cervise_spareparts%rowtype; v_prod public.cervise_products%rowtype; v_item_id uuid; v_org uuid; v_branch uuid; v_next integer; v_is_part boolean;
 begin
   if p_qty is null or p_qty <= 0 then raise exception 'jumlah pengembalian harus lebih dari nol'; end if;
-  select * into v_part from public.cervise_spareparts where id = p_branch_stock_id for update;
+  -- Baca tanpa kunci dulu untuk identitas item; kunci pusat dahulu, baru baris cabang.
+  select * into v_part from public.cervise_spareparts where id = p_branch_stock_id;
   if found then
+    v_is_part := true;
     v_item_id := v_part.central_item_id; v_org := v_part.organization_id; v_branch := v_part.branch_id;
+  else
+    select * into v_prod from public.cervise_products where id = p_branch_stock_id;
+    if not found then raise exception 'stok cabang tidak ditemukan'; end if;
+    v_is_part := false;
+    v_item_id := v_prod.central_item_id; v_org := v_prod.organization_id; v_branch := v_prod.branch_id;
+  end if;
+  if v_item_id is null then raise exception 'stok cabang belum tertaut ke gudang pusat'; end if;
+  if not (public.is_platform_admin() or public.has_tenant_role(v_org, array['MASTER_ADMIN'::text])) then
+    raise exception 'hanya master admin yang boleh menarik stok ke pusat';
+  end if;
+  perform 1 from public.cervise_central_items where id = v_item_id for update;
+  if not found then raise exception 'item pusat tidak ditemukan'; end if;
+  if v_is_part then
+    select * into v_part from public.cervise_spareparts where id = p_branch_stock_id for update;
     if v_part.stock_qty < p_qty then raise exception 'stok cabang tidak cukup'; end if;
     v_next := public.apply_sparepart_stock_delta(v_part.id, -p_qty, null, 'return_to_central', null);
   else
     select * into v_prod from public.cervise_products where id = p_branch_stock_id for update;
-    if not found then raise exception 'stok cabang tidak ditemukan'; end if;
-    v_item_id := v_prod.central_item_id; v_org := v_prod.organization_id; v_branch := v_prod.branch_id;
     if v_prod.stock_qty < p_qty then raise exception 'stok cabang tidak cukup'; end if;
     v_next := public.apply_stock_delta(v_prod.id, -p_qty, null, 'return_to_central', null, null, null);
-  end if;
-  if not (public.is_platform_admin() or public.has_tenant_role(v_org, array['MASTER_ADMIN'::text])) then
-    raise exception 'hanya master admin yang boleh menarik stok ke pusat';
   end if;
   perform public.apply_central_stock_delta(v_item_id, p_qty, null, 'return_to_central', v_branch, null);
   return v_next;

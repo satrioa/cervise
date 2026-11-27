@@ -220,6 +220,10 @@ describe("central inventory flows rpc", () => {
     expect(flows).toContain("stok pusat tidak cukup");
     expect(flows).toContain("request sudah menunggu persetujuan");
     expect(flows).toContain("p_decided_qty, p_expected_stock, v_item.imei");
+    expect(flows).toContain("cervise_stock_requests_pending_unique");
+    expect(flows).toContain(
+      "select organization_id into v_org from public.branches where id = p_branch_id for update",
+    );
   });
 
   it("memilih unit IMEI saat approve serialized", () => {
@@ -230,5 +234,46 @@ describe("central inventory flows rpc", () => {
   it("mencatat qty keputusan dan alasan penolakan", () => {
     expect(flows).toContain("decided_qty");
     expect(flows).toContain("rejection_reason");
+  });
+});
+
+describe("central inventory flows acl", () => {
+  it("mengamankan kelima rpc alur stok dari anon", () => {
+    for (const [name, signature] of [
+      ["distribute_central_stock", "uuid, uuid, integer, integer, text"],
+      ["request_stock", "uuid, text, integer"],
+      ["approve_stock_request", "uuid, integer, uuid, integer"],
+      ["reject_stock_request", "uuid, text"],
+      ["return_stock_to_central", "uuid, integer"],
+    ]) {
+      expect(flows).toContain(`create or replace function public.${name}`);
+      expect(flows).toContain(
+        `revoke all on function public.${name}(${signature}) from public, anon`,
+      );
+      expect(flows).toContain(
+        `grant execute on function public.${name}(${signature}) to authenticated`,
+      );
+    }
+  });
+
+  it("mengecek role di dalam rpc", () => {
+    expect(flows).toContain(
+      "public.has_tenant_role(v_item.organization_id, array['master_admin'::text])",
+    );
+    expect(flows).toContain(
+      "public.has_tenant_branch_role(v_org, p_branch_id, array['admin','frontliner']::text[])",
+    );
+    expect(flows).toContain(
+      "public.has_tenant_role(v_req.organization_id, array['master_admin'::text])",
+    );
+    expect(flows).toContain("public.has_tenant_role(v_org, array['master_admin'::text])");
+  });
+
+  it("tidak mendefinisikan overload 5 argumen helper stok", () => {
+    expect(flows).not.toContain("create or replace function public.apply_sparepart_stock_delta");
+  });
+
+  it("memiliki rpc tarik kembali ke pusat", () => {
+    expect(flows).toContain("create or replace function public.return_stock_to_central");
   });
 });
