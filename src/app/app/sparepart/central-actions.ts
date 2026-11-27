@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { getActiveTenant } from "@/lib/supabase/actor";
+import { sanitizeSearchTerm } from "@/lib/search-term";
 import { numberField } from "./actions-shared";
 
 export type CentralItemRow = {
@@ -35,11 +36,12 @@ async function requireRequestRole() {
 
 export async function listCentralItems(q: string, kind?: "SPAREPART" | "PRODUCT"): Promise<CentralItemRow[]> {
   const actor = await getActiveTenant();
+  const term = sanitizeSearchTerm(q);
   let query = actor.supabase.from("cervise_central_items").select(
     "id, sku, name, category, cost, price, stock_qty, is_serialized, imei, parent_key, kind, is_active",
   ).eq("organization_id", actor.orgId).eq("is_active", true);
   if (kind) query = query.eq("kind", kind);
-  if (q.trim()) query = query.or(`name.ilike.%${q}%,sku.ilike.%${q}%,imei.ilike.%${q}%`);
+  if (term) query = query.or(`name.ilike.%${term}%,sku.ilike.%${term}%,imei.ilike.%${term}%`);
   const { data, error } = await query.order("name");
   if (error) throw new Error(error.message);
   return data ?? [];
