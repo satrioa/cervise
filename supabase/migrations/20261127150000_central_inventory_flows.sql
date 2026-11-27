@@ -5,8 +5,6 @@ create or replace function public.distribute_central_stock(
 returns uuid language plpgsql security definer set search_path = public as $$
 declare
   v_item public.cervise_central_items%rowtype;
-  v_target public.cervise_spareparts%rowtype;
-  v_product public.cervise_products%rowtype;
   v_result uuid;
 begin
   if p_qty is null or p_qty <= 0 then raise exception 'jumlah distribusi harus lebih dari nol'; end if;
@@ -49,7 +47,7 @@ grant execute on function public.distribute_central_stock(uuid, uuid, integer, i
 
 create or replace function public.request_stock(p_branch_id uuid, p_sku text, p_qty integer)
 returns uuid language plpgsql security definer set search_path = public as $$
-declare v_org uuid; v_id uuid;
+declare v_org uuid; v_id uuid; v_sku text := trim(p_sku);
 begin
   if p_qty is null or p_qty <= 0 then raise exception 'jumlah request harus lebih dari nol'; end if;
   select organization_id into v_org from public.branches where id = p_branch_id;
@@ -57,11 +55,11 @@ begin
   if not (public.is_platform_admin() or public.has_tenant_branch_role(v_org, p_branch_id, array['ADMIN','FRONTLINER']::text[])) then
     raise exception 'role tidak diizinkan request stok';
   end if;
-  if exists (select 1 from public.cervise_stock_requests where branch_id = p_branch_id and sku = p_sku and status = 'PENDING') then
+  if exists (select 1 from public.cervise_stock_requests where branch_id = p_branch_id and sku = v_sku and status = 'PENDING') then
     raise exception 'request sudah menunggu persetujuan';
   end if;
   insert into public.cervise_stock_requests (organization_id, branch_id, sku, qty, requested_by)
-  values (v_org, p_branch_id, trim(p_sku), p_qty, auth.uid()) returning id into v_id;
+  values (v_org, p_branch_id, v_sku, p_qty, auth.uid()) returning id into v_id;
   return v_id;
 end;
 $$;
