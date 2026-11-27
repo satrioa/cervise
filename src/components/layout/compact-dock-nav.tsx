@@ -2,7 +2,7 @@
 
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { House, Package, PlusIcon, ShoppingCart, Wrench, type LucideIcon } from "lucide-react";
+import { House, LayoutGrid, Package, ShoppingCart, Wrench, type LucideIcon } from "lucide-react";
 import { MainNavLink } from "@/components/layout/main-nav-transition";
 import { Button } from "@/components/ui/button";
 import { normalizeAppRole } from "@/lib/nav/manifest";
@@ -67,7 +67,7 @@ export function CompactDockNav({
                 aria-label={item.label}
                 className={cn(
                   active
-                    ? "flex-1 justify-start gap-2 rounded-full bg-card px-4 text-foreground shadow-sm dark:bg-neutral-800"
+                    ? "justify-start gap-2 rounded-full bg-card px-4 text-foreground shadow-sm dark:bg-neutral-800"
                     : "size-11 shrink-0 rounded-full text-muted-foreground",
                 )}
                 render={
@@ -88,7 +88,7 @@ export function CompactDockNav({
           aria-label="Buka menu"
           className="pointer-events-auto flex size-12 shrink-0 items-center justify-center rounded-full bg-foreground text-background shadow-lg"
         >
-          <PlusIcon className="size-5" />
+          <LayoutGrid className="size-5" />
         </button>
       </div>
     </div>

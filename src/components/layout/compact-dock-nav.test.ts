@@ -20,15 +20,17 @@ describe("dock mobile tema normal", () => {
     expect(source).toContain("rounded-full bg-muted/80");
     expect(source).toContain("ring-border/60 backdrop-blur");
     expect(source).toContain("{item.label}");
-    expect(source).toContain("flex-1 justify-start gap-2 rounded-full bg-card px-4");
+    expect(source).toContain("justify-start gap-2 rounded-full bg-card px-4");
+    expect(source).not.toContain("flex-1 justify-start");
     expect(source).toContain("size-11 shrink-0 rounded-full text-muted-foreground");
   });
 
-  it("tombol plus membuka menu", () => {
+  it("tombol grid membuka menu", () => {
     expect(source).toContain("onOpenMenu: () => void");
     expect(source).toContain('aria-label="Buka menu"');
     expect(source).toContain("onClick={onOpenMenu}");
-    expect(source).toContain("<PlusIcon");
+    expect(source).toContain("<LayoutGrid");
+    expect(source).not.toContain("PlusIcon");
     expect(source).toContain("bg-foreground text-background");
   });
 
