@@ -104,6 +104,7 @@ export async function distributeCentralItemsBatch(input: BatchDistributeInput): 
   if (!Array.isArray(input.items) || input.items.length === 0) throw new Error("Pilih minimal satu item");
 
   const items = input.items.map((item) => {
+    if (!item.id) throw new Error("Pilih item dulu");
     const qty = numberField(item.qty, "Jumlah");
     const expectedStock = numberField(item.expectedStock, "Stok saat ini");
     if (qty <= 0) throw new Error("Jumlah harus lebih dari nol");

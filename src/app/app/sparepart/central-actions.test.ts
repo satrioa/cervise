@@ -203,10 +203,37 @@ describe("central actions", () => {
     expect(id).toBe("item-created");
   });
 
+  it("menolak admin cabang membagi batch item pusat", async () => {
+    await expect(distributeCentralItemsBatch({ targetBranchId: "branch-2", items: [{ id: "item-1", qty: 1, expectedStock: 9 }] }))
+      .rejects.toThrow("Hanya Master Admin");
+    expect(mocks.rpc).not.toHaveBeenCalled();
+  });
+
   it("menolak batch kosong sebelum memanggil RPC", async () => {
     asMaster();
     await expect(distributeCentralItemsBatch({ targetBranchId: "branch-2", items: [] }))
       .rejects.toThrow("Pilih minimal satu item");
+    expect(mocks.rpc).not.toHaveBeenCalled();
+  });
+
+  it("menolak cabang tujuan all sebelum memanggil RPC", async () => {
+    asMaster();
+    await expect(distributeCentralItemsBatch({ targetBranchId: "all", items: [{ id: "item-1", qty: 1, expectedStock: 9 }] }))
+      .rejects.toThrow("Pilih cabang tujuan");
+    expect(mocks.rpc).not.toHaveBeenCalled();
+  });
+
+  it("menolak qty nol sebelum memanggil RPC", async () => {
+    asMaster();
+    await expect(distributeCentralItemsBatch({ targetBranchId: "branch-2", items: [{ id: "item-1", qty: 0, expectedStock: 9 }] }))
+      .rejects.toThrow("Jumlah harus lebih dari nol");
+    expect(mocks.rpc).not.toHaveBeenCalled();
+  });
+
+  it("menolak item tanpa id sebelum memanggil RPC", async () => {
+    asMaster();
+    await expect(distributeCentralItemsBatch({ targetBranchId: "branch-2", items: [{ id: "", qty: 1, expectedStock: 9 }] }))
+      .rejects.toThrow("Pilih item dulu");
     expect(mocks.rpc).not.toHaveBeenCalled();
   });
 
@@ -226,6 +253,7 @@ describe("central actions", () => {
         { central_item_id: "item-2", qty: 3, expected_stock: 5 },
       ],
     });
+    expect(mocks.rpc).toHaveBeenCalledTimes(1);
     expect(revalidatePath).toHaveBeenCalledTimes(1);
   });
 
