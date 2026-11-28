@@ -89,7 +89,7 @@ export function PageHeader({
               </div>
             ) : null}
             {actions ? (
-              <div className="order-3 ml-auto flex shrink-0 items-center gap-2">{actions}</div>
+              <div className="order-3 flex w-full min-w-0 flex-wrap items-center gap-2 sm:ml-auto sm:w-auto sm:flex-nowrap sm:shrink-0">{actions}</div>
             ) : null}
             {filters ? (
               <FilterGroup

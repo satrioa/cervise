@@ -124,6 +124,20 @@ describe("PageBreadcrumb", () => {
   });
 });
 
+describe("toolbar aksi mobile tidak keluar viewport", () => {
+  it("membungkus tombol aksi di mobile dan tetap satu baris di desktop", () => {
+    const actionsRow = pageHeader.match(/<div className="([^"]*)">\{actions\}<\/div>/)?.[1] ?? "";
+    expect(actionsRow).toContain("flex-wrap");
+    expect(actionsRow).toContain("w-full");
+    expect(actionsRow).toContain("min-w-0");
+    expect(actionsRow).toContain("sm:flex-nowrap");
+    expect(actionsRow).toContain("sm:shrink-0");
+    // `shrink-0` tanpa prefix sm: membuat baris ini tidak bisa menyusut di
+    // mobile, sehingga tombolnya terpotong oleh overflow-x-hidden shell.
+    expect(actionsRow).not.toMatch(/(^|\s)shrink-0(\s|$)/);
+  });
+});
+
 describe("ShellChrome memegang hook client", () => {
   it("adalah client component", () => {
     expect(shellChrome).toMatch(/^\s*["']use client["']/m);
